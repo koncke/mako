@@ -86,6 +86,9 @@
 .hf-pronto-tarjeta { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: var(--r-lg); border: 1px dashed var(--border-strong); background: var(--surface); }
 .hf-pronto-nombre { font-weight: 650; font-size: var(--fs-sm); }
 .hf-pronto-linea { color: var(--text-dim); font-size: var(--fs-meta); }
+/* «Crear influencer» con motor (el personaje en cubos, sólo la revisión): la misma tarjeta, entera y apretable. */
+.hf-pronto-tarjeta--activa { border-style: solid; border-color: var(--primary); color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.hf-pronto-tarjeta--activa:hover { background: var(--bg); }
 
 /* Generando: el brillo que corre (el esqueleto de Higgsfield mientras sale la imagen). */
 .hf-brillo { position: relative; overflow: hidden; }

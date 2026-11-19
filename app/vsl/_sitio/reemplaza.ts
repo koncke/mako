@@ -92,7 +92,9 @@ export const STACK_TIPICO: readonly { app: AppQueReemplaza; trabajo: string; gru
   { app: app('GoHighLevel', 'gohighlevel'), trabajo: 'CRM y embudos', grupo: 'Vender', plan: 'Starter', precioUsd: 97, fuente: 'https://www.gohighlevel.com/pricing' },
   { app: app('ManyChat', 'manychat'), trabajo: 'Respuestas automáticas', grupo: 'Vender', plan: 'Pro', precioUsd: 39, fuente: 'https://help.manychat.com/hc/en-us/articles/25800228332572' },
   { app: app('Canva', 'canva'), trabajo: 'Diseño', grupo: 'Crear contenido', plan: 'Pro', precioUsd: 18, fuente: 'https://www.canva.com/pricing/' },
-  { app: app('CapCut', 'capcut'), trabajo: 'Edición de video', grupo: 'Crear contenido', plan: 'Pro', precioUsd: 19.99, fuente: 'https://www.capcut.com/pricing' },
+  // CapCut Pro: US$17,99 al mes en su página, verificado el 19/11/2026 por el chat «Serie 3: ventas» (decía 19,99). Ese mismo día
+  // no se pudieron verificar Canva (su página sólo muestra pesos) ni ManyChat (detrás de un antibots): siguen con el precio del 13-14/11.
+  { app: app('CapCut', 'capcut'), trabajo: 'Edición de video', grupo: 'Crear contenido', plan: 'Pro', precioUsd: 17.99, fuente: 'https://www.capcut.com/pricing' },
   // OpusClip (Pro, US$29: entró con la llamada con Leila del 13/11/2026) salió del ticket el 15/11/2026. Martín: «en la parte de
   // comparaciones de lo que ya estás pagando, yo quitaría Opus Clip… en el ticket de lo que probablemente ya pagas». Sólo del ticket:
   // sigue en la tira de logos (CONOCIDAS) y en la tabla de la comparación. La suma y el ahorro de la portada se recalculan solos.

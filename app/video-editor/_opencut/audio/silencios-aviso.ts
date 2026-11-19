@@ -23,6 +23,12 @@ export const PAUSA_MIN_RANGO = { desde: 0.2, hasta: 2 } as const;
 /** Con lo que empieza el aviso del chat. Ya es una oración entera: el chat no le antepone «No se aplica:». */
 export const NO_ENCONTRE = "No encontré pausas";
 
+/**
+ * Lo que suena no es una voz (silencios-plan.ts → `quedanPedacitos`, ticket 99). Empieza en minúscula: va en una oración
+ * del chat («No se aplica: …») y en un renglón de la edición automática, que lo cuenta como «nada que hacer».
+ */
+export const NO_ES_VOZ = "lo que suena no es una voz (pasos, música o ambiente): borrar los silencios lo dejaría en pedacitos";
+
 /** «0,4 s». */
 export const segundosDeAviso = (s: number) => `${(Math.round(s * 10) / 10).toString().replace(".", ",")} s`;
 

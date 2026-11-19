@@ -1,4 +1,4 @@
-# Relevo: los tutoriales en video (voz de Martín + el Martín en cubos), 18/11/2026
+# Relevo: los tutoriales en video (voz de Martín + el Martín en cubos), 18/11/2026 · al día el 19/11
 
 ## Qué está hecho
 
@@ -9,8 +9,12 @@
   recorrido, offer-coach y funnel-coach.
   - El recorrido sigue al recorrido aprobado por Martín: el `GUION` V2 de `C:/dev/artefactos-onboarding/cuerpo.html`.
 - **Reto:** reto-dia-1 a reto-dia-7, de `lib/reto/dias.ts`.
-  - Los días 2 a 7 van paso a paso: una frase por cada lugar que marcan sus tareas. El día 3 tiene la automatización y no la
-    difusión.
+  - **19/11 (claude5, chat «reto-tutoriales»): los días 2 a 7 llevan su porqué.** Gancho → porqué con un ejemplo de los cursos →
+    los toques de siempre (mismos `sel`, mismo orden) → cierre. Duran de 66 a 94 s y pesan de 3,5 a 5 MB (`pesoMaxMb: 5`, como las
+    clases). El documento para Martín es `C:/dev/tutoriales-video/guiones-dias-2-7.md`.
+  - El día 3 tiene la automatización y no la difusión. El día 6 dice «tu primer clip» (el clip «de regalo» no existe).
+  - Las tareas de `lib/reto/dias.ts` que van con estos videos están en `punta/reto-tutoriales`: «Tu perfil y tu foto» termina en
+    Perfil (`tour-settings-info`, lo que marca el video), el día 3 dice «con un CSV» y el día 6 «Video › Tu personaje con IA».
 - **34 pestañas** (formato v5: gancho + «Te doy la bienvenida a X»): ops-center, offer, copilot, settings-integraciones, settings,
   crm, ticketera, calendar, automations, spy, copywriting, web, plan, dashboard, classroom, avatar, video, image, chats,
   classroom-community, classroom-clients, classroom-calendar, classroom-leaderboards, classroom-about, settings-seguridad,
@@ -19,8 +23,9 @@
   - partners ya dice el 30 % de cada pago, todos los meses.
 
 **Dónde vive todo:**
-- **Motor y guiones en el repo:** `scripts/tutorial-animado/`. Ahí están `guiones.json` (la fuente), `hacer.mjs`, `engine3.js`,
-  `voxel-martin.mjs`, `render2.cjs`, `voces.mjs`, `renders.mjs`, `pagina.mjs`, `subir.mjs` y `LEEME.md`.
+- **Motor y guiones en el repo:** `scripts/tutorial-animado/`. Ahí están `guiones.json`, `hacer.mjs`, `numeros.mjs`, `engine3.js`,
+  `voxel-martin.mjs`, `render2.cjs`, `voces.mjs`, `renders.mjs` (desde el 19/11: antes no se copiaba), `pagina.mjs`, `subir.mjs` y
+  `LEEME.md`. ⚠️ La fuente de los guiones es `C:/dev/tutoriales-video/guiones.json`: `subir.mjs` la copia al repo en cada subida.
 - **Carpeta de trabajo:** `C:/dev/tutoriales-video/` (motor/, guiones.json, trabajo/<key>/, public-tutoriales/).
 - **Worktree para subir:** `C:/dev/wt-tutoriales-videos` → `punta/tutoriales-videos`. ⚠️ Su `node_modules` es una JUNCTION al del
   clon: antes de borrarlo, `cmd /c rmdir C:\dev\wt-tutoriales-videos\node_modules`.
@@ -39,9 +44,10 @@ node motor/subir.mjs "<mensaje>" <keys>
 
 ## La galería
 
-https://claude.ai/artifact/GJAQbPZw2nC3uvy82X8WcX (privada). Son los 47, agrupados por sección: Onboarding, Reto de 7 días y las
-pestañas. Se regenera con `node motor/pagina.mjs` y se publica desde `<scratchpad>/pub-tutoriales/` en dos tandas, porque pasa de
-64 MB.
+https://claude.ai/artifact/BMmMQNcnYE6hhrTzFtjYWc (privada, de la cuenta claude5, 19/11). Son los 54, agrupados por sección:
+Onboarding, Clases, Reto de 7 días y las pestañas, con los días 2 a 7 nuevos. La de claude2 (GJAQbPZw2nC3uvy82X8WcX) no se abre
+desde otra cuenta: cada cuenta publica la suya. Se regenera con `PUB=<scratchpad>/pub-tutoriales node motor/pagina.mjs` y se
+publica desde esa carpeta en dos tandas, porque pasa de 64 MB (~102 MB).
 
 ## Lo que falta o espera el OK
 

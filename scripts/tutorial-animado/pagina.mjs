@@ -7,7 +7,9 @@ const RAIZ = 'C:/dev/tutoriales-video';
 const MAN = JSON.parse(readFileSync(`${RAIZ}/public-tutoriales/manifiesto.json`, 'utf8'));
 const SOLO = process.argv.slice(2);
 const G = JSON.parse(readFileSync(`${RAIZ}/guiones.json`, 'utf8'));
-const PUB = 'C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/d2ccfb79-8556-4d00-a688-f5e3244f614b/scratchpad/pub-tutoriales';
+// where it is published FROM: the scratchpad of the session that publishes (19/11: an artifact is the account's that publishes it; the
+// gallery of claude2 does not open from claude5, so each account publishes its own). PUB=<dir> node motor/pagina.mjs
+const PUB = process.env.PUB || 'C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/d2ccfb79-8556-4d00-a688-f5e3244f614b/scratchpad/pub-tutoriales';
 mkdirSync(`${PUB}/videos`, { recursive: true }); mkdirSync(`${PUB}/posters`, { recursive: true });
 
 // the groups follow the app's side menu (app/_components/nav.ts): Today, Sales, Marketing, Create; Classroom lives in Sales but

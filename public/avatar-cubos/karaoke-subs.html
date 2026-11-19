@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Subtítulos karaoke</title>
+<!-- Plantilla de AI Avatar por código (19/11/2026): es C:/dev/artefactos-animaciones/reels/karaoke-subs.html con el texto, los
+     trozos, los golpes de cámara, la marca y el personaje como DATOS (window.CUBOS, kit/datos.js). Sin datos da el video de
+     la galería. Sin trozos cortados a mano, se cortan solos (`cortar`). -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit/kit.css">
+<style>
+  #cam{position:absolute;inset:0;transform-origin:540px 900px}
+  #toma{position:absolute;inset:0}
+  /* el marco de la puerta, fuera de foco, a los costados (como en la referencia) */
+  #marco{position:absolute;inset:0;pointer-events:none}
+  #marco i{position:absolute;top:-80px;bottom:-80px;filter:blur(30px)}
+  #vin{position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 80% at 50% 45%,transparent 55%,rgba(4,10,8,.55) 100%)}
+  /* la caja de vidrio oscuro */
+  #kara{position:absolute;left:540px;top:1372px;width:0;height:0}
+  #caja{position:absolute;border-radius:30px;overflow:hidden;
+    background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 46%),rgba(30,36,34,.76);
+    -webkit-backdrop-filter:blur(16px) saturate(1.1);backdrop-filter:blur(16px) saturate(1.1);
+    box-shadow:0 22px 60px rgba(0,0,0,.42),inset 0 0 0 2px rgba(255,255,255,.15),inset 0 2px 0 rgba(255,255,255,.08)}
+  .blk{position:absolute;left:0;top:0;white-space:nowrap;display:none}
+  .txt{font:600 66px/88px Inter,system-ui,sans-serif;letter-spacing:-.012em;color:#f6f6f3;text-align:center}
+  .txt div{height:88px}
+  .txt span{display:inline-block;margin:0 4px}
+  .fin .txt{font-size:86px;line-height:108px;letter-spacing:-.02em}
+  .fin .txt div{height:108px}
+  .txt.osc{position:absolute;left:0;top:0;color:#07170e}
+  .pil{position:absolute;left:0;top:0;border-radius:18px;background:#4fd98b;box-shadow:0 4px 14px rgba(40,200,110,.25)}
+  .spk svg{width:76px;height:76px;vertical-align:-10px}
+  .mk{font-weight:800}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="cam"><div id="toma"></div><div id="marco"></div><div id="vin"></div></div>
+  <div id="kara"><div id="caja"></div></div>
+</div>
+<script src="ejemplos/karaoke-subs.js"></script>
+<script src="kit/datos.js"></script>
+<script src="kit/kit.js"></script>
+<script src="kit/toma.js"></script>
+<script src="kit/rasterizar.js"></script>
+<script>
+const SPK = '<svg viewBox="-12 -12 24 24"><path d="M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z" fill="#f2b01e"/><circle cx="8.5" cy="-8.5" r="1.6" fill="#f2b01e"/></svg>';
+const W = TIEMPOS.words;
+const D = CUBOS.datos || {};
+const CON_DATOS = !!CUBOS.datos;
+const MARCA = typeof D.marca === 'string' && D.marca.trim() ? D.marca.trim() : 'MaKo';
+const ESC = Object.keys(TIEMPOS.anchors).filter((k) => k !== 'end');
+const siguiente = (esc) => { const i = ESC.indexOf(esc); return i >= 0 && i < ESC.length - 1 ? ESC[i + 1] : null; };
+// los golpes de cámara: dónde se acerca (y levanta las cejas) y la escena en que suelta
+const GOLPES = (CON_DATOS ? (Array.isArray(D.golpes) ? D.golpes : []) : [{ escena: 's1', palabra: 'terrible' }, { escena: 's4', palabra: 'mako' }])
+  .map((g) => ({ escena: String(g.escena), palabra: String(g.palabra) })).slice(0, 2);
+
+// ── el cuarto: verde oscuro, una ventana pálida a la izquierda, estantes a la derecha, todo fuera de foco ──
+const tomaEl = document.getElementById('toma');
+const toma = KIT.toma(tomaEl, { tono: 'verde', cabeza: .55, ancho: 780, semilla: 23 });
+tomaEl.style.background = 'radial-gradient(75% 50% at 50% 36%, #35594e 0%, #24443a 45%, #11211c 100%)';
+tomaEl.firstElementChild.style.filter = 'blur(13px)';
+tomaEl.firstElementChild.innerHTML = `
+  <div style="position:absolute;left:150px;top:330px;width:330px;height:640px;border-radius:10px;background:#8fae9f;opacity:.42"></div>
+  <div style="position:absolute;left:306px;top:330px;width:16px;height:640px;background:#2b4a40;opacity:.5"></div>
+  <div style="position:absolute;left:150px;top:640px;width:330px;height:14px;background:#2b4a40;opacity:.45"></div>
+  <div style="position:absolute;left:600px;top:470px;width:300px;height:110px;border-radius:8px;background:#1d3a31;opacity:.75"></div>
+  <div style="position:absolute;left:600px;top:700px;width:300px;height:110px;border-radius:8px;background:#1d3a31;opacity:.7"></div>
+  <div style="position:absolute;left:630px;top:430px;width:60px;height:50px;border-radius:6px;background:#c9b77a;opacity:.25"></div>
+  <div style="position:absolute;left:780px;top:650px;width:80px;height:56px;border-radius:6px;background:#9bb8a8;opacity:.22"></div>
+  <div style="position:absolute;left:-80px;top:1240px;width:1240px;height:900px;border-radius:50%;background:#000;opacity:.28"></div>`;
+document.getElementById('marco').innerHTML = `
+  <i style="left:-90px;width:210px;background:#0d1714"></i>
+  <i style="left:900px;width:260px;background:#16231f;opacity:.92"></i>
+  <i style="left:-60px;top:1100px;width:160px;background:#2a1d14;opacity:.5"></i>`;
+
+// ── los trozos: dos líneas como mucho. Los del ejemplo están cortados a mano; los demás se cortan solos ──
+const DEBIL = /^(a|al|de|del|el|la|las|los|lo|un|una|unos|unas|y|o|que|te|tu|tus|es|en|con|para|por|se|su|sus|mi|me|no|sin|mas|muy|como|cada|le|les|ni|ya)$/;
+function cortar() {
+  const MAXC = 22; const bloques = []; let lineas = [], linea = [], largo = 0;
+  const cierraLinea = () => { if (linea.length) { lineas.push(linea); linea = []; largo = 0; } };
+  const cierraBloque = () => { cierraLinea(); if (lineas.length) { bloques.push(lineas); lineas = []; } };
+  W.forEach((w, i) => {
+    const t = w[0];
+    if (i > 0 && W[i - 1][3] !== w[3]) cierraBloque();
+    if (linea.length && largo + 1 + t.length > MAXC) {
+      // una palabra débil no queda colgando al final de la línea: pasa a la siguiente
+      const lleva = linea.length > 1 && DEBIL.test(KIT.limpia(W[linea[linea.length - 1]][0])) ? linea.pop() : null;
+      cierraLinea(); if (lineas.length >= 2) { bloques.push(lineas); lineas = []; }
+      if (lleva !== null) { linea.push(lleva); largo = W[lleva][0].length; }
+    }
+    largo += (linea.length ? 1 : 0) + t.length; linea.push(i);
+    if (/[.,;:?!]$/.test(t)) { cierraLinea(); if (lineas.length >= 2 || /[.?!]$/.test(t)) { bloques.push(lineas); lineas = []; } }
+  });
+  cierraBloque(); return bloques;
+}
+const TROZOS_EJEMPLO = [
+  [[0, 1, 2], [3, 4, 5]], [[6, 7]], [[8, 9], [10, 11, 12]], [[13, 14, 15, 16], [17]], [[18, 19, 20], [21, 22]],
+  [[23, 24, 25, 26], [27, 28, 29, 30]], [[31, 32, 33, 34, 35], [36, 37, 38]], [[39, 40]], [[41, 42], [43, 44]],
+];
+const TROZOS = CON_DATOS ? (Array.isArray(D.trozos) ? D.trozos : cortar()) : TROZOS_EJEMPLO;
+const FIN = W[W.length - 1][2] + .16;     // cuando termina la voz, la caja se vuelve la marca
+const caja = document.getElementById('caja');
+const PX = 40, PY = 26, LH = 88;
+const B = TROZOS.map((lineas, k) => {
+  const el = document.createElement('div'); el.className = 'blk';
+  const html = lineas.map((ln) => '<div>' + ln.map((i) => '<span data-i="' + i + '">' + KIT.esc(KIT.ver(W[i][0])) + '</span>').join(' ') + '</div>').join('');
+  el.innerHTML = '<div class="pil"></div><div class="txt">' + html + '</div><div class="txt osc">' + html + '</div>';
+  caja.appendChild(el);
+  const ws = lineas.flat();
+  return { el, ws, t0: W[ws[0]][1] - .06, pil: el.querySelector('.pil'), osc: el.querySelector('.osc') };
+});
+// la marca: un trozo más, sin voz (la chispa es de MaKo: con otra marca va sólo el nombre)
+{ const el = document.createElement('div'); el.className = 'blk fin';
+  const html = '<div>' + (MARCA === 'MaKo' ? '<span class="spk">' + SPK + '</span> ' : '') + '<span class="mk">' + KIT.esc(MARCA) + '</span></div>';
+  el.innerHTML = '<div class="pil" style="background:#f2b01e;box-shadow:0 4px 18px rgba(242,176,30,.35)"></div><div class="txt">' + html + '</div><div class="txt osc">' + html + '</div>';
+  caja.appendChild(el); B.push({ el, ws: [], t0: FIN, marca: true, pil: el.querySelector('.pil'), osc: el.querySelector('.osc') }); }
+B.forEach((b, k) => { b.t1 = k < B.length - 1 ? B[k + 1].t0 : 1e9; });
+
+function medir() {
+  for (const b of B) {
+    b.el.style.display = 'block';
+    b.w = b.el.offsetWidth; b.h = b.el.offsetHeight; b.bw = b.w + PX * 2; b.bh = b.h + PY * 2;
+    b.lh = b.marca ? 108 : LH;
+    b.r = [...b.el.querySelectorAll('.txt:not(.osc) span')].map((s) => ({ x: s.offsetLeft, y: s.parentNode.offsetTop, w: s.offsetWidth, h: b.lh }));
+    b.el.style.display = 'none';
+  }
+}
+// el rectángulo de la píldora en el segundo T: se desliza de palabra en palabra
+function pildora(b, T) {
+  if (b.marca) { const r = b.r[b.r.length - 1]; const q = K0.p(T, b.t0 + .1, .4, 'back'); const s = K0.mix(.55, 1, q), cx = r.x + r.w / 2;
+    return { x: cx - (r.w / 2 + 16) * s, y: r.y + 10, w: (r.w + 32) * s, h: b.lh - 20, a: K0.clamp(q * 2) }; }
+  let a = 0; for (let j = 0; j < b.ws.length; j++) if (T >= W[b.ws[j]][1] - .05) a = j;
+  const r1 = b.r[a], r0 = b.r[Math.max(0, a - 1)];
+  const q = a === 0 ? 1 : K0.p(T, W[b.ws[a]][1] - .05, .16, 'expo');
+  const ent = K0.p(T, b.t0, .3, 'back');      // la primera palabra: la píldora se abre desde su centro
+  const box = { x: K0.mix(r0.x, r1.x, q), y: K0.mix(r0.y, r1.y, q), w: K0.mix(r0.w, r1.w, q), h: LH };
+  const s = K0.mix(.55, 1, ent); const cx = box.x + box.w / 2;
+  return { x: cx - (box.w / 2 + 11) * s, y: box.y + 8, w: (box.w + 22) * s, h: LH - 16, a: K0.clamp(ent * 2) };
+}
+function pintaBloque(b, T, bw, bh, dy, op) {
+  b.el.style.display = op > 0.001 ? 'block' : 'none'; if (op <= 0.001) return;
+  const x = (bw - b.w) / 2, y = (bh - b.h) / 2 + dy;
+  b.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`; b.el.style.opacity = op.toFixed(3);
+  const P = pildora(b, T);
+  K0.set(b.pil, { transform: `translate(${P.x.toFixed(1)}px, ${P.y.toFixed(1)}px)`, width: P.w.toFixed(1) + 'px', height: P.h + 'px', opacity: P.a.toFixed(3) });
+  const R = Math.min(18, P.w / 2);
+  b.osc.style.clipPath = `inset(${P.y.toFixed(1)}px ${(b.w - P.x - P.w).toFixed(1)}px ${(b.h - P.y - P.h).toFixed(1)}px ${P.x.toFixed(1)}px round ${R}px)`;
+  b.osc.style.opacity = P.a.toFixed(3);
+}
+let K0 = null;
+let G = [];   // los golpes con sus segundos (alArrancar)
+KIT.arrancar({
+  voz: CUBOS.voz || 'ejemplos/karaoke-subs.mp3', color: '#4fd98b', poster: Math.min(4.2, TIEMPOS.anchors.end / 2),
+  fuentes: ['600 66px Inter', '800 66px Inter'],
+  alArrancar(K) {
+    K0 = K; medir();
+    G = GOLPES.map((g) => { const w = K.pal(g.escena, g.palabra); const s = siguiente(g.escena); return w ? { t0: w.t0 - .05, suelta: s ? K.ini(s) : null, cejas: w.t0 } : null; }).filter(Boolean);
+  },
+  cuadro(T, K) {
+    K0 = K;
+    // cámara: un empuje lento todo el video, y un pequeño punch-in en las frases fuertes
+    let z = 1 + .035 * (T / K.DUR);
+    for (const g of G) z += .03 * K.p(T, g.t0, .3, 'expo') - (g.suelta !== null ? .03 * K.p(T, g.suelta, .45, 'inout') : 0);
+    K.$('cam').style.transform = `scale(${z.toFixed(4)}) translate(${(Math.sin(T * .7) * 2).toFixed(2)}px, ${(Math.cos(T * .9) * 2).toFixed(2)}px)`;
+    const g1 = G[0];
+    toma.pinta(T, K, { cejas: g1 ? K.p(T, g1.cejas, .2) - (g1.suelta !== null ? K.p(T, g1.suelta, .3) : 0) : 0, calla: T > FIN });
+    for (const b of B) b.el.style.display = 'none';
+    // trozo actual y anterior: el nuevo empuja al viejo hacia arriba dentro de la caja
+    let k = -1; for (let j = 0; j < B.length; j++) if (T >= B[j].t0) k = j;
+    if (k < 0) k = 0;
+    const cur = B[k], prev = B[k - 1];
+    const q = prev ? K.p(T, cur.t0, .34, 'expo') : 1;
+    const bw = prev ? K.mix(prev.bw, cur.bw, q) : cur.bw, bh = prev ? K.mix(prev.bh, cur.bh, q) : cur.bh;
+    const ent = K.p(T, 0, .45, 'back');
+    caja.style.width = bw.toFixed(1) + 'px'; caja.style.height = bh.toFixed(1) + 'px';
+    caja.style.transform = `translate(${(-bw / 2).toFixed(1)}px, ${(-bh / 2 + (1 - ent) * 70).toFixed(1)}px) scale(${K.mix(.9, 1, ent).toFixed(4)})`;
+    caja.style.opacity = K.clamp(K.p(T, 0, .2, 'cubic')).toFixed(3);
+    if (prev && q < 1) pintaBloque(prev, T, bw, bh, -q * 70, 1 - K.clamp(q * 1.6));
+    pintaBloque(cur, T, bw, bh, prev ? (1 - q) * 70 : 0, prev ? K.clamp(q * 1.4) : 1);
+  }
+});
+</script>
+</body>
+</html>

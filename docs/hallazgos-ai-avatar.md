@@ -4,6 +4,53 @@
 (`app/video-editor/avatar`) y en el motor del Video Generator (`app/video-generator/video-action.ts`,
 el puente a Flow). Lo de Flow, ElevenLabs y el lip-sync de antes vive en `hallazgos-generativa.md`.
 
+## El personaje en cubos: el video animado por código, con el MP4 armado en el navegador (19/11/2026)
+
+**Qué es:** la plantilla de un formato de la galería (`public/avatar-cubos/<id>.html`, el kit «todo sale de T») con el guion,
+el personaje y la voz como datos, y el MP4 armado en el navegador de la persona (`app/ai-avatar/cubos/mp4.ts`). Diseño y reglas:
+`docs/editor-video/ai-avatar-por-codigo.md`. La prueba: `scripts/avatar-cubos/replica.mjs` (la plantilla contra el MP4 de la
+galería) y `scripts/avatar-cubos/vista.mjs` (la pantalla real manejada en Chromium, sin `next dev`).
+
+- **El navegador SÍ puede fotografiar su propio DOM igual que Playwright.** El DOM del segundo T pasa a un SVG con
+  `<foreignObject>` (con el CSS y las fuentes adentro como `data:`), se dibuja en un canvas y mediabunny lo codifica. Medido contra
+  la captura de Playwright: diferencia media 0,03-0,17 sobre 255 y ningún píxel que cambie más de 24. El MP4 entero contra el de
+  la galería: 0,9-1,0 de media (el ruido de los dos codificadores) y ≤ 0,01 % de píxeles distintos en los 10 cuadros mirados
+  de cada formato.
+- **⚠️ `backdrop-filter` y las capas:** el SVG de «encima» no ve al personaje, así que un vidrio esmerilado encima de él no lo
+  desenfoca. En el karaoke no se nota (detrás de la caja está la remera oscura); en un formato con vidrio sobre la cara, sí:
+  ahí conviene el camino del PNG (`conPng`), o sacar el `backdrop-filter`.
+- **⚠️ El SVG va como `data:`, NUNCA como `blob:`.** Con `blob:` Chrome marca el canvas como «tainted» y `toDataURL`, `VideoFrame`
+  y el codificador fallan con SecurityError. Con `data:` + `encodeURIComponent`, no.
+- **El diagnóstico obvio de la lentitud era el equivocado.** Parecía el SVG de 1 MB por cuadro con las fuentes adentro; medido:
+  serializarlo, 1 ms, y decodificarlo, 6 ms. Lo caro era pasar el `<canvas>` del personaje (Three.js) a PNG en cada cuadro:
+  576 ms de ~600 (WebP, 225). Ahora va POR CAPAS (`public/avatar-cubos/kit/rasterizar.js`): un SVG con lo que está debajo del
+  personaje, el canvas pegado con `drawImage` (sin codificar) y otro SVG con lo de arriba. Si el canvas está bajo una opacidad,
+  un filtro o una rotación, vuelve al PNG. En Chromium sin GPU queda en ~430 ms por cuadro con el H.264 incluido.
+- **Un iframe de la app sale en blanco:** `next.config.ts` pone `X-Frame-Options: DENY` y `frame-ancestors 'none'` a todo. La
+  carpeta de las plantillas tiene su bloque con `SAMEORIGIN` DESPUÉS del global (gana el último). Y una carpeta nueva de
+  `public/` con `.js`/`.css`/`.jpg` va en la lista del matcher de `proxy.ts`: `tests/proxy-matcher-completo.test.ts` lo exige.
+- **En captura, el kit esperaba dos `requestAnimationFrame` antes de `__ready`:** un iframe fuera de la pantalla puede no darlos
+  nunca. La copia de la app corre esa espera contra 100 ms.
+- **Las fuentes de Google Fonts vienen partidas por alfabeto** con un comentario `/* latin */` arriba de cada `@font-face`: para el
+  español alcanza con «latin» (tiene á é í ó ú ñ ¿ ¡). Las demás sólo engordan cada cuadro.
+- **La voz con sus tiempos sale en UN pedido:** ElevenLabs `/with-timestamps` devuelve cada letra con su segundo
+  (`palabrasDeLetras`). Para un audio que sube la persona, el forced alignment. Su precio no está publicado aparte: se cobra al
+  de lista del speech-to-text (Scribe, US$0,22 por hora; 15 s = 1 MaKo Token).
+- **Un guion que se recortaba en silencio:** `normalizarGuion` cortaba cada frase a 160 letras, y la persona perdía el final sin
+  enterarse. Ahora avisa «la frase N es muy larga». Regla: lo que escribe la persona no se corta en silencio.
+- **Qué formatos de la galería se pueden pasar así:** sólo los del kit (`KIT.arrancar` + `cuadro(T, K)`, que pintan cada
+  segundo desde cero). Los que todavía mueven todo con una línea de tiempo de GSAP no tienen `__seek` exacto, y la licencia de
+  GSAP no sirve para una herramienta de clientes (`docs/editor-video/animaciones-por-codigo.md`). Medido el 19/11: los 21
+  aprobados con el personaje (`toma.js`) usan el kit y ninguno GSAP; 8 dibujan además su propio canvas o Three.js
+  (camara-capas, podcast-clip, storybook…), y con más de un canvas el fotografiador vuelve al PNG (más lento, igual de exacto).
+
+**Lo que queda sin hacer** (el detalle en `docs/editor-video/ai-avatar-por-codigo.md`, «Lo que queda para después»):
+- la réplica DENTRO de MaKo en producción, en el ws 3;
+- los demás formatos con personaje;
+- guardar el MP4 en la biblioteca;
+- el teléfono;
+- la voz de MaKo en el acento rioplatense de Martín (hoy, David y Fernando).
+
 ## ⚠️ Las imágenes de las escenas (public/formatos/presets/) parecen de Mauricio, no de Martín (14/11/2026, a verificar)
 
 **Síntoma:** armando el mosaico de la landing de Video con las 31 imágenes de `public/formatos/presets/` (las que muestra la baldosa de

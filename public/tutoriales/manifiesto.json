@@ -1191,100 +1191,172 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-2.mp4",
    "poster": "/tutoriales/reto-dia-2.jpg",
-   "duracion_s": 55.47,
-   "peso_kb": 1453,
-   "guion": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso. Primero, la app de MaKo en tu teléfono: te avisa al instante de lo que pasa en tu negocio, y abres MaKo desde el celular. No es lo mismo que escribirle a MaKo por WhatsApp: es la aplicación. Toca aquí, en tu foto. Ahora toca aquí, en Settings. Y aquí, en Instalar la app. Mira aquí, el QR: escanéalo con tu teléfono, y cuando tengas la app, toca Siguiente. Mira aquí, la extensión para Chrome: con ella tienes a MaKo a mano mientras navegas. Después, toca aquí, en Integraciones, y conecta sólo lo que necesita tu funnel. Y al final, toca aquí, en tu perfil, y sube tu foto: lo que contaste ya está guardado. Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+   "duracion_s": 93.8,
+   "peso_kb": 4963,
+   "guion": "¿Sabías que quien te pide información empieza a perder las ganas de comprar a los ocho minutos? Te doy la bienvenida al día dos: hoy conectamos todo, para que ningún lead se te enfríe. Imagina que vendes un programa de coaching de tres mil dólares. Alguien llena tu formulario de Meta a las nueve de la noche. Si lo ves al día siguiente, esa persona ya habló con otro coach. En cambio, con Meta conectado en tus integraciones, ese lead entra solo a tu CRM. Y con la app de MaKo en tu teléfono, tienes tu CRM y tus avisos en el bolsillo. Lo ves esa misma noche, y le contestas en minutos. En algo de tres mil dólares, esos minutos son la diferencia entre una venta y un no. ¿Crees que igual contestas rápido? Un lead que no ves, no lo puedes contestar. La app no es lo mismo que escribirle a MaKo por WhatsApp: es la aplicación de MaKo en tu teléfono. Toca aquí, en tu foto. Ahora toca aquí, en Settings. Y aquí, en Instalar la app. Mira aquí, el QR: escanéalo con tu teléfono, y cuando tengas la app, toca Siguiente. Mira aquí, la extensión para Chrome: con ella tienes a MaKo a mano mientras navegas. Después, toca aquí, en Integraciones, y conecta sólo lo que necesita tu funnel. Y al final, toca aquí, en tu perfil, y sube tu foto: lo que contaste ya está guardado. Hoy ganas velocidad: lo que pasa en tu negocio, lo ves en tu teléfono. Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto. Le escribes tú primero, y así WhatsApp no frena sus mensajes.",
    "frases": [
     {
      "id": "reto-dia-2-1",
      "rol": "gancho",
-     "texto": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso.",
+     "texto": "¿Sabías que quien te pide información empieza a perder las ganas de comprar a los ocho minutos?",
      "t_inicio": 0.06,
-     "t_fin": 5.14
+     "t_fin": 5.26
     },
     {
      "id": "reto-dia-2-2",
      "rol": "que-es",
-     "texto": "Primero, la app de MaKo en tu teléfono: te avisa al instante de lo que pasa en tu negocio, y abres MaKo desde el celular.",
-     "t_inicio": 5.82,
-     "t_fin": 12.52
+     "texto": "Te doy la bienvenida al día dos: hoy conectamos todo, para que ningún lead se te enfríe.",
+     "t_inicio": 5.76,
+     "t_fin": 11.56
     },
     {
      "id": "reto-dia-2-3",
-     "rol": "cosa",
-     "texto": "No es lo mismo que escribirle a MaKo por WhatsApp: es la aplicación.",
-     "t_inicio": 13,
-     "t_fin": 16.72
+     "rol": "porque",
+     "texto": "Imagina que vendes un programa de coaching de tres mil dólares.",
+     "t_inicio": 12.08,
+     "t_fin": 15.04
     },
     {
      "id": "reto-dia-2-4",
+     "rol": "porque",
+     "texto": "Alguien llena tu formulario de Meta a las nueve de la noche.",
+     "t_inicio": 15.48,
+     "t_fin": 18.3
+    },
+    {
+     "id": "reto-dia-2-5",
+     "rol": "porque",
+     "texto": "Si lo ves al día siguiente, esa persona ya habló con otro coach.",
+     "t_inicio": 18.82,
+     "t_fin": 22.06
+    },
+    {
+     "id": "reto-dia-2-6",
+     "rol": "porque",
+     "texto": "En cambio, con Meta conectado en tus integraciones, ese lead entra solo a tu CRM.",
+     "t_inicio": 22.6,
+     "t_fin": 27.88
+    },
+    {
+     "id": "reto-dia-2-7",
+     "rol": "porque",
+     "texto": "Y con la app de MaKo en tu teléfono, tienes tu CRM y tus avisos en el bolsillo.",
+     "t_inicio": 28.36,
+     "t_fin": 32.8
+    },
+    {
+     "id": "reto-dia-2-8",
+     "rol": "porque",
+     "texto": "Lo ves esa misma noche, y le contestas en minutos.",
+     "t_inicio": 33.3,
+     "t_fin": 36.44
+    },
+    {
+     "id": "reto-dia-2-9",
+     "rol": "porque",
+     "texto": "En algo de tres mil dólares, esos minutos son la diferencia entre una venta y un no.",
+     "t_inicio": 36.94,
+     "t_fin": 41.42
+    },
+    {
+     "id": "reto-dia-2-10",
+     "rol": "porque",
+     "texto": "¿Crees que igual contestas rápido? Un lead que no ves, no lo puedes contestar.",
+     "t_inicio": 42,
+     "t_fin": 46.3
+    },
+    {
+     "id": "reto-dia-2-11",
+     "rol": "cosa",
+     "texto": "La app no es lo mismo que escribirle a MaKo por WhatsApp: es la aplicación de MaKo en tu teléfono.",
+     "t_inicio": 46.74,
+     "t_fin": 52.2
+    },
+    {
+     "id": "reto-dia-2-12",
      "rol": "accion",
      "texto": "Toca aquí, en tu foto.",
-     "t_inicio": 17.3,
-     "t_fin": 18.58,
+     "t_inicio": 52.66,
+     "t_fin": 54.02,
      "sel": "[data-recorrido=\"tour-barra-foto\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-2-5",
+     "id": "reto-dia-2-13",
      "rol": "accion",
      "texto": "Ahora toca aquí, en Settings.",
-     "t_inicio": 19.16,
-     "t_fin": 21.12,
+     "t_inicio": 54.42,
+     "t_fin": 56.38,
      "sel": "#user-menu a[href^=\"/perfil\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-2-6",
+     "id": "reto-dia-2-14",
      "rol": "accion",
      "texto": "Y aquí, en Instalar la app.",
-     "t_inicio": 21.58,
-     "t_fin": 23.22,
+     "t_inicio": 56.78,
+     "t_fin": 58.36,
      "sel": "[data-recorrido=\"tour-settings-instalar\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-2-7",
+     "id": "reto-dia-2-15",
      "rol": "accion",
      "texto": "Mira aquí, el QR: escanéalo con tu teléfono, y cuando tengas la app, toca Siguiente.",
-     "t_inicio": 23.88,
-     "t_fin": 29.38,
+     "t_inicio": 58.88,
+     "t_fin": 64.08,
      "sel": "[data-recorrido=\"tour-settings-instalar\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-2-8",
+     "id": "reto-dia-2-16",
      "rol": "accion",
      "texto": "Mira aquí, la extensión para Chrome: con ella tienes a MaKo a mano mientras navegas.",
-     "t_inicio": 30.08,
-     "t_fin": 34.8,
+     "t_inicio": 64.56,
+     "t_fin": 69.12,
      "sel": "[data-recorrido=\"tour-settings-instalar\"]",
      "espera_clic": false
     },
     {
-     "id": "reto-dia-2-9",
+     "id": "reto-dia-2-17",
      "rol": "accion",
      "texto": "Después, toca aquí, en Integraciones, y conecta sólo lo que necesita tu funnel.",
-     "t_inicio": 35.32,
-     "t_fin": 40.14,
+     "t_inicio": 69.6,
+     "t_fin": 74.44,
      "sel": "[data-recorrido=\"tour-settings-integraciones\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-2-10",
+     "id": "reto-dia-2-18",
      "rol": "accion",
      "texto": "Y al final, toca aquí, en tu perfil, y sube tu foto: lo que contaste ya está guardado.",
-     "t_inicio": 40.72,
-     "t_fin": 46.16,
+     "t_inicio": 74.82,
+     "t_fin": 80.34,
      "sel": "[data-recorrido=\"tour-settings-info\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-2-11",
+     "id": "reto-dia-2-19",
      "rol": "cierre",
-     "texto": "Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
-     "t_inicio": 46.84,
-     "t_fin": 54.78,
+     "texto": "Hoy ganas velocidad: lo que pasa en tu negocio, lo ves en tu teléfono.",
+     "t_inicio": 80.88,
+     "t_fin": 84.98,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-2-20",
+     "rol": "cierre",
+     "texto": "Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto.",
+     "t_inicio": 85.44,
+     "t_fin": 89.34,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-2-21",
+     "rol": "cierre",
+     "texto": "Le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+     "t_inicio": 89.7,
+     "t_fin": 93.12,
      "espera_clic": false
     }
    ],
@@ -1292,8 +1364,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "2 → dos (ortografía del transcriptor)",
-   "hecho": "2026-11-18T15:35:51.683Z"
+   "chequeo": "idéntico",
+   "hecho": "2026-11-19T02:30:39.355Z"
   },
   {
    "key": "reto-dia-3",
@@ -1301,59 +1373,116 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-3.mp4",
    "poster": "/tutoriales/reto-dia-3.jpg",
-   "duracion_s": 40.03,
-   "peso_kb": 1384,
-   "guion": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda. Primero, toca aquí, en CRM, y carga tus clientes: con un CSV o, si ya usas otro CRM, lo integramos. Después, toca aquí, en Automations, para armar tu primera automatización. Mira aquí, Nueva automatización: pídele a MaKo que conteste a tus clientes por donde te escriben, WhatsApp, Instagram o email. Y toca aquí, en Calendar, y conecta tu calendario: las llamadas que agenden caen en tu agenda. Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
+   "duracion_s": 76.03,
+   "peso_kb": 4057,
+   "guion": "¿Cuántas personas te preguntaron el precio y nunca más supiste de ellas? Te doy la bienvenida al día tres: hoy ordenas tus contactos y dejas a MaKo atendiendo tus mensajes. Esa gente ya te conoce: recuperarla cuesta mucho menos que salir a buscar a alguien nuevo. Pero si pasa un mes sin noticias tuyas, le compra a otro. Piensa en una mentoría de dos mil dólares con ciento cincuenta contactos olvidados en tu WhatsApp. Si los cargas en el CRM, les escribes de nuevo y regresan tres, son seis mil dólares que ya tenías. Y mientras estás en una llamada, los mensajes nuevos se quedan esperando. Con una automatización, MaKo les contesta o te deja la respuesta lista. Primero, toca aquí, en CRM, y carga tus clientes con un CSV, aunque vengan de otro sistema. Después, toca aquí, en Automations, para armar tu primera automatización. Mira aquí, Nueva automatización: pídele a MaKo que conteste a tus clientes por donde te escriben, WhatsApp, Instagram o email. Y toca aquí, en Calendar, y conecta tu calendario: las llamadas que agenden caen en tu agenda. Con esto, tus clientes quedan en un solo lugar y vuelves a hablarles a tiempo. Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
    "frases": [
     {
      "id": "reto-dia-3-1",
      "rol": "gancho",
-     "texto": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda.",
-     "t_inicio": 0.04,
-     "t_fin": 5
+     "texto": "¿Cuántas personas te preguntaron el precio y nunca más supiste de ellas?",
+     "t_inicio": 0.06,
+     "t_fin": 4
     },
     {
      "id": "reto-dia-3-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida al día tres: hoy ordenas tus contactos y dejas a MaKo atendiendo tus mensajes.",
+     "t_inicio": 4.5,
+     "t_fin": 10.72
+    },
+    {
+     "id": "reto-dia-3-3",
+     "rol": "porque",
+     "texto": "Esa gente ya te conoce: recuperarla cuesta mucho menos que salir a buscar a alguien nuevo.",
+     "t_inicio": 11.12,
+     "t_fin": 16.08
+    },
+    {
+     "id": "reto-dia-3-4",
+     "rol": "porque",
+     "texto": "Pero si pasa un mes sin noticias tuyas, le compra a otro.",
+     "t_inicio": 16.6,
+     "t_fin": 19.78
+    },
+    {
+     "id": "reto-dia-3-5",
+     "rol": "porque",
+     "texto": "Piensa en una mentoría de dos mil dólares con ciento cincuenta contactos olvidados en tu WhatsApp.",
+     "t_inicio": 20.32,
+     "t_fin": 25.2
+    },
+    {
+     "id": "reto-dia-3-6",
+     "rol": "porque",
+     "texto": "Si los cargas en el CRM, les escribes de nuevo y regresan tres, son seis mil dólares que ya tenías.",
+     "t_inicio": 25.76,
+     "t_fin": 31.9
+    },
+    {
+     "id": "reto-dia-3-7",
+     "rol": "porque",
+     "texto": "Y mientras estás en una llamada, los mensajes nuevos se quedan esperando.",
+     "t_inicio": 32.32,
+     "t_fin": 35.88
+    },
+    {
+     "id": "reto-dia-3-8",
+     "rol": "porque",
+     "texto": "Con una automatización, MaKo les contesta o te deja la respuesta lista.",
+     "t_inicio": 36.4,
+     "t_fin": 40.28
+    },
+    {
+     "id": "reto-dia-3-9",
      "rol": "accion",
-     "texto": "Primero, toca aquí, en CRM, y carga tus clientes: con un CSV o, si ya usas otro CRM, lo integramos.",
-     "t_inicio": 5.54,
-     "t_fin": 14.34,
+     "texto": "Primero, toca aquí, en CRM, y carga tus clientes con un CSV, aunque vengan de otro sistema.",
+     "t_inicio": 40.74,
+     "t_fin": 46.94,
      "sel": "aside[data-sidebar] a[href^=\"/crm\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-3-3",
+     "id": "reto-dia-3-10",
      "rol": "accion",
      "texto": "Después, toca aquí, en Automations, para armar tu primera automatización.",
-     "t_inicio": 14.82,
-     "t_fin": 19.46,
+     "t_inicio": 47.44,
+     "t_fin": 51.66,
      "sel": "aside[data-sidebar] a[href^=\"/automations\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-3-4",
+     "id": "reto-dia-3-11",
      "rol": "accion",
      "texto": "Mira aquí, Nueva automatización: pídele a MaKo que conteste a tus clientes por donde te escriben, WhatsApp, Instagram o email.",
-     "t_inicio": 19.94,
-     "t_fin": 27.76,
+     "t_inicio": 52.16,
+     "t_fin": 59.52,
      "sel": "aside[aria-label=\"Tus automatizaciones\"] button.chb-nueva",
      "espera_clic": false
     },
     {
-     "id": "reto-dia-3-5",
+     "id": "reto-dia-3-12",
      "rol": "accion",
      "texto": "Y toca aquí, en Calendar, y conecta tu calendario: las llamadas que agenden caen en tu agenda.",
-     "t_inicio": 28.26,
-     "t_fin": 33.84,
+     "t_inicio": 60,
+     "t_fin": 65.46,
      "sel": "aside[data-sidebar] a[href^=\"/calendario\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-3-6",
+     "id": "reto-dia-3-13",
+     "rol": "cierre",
+     "texto": "Con esto, tus clientes quedan en un solo lugar y vuelves a hablarles a tiempo.",
+     "t_inicio": 65.92,
+     "t_fin": 69.94,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-3-14",
      "rol": "cierre",
      "texto": "Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
-     "t_inicio": 34.26,
-     "t_fin": 39.34,
+     "t_inicio": 70.4,
+     "t_fin": 75.34,
      "espera_clic": false
     }
    ],
@@ -1361,8 +1490,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "3 → tres (ortografía del transcriptor)",
-   "hecho": "2026-11-18T15:27:58.953Z"
+   "chequeo": "idéntico",
+   "hecho": "2026-11-19T02:48:45.718Z"
   },
   {
    "key": "reto-dia-4",
@@ -1370,41 +1499,105 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-4.mp4",
    "poster": "/tutoriales/reto-dia-4.jpg",
-   "duracion_s": 25.9,
-   "peso_kb": 1456,
-   "guion": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia. Primero, toca aquí, en Competitor Spy, y agrega a tres competidores: mira lo que más tiempo llevan activo, porque si sigue activo, vende. Después, toca aquí, en Web Generator: pegas una página que ya vende, y la arma con tu oferta. Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
+   "duracion_s": 69.77,
+   "peso_kb": 3725,
+   "guion": "¿Por qué hay anuncios que duran meses al aire, y otros se apagan en una semana? Te doy la bienvenida al día cuatro: hoy copias lo que ya le funciona a tu competencia. Si un anuncio lleva meses activo, es porque a su dueño le sigue dejando más dinero del que cuesta. Otros de tu mercado ya pagaron para descubrir qué atrae clientes. Toma una agencia que hace los anuncios de clínicas dentales, por mil quinientos dólares al mes. En Competitor Spy, la agencia ve que un rival tiene un anuncio corriendo hace noventa días. Ahí mismo descubre a dónde manda a quien hace clic, y mira su web por dentro. ¿Y copiar no está mal? No, si tomas cómo está armado, y no su texto ni sus videos. Con esa estructura y su propia oferta, su página no arranca de cero. Primero, toca aquí, en Competitor Spy, y agrega a tres competidores: mira lo que más tiempo llevan activo, porque si sigue activo, vende. Después, toca aquí, en Web Generator: pegas una página que ya vende, y la arma con tu oferta. Hoy partes de algo probado, no de una corazonada. Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
    "frases": [
     {
      "id": "reto-dia-4-1",
      "rol": "gancho",
-     "texto": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia.",
+     "texto": "¿Por qué hay anuncios que duran meses al aire, y otros se apagan en una semana?",
      "t_inicio": 0.04,
-     "t_fin": 5.44
+     "t_fin": 4.24
     },
     {
      "id": "reto-dia-4-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida al día cuatro: hoy copias lo que ya le funciona a tu competencia.",
+     "t_inicio": 4.82,
+     "t_fin": 9.98
+    },
+    {
+     "id": "reto-dia-4-3",
+     "rol": "porque",
+     "texto": "Si un anuncio lleva meses activo, es porque a su dueño le sigue dejando más dinero del que cuesta.",
+     "t_inicio": 10.78,
+     "t_fin": 16.16
+    },
+    {
+     "id": "reto-dia-4-4",
+     "rol": "porque",
+     "texto": "Otros de tu mercado ya pagaron para descubrir qué atrae clientes.",
+     "t_inicio": 16.78,
+     "t_fin": 20.44
+    },
+    {
+     "id": "reto-dia-4-5",
+     "rol": "porque",
+     "texto": "Toma una agencia que hace los anuncios de clínicas dentales, por mil quinientos dólares al mes.",
+     "t_inicio": 20.98,
+     "t_fin": 25.58
+    },
+    {
+     "id": "reto-dia-4-6",
+     "rol": "porque",
+     "texto": "En Competitor Spy, la agencia ve que un rival tiene un anuncio corriendo hace noventa días.",
+     "t_inicio": 26.2,
+     "t_fin": 31.32
+    },
+    {
+     "id": "reto-dia-4-7",
+     "rol": "porque",
+     "texto": "Ahí mismo descubre a dónde manda a quien hace clic, y mira su web por dentro.",
+     "t_inicio": 31.84,
+     "t_fin": 36.02
+    },
+    {
+     "id": "reto-dia-4-8",
+     "rol": "porque",
+     "texto": "¿Y copiar no está mal? No, si tomas cómo está armado, y no su texto ni sus videos.",
+     "t_inicio": 36.48,
+     "t_fin": 42.18
+    },
+    {
+     "id": "reto-dia-4-9",
+     "rol": "porque",
+     "texto": "Con esa estructura y su propia oferta, su página no arranca de cero.",
+     "t_inicio": 42.68,
+     "t_fin": 46.68
+    },
+    {
+     "id": "reto-dia-4-10",
      "rol": "accion",
      "texto": "Primero, toca aquí, en Competitor Spy, y agrega a tres competidores: mira lo que más tiempo llevan activo, porque si sigue activo, vende.",
-     "t_inicio": 5.92,
-     "t_fin": 14.72,
+     "t_inicio": 47.12,
+     "t_fin": 55.6,
      "sel": "aside[data-sidebar] a[href^=\"/competitor-spy\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-4-3",
+     "id": "reto-dia-4-11",
      "rol": "accion",
      "texto": "Después, toca aquí, en Web Generator: pegas una página que ya vende, y la arma con tu oferta.",
-     "t_inicio": 15.2,
-     "t_fin": 21.3,
+     "t_inicio": 56.14,
+     "t_fin": 61.78,
      "sel": "aside[data-sidebar] a[href^=\"/web-generator\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-4-4",
+     "id": "reto-dia-4-12",
+     "rol": "cierre",
+     "texto": "Hoy partes de algo probado, no de una corazonada.",
+     "t_inicio": 62.28,
+     "t_fin": 65.06,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-4-13",
      "rol": "cierre",
      "texto": "Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
-     "t_inicio": 21.72,
-     "t_fin": 25.22,
+     "t_inicio": 65.58,
+     "t_fin": 69.08,
      "espera_clic": false
     }
    ],
@@ -1412,8 +1605,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "4 → cuatro (ortografía del transcriptor)",
-   "hecho": "2026-11-18T15:28:49.888Z"
+   "chequeo": "spy → competitorspy · spy → competitorspy · mako → maco · falta competitor · falta competitor (ortografía del transcriptor)",
+   "hecho": "2026-11-19T02:54:22.794Z"
   },
   {
    "key": "reto-dia-5",
@@ -1421,41 +1614,105 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-5.mp4",
    "poster": "/tutoriales/reto-dia-5.jpg",
-   "duracion_s": 22.33,
-   "peso_kb": 1216,
-   "guion": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco. Primero, toca aquí, en Ímich, y replica un carrusel que ya funcionó, con tu oferta. Después, toca aquí, en Copywriting, y escribe tu guion replicando a tu referente. Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
+   "duracion_s": 66.83,
+   "peso_kb": 3549,
+   "guion": "¿Te pasa que se te van horas pensando qué publicar, y después casi nadie lo ve? Te doy la bienvenida al día cinco: hoy armas una semana de contenido, sin hoja en blanco. Lo que más rinde casi nunca sale de cero: parte de una idea que ya enganchó. Por eso MaKo te muestra las piezas que rindieron varias veces lo usual de quien las publicó. Pongamos una coach de liderazgo que cobra dos mil quinientos dólares. Ella elige un carrusel que tuvo cuatro veces las reacciones que suele tener esa cuenta. MaKo le pregunta su oferta y lo arma con esa idea, que ya demostró que engancha. ¿Y si esa pieza es de otro rubro? Lo que se toma es el ángulo y el gancho, no el tema. Con que le traiga un solo cliente, esa idea prestada ya vale dos mil quinientos dólares. Primero, toca aquí, en Ímich, y replica un carrusel que ya funcionó, con tu oferta. Después, toca aquí, en Copywriting, y escribe tu guion replicando a tu referente. Hoy te llevas tu carrusel y tu guion de la semana, con ideas que la gente ya eligió. Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
    "frases": [
     {
      "id": "reto-dia-5-1",
      "rol": "gancho",
-     "texto": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco.",
+     "texto": "¿Te pasa que se te van horas pensando qué publicar, y después casi nadie lo ve?",
      "t_inicio": 0.06,
-     "t_fin": 5.86
+     "t_fin": 4.78
     },
     {
      "id": "reto-dia-5-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida al día cinco: hoy armas una semana de contenido, sin hoja en blanco.",
+     "t_inicio": 5.38,
+     "t_fin": 11.38
+    },
+    {
+     "id": "reto-dia-5-3",
+     "rol": "porque",
+     "texto": "Lo que más rinde casi nunca sale de cero: parte de una idea que ya enganchó.",
+     "t_inicio": 11.86,
+     "t_fin": 16.6
+    },
+    {
+     "id": "reto-dia-5-4",
+     "rol": "porque",
+     "texto": "Por eso MaKo te muestra las piezas que rindieron varias veces lo usual de quien las publicó.",
+     "t_inicio": 17.14,
+     "t_fin": 21.7
+    },
+    {
+     "id": "reto-dia-5-5",
+     "rol": "porque",
+     "texto": "Pongamos una coach de liderazgo que cobra dos mil quinientos dólares.",
+     "t_inicio": 22.18,
+     "t_fin": 25.66
+    },
+    {
+     "id": "reto-dia-5-6",
+     "rol": "porque",
+     "texto": "Ella elige un carrusel que tuvo cuatro veces las reacciones que suele tener esa cuenta.",
+     "t_inicio": 26.04,
+     "t_fin": 30.54
+    },
+    {
+     "id": "reto-dia-5-7",
+     "rol": "porque",
+     "texto": "MaKo le pregunta su oferta y lo arma con esa idea, que ya demostró que engancha.",
+     "t_inicio": 30.92,
+     "t_fin": 35.3
+    },
+    {
+     "id": "reto-dia-5-8",
+     "rol": "porque",
+     "texto": "¿Y si esa pieza es de otro rubro? Lo que se toma es el ángulo y el gancho, no el tema.",
+     "t_inicio": 35.7,
+     "t_fin": 40.74
+    },
+    {
+     "id": "reto-dia-5-9",
+     "rol": "porque",
+     "texto": "Con que le traiga un solo cliente, esa idea prestada ya vale dos mil quinientos dólares.",
+     "t_inicio": 41.06,
+     "t_fin": 46.16
+    },
+    {
+     "id": "reto-dia-5-10",
      "rol": "accion",
      "texto": "Primero, toca aquí, en Image, y replica un carrusel que ya funcionó, con tu oferta.",
-     "t_inicio": 6.34,
-     "t_fin": 11.74,
+     "t_inicio": 46.56,
+     "t_fin": 51.68,
      "sel": "aside[data-sidebar] a[href^=\"/image-editor\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-5-3",
+     "id": "reto-dia-5-11",
      "rol": "accion",
      "texto": "Después, toca aquí, en Copywriting, y escribe tu guion replicando a tu referente.",
-     "t_inicio": 12.26,
-     "t_fin": 17.2,
+     "t_inicio": 52.02,
+     "t_fin": 56.86,
      "sel": "aside[data-sidebar] a[href^=\"/copywriter\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-5-4",
+     "id": "reto-dia-5-12",
+     "rol": "cierre",
+     "texto": "Hoy te llevas tu carrusel y tu guion de la semana, con ideas que la gente ya eligió.",
+     "t_inicio": 57.22,
+     "t_fin": 61.8,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-5-13",
      "rol": "cierre",
      "texto": "Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
-     "t_inicio": 17.62,
-     "t_fin": 21.64,
+     "t_inicio": 62.1,
+     "t_fin": 66.14,
      "espera_clic": false
     }
    ],
@@ -1463,8 +1720,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "5 → cinco · imich → image (ortografía del transcriptor)",
-   "hecho": "2026-11-18T15:29:36.410Z"
+   "chequeo": "mako → maco · mako → maco · imich → image · mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-19T02:57:23.090Z"
   },
   {
    "key": "reto-dia-6",
@@ -1472,39 +1729,96 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-6.mp4",
    "poster": "/tutoriales/reto-dia-6.jpg",
-   "duracion_s": 22.67,
-   "peso_kb": 1222,
-   "guion": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte. Toca aquí, en Video: en AI Avatar armas tu personaje con una foto tuya. Y con él haces tu clip de 10 segundos, de regalo, con el gancho del guion que escribiste ayer. Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
+   "duracion_s": 66.17,
+   "peso_kb": 3462,
+   "guion": "¿Tienes videos que se quedaron en una idea, porque nunca encontraste el momento de ponerte frente a la cámara? Te doy la bienvenida al día seis: hoy haces tu video con IA, sin grabarte. Lo que frena tus videos casi nunca son las ideas: es el tiempo que se va en tomas, luces y edición. Con tu personaje, escribes lo que quieres decir y MaKo hace el video por ti. ¿Te preocupa que no diga lo tuyo? Lo escribes tú, y lo dice tal cual. Y en un video corto, todo se decide al principio: si el gancho no detiene a la persona, pasa de largo. Piensa en un agente inmobiliario que gana cinco mil dólares por cada venta. Si mil personas ven su clip de diez segundos y el gancho le trae una sola venta, ese clip vale cinco mil dólares. Toca aquí, en Video: en Crear desde cero, abre «Tu personaje con IA» y sube una foto tuya. Con tu personaje haces tu primer clip, con el gancho del guion que escribiste ayer. Hoy te llevas tu personaje y tu primer clip, listos para publicar. Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
    "frases": [
     {
      "id": "reto-dia-6-1",
      "rol": "gancho",
-     "texto": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte.",
-     "t_inicio": 0.08,
-     "t_fin": 5.44
+     "texto": "¿Tienes videos que se quedaron en una idea, porque nunca encontraste el momento de ponerte frente a la cámara?",
+     "t_inicio": 0.04,
+     "t_fin": 5.28
     },
     {
      "id": "reto-dia-6-2",
-     "rol": "accion",
-     "texto": "Toca aquí, en Video: en AI Avatar armas tu personaje con una foto tuya.",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida al día seis: hoy haces tu video con IA, sin grabarte.",
      "t_inicio": 5.96,
-     "t_fin": 11.42,
+     "t_fin": 11.36
+    },
+    {
+     "id": "reto-dia-6-3",
+     "rol": "porque",
+     "texto": "Lo que frena tus videos casi nunca son las ideas: es el tiempo que se va en tomas, luces y edición.",
+     "t_inicio": 11.94,
+     "t_fin": 18.02
+    },
+    {
+     "id": "reto-dia-6-4",
+     "rol": "porque",
+     "texto": "Con tu personaje, escribes lo que quieres decir y MaKo hace el video por ti.",
+     "t_inicio": 18.58,
+     "t_fin": 22.7
+    },
+    {
+     "id": "reto-dia-6-5",
+     "rol": "porque",
+     "texto": "¿Te preocupa que no diga lo tuyo? Lo escribes tú, y lo dice tal cual.",
+     "t_inicio": 23.2,
+     "t_fin": 27.12
+    },
+    {
+     "id": "reto-dia-6-6",
+     "rol": "porque",
+     "texto": "Y en un video corto, todo se decide al principio: si el gancho no detiene a la persona, pasa de largo.",
+     "t_inicio": 27.6,
+     "t_fin": 33.2
+    },
+    {
+     "id": "reto-dia-6-7",
+     "rol": "porque",
+     "texto": "Piensa en un agente inmobiliario que gana cinco mil dólares por cada venta.",
+     "t_inicio": 33.86,
+     "t_fin": 37.36
+    },
+    {
+     "id": "reto-dia-6-8",
+     "rol": "porque",
+     "texto": "Si mil personas ven su clip de diez segundos y el gancho le trae una sola venta, ese clip vale cinco mil dólares.",
+     "t_inicio": 37.88,
+     "t_fin": 44.8
+    },
+    {
+     "id": "reto-dia-6-9",
+     "rol": "accion",
+     "texto": "Toca aquí, en Video: en Crear desde cero, abre «Tu personaje con IA» y sube una foto tuya.",
+     "t_inicio": 45.3,
+     "t_fin": 51.86,
      "sel": "aside[data-sidebar] a[href^=\"/video-editor\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-6-3",
+     "id": "reto-dia-6-10",
      "rol": "cosa",
-     "texto": "Y con él haces tu clip de 10 segundos, de regalo, con el gancho del guion que escribiste ayer.",
-     "t_inicio": 11.86,
-     "t_fin": 17.02
+     "texto": "Con tu personaje haces tu primer clip, con el gancho del guion que escribiste ayer.",
+     "t_inicio": 52.44,
+     "t_fin": 56.48
     },
     {
-     "id": "reto-dia-6-4",
+     "id": "reto-dia-6-11",
+     "rol": "cierre",
+     "texto": "Hoy te llevas tu personaje y tu primer clip, listos para publicar.",
+     "t_inicio": 57.08,
+     "t_fin": 60.8,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-6-12",
      "rol": "cierre",
      "texto": "Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
-     "t_inicio": 17.72,
-     "t_fin": 21.96,
+     "t_inicio": 61.38,
+     "t_fin": 65.48,
      "espera_clic": false
     }
    ],
@@ -1512,8 +1826,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "6 → seis · 10 → diez (ortografía del transcriptor)",
-   "hecho": "2026-11-18T15:30:29.426Z"
+   "chequeo": "idéntico",
+   "hecho": "2026-11-19T03:03:15.042Z"
   },
   {
    "key": "reto-dia-7",
@@ -1521,41 +1835,105 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-7.mp4",
    "poster": "/tutoriales/reto-dia-7.jpg",
-   "duracion_s": 19.57,
-   "peso_kb": 1069,
-   "guion": "Te doy la bienvenida al día 7, el último del reto. Primero, toca aquí, en Marketing CoPilot: revisa tu oferta, tu página y tu contenido. Después, toca aquí, en Plan: ahí te deja las tareas de cada semana. Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
+   "duracion_s": 71.1,
+   "peso_kb": 3715,
+   "guion": "¿Cuántas veces empezaste algo con todas las ganas, y al mes ya lo habías dejado? Te doy la bienvenida al día siete, el último: tu Marketing CoPilot lee lo que armaste y ordena tus próximos pasos. A casi nadie le falta motivación. Le falta saber qué sigue. Si al despertar te preguntas por dónde empezar, gastas la energía antes de trabajar. Mira una consultora que cobra dos mil dólares por proyecto: le alcanzan cuatro clientes al mes. No necesita hacerse viral: necesita constancia. El lunes abre su Plan y ya tiene la lista: los reels por grabar, sus correos y el arreglo de su web. Así no afloja aunque los resultados todavía no se vean. En ese tramo abandona la mayoría. Las ventas no salen de un día inspirado. Salen de cumplir, con o sin aplausos. Primero, toca aquí, en Marketing CoPilot: revisa tu oferta, tu página y tu contenido. Después, toca aquí, en Plan: ahí te deja las tareas de cada semana. Hoy terminas con algo que vale más que las ganas: un sistema para cada lunes. Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
    "frases": [
     {
      "id": "reto-dia-7-1",
      "rol": "gancho",
-     "texto": "Te doy la bienvenida al día 7, el último del reto.",
-     "t_inicio": 0.04,
-     "t_fin": 3.68
+     "texto": "¿Cuántas veces empezaste algo con todas las ganas, y al mes ya lo habías dejado?",
+     "t_inicio": 0,
+     "t_fin": 4.78
     },
     {
      "id": "reto-dia-7-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida al día siete, el último: tu Marketing CoPilot lee lo que armaste y ordena tus próximos pasos.",
+     "t_inicio": 5.38,
+     "t_fin": 12.84
+    },
+    {
+     "id": "reto-dia-7-3",
+     "rol": "porque",
+     "texto": "A casi nadie le falta motivación. Le falta saber qué sigue.",
+     "t_inicio": 13.4,
+     "t_fin": 17.16
+    },
+    {
+     "id": "reto-dia-7-4",
+     "rol": "porque",
+     "texto": "Si al despertar te preguntas por dónde empezar, gastas la energía antes de trabajar.",
+     "t_inicio": 17.72,
+     "t_fin": 22.42
+    },
+    {
+     "id": "reto-dia-7-5",
+     "rol": "porque",
+     "texto": "Mira una consultora que cobra dos mil dólares por proyecto: le alcanzan cuatro clientes al mes.",
+     "t_inicio": 22.98,
+     "t_fin": 28.4
+    },
+    {
+     "id": "reto-dia-7-6",
+     "rol": "porque",
+     "texto": "No necesita hacerse viral: necesita constancia.",
+     "t_inicio": 28.96,
+     "t_fin": 31.98
+    },
+    {
+     "id": "reto-dia-7-7",
+     "rol": "porque",
+     "texto": "El lunes abre su Plan y ya tiene la lista: los reels por grabar, sus correos y el arreglo de su web.",
+     "t_inicio": 32.6,
+     "t_fin": 38.56
+    },
+    {
+     "id": "reto-dia-7-8",
+     "rol": "porque",
+     "texto": "Así no afloja aunque los resultados todavía no se vean. En ese tramo abandona la mayoría.",
+     "t_inicio": 39.16,
+     "t_fin": 44.76
+    },
+    {
+     "id": "reto-dia-7-9",
+     "rol": "porque",
+     "texto": "Las ventas no salen de un día inspirado. Salen de cumplir, con o sin aplausos.",
+     "t_inicio": 45.36,
+     "t_fin": 50.66
+    },
+    {
+     "id": "reto-dia-7-10",
      "rol": "accion",
      "texto": "Primero, toca aquí, en Marketing CoPilot: revisa tu oferta, tu página y tu contenido.",
-     "t_inicio": 4.18,
-     "t_fin": 10.06,
+     "t_inicio": 51.12,
+     "t_fin": 57,
      "sel": "aside[data-sidebar] a[href^=\"/ads-manager/copiloto\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-7-3",
+     "id": "reto-dia-7-11",
      "rol": "accion",
      "texto": "Después, toca aquí, en Plan: ahí te deja las tareas de cada semana.",
-     "t_inicio": 10.58,
-     "t_fin": 15.22,
+     "t_inicio": 57.56,
+     "t_fin": 62.04,
      "sel": "aside[data-sidebar] a[href^=\"/plan\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-7-4",
+     "id": "reto-dia-7-12",
+     "rol": "cierre",
+     "texto": "Hoy terminas con algo que vale más que las ganas: un sistema para cada lunes.",
+     "t_inicio": 62.52,
+     "t_fin": 67.04,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-7-13",
      "rol": "cierre",
      "texto": "Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
-     "t_inicio": 15.7,
-     "t_fin": 18.88,
+     "t_inicio": 67.52,
+     "t_fin": 70.42,
      "espera_clic": false
     }
    ],
@@ -1563,8 +1941,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "7 → siete · mako → maco (ortografía del transcriptor)",
-   "hecho": "2026-11-18T15:31:19.671Z"
+   "chequeo": "mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-19T04:12:01.800Z"
   },
   {
    "key": "ops-center",

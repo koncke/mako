@@ -4,6 +4,39 @@ El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
 
+## Offer Coach = el motor de Offer: no hacía falta montar OfferApp (19/11/2026)
+
+**Vive en:** `app/second-brain/useChatDelCoach.ts` (`motorOffer`) · `app/second-brain/useChatCliente.ts` (`offerDirecto`) ·
+`app/api/offer/route.ts` (`'coach'`) · `lib/onboarding-v2/offer-coach-db.ts` · `app/second-brain/OfertaEnElChat.tsx` ·
+`lib/chat-mako-indice.ts` (`chatsDeOffer`).
+
+- **El diagnóstico obvio era el equivocado.** El brief (docs/onboarding/offer-coach-es-el-motor-de-offer.md) proponía embeber
+  `OfferApp` con su modo `arranque`. Pero el chat del Ops Center YA sigue cualquier conversación de Offer con su motor: basta con
+  elegir `{ offer: id }` (app/second-brain/motor-offer.ts: el turno, los archivos, la nota de voz, «Armar mi oferta» y la relectura
+  mientras arma). Embeber `OfferApp` traía otra caja y otro hilo, y su `origen: 'arranque'` hace que el servidor NO arme la oferta
+  (es la conversación del onboarding: sólo pregunta qué vende). Con el motor del Ops Center se quedan la cara, la voz y los videos
+  del coach sin tocarlos.
+- **`useChatDelCoach` le pasaba `opcionArmar: ''` a `useChatCliente`**: en el coach, tocar «Armar mi oferta» la mandaba como un
+  mensaje más y nunca armaba. El texto ahora lo devuelve `/api/offer` `'coach'` (`OPCION_ARMAR`): sin cablearlo por las cuatro
+  pantallas que montan el coach (ChatsMovil ni lo tenía) y sin meter `lib/offer-reglas.ts` en el navegador.
+- **La proyección del Ops Center (`?offerId=` → `hiloDeOffer`) pierde el id y el `pdf` de cada mensaje**: con ella no se puede saber
+  qué mensaje trae la oferta. `offerDirecto` dibuja con `itemsDeOffer` (ids `of-<id>`), como la tab. La proyección sólo hace falta
+  para unir el arranque de un onboarding viejo, que la conversación del coach no tiene.
+- **Armar NO guarda la oferta**: `'armar'` deja la conclusión, pero la fila de `ofertas` la escribía el botón «Guardar en este
+  funnel», que Martín sacó el 16/11. Sin guardar, Funnel Coach la ve como «armada en una conversación», no como guardada. La
+  tarjeta la guarda sola al aparecer (`'guardar-oferta'`, una vez por versión).
+- **La conversación del coach salía dos veces**: como la fila de Offer Coach y colgando de ella (`filasOffer`). `chatsDeOffer` la
+  esconde, sólo a quien tiene el V2: a los demás se les lista como cualquier otra.
+- **Un `.css` importado en un componente que cargan los tests rompe en node** (AGENTS.md lo dice para la caja): `.co-ol` va en
+  `app/_chat/chat.css`, que ya llega con la caja del chat (`AdjuntosCaja`).
+- **Trampa que queda:** la conversación es POR NEGOCIO y la crea abrir Offer Coach. Martín ve el V2 por su email en cualquier
+  negocio: si abre Offer Coach en el de un cliente, ahí queda una conversación vacía de Offer en su funnel principal (se ve en la
+  tab Offer del cliente). Con el Offer Coach del modelo pasaba lo mismo, pero no se veía.
+- **Quedó SIN hacer:** el contexto y las herramientas del Offer Coach del modelo (`lib/asesores/contexto.ts` →
+  `contextoDelOfferCoach`, `HERRAMIENTAS_DEL_OFFER_COACH`) ya no los usa ninguna pantalla del V2; se pueden borrar cuando Martín
+  apruebe el motor. Lo que pedía de ese contexto (más asertivo con el miedo a cobrar caro, la garantía, «¿vendes otras ofertas?»)
+  vive ahora en las preguntas del motor de Offer (`lib/offer-reglas.ts`), que no se tocaron. Sin probar en producción todavía.
+
 ## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
 
 **Vive en:** `lib/onboarding-state.ts` · `app/api/onboarding/route.ts:324` · `lib/onboarding-crm.ts`
@@ -86,6 +119,45 @@ Lo que quedó SIN hacer (para el día siguiente):
 - el video y la marca juntos, en la app de verdad: las frases llegan con punta/tutoriales-videos (922d59222). Se miró con ese
   manifiesto y su crm.mp4 sobre el CRM dibujado (pausa en «Ver info» a los 9,3 s; «Mover a…» adentro de la ficha imitada; el
   CTA de «Más acciones» al final), no en la app.
+
+## Las tareas del reto dicen lo que el video marca, y nada que la app no dé (19/11/2026, chat «reto-tutoriales», claude5)
+
+Vive en `lib/reto/dias.ts` (las tareas y `tareasQueCierra`) y en el manifiesto de los videos (`public/tutoriales/manifiesto.json`,
+las `frases` con `sel`). Salió al grabar los días 2 a 7 con su porqué.
+
+- **⚠️ El diagnóstico obvio era el equivocado: una tarea la cierra su ÚLTIMA marca, no la que el video nombra.** El video del día 2
+  marca Perfil (`tour-settings-info`) para «Tu perfil y tu foto», y la tarea terminaba en Settings (`#user-menu a[href^="/perfil"]`).
+  Parecía que había que cambiar la marca del video. Lo que pasaba en la app: tocar Settings (el segundo toque del video, camino a
+  Instalar la app) daba la tarea por hecha antes de llegar al perfil, y tocar Perfil no cerraba nada. **Regla:** la última marca de
+  cada tarea es el lugar donde el video dice que se hace; un paso del camino (la foto de la barra, Settings) nunca es la última
+  marca de una tarea. Lo fija tests/reto-dias.test.ts.
+- **En el día 6, tocar Video cierra las DOS tareas** (tu personaje y tu primer clip): las dos terminan en la misma marca de la barra.
+  Con la regla del 18/11 («lo tocado durante el video cuenta como hecho»), el clip queda hecho sin hacerlo. Se dejó así. Para que
+  cuente el clip de verdad, la tarea necesita una marca adentro del estudio del personaje (`MARCA.avatarGenerar`), y el video una
+  frase que la marque.
+- **«El clip de 10 segundos va de regalo» no estaba en ningún lado del código:** sólo en el texto de las tareas. Lo que hay es un tope
+  de la prueba: UN video con el personaje (`prueba.avatares: 1`, lib/topes-plan.ts; lo cuenta app/video-editor/avatar/actions.ts).
+  **Regla:** antes de prometer algo «de regalo» en una tarea o un guion, hay que encontrar el código que lo da (un tope, un contador,
+  un crédito). Ahora el día 6 dice «tu primer clip».
+- **Las tareas prometían cosas que el video ya no dice:** «si ya usas otro CRM, lo integramos» (un equipo que Martín no tiene; lo
+  que hay es el CSV de app/crm/ImportarLeadsModal.tsx) y «Video › AI Avatar» (la tab se cerró el 14/11: es «Tu personaje con IA», en
+  Video › Crear desde cero, app/video-editor/plantillas-crear.ts). Un test las frena ahora: nada de `integramos`, `regalo`, `gratis`,
+  `ilimitad` ni `AI Avatar` en `DIAS_RETO`.
+- **Lo que encontró la corrida de los guiones (`wf_8a54fd74-15a`), verificado en el código:**
+  - **MaKo contesta sola sólo de 9 a 21 por defecto** (`HORARIO_RESPUESTA_SOLA`, lib/setter-conversacion.ts). Además, sólo en los
+    casos en «Sola», hasta 3 respuestas por lead en 24 h (`TOPE_RESPUESTAS_SOLAS_24H`) y sin hablar de precio; lo demás queda en
+    borrador. Con el horario de oficina prendido, manda ése. Por eso el día 3 dice «les contesta o te deja la respuesta lista», y
+    nunca «contesta siempre».
+  - **`migrar_contactos` (pasar contactos de otro CRM) funciona sólo por la API** (`canales: ['http']`, lib/api-mako/areas/crm.def.ts):
+    no se le pide a MaKo por el chat ni por WhatsApp. En pantalla está el CSV.
+  - **El aviso del lead de Meta (`lead-formulario-meta`) es sólo de superadmin y nace pausado** (`AVISOS_SOLO_SUPERADMIN`,
+    lib/avisos-catalogo.ts): el negocio no lo ve ni lo prende. Un guion no puede prometer «te avisa cuando entra un lead de Meta»; el
+    día 2 dice «tienes tu CRM y tus avisos en el bolsillo».
+  - **El lead de Meta entra por el webhook (app/api/webhooks/meta-leads) o por el poll cada diez minutos**
+    (app/api/cron/meta-leads-poll, `*/10` en vercel.json). «Entra solo a tu CRM» es cierto; «al instante», no siempre.
+- **Quedó sin hacer:** el día 4 promete replicar una página y ver la web del rival, que son de Pro (app/web-generator/CajaCrear.tsx,
+  app/competitor-spy/SusPaginas.tsx). En la prueba de Pro anda; si un día el reto se le muestra a Essential, esa frase y esa tarea
+  prometen cosas con candado.
 
 ## ⚠️ La maqueta del onboarding y la app real no tienen los mismos coaches (17/11/2026)
 

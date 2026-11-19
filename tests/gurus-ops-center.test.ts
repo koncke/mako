@@ -196,7 +196,7 @@ test('4. el Funnel Coach con un gurú al frente tampoco dibuja otra criatura', (
   // Su motor (el mismo de la computadora y el teléfono, 4/11/2026) le pasa su cara al chat.
   // Desde el 18/11/2026 el mismo motor corre los dos coaches del onboarding V2 (`DEL_COACH`): la conversación de cada uno y su cara.
   const motor = sinComentarios(leer('app/second-brain/useChatDelCoach.ts'));
-  assert.match(motor, /useChatCliente\(\{[^}]*desde: de\.desde, tab: de\.tab, quien \}\)/);
+  assert.match(motor, /useChatCliente\(\{[^}]*desde: de\.desde, tab: de\.tab, quien, offerDirecto: motorOffer \}\)/);
   assert.match(motor, /funnel: \{ titulo: ORIGEN_FUNNEL_COACH, tab: TAB_FUNNEL_COACH,/);
 });
 

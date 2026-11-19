@@ -44,6 +44,11 @@ herramientasLinea.registrar({
 					useAssetsPanelStore.getState().irA({ categoria: "multimedia", seccion: SECCION_ENJAMBRE });
 					return;
 				}
+				// Un video sin voz (ticket 99): el porqué y qué pedirle al chat quedan escritos en su panel, no en un toast rojo.
+				if (!r.ok && r.motivo === "sin-voz") {
+					useAssetsPanelStore.getState().irA({ categoria: "multimedia", seccion: SECCION_ENJAMBRE });
+					return;
+				}
 				if (!r.ok) toast.error(r.texto);
 			})
 			.catch((error) => {
