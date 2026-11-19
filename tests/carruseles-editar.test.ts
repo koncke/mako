@@ -152,12 +152,25 @@ test('el guiado: la oferta que eligió el dueño LLEGA al pedido de la IA, y una
   assert.equal(ajena.pedidos.length, 0, 'sin la oferta no se le pide nada a la IA');
 });
 
-test('si el modelo que mira se queda sin tokens y corta el JSON, se prueba el de respaldo, y el JSON se pide COMPACTO', () => {
+test('el modelo que cortaba el JSON ya no se pide: «Editar» mira con flash-lite, y el JSON se pide COMPACTO', () => {
+  // 11/11/2026 (ws9): `gemini-flash-latest` cortó el JSON en el tope y se probaba el respaldo. Desde el ticket 119 (19/11/2026)
+  // «Editar» ni se lo pide: con 12 láminas tarda más de 3 minutos, y con su plazo de 120 s se cortaba siempre.
   const c = R.cortado;
   assert.equal(c.ok, true, String(c.error));
-  assert.deepEqual(c.pedidos.map((p) => `${p.via}:${p.modelo}`), ['vision-nativa:gemini-flash-latest', 'vision-nativa:gemini-flash-lite-latest'],
-    'el JSON cortado no es una respuesta: el respaldo mira las MISMAS láminas antes de caer a escribir sin verlas');
-  assert.equal(c.sinIA, undefined, 'con el respaldo contestando, sale el diseño de la IA y no las guías');
-  assert.equal(c.paginas, 9, 'las 9 láminas enteras, no las que entraron en la mitad del JSON');
+  assert.deepEqual(c.pedidos.map((p) => `${p.via}:${p.modelo}`), ['vision-nativa:gemini-flash-lite-latest'],
+    'un solo pedido, al modelo rápido (lib/carruseles/replica-servidor.ts, MODELOS_REPLICA)');
+  assert.equal(c.sinIA, undefined, 'sale el diseño de la IA y no las guías');
+  assert.equal(c.paginas, 9, 'las 9 láminas enteras');
   assert.ok(c.pedidos.every((p) => /JSON compacto, en UNA sola línea/.test(p.texto ?? '')), 'con sangría el mismo diseño ocupa casi el doble de tokens');
+});
+
+test('si flash-lite corta el JSON, la mitad no es una respuesta: se escribe sin mirar antes de dejar guías', () => {
+  const c = R.cortadoLite;
+  assert.equal(c.ok, true, String(c.error));
+  const vias = c.pedidos.map((p) => `${p.via}:${p.modelo}`);
+  assert.equal(vias[0], 'vision-nativa:gemini-flash-lite-latest');
+  assert.ok(vias.slice(1).some((v) => v.startsWith('chat:')), `después del JSON cortado, la escritura sin mirar (${vias.join(', ')})`);
+  assert.ok(!vias.includes('vision-nativa:gemini-flash-latest'), 'el lento tampoco de respaldo');
+  assert.equal(c.sinIA, undefined, 'con la escritura sin mirar contestando, sale el diseño de la IA y no las guías');
+  assert.equal(c.paginas, 9, 'las 9 láminas enteras, no las que entraron en la mitad del JSON');
 });

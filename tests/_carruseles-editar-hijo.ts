@@ -192,8 +192,11 @@ async function main() {
     sinCuota: await correr({ portada: NUESTRA, conIA: SU_GEMINI, responde: { status: 429 } }),
     // 7. Sin ninguna IA conectada: guías, y el modal NO queda en blanco.
     sinIA: await correr({ portada: NUESTRA, conIA: [], responde: {} }),
-    // 10. El modelo que mira se queda sin tokens y corta el JSON a la mitad (11/11/2026, ws9): se prueba el modelo de respaldo.
+    // 10. El modelo que cortaba el JSON a la mitad (11/11/2026, ws9: `gemini-flash-latest`): «Editar» ya no se lo pide (ticket 119,
+    //     19/11/2026: tarda más de 3 minutos con 12 láminas), mira con `flash-lite`.
     cortado: await correr({ portada: NUESTRA, conIA: SU_GEMINI, responde: { json: RESPUESTA_IA, cortaEn: 'gemini-flash-latest' } }),
+    // 11. Y si el que corta el JSON es `flash-lite`: la mitad no es una respuesta; se escribe sin mirar antes de dejar guías.
+    cortadoLite: await correr({ portada: NUESTRA, conIA: SU_GEMINI, responde: { json: RESPUESTA_IA, cortaEn: 'gemini-flash-lite-latest' } }),
   };
   // 8 y 9. El GUIADO (9/11/2026, lib/carruseles/guiado.ts): la oferta que eligió el dueño llega al pedido de la IA, y una de OTRO
   // negocio (un id que manda el navegador) no existe en la base de éste. Martín: «ni siquiera me pregunta qué oferta».
