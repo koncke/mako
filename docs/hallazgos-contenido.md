@@ -323,10 +323,10 @@ galería de formatos (el motor, el kit, la voz) está en `docs/editor-video/anim
 
 ## Lo que quedó sin hacer
 - Ver `docs/series/serie-1-elige-a-o-b.md` y `docs/series/serie-4-reacciona-comentarios.md`, §5 «Por hacer».
-# Hallazgos — contenido de Martín (series para sus redes y relevo de referentes)
+## Relevo de referentes: Ramiro Cubría, Víctor Heras y Alex Hormozi — 19/11/2026
 
-El código de esta área no vive en la app: son las herramientas del relevo en `C:/dev/referentes-videos/tools/` (fuera del repo)
-y los documentos de `docs/series/`. El método completo está en `docs/series/desarmar-video-referente.md`; el relevo, en
+Las herramientas del relevo viven en `C:/dev/referentes-videos/tools/` (fuera del repo; copia en `docs/series/herramientas/`).
+El método completo está en `docs/series/desarmar-video-referente.md`; el relevo, en
 `docs/series/referentes/`.
 
 ## Relevar una cuenta de Instagram sin Apify (19/11/2026)
