@@ -7,58 +7,65 @@
    "ruta": "/onboarding",
    "archivo": "/tutoriales/onboarding-bienvenida.mp4",
    "poster": "/tutoriales/onboarding-bienvenida.jpg",
-   "duracion_s": 39.83,
-   "peso_kb": 1403,
-   "guion": "¡Hola! Soy Martín, el creador de MaKo. Bueno, mi versión en cubos. Te doy la bienvenida a MaKo: desde hoy tienes un equipo entero trabajando para tu negocio. Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho. Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video. Una de ellas es tu WhatsApp: es por donde MaKo te manda avances sobre tu negocio. Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito. MaKo te contesta con un código, y lo pegas en el chat. Y guarda el contacto de MaKo en tu teléfono: así esos avances siempre te llegan.",
+   "duracion_s": 38.17,
+   "peso_kb": 1429,
+   "guion": "¡Hola! Soy Martín, el creador de MaKo. Te doy la bienvenida a MaKo: desde hoy tienes un equipo entero trabajando para tu negocio. Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho. Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video. Una de ellas es tu WhatsApp: es por donde MaKo te manda avances sobre tu negocio. Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito. MaKo te contesta con un código, y lo pegas en el chat. Y guarda el contacto de MaKo en tu teléfono: así esos avances siempre te llegan.",
    "frases": [
     {
      "id": "onboarding-bienvenida-1",
      "rol": "gancho",
-     "texto": "¡Hola! Soy Martín, el creador de MaKo. Bueno, mi versión en cubos.",
+     "texto": "¡Hola! Soy Martín, el creador de MaKo.",
      "t_inicio": 0.04,
-     "t_fin": 4.34
+     "t_fin": 2.44
     },
     {
      "id": "onboarding-bienvenida-2",
-     "rol": "que-es",
+     "rol": "gancho",
      "texto": "Te doy la bienvenida a MaKo: desde hoy tienes un equipo entero trabajando para tu negocio.",
-     "t_inicio": 4.88,
-     "t_fin": 9.96
+     "t_inicio": 2.96,
+     "t_fin": 8.1
     },
     {
      "id": "onboarding-bienvenida-3",
      "rol": "cosa",
      "texto": "Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho.",
-     "t_inicio": 10.52,
-     "t_fin": 15.34
+     "t_inicio": 8.7,
+     "t_fin": 13.44
     },
     {
      "id": "onboarding-bienvenida-4",
      "rol": "cosa",
      "texto": "Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
-     "t_inicio": 15.86,
-     "t_fin": 20.9
+     "t_inicio": 13.96,
+     "t_fin": 18.98
     },
     {
      "id": "onboarding-bienvenida-5",
      "rol": "cosa",
      "texto": "Una de ellas es tu WhatsApp: es por donde MaKo te manda avances sobre tu negocio.",
-     "t_inicio": 21.58,
-     "t_fin": 25.88
+     "t_inicio": 19.62,
+     "t_fin": 24.08
     },
     {
      "id": "onboarding-bienvenida-6",
      "rol": "cosa",
-     "texto": "Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito. MaKo te contesta con un código, y lo pegas en el chat.",
-     "t_inicio": 26.38,
-     "t_fin": 34.12
+     "texto": "Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito.",
+     "t_inicio": 24.54,
+     "t_fin": 28.96
     },
     {
      "id": "onboarding-bienvenida-7",
+     "rol": "cosa",
+     "texto": "MaKo te contesta con un código, y lo pegas en el chat.",
+     "t_inicio": 29.54,
+     "t_fin": 32.26
+    },
+    {
+     "id": "onboarding-bienvenida-8",
      "rol": "cierre",
      "texto": "Y guarda el contacto de MaKo en tu teléfono: así esos avances siempre te llegan.",
-     "t_inicio": 34.7,
-     "t_fin": 39.14,
+     "t_inicio": 32.84,
+     "t_fin": 37.46,
      "espera_clic": false
     }
    ],
@@ -67,7 +74,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "7 → siete (ortografía del transcriptor)",
-   "hecho": "2026-11-19T22:38:44.226Z"
+   "hecho": "2026-11-19T22:57:51.688Z"
   },
   {
    "key": "onboarding-whatsapp",
