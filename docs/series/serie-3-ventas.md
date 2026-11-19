@@ -116,6 +116,12 @@ son las landings de cada función (`app/vsl/<slug>`).
 - **GUION**:
   > ¡Hola! La app es MaKo. En Copywriting eliges la plantilla «Reel que trae mensajes» y su chat te escribe el guion para tu
   > negocio, en la misma página. Mírala aquí: hola-mako.com/vsl/copywriting
+- **GANCHO**:
+  > ¡Hola! La app es MaKo. En Copywriting eliges la plantilla «10 ganchos para un anuncio» y su chat te los escribe para tu
+  > negocio. Mírala aquí: hola-mako.com/vsl/copywriting
+- **OFERTA**:
+  > ¡Hola! La app es MaKo. Su Offer Coach te hace las preguntas de un mentor, arma tu oferta en una página y te dice qué le
+  > falta para vender más. Mírala aquí: hola-mako.com/vsl/offer
 - **CURSO**:
   > ¡Hola! La app es MaKo, tipo Skool: el curso por módulos y lecciones con candados, y la comunidad de tus alumnos (la
   > comunidad está en el plan Pro), en la misma app con la que vendes. Mírala aquí: hola-mako.com/vsl/classroom
@@ -131,6 +137,8 @@ son las landings de cada función (`app/vsl/<slug>`).
 | `s3-carrusel` | «El carrusel que más se guarda no es el más lindo.» | CARRUSEL | Image › Carruseles: las estructuras, con tu marca, y el chat que las escribe |
 | `s3-guion` | «Un reel que trae mensajes tiene tres partes.» | GUION | Copywriting › plantilla «Reel que trae mensajes» (Gancho · Historia · Moraleja) |
 | `s3-curso` | «Un curso que nadie termina no vende el siguiente.» | CURSO | Classroom: módulos con candados y la comunidad |
+| `s3-gancho` | «Tienes dos segundos antes de que muevan el dedo.» (tema #1 de la Serie 2) | GANCHO | Copywriting › plantilla «10 ganchos para un anuncio» |
+| `s3-oferta` | «Mentoría de doce semanas no es una oferta.» (tema #4 de la Serie 2) | OFERTA | Offer Coach: las preguntas de un mentor, la oferta en una página y qué le falta |
 
 ## Videos
 
@@ -143,6 +151,8 @@ son las landings de cada función (`app/vsl/<slug>`).
 | `s3-carrusel` | En curso (voz y reel hechos) | 24,6 s | — | CARRUSEL |
 | `s3-guion` | En curso (voz y reel hechos) | 22,8 s | — | GUION |
 | `s3-curso` | En curso (voz y reel hechos) | 25,5 s | — | CURSO |
+| `s3-gancho` | En curso (voz y reel hechos) | 24,7 s | — | GANCHO |
+| `s3-oferta` | En curso (voz y reel hechos) | 24,3 s | — | OFERTA |
 
 ### Por hacer (la tanda «cómo se hace X», verificada en `lib/funciones-mako.ts`)
 
