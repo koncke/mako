@@ -40,6 +40,9 @@ El ranking de temas, con cómo lo explica cada mentor, está en [serie-2-temas.m
   Ojo con lo que vive dentro de algo escalado: una frase de 58 px en una tarjeta que la cámara aleja a ×0,46 queda en
   27 px. Si hay que mostrar varias cosas juntas, se arma una tabla sin escalar (video 1) o filas a ancho completo (las
   cinco versiones), no tarjetitas.
+- **En pantalla, la misma palabra que la voz, y nada cortado (Cerebro, 19/11, video 2):** la plantilla decía «Dame un
+  tiempo…» y la voz «dame un minuto»; la lista decía «Una pregunta con dos» para que entrara en un renglón. Si la voz
+  dice «minuto», la pantalla dice «minuto». Una etiqueta que no entra se parte en dos renglones, no se recorta.
 - **Voseo que el chequeo no ve:** con el clon rioplatense, los verbos de «tú» que en voseo sólo cambian el acento
   («dejas» → «dejás», «completes», «quédate») pueden salir agudos. Se lee la transcripción buscando esas tildes; si una
   sale aguda, se cambia por un verbo de raíz distinta («le pierdes el miedo», no «dejas de tenerle miedo»).
@@ -179,6 +182,39 @@ el commit, la cosecha).
 - **Formato:** globos de chat (el cliente en blanco a la izquierda, tú en amarillo a la derecha) sobre una escala del 1
   al 10 que se llena (la idea es de la pieza #68). Los globos crecen con su texto (`width:max-content`, máximo 880 px):
   con `white-space:nowrap` las preguntas largas se salían del cuadro.
+
+### 4. «Viral contra nicho» (`edu-viral-nicho`) — tema 3
+
+- **Qué enseña:** las vistas no son clientes; un video le sirve a quien te puede comprar. 300 vistas son una sala llena.
+- **Gancho:** «Una dietista gana casi un millón de dólares por año… y tiene cinco mil ochocientos seguidores.» Dos números
+  que chocan, como el viral de donde sale.
+- **Los datos (Hormozi, «She Only Has 5,000 Followers?», https://www.youtube.com/watch?v=vQlUvyDpJF4, 388.048 vistas al
+  19/11/2026):** casi un millón por año, 5.800 seguidores, 19 «me gusta» y un comentario por publicación, todo sobre
+  facturarle al seguro, el 100 % de sus clientes de Instagram orgánico. La abuela de la cachetada es de «Don't Focus On
+  Views» (QR1q5645iTQ) y la sala llena, de «You Don't Need More Views» (5jGFq7nYO-g). El guion no le pone número a las
+  vistas de la abuela (Hormozi no lo da): «se llena de vistas».
+- **Voz:** salió a 2,72 palabras por segundo (52,6 s); se aceleró ×1,10 con `atempo` y se reescalaron los tiempos: 47,84 s
+  a 3,08 palabras por segundo, con la transcripción igual. Los originales quedaron en `voz/*-lento.*`.
+- **Formato:** un panel por idea (los números del gancho, la publicación con su corazón, el video de Hormozi, la grilla
+  de seis publicaciones del mismo tema, los medidores, la columna de vistas contra el 0 de clientes, la sala de 300
+  puntos, la cuenta de US$9.000, «todo el mundo» tachado).
+
+### 5. «Dar menos» (`edu-dar-menos`) — tema 4 (la oferta que se vende sola)
+
+- **Qué enseña:** cada cosa que se le suma a un programa sube las bajas; la pregunta es qué es lo mínimo que da el
+  resultado. Es el término «esfuerzo» de la ecuación de valor, contado como historia (así lo hace el viral).
+- **Gancho:** «Un amigo de Hormozi tiene un boletín que factura quinientos mil dólares por mes.» Es el gancho del viral:
+  un tercero y una cifra grande.
+- **El dato (transcripción leída, no el resumen):** Hormozi, «Maybe You Need to Offer Less?»,
+  https://www.youtube.com/watch?v=HQn41kV9wOc, 254.729 vistas al 19/11/2026. Las bajas más bajas: una llamada de
+  preguntas al mes (hasta contestar todo) y un boletín impreso; pasó a llamadas semanales y sumó cosas, y cada agregado
+  subió las bajas. Gym Launch va por la versión «9 o 10» (el guion lo dice así, no «la 10»), cada una más corta; la causa
+  n.º 1 de baja, el agobio. Lo que sumó no lo dice: en pantalla son cajas «+1 … +4».
+- **Guion:** `voz/guion-edu-dar-menos.json`, 147 palabras, 46,9 s, 3,24 palabras por segundo, una toma.
+- **Formato:** «lo que daba» contra la columna de bajas (verde y chica → roja y alta), el video de Hormozi, las dos
+  versiones del programa (alta contra baja), «AGOBIO», la pregunta tachada contra la buena, y la igualdad final.
+- **Trampa de esta animación:** un bloque con `left/top` y sin `position:absolute` (la tarjeta amarilla) se fue arriba
+  de todo y tapó el texto tachado; se vio en la captura.
 
 ## Piezas que guardó Martín para esta serie (19/11/2026)
 
