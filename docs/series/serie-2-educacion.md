@@ -215,6 +215,66 @@ el commit, la cosecha).
   versiones del programa (alta contra baja), «AGOBIO», la pregunta tachada contra la buena, y la igualdad final.
 - **Trampa de esta animación:** un bloque con `left/top` y sin `position:absolute` (la tarjeta amarilla) se fue arriba
   de todo y tapó el texto tachado; se vio en la captura.
+- **Lo que vio el MP4 a 1 cuadro por segundo (19/11, y no las capturas):** 1,9 s de pizarra vacía al arrancar la
+  escena 7 (de «Si eres coach» a «qué»: el panel entraba sin nada hasta la segunda frase) y 0,3 s de «la razón número
+  uno» encima de los bloques que se iban. Arreglo: «Si eres coach, / la pregunta no es:» arriba desde «si» (las mismas
+  palabras de la voz) y los bloques se van antes de que entre el texto. Se re-renderizó sólo el tramo 29-39 s.
+
+### 6. «Vergüenza de grabarte» (`edu-verguenza`) — tema 5 (el miedo a mostrarte), lo que promete el cierre del 5
+
+- **Qué enseña:** la vergüenza viene de lo que puede decir gente que no te compra; quien te paga no dice eso. La crítica
+  llega igual si no haces nada; sólo grabando ayudas a alguien.
+- **Gancho:** «Una mujer factura un millón de dólares por año vendiéndoles a jefes de bomberos. Y le daba vergüenza
+  grabarse.» Una persona real, una cifra grande y un miedo que choca con la cifra.
+- **El dato (transcripción leída):** Hormozi, «The Criticism Is a Fixed Cost Either Way»,
+  https://www.youtube.com/watch?v=1UhIosOiM0E, 199.835 vistas al 19/11/2026. Su pregunta: «¿alguno de los que te
+  compraron te dijo eso?» — ninguno; lo que pesaba eran un par de comentarios de terceros. Hormozi cierra con «una opción
+  cambia vidas» (ella vende algo que salva vidas): acá queda «ayudas a alguien», que sirve para cualquier negocio.
+- **Guion:** `voz/guion-edu-verguenza.json`, 143 palabras. La toma salió a 48,0 s y se aceleró un 5 % (`atempo`):
+  45,8 s de voz, 3,1 palabras por segundo; los originales en `voz/*-lento.*`.
+- **Formato:** el gancho con contador y sello rojo, el miedo en un globo, la pregunta en tarjeta amarilla, «NINGUNO» con
+  la columna verde de lo que le pagaban contra 3 globos «Nunca le compraría», el video de Hormozi, las dos tarjetas
+  «Si no haces nada / Si haces algo» con «Te critican» en las dos y «Ayudas a alguien» sólo en la segunda, la misma
+  pregunta para quien mira, y «Graba para quien te paga» con «no para quien comenta» tachado.
+- **Antes de capturar, en el código:** los dos títulos del panel 6 («Y le dijo:» → «La crítica llega igual.») se
+  cruzaban en el mismo lugar, la falla que el MP4 del 5 mostró; ahora uno se va y después entra el otro.
+
+### 7. «Cobrar más por lo mismo» (`edu-cobrar-mas`) — tema 6 (cobrar más), lo que promete el cierre del 6
+
+- **Qué enseña:** subir el precio no pide cambiar el servicio; pide decirlo. A los de siempre, un mensaje que les
+  respeta el precio si compran ahora; a los nuevos, el precio nuevo.
+- **Gancho:** «Un negocio que instala luces de Navidad facturó cuatrocientos cincuenta mil dólares el año pasado.» Un
+  rubro que se ve en un segundo (la guirnalda que se enciende) y una cifra.
+- **El dato (transcripción leída):** Hormozi, «"How Do I Raise My Prices?"», https://www.youtube.com/watch?v=nZ0flY52BCM,
+  1.811.091 vistas al 19/11/2026. «¿Qué te impide decir un precio más alto?» — «supongo que nada». Hormozi propone un
+  precio nuevo pero no dice el viejo: en pantalla no hay precios inventados. Su broma («todos estos locos nuevos que nos
+  quieren dar plata») queda en «los nuevos».
+- **Guion:** `voz/guion-edu-cobrar-mas.json`, 135 palabras. La toma salió a 45,1 s y se aceleró un 4 %: 43,4 s de voz,
+  3,1 palabras por segundo.
+- **Formato:** la guirnalda de 9 focos y el contador, la etiqueta que se balancea «lo mismo que hace dos años», la
+  pregunta en globo, la contrapregunta en amarillo y «Supongo que nada.», el video de Hormozi, el mensaje en tres globos
+  de chat al ritmo de la voz, y «MANDA ESE MENSAJE HOY».
+- **El cierre promete el 8:** «por qué tu primer anuncio no vendió nada» (tema 7; la investigación está en
+  `docs/series/serie-2-afuera/anuncios-creativo.md`).
+
+### 8. «Tu primer anuncio» (`edu-anuncio-prueba`) — tema 7 (el creativo de los anuncios), lo que promete el cierre del 7
+
+- **Qué enseña:** un anuncio vende cuando muestra que ya funcionó (prueba); el que dice quién eres, qué haces y
+  «escríbeme» está con el 80 % que no vende. Si no vendió, el problema no era el público.
+- **Gancho:** «Hormozi revisó dos mil anuncios. De los cincuenta que más vendieron, cuarenta tenían una sola cosa.» El
+  gancho del viral (dos cifras y una conclusión en 5 s), con la conclusión guardada para el segundo 7.
+- **El dato (transcripción leída):** Hormozi, «I Analyzed 2,000 Ads (Here's My Biggest Learning)»,
+  https://www.youtube.com/watch?v=9XIgalr9aWY, 352.847 vistas al 19/11/2026: de los 50 mejores, 40 eran prueba y 10
+  educativos («una aproximación de la prueba»); de los 2.000, el 80 % no era prueba; «más anuncios de prueba». Qué es
+  «prueba» Hormozi no lo dice: los tres ejemplos (alguien que compró contando qué le pasó, la captura de un resultado, un
+  antes y un después) son explicación nuestra.
+- **Guion:** `voz/guion-edu-anuncio-prueba.json`, 136 palabras. La toma salió a 2,82 palabras por segundo; con ×1,10 el
+  chequeo oyó «Jord Mozi» las dos veces, con ×1,06 la oyó entera: 45,8 s de voz, 3,0 palabras por segundo.
+- **Formato:** el contador de 2.000, la grilla de los 50 mejores con 40 que se encienden, «PRUEBA» con tres tarjetas,
+  los otros 10 que también se encienden, 8 de 10 tachados, el video de Hormozi, el primer anuncio dibujado con el sello
+  «8 de cada 10», la conclusión, «No era el público» tachado y la tarjeta «Pon a un cliente contando su resultado».
+- **El cierre promete el 9:** «qué vende en Instagram, y no son los reels» (tema 8, las historias; la investigación
+  está en `docs/series/serie-2-afuera/historias-que-venden.md`).
 
 ## Piezas que guardó Martín para esta serie (19/11/2026)
 
