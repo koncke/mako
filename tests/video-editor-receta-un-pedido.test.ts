@@ -143,7 +143,8 @@ test('R6: la Edición automática sigue la receta: la pausa, sin subtítulos si 
   assert.equal(decidirPaso('subtitulos', estado(0), recetaDe('novato-experto')!.editor!).hace, false);
   const correr = sinComentarios(leer('app/video-editor/_opencut/enjambre/correr.ts'));
   assert.match(correr, /const recetaDelProyecto = recetaDelHilo\(leerHilo\(proyecto\.metadata\.id\)\.mensajes\);/);
-  assert.match(correr, /const decision = decidirPaso\(paso\.id, antes\.estado, ctx\.receta\);/);
+  // La receta llega a cada paso. Desde el ticket 99 va también si subs-01 no reconoció una voz (tests/video-editor-enjambre.test.ts, 22).
+  assert.match(correr, /const decision = decidirPaso\(paso\.id, antes\.estado, ctx\.receta, \{ vozNoReconocida: ctx\.vozNoReconocida \}\);/);
   // El estilo de la receta, sin probar otros; y con receta, aunque la persona tenga otra plantilla para todos.
   assert.match(correr, /if \(ctx\.receta\?\.subtitulos\) \{\s*const plantilla = plantillaPorId\(ctx\.receta\.subtitulos\);\s*await aplicarEstiloASubtitulos\(/);
   assert.match(correr, /const estiloLibre = subtitulosNuevos && \(!!receta\?\.subtitulos \|\| usePreferenciasSubtitulos\.getState\(\)\.plantilla === PLANTILLA_POR_DEFECTO\.id\);/);

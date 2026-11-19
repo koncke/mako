@@ -22,7 +22,7 @@ node motor/hacer.mjs crm cuadros   # + la pestaña capturada y una hoja de cuadr
 node motor/hoja-pantallas.mjs trabajo/hoja.jpg crm plan   # sólo los cuadros de pantalla de varios, en una hoja
 node motor/hacer.mjs crm video     # el render (1080p a OneDrive) + el 720p de public/tutoriales y el manifiesto
 node motor/hacer.mjs crm web       # sólo rehace el 720p desde el 1080p ya renderizado
-node motor/pagina.mjs              # la página de revisión (artefacto) con los mismos 720p
+PUB=<scratchpad>/pub-tutoriales node motor/pagina.mjs   # la galería (artefacto) con los mismos 720p; la publica cada cuenta
 node motor/subir.mjs "<mensaje>" crm plan   # commit por ruta en C:/dev/wt-tutoriales-videos → punta/tutoriales-videos
 ```
 
@@ -38,6 +38,9 @@ node motor/subir.mjs "<mensaje>" crm plan   # commit por ruta en C:/dev/wt-tutor
   nombres y pueden partirse entre ellos. Una cita («lo que tengo…») y más de 5 palabras no se unen. El costo: en la columna del
   costado, un nombre largo («Verificación en 2 pasos», «Cuéntale a MaKo qué pasó») baja la letra para entrar en el ancho, y en el
   centro el texto puede ocupar una línea más con la letra del mismo tamaño.
+- **La fuente de los guiones es `C:/dev/tutoriales-video/guiones.json`:** `subir.mjs` la copia a `scripts/tutorial-animado/` en
+  cada subida, así que la del repo no se edita a mano. Los números van en letras («tres mil dólares»); `numeros.mjs` compara la voz
+  con el guion pasando los dos lados a cifras, porque el transcriptor a veces escribe «$3,000».
 - **De a uno:** cada render abre un Chromium. La PC tiene 16 GB y suele haber otros chats construyendo.
 
 ## `vsl-julio/`

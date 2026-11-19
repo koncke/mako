@@ -549,7 +549,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'edicion_automatica',
     forma: '{"op":"edicion_automatica"}',
-    para: 'Edición automática con un equipo de agentes, de una y a la vista: quita pausas, subtitula si falta, saca muletillas, resalta lo que pesa en lima, propone fotos de apoyo y acercamientos, limpia la voz, deja el volumen a −14 LUFS y revisa al final. Úsala cuando pidan editarlo todo o dejarlo listo de una. Cada agente sin nada que hacer se saltea. Va SOLA y se aplica al final.',
+    para: 'Edición automática con un equipo de agentes, de una y a la vista: quita pausas, subtitula si falta, saca muletillas, resalta lo que pesa en lima, propone fotos de apoyo y acercamientos, limpia la voz, deja el volumen a −14 LUFS y revisa al final. Úsala cuando pidan editarlo todo o dejarlo listo de una. Cada agente sin nada que hacer se saltea. Va SOLA y se aplica al final. Trabaja sobre lo que se DICE: en un video sin voz (sin audio, o sólo música, pasos o ambiente) no hace nada, así que ahí no la uses: haz lo que pidieron con las demás operaciones (textos, música, velocidad, transiciones).',
   },
   {
     op: 'emojis_subtitulos',
