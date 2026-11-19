@@ -7,37 +7,58 @@
    "ruta": "/onboarding",
    "archivo": "/tutoriales/onboarding-bienvenida.mp4",
    "poster": "/tutoriales/onboarding-bienvenida.jpg",
-   "duracion_s": 21.2,
-   "peso_kb": 1206,
-   "guion": "¡Hola! Soy Martín, el creador de MaKo. Bueno, mi versión en cubos. Te doy la bienvenida a MaKo: desde hoy tienes un equipo entero trabajando para tu negocio. Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho. Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
+   "duracion_s": 39.83,
+   "peso_kb": 1403,
+   "guion": "¡Hola! Soy Martín, el creador de MaKo. Bueno, mi versión en cubos. Te doy la bienvenida a MaKo: desde hoy tienes un equipo entero trabajando para tu negocio. Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho. Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video. Una de ellas es tu WhatsApp: es por donde MaKo te manda avances sobre tu negocio. Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito. MaKo te contesta con un código, y lo pegas en el chat. Y guarda el contacto de MaKo en tu teléfono: así esos avances siempre te llegan.",
    "frases": [
     {
      "id": "onboarding-bienvenida-1",
      "rol": "gancho",
      "texto": "¡Hola! Soy Martín, el creador de MaKo. Bueno, mi versión en cubos.",
      "t_inicio": 0.04,
-     "t_fin": 4.24
+     "t_fin": 4.34
     },
     {
      "id": "onboarding-bienvenida-2",
      "rol": "que-es",
      "texto": "Te doy la bienvenida a MaKo: desde hoy tienes un equipo entero trabajando para tu negocio.",
-     "t_inicio": 4.76,
-     "t_fin": 9.78
+     "t_inicio": 4.88,
+     "t_fin": 9.96
     },
     {
      "id": "onboarding-bienvenida-3",
      "rol": "cosa",
      "texto": "Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho.",
-     "t_inicio": 10.38,
-     "t_fin": 15
+     "t_inicio": 10.52,
+     "t_fin": 15.34
     },
     {
      "id": "onboarding-bienvenida-4",
-     "rol": "cierre",
+     "rol": "cosa",
      "texto": "Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
-     "t_inicio": 15.48,
-     "t_fin": 20.52,
+     "t_inicio": 15.86,
+     "t_fin": 20.9
+    },
+    {
+     "id": "onboarding-bienvenida-5",
+     "rol": "cosa",
+     "texto": "Una de ellas es tu WhatsApp: es por donde MaKo te manda avances sobre tu negocio.",
+     "t_inicio": 21.58,
+     "t_fin": 25.88
+    },
+    {
+     "id": "onboarding-bienvenida-6",
+     "rol": "cosa",
+     "texto": "Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito. MaKo te contesta con un código, y lo pegas en el chat.",
+     "t_inicio": 26.38,
+     "t_fin": 34.12
+    },
+    {
+     "id": "onboarding-bienvenida-7",
+     "rol": "cierre",
+     "texto": "Y guarda el contacto de MaKo en tu teléfono: así esos avances siempre te llegan.",
+     "t_inicio": 34.7,
+     "t_fin": 39.14,
      "espera_clic": false
     }
    ],
@@ -46,7 +67,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "7 → siete (ortografía del transcriptor)",
-   "hecho": "2026-11-18T13:40:43.218Z"
+   "hecho": "2026-11-19T22:38:44.226Z"
   },
   {
    "key": "onboarding-whatsapp",

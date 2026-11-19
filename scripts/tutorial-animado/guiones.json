@@ -22,6 +22,18 @@
    },
    {
     "dice": "Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Una de ellas es tu WhatsApp: es por donde Máko te manda avances sobre tu negocio.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito. Máko te contesta con un código, y lo pegas en el chat.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y guarda el contacto de Máko en tu teléfono: así esos avances siempre te llegan.",
     "rol": "cierre"
    }
   ]
