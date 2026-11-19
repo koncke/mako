@@ -37,7 +37,7 @@ import { anularCobro, crearCobro, linkDelCobro, pasarelasConectadas } from './co
 import { leerCuentaMp } from './mercadopago-api';
 import { modoDeClaveStripe } from './stripe-api';
 import { modoDeClaveCreem } from './creem-api';
-import { COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tipos';
+import { CAPACIDADES_PASARELA, COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tipos';
 import { CLAVE_PLANES, conceptoDelPlan, planConPrueba, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, precioEnPesos, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
@@ -531,7 +531,7 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
  * nueva atada a SU negocio (`alta_ws`, sin `alta_capa`: no crea otra cuenta). Con deuda, primero la deuda
  * (lib/plan-deuda.ts): quien llama lo decide con `pagarDeuda`.
  */
-export async function reactivarPlan(ws: number, p: { email: string; nombre: string | null; pais?: string | null }): Promise<ResultadoCompra> {
+export async function reactivarPlan(ws: number, p: { email: string; nombre: string | null; pais?: string | null }, o: { inicioAt?: string | null } = {}): Promise<ResultadoCompra> {
   const plataforma = await wsSuperAdmin();
   if (ws === plataforma) return { ok: false, status: 400, error: 'La cuenta de MaKo no tiene plan.' };
   const db = getSupabaseServer();
@@ -541,8 +541,9 @@ export async function reactivarPlan(ws: number, p: { email: string; nombre: stri
   const cobros = (data ?? []).map((x) => cobroDeFila(x as Record<string, unknown>));
   // La base es la ÚLTIMA SUSCRIPCIÓN (revisión del 23/10, alta 7): un cobro único de deuda tiene N meses de precio y otro concepto.
   const base = cobros.find((c) => c.tipo === 'suscripcion' && (c.estado === 'pagado' || c.estado === 'reembolsado'));
-  // Nunca tuvo un plan PROPIO (la pagaba su agencia, que la dio de baja: lib/agencia-baja.ts): se le abre, con su plan de hoy.
-  if (!base) return primerPlanPropio(ws, p, cobros);
+  // Nunca tuvo un plan PROPIO (la pagaba su agencia, que la dio de baja: lib/agencia-baja.ts; o era un negocio cargado a mano al que Martín le
+  // apagó «Habilitado sin cobro», lib/cuenta-sin-cobro.ts): se le abre, con su plan de hoy. `inicioAt`: el fin de su prueba (el primer cobro ese día).
+  if (!base) return primerPlanPropio(ws, p, cobros, o.inicioAt ?? null);
   if (!base.lead_id) return { ok: false, status: 404, error: 'Tu plan no se cobra en línea: escríbenos y lo reactivamos.' };
   // Una suscripción que la pasarela SIGUE cobrando no se duplica: sería cobrar dos veces el mismo mes.
   if (cobros.some((c) => c.tipo === 'suscripcion' && (c.estado === 'pagado' || c.estado === 'reembolsado') && c.suscripcion_estado !== 'cancelada')) {
@@ -598,7 +599,7 @@ export async function planesParaLanding(): Promise<Array<Pick<PlanMako, 'id' | '
  * no Essential), con la pasarela con que la cobraba su agencia si sigue conectada y tiene precio en esa moneda (si no, la que
  * sirva). El cobro es de SU ficha en el CRM de MaKo (por su email, nunca la de la agencia) y nace atado a su negocio.
  */
-async function primerPlanPropio(ws: number, p: { email: string; nombre: string | null; pais?: string | null }, propios: readonly Cobro[]): Promise<ResultadoCompra> {
+async function primerPlanPropio(ws: number, p: { email: string; nombre: string | null; pais?: string | null }, propios: readonly Cobro[], inicioAt: string | null = null): Promise<ResultadoCompra> {
   const plataforma = await wsSuperAdmin();
   const db = getSupabaseServer();
   // Sólo la cuenta que ya NO tiene agencia (revisión de plata, hallazgo 7): con la agencia pagándola, un plan propio la
@@ -631,9 +632,11 @@ async function primerPlanPropio(ws: number, p: { email: string; nombre: string |
       console.error(`[compra-plan] primer plan propio ws=${ws}: no pude crear su ficha:`, e instanceof Error ? e.message : String(e));
       return { ok: false, status: 503, error: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' };
     }
+    // El primer cobro el día que termina su prueba, donde la pasarela lo deja (el `start_date` de Mercado Pago); en las otras, desde hoy.
+    const diferido = inicioAt && Date.parse(inicioAt) > Date.now() + 3_600_000 && CAPACIDADES_PASARELA[via.pasarela]?.difiereElPrimerCobro ? inicioAt : null;
     const r = await crearCobro(plataforma, {
       leadId: lead.leadId, pasarela: via.pasarela, tipo: 'suscripcion', concepto: conceptoDelPlan(plan),
-      monto: via.monto, moneda: via.moneda, montoUsd: plan.precioUsd, email: p.email, nombre, creadoPor: `reactivar:${ws}`,
+      monto: via.monto, moneda: via.moneda, montoUsd: plan.precioUsd, email: p.email, nombre, creadoPor: `reactivar:${ws}`, inicioAt: diferido,
     });
     if (!r.ok) { console.error(`[compra-plan] primer plan propio ws=${ws}: ${r.error}`); return { ok: false, status: 502, error: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' }; }
     // ⚠️ ATADO A SU NEGOCIO ANTES DE DEVOLVER EL LINK: sin `alta_ws` el pago no le devolvería el acceso.

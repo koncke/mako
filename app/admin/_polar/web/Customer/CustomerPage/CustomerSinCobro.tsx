@@ -7,7 +7,7 @@ import { Alert, Text } from '@/app/admin/_polar/orbit'
 import { Switch } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { ConfirmModal } from '@/app/admin/_polar/web/Modal/ConfirmModal'
-import { TEXTO_CONFIRMAR_APAGAR, TEXTO_SIN_COBRO, habilitadoSinCobro, type SinCobro } from '@/lib/cuenta-sin-cobro-reglas'
+import { TEXTO_CONFIRMAR_APAGAR, TEXTO_SIN_COBRO, habilitadoSinCobro, textoDelApagado, type SinCobro } from '@/lib/cuenta-sin-cobro-reglas'
 import { useState } from 'react'
 
 export type PonerSinCobro = (ws: number, activo: boolean) => Promise<{ ok: true; sinCobro: SinCobro } | { ok: false; error: string }>
@@ -35,7 +35,7 @@ export const CustomerSinCobro = ({ ws, inicial, poner }: { ws: number; inicial: 
         <Box flexDirection="column" rowGap="xs">
           <Text>Habilitado sin cobro</Text>
           <Text variant="caption" color="muted">
-            {prendido ? TEXTO_SIN_COBRO : estado ? 'Apagado: sigue el circuito normal (prueba y después el cobro de su plan).' : 'Sin tocar: como hasta hoy.'}
+            {prendido ? TEXTO_SIN_COBRO : estado ? textoDelApagado(estado) : 'Sin tocar: como hasta hoy.'}
           </Text>
         </Box>
         <Switch

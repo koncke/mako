@@ -9,8 +9,13 @@
 //     prueba). No se pausa ni se borra nada en el acto.
 //   · SIN REGISTRO: nunca se tocó el interruptor: como hoy (el negocio no se cobra por esta vía) y sin chip.
 // ⚠️ LO ESCRIBE SÓLO MARTÍN AL TOCAR EL INTERRUPTOR (`ponerSinCobroAction`, la acción pide el super admin en su primera línea): ningún código
-// cambia ninguna cuenta solo. ⚠️ HOY EL INTERRUPTOR SÓLO REGISTRA LA DECISIÓN (con quién y cuándo); abrir la prueba y el cobro de ese negocio
-// (una prueba necesita su tarjeta: el link de lib/compra-plan.ts `reactivarPlan`) es el paso siguiente y todavía no está conectado.
+// cambia el interruptor solo.
+// APAGADO = LA PRUEBA DE SIEMPRE, CONECTADA (19/11/2026, chat de Cobros): desde que Martín lo apaga corren 7 días de prueba (`finDeLaPruebaSinCobro`).
+//   · En la app, el aviso de la esquina dice «Tu prueba termina el DD/MM · Elegir mi plan» (app/_components/AvisoMoraPlan.tsx): carga su tarjeta y,
+//     donde la pasarela lo deja (Mercado Pago), el primer cobro es el día que termina la prueba (`reactivarPlan` con `inicioAt`, lib/compra-plan.ts).
+//   · Terminada la prueba sin un plan suyo (pagado, o autorizado y esperando su primer cobro), la cuenta se PAUSA con el corte `prueba-terminada`
+//     (lib/plan-acceso-reglas.ts): /cuenta-pausada le ofrece activar su plan, y con el plan vuelve a entrar. Vale aunque el corte general esté apagado.
+//   · Si Martín lo vuelve a PRENDER, la pausa de este corte se levanta (`pasoSinCobro`). Lo corre el cron de cobros cada media hora y el interruptor.
 // Puro: sin base ni red. Lo prueba tests/cuenta-sin-cobro.test.ts.
 // =============================================================================
 
@@ -32,7 +37,50 @@ export function sinCobroDeSetting(crudo: string | null | undefined): SinCobro | 
 /** ¿Está marcado «Habilitado sin cobro»? Sólo con el interruptor prendido a propósito. */
 export const habilitadoSinCobro = (s: SinCobro | null | undefined): boolean => s?.activo === true;
 
-/** Lo que pide el cartel antes de APAGAR (una línea, tal cual lo dijo el Cerebro). */
-export const TEXTO_CONFIRMAR_APAGAR = 'Este negocio pasa al circuito normal: 7 días de prueba y después el cobro de su plan.';
+/** Lo que pide el cartel antes de APAGAR. */
+export const TEXTO_CONFIRMAR_APAGAR = 'Este negocio pasa al circuito normal: 7 días de prueba y después el cobro de su plan. Si en esos 7 días no carga su tarjeta, su cuenta se pausa hasta que pague.';
 export const TEXTO_SIN_COBRO = 'Habilitado sin cobro: cargado a mano, sin prueba ni cobro.';
 export const CHIP_SIN_COBRO = 'Sin cobro';
+
+// ── Apagado: la prueba y la pausa (19/11/2026) ─────────────────────────────────────────────────────────────────
+
+/** Días de prueba desde que se apaga (los de cualquier alta: `PRUEBA_DIAS` de lib/planes-mako.ts; un test los ata). */
+export const DIAS_DE_PRUEBA_SIN_COBRO = 7;
+
+/** Cuándo termina la prueba de un negocio con el interruptor APAGADO (ISO); null si está prendido, nunca se tocó, o no se sabe desde cuándo. */
+export function finDeLaPruebaSinCobro(s: SinCobro | null | undefined): string | null {
+  if (!s || s.activo !== false || !s.at) return null;
+  const t = Date.parse(s.at);
+  return Number.isFinite(t) ? new Date(t + DIAS_DE_PRUEBA_SIN_COBRO * 86_400_000).toISOString() : null;
+}
+
+/** El motivo del corte de esta pausa (lib/plan-acceso-reglas.ts, `MotivoCorte`). */
+export const MOTIVO_PRUEBA_TERMINADA = 'prueba-terminada' as const;
+
+export type PasoSinCobro = { tipo: 'nada' } | { tipo: 'pausar'; hasta: string } | { tipo: 'reabrir' };
+
+/**
+ * Qué hacer con un negocio según su interruptor. `plan`: tiene un plan de MaKo suyo (pagado, o autorizado y esperando su primer cobro);
+ * `undefined` = no se pudo leer (entonces NUNCA se pausa). `corteNuestro`: está pausado por ESTE corte (`prueba-terminada`, vigente).
+ *   · prendido o nunca tocado → si lo pausó este corte, se reabre (Martín lo volvió a habilitar); si no, nada;
+ *   · apagado con plan → si lo pausó este corte, se reabre; si no, nada;
+ *   · apagado, sin plan, terminada la prueba y activo → se pausa. Pausado por otra cosa (a mano, la mensualidad) no se toca.
+ */
+export function pasoSinCobro(p: { sinCobro: SinCobro | null; plan: boolean | undefined; estado: string | null; corteNuestro: boolean; ahora: number }): PasoSinCobro {
+  const fin = finDeLaPruebaSinCobro(p.sinCobro);
+  if (!fin) return p.corteNuestro && p.estado === 'pausado' ? { tipo: 'reabrir' } : { tipo: 'nada' };
+  if (p.plan === true) return p.corteNuestro && p.estado === 'pausado' ? { tipo: 'reabrir' } : { tipo: 'nada' };
+  if (p.plan === undefined) return { tipo: 'nada' };
+  if (p.estado === 'activo' && p.ahora >= Date.parse(fin)) return { tipo: 'pausar', hasta: fin };
+  return { tipo: 'nada' };
+}
+
+/** Lo que dice la ficha con el interruptor apagado: hasta cuándo es la prueba. */
+export function textoDelApagado(s: SinCobro | null, ahora: number = Date.now()): string {
+  const fin = finDeLaPruebaSinCobro(s);
+  if (!fin) return 'Apagado: sigue el circuito normal (prueba y después el cobro de su plan).';
+  const dia = `${fin.slice(8, 10)}/${fin.slice(5, 7)}`;
+  return Date.parse(fin) > ahora
+    ? `Apagado: está en su prueba hasta el ${dia}. Si no carga su tarjeta, ese día se pausa.`
+    : `Apagado: su prueba terminó el ${dia}. Sin su plan, la cuenta queda en pausa hasta que pague.`;
+}

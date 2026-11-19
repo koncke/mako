@@ -371,6 +371,9 @@ export const negocioPausado = cache(async (ws: number): Promise<boolean> => {
   // «Paga para entrar» (6/11/2026, la mensualidad de una agencia, lib/agencia-mes.ts): vale aunque el corte general esté
   // apagado. Lo pone y lo saca la mensualidad: con el pago, vuelve a entrar sola.
   if (corte?.motivo === 'paga-para-entrar' && corte.vigente) return true;
+  // «Prueba terminada» (19/11/2026, lib/cuenta-sin-cobro.ts): el negocio cargado a mano al que Martín le apagó «Habilitado sin cobro» y no activó
+  // su plan en sus 7 días. Vale aunque el corte general esté apagado; con su plan (o si Martín lo vuelve a prender) se reabre solo.
+  if (corte?.motivo === 'prueba-terminada' && corte.vigente) return true;
   return CORTE_DE_ACCESO_PRENDIDO;
 });
 
