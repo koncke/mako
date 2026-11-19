@@ -275,6 +275,125 @@
   ]
  },
  {
+  "id": "offer-coach-clase",
+  "pestana": "Offer Coach · La clase de la oferta",
+  "ruta": "/second-brain",
+  "icono": "lucide:tag",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "clase": true,
+  "pasos": [
+   {
+    "dice": "¿Por qué hay negocios que cobran 3.000 dólares, y otros no logran vender algo de 100?",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida a esta clase de Offer Coach: en tres minutos vas a ver qué es una oferta, por qué pesa tanto y cómo te deja vender high ticket.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Primero, lo que no es. Una oferta no es un descuento, ni es tu precio.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Es todo lo que prometes y entregas: el resultado, cómo se llega, en cuánto tiempo, y qué pasa si no funciona.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y va primero, porque todo lo demás la amplifica.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Un anuncio, un video, una llamada de venta: todos muestran tu oferta.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Si es floja, un buen anuncio sólo te trae más gente que te dice que no.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Mira una mentoría para agencias de 3.000 dólares, dicha de dos formas.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Una: «Doce sesiones conmigo».",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Otra: «Tus tres primeros clientes en noventa días, con los guiones listos, y yo reviso cada llamada».",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Entregas casi lo mismo. Pero la segunda vende el resultado, no tus horas.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "El valor de una oferta se mide con cuatro preguntas.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Qué tan grande es el resultado, y cuánta seguridad tiene tu cliente de lograrlo.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Cuánto esfuerzo le pide, y cuánto tiempo tiene que esperar.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Para que valga más, subes las dos primeras y bajas las dos últimas.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y la seguridad es lo que más se paga: por eso una garantía clara vende tanto.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Ahora, ¿por qué esto te deja vender high ticket? Haz la cuenta.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Para facturar 12.000 dólares al mes con algo de 100 dólares, necesitas 120 ventas.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Con una oferta de 3.000, te alcanzan cuatro.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y cuatro clientes se consiguen conversando, sin miles de seguidores.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Además, lo que ganas de más paga tus anuncios: puedes invertir más por cliente que tu competencia.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "¿Te da miedo cobrar caro? Le pasa a casi todo el mundo.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Pero si bajas el precio, te llega gente que regatea. Mejor, sube el valor.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Nadie te paga por tus horas: te pagan la seguridad de llegar al resultado.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Ahora mira tu oferta con estos ojos: si alguna de las cuatro preguntas queda floja, Offer Coach te ayuda a mejorarla.",
+    "rol": "cierre"
+   },
+   {
+    "dice": "Mira aquí, la caja del chat: dile qué quieres mejorar.",
+    "rol": "cierre",
+    "tipo": "mira",
+    "sel": "[data-recorrido=\"sb-escribir\"]"
+   }
+  ],
+  "fuente": "Los cursos de oferta de Knowledge (docs/reto-7-dias/guiones-coaches-v2.md, V3, con sus fuentes) y la cuenta del high ticket de docs/marketing-copilot/funnels/vsl-llamada.md. Offer Coach la manda después de entregar la oferta y su PDF."
+ },
+ {
   "id": "funnel-coach",
   "pestana": "Funnel Coach",
   "ruta": "/second-brain",
@@ -310,6 +429,352 @@
     "sel": "[data-recorrido=\"sb-escribir\"]"
    }
   ]
+ },
+ {
+  "id": "funnel-clase-anuncios",
+  "pestana": "Funnel Coach · Clase: Anuncios",
+  "ruta": "/second-brain",
+  "icono": "lucide:workflow",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "clase": true,
+  "pasos": [
+   {
+    "dice": "Un anuncio no vende solo: lleva a la gente a un lugar donde sí se vende.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida a la clase de Anuncios: pagas para que te vea quien todavía no te conoce.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "El anuncio le habla a un tipo de cliente con un problema, y lo lleva a tu página.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Ahí deja sus datos, agenda o compra, según lo que vendas.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "¿Cuándo te conviene? Cuando ya sabes que tu oferta se vende y quieres más gente, más rápido.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Arranca con poco y prueba varios ángulos: el mismo producto, contado de formas distintas.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Mira qué anuncio trae contactos más baratos, y pon el presupuesto ahí.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y que el anuncio diga lo mismo que la página: si no coinciden, la gente se va.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Funnel Coach te ayuda a armar el anuncio, la página y tu CRM con sus etapas.",
+    "rol": "cierre"
+   },
+   {
+    "dice": "Pídele el primer paso en el chat.",
+    "rol": "cierre"
+   }
+  ],
+  "fuente": "docs/marketing-copilot/funnels/ (el relevo de los cursos de Knowledge, en palabras nuestras). MaKo la manda cuando la persona elige ese funnel."
+ },
+ {
+  "id": "funnel-clase-organico",
+  "pestana": "Funnel Coach · Clase: Orgánico",
+  "ruta": "/second-brain",
+  "icono": "lucide:workflow",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "clase": true,
+  "pasos": [
+   {
+    "dice": "Puedes vender sin pagar un anuncio, si publicas con constancia.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida a la clase de Orgánico: publicas en Instagram, y quien te sigue te escribe.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Publicas reels, carruseles e historias sobre el problema que resuelves.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Quien se identifica comenta una palabra o te escribe, y ahí conversas.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y le vendes por mensaje, o lo pasas a una llamada.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "¿Cuándo te conviene? Cuando no tienes presupuesto para anuncios, pero sí tiempo para publicar seguido.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "No hace falta una cuenta grande: hay quien vende con mil seguidores.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "La clave es la constancia: unas tres publicaciones por semana, durante meses.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y tener quién conteste: un buen reel puede traerte decenas de mensajes en un día.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Funnel Coach te ayuda a pensar qué publicar y cómo responder, y lo que entra queda en tu CRM.",
+    "rol": "cierre"
+   },
+   {
+    "dice": "Pídele el primer paso en el chat.",
+    "rol": "cierre"
+   }
+  ],
+  "fuente": "docs/marketing-copilot/funnels/ (el relevo de los cursos de Knowledge, en palabras nuestras). MaKo la manda cuando la persona elige ese funnel."
+ },
+ {
+  "id": "funnel-clase-youtube",
+  "pestana": "Funnel Coach · Clase: YouTube",
+  "ruta": "/second-brain",
+  "icono": "lucide:workflow",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "clase": true,
+  "pasos": [
+   {
+    "dice": "Un video de YouTube puede seguir trayéndote clientes meses después de subirlo.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida a la clase de YouTube: videos que responden lo que tu cliente busca antes de comprar.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Quien los mira te conoce, confía en tu forma de pensar y da un paso: se anota, agenda o compra.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "A diferencia de un reel, que dura un par de días, un video se sigue encontrando en el buscador.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "¿Cuándo te conviene? Cuando tu cliente investiga antes de comprar, y lo que vendes cuesta más.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "El video largo es el que mejor vende lo caro: explica y genera confianza.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Necesitas constancia: arrancar con varios videos hechos te ayuda a no frenar.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y no esperes clientes en una semana: es un activo que crece con el tiempo.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Funnel Coach te ayuda a elegir de qué hablar y a dónde llevar a quien te mira.",
+    "rol": "cierre"
+   },
+   {
+    "dice": "Pídele el primer paso en el chat.",
+    "rol": "cierre"
+   }
+  ],
+  "fuente": "docs/marketing-copilot/funnels/ (el relevo de los cursos de Knowledge, en palabras nuestras). MaKo la manda cuando la persona elige ese funnel."
+ },
+ {
+  "id": "funnel-clase-anuncios-a-whatsapp",
+  "pestana": "Funnel Coach · Clase: Anuncios a WhatsApp",
+  "ruta": "/second-brain",
+  "icono": "lucide:workflow",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "clase": true,
+  "pasos": [
+   {
+    "dice": "Si alguien te escribe por WhatsApp y tardas en contestar, se lo lleva otro.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida a la clase de Anuncios a WhatsApp: el anuncio abre un chat contigo, y vendes conversando.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Funciona así. La persona ve tu anuncio, con un botón que avisa que va a abrir WhatsApp.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Lo toca, y te llega su primer mensaje.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Conversas: descubres qué necesita y resuelves sus dudas.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y le vendes ahí mismo, o lo pasas a una llamada o a una visita.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "¿Cuándo te conviene? Cuando vendes a personas, a un precio medio, y la venta se da conversando.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Se arranca con poco: unos pocos dólares por día alcanzan para probar.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "La condición es contestar rápido, y seguir la conversación: a quien te escribió y no le haces seguimiento, lo pierdes.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Un buen número: de cada 100 conversaciones, entre 5 y 20 terminan en compra.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Funnel Coach te ayuda con el anuncio y con qué contestar, y en Chats, Máko te sugiere la respuesta.",
+    "rol": "cierre"
+   },
+   {
+    "dice": "Pídele el primer paso en el chat.",
+    "rol": "cierre"
+   }
+  ],
+  "fuente": "docs/marketing-copilot/funnels/ (el relevo de los cursos de Knowledge, en palabras nuestras). MaKo la manda cuando la persona elige ese funnel."
+ },
+ {
+  "id": "funnel-clase-anuncios-a-vsl",
+  "pestana": "Funnel Coach · Clase: Anuncios a VSL",
+  "ruta": "/second-brain",
+  "icono": "lucide:workflow",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "clase": true,
+  "pasos": [
+   {
+    "dice": "Si cobras 3.000 dólares o más, casi nadie te compra con un clic.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida a la clase de Anuncios a VSL: el funnel para vender caro en una llamada.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Funciona así. Un anuncio le habla a un tipo de cliente con un problema, y lo lleva a una página.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "En esa página hay un video corto que explica tu servicio: eso es la VSL.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Quien se convence contesta unas preguntas y agenda una llamada contigo.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y en esa llamada se cierra la venta.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "¿Cuándo te conviene? Cuando lo que vendes cuesta desde unos 3.000 dólares, alguien sabe cerrar por llamada, y tienes presupuesto para juntar llamadas.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Haz la cuenta: con 20 llamadas al mes, cerrando una de cada cinco, son cuatro ventas. A 3.000 dólares, 12.000 al mes.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Las preguntas antes de agendar filtran a los curiosos: su negocio, cuánto factura y qué quiere lograr.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y entre la agenda y la llamada, los recordatorios hacen que se presente.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Un aviso: si todavía no vendiste esa oferta, véndela primero a gente que ya te conoce, antes de pagar anuncios.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Funnel Coach te ayuda a armar cada pieza: el anuncio, la página, las preguntas y tu CRM con sus etapas.",
+    "rol": "cierre"
+   },
+   {
+    "dice": "Pídele el primer paso en el chat.",
+    "rol": "cierre"
+   }
+  ],
+  "fuente": "docs/marketing-copilot/funnels/ (el relevo de los cursos de Knowledge, en palabras nuestras). MaKo la manda cuando la persona elige ese funnel."
+ },
+ {
+  "id": "funnel-clase-prospeccion-en-frio",
+  "pestana": "Funnel Coach · Clase: Scraping y prospección en frío",
+  "ruta": "/second-brain",
+  "icono": "lucide:workflow",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "clase": true,
+  "pasos": [
+   {
+    "dice": "Si no quieres esperar a que te encuentren, sales a buscar a tus clientes.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida a la clase de Scraping y prospección en frío: armas una lista de negocios que encajan, y les escribes primero.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Primero, la lista: negocios o personas que tienen el problema que resuelves.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Después, un mensaje corto y personal: qué viste de su negocio y en qué lo puedes ayudar.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Quien responde, conversa contigo, y lo pasas a una llamada.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "¿Cuándo te conviene? Cuando vendes a empresas o a profesionales, y cada cliente vale mucho.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "No necesitas anuncios: necesitas constancia y un buen mensaje.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Escribe a pocos por día, y nunca el mismo texto a todos: así no te marcan como spam.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y no escribas por WhatsApp a quien nunca te escribió: es la forma más rápida de perder tu línea.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Funnel Coach te ayuda a definir a quién buscar y qué decirle, y cada respuesta queda en tu CRM.",
+    "rol": "cierre"
+   },
+   {
+    "dice": "Pídele el primer paso en el chat.",
+    "rol": "cierre"
+   }
+  ],
+  "fuente": "docs/marketing-copilot/funnels/ (el relevo de los cursos de Knowledge, en palabras nuestras). MaKo la manda cuando la persona elige ese funnel."
  },
  {
   "id": "reto-dia-1",

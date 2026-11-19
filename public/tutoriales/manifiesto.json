@@ -285,6 +285,209 @@
    "hecho": "2026-11-18T13:44:42.961Z"
   },
   {
+   "key": "offer-coach-clase",
+   "pestana": "Offer Coach · La clase de la oferta",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/offer-coach-clase.mp4",
+   "poster": "/tutoriales/offer-coach-clase.jpg",
+   "duracion_s": 124.1,
+   "peso_kb": 4734,
+   "guion": "¿Por qué hay negocios que cobran 3.000 dólares, y otros no logran vender algo de 100? Te doy la bienvenida a esta clase de Offer Coach: en tres minutos vas a ver qué es una oferta, por qué pesa tanto y cómo te deja vender high ticket. Primero, lo que no es. Una oferta no es un descuento, ni es tu precio. Es todo lo que prometes y entregas: el resultado, cómo se llega, en cuánto tiempo, y qué pasa si no funciona. Y va primero, porque todo lo demás la amplifica. Un anuncio, un video, una llamada de venta: todos muestran tu oferta. Si es floja, un buen anuncio sólo te trae más gente que te dice que no. Mira una mentoría para agencias de 3.000 dólares, dicha de dos formas. Una: «Doce sesiones conmigo». Otra: «Tus tres primeros clientes en noventa días, con los guiones listos, y yo reviso cada llamada». Entregas casi lo mismo. Pero la segunda vende el resultado, no tus horas. El valor de una oferta se mide con cuatro preguntas. Qué tan grande es el resultado, y cuánta seguridad tiene tu cliente de lograrlo. Cuánto esfuerzo le pide, y cuánto tiempo tiene que esperar. Para que valga más, subes las dos primeras y bajas las dos últimas. Y la seguridad es lo que más se paga: por eso una garantía clara vende tanto. Ahora, ¿por qué esto te deja vender high ticket? Haz la cuenta. Para facturar 12.000 dólares al mes con algo de 100 dólares, necesitas 120 ventas. Con una oferta de 3.000, te alcanzan cuatro. Y cuatro clientes se consiguen conversando, sin miles de seguidores. Además, lo que ganas de más paga tus anuncios: puedes invertir más por cliente que tu competencia. ¿Te da miedo cobrar caro? Le pasa a casi todo el mundo. Pero si bajas el precio, te llega gente que regatea. Mejor, sube el valor. Nadie te paga por tus horas: te pagan la seguridad de llegar al resultado. Ahora mira tu oferta con estos ojos: si alguna de las cuatro preguntas queda floja, Offer Coach te ayuda a mejorarla. Mira aquí, la caja del chat: dile qué quieres mejorar.",
+   "frases": [
+    {
+     "id": "offer-coach-clase-1",
+     "rol": "gancho",
+     "texto": "¿Por qué hay negocios que cobran 3.000 dólares, y otros no logran vender algo de 100?",
+     "t_inicio": 0.04,
+     "t_fin": 4.86
+    },
+    {
+     "id": "offer-coach-clase-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a esta clase de Offer Coach: en tres minutos vas a ver qué es una oferta, por qué pesa tanto y cómo te deja vender high ticket.",
+     "t_inicio": 5.48,
+     "t_fin": 14.52
+    },
+    {
+     "id": "offer-coach-clase-3",
+     "rol": "cosa",
+     "texto": "Primero, lo que no es. Una oferta no es un descuento, ni es tu precio.",
+     "t_inicio": 15.02,
+     "t_fin": 19.82
+    },
+    {
+     "id": "offer-coach-clase-4",
+     "rol": "cosa",
+     "texto": "Es todo lo que prometes y entregas: el resultado, cómo se llega, en cuánto tiempo, y qué pasa si no funciona.",
+     "t_inicio": 20.22,
+     "t_fin": 27.5
+    },
+    {
+     "id": "offer-coach-clase-5",
+     "rol": "cosa",
+     "texto": "Y va primero, porque todo lo demás la amplifica.",
+     "t_inicio": 27.96,
+     "t_fin": 30.64
+    },
+    {
+     "id": "offer-coach-clase-6",
+     "rol": "cosa",
+     "texto": "Un anuncio, un video, una llamada de venta: todos muestran tu oferta.",
+     "t_inicio": 31.04,
+     "t_fin": 35.46
+    },
+    {
+     "id": "offer-coach-clase-7",
+     "rol": "cosa",
+     "texto": "Si es floja, un buen anuncio sólo te trae más gente que te dice que no.",
+     "t_inicio": 35.88,
+     "t_fin": 39.66
+    },
+    {
+     "id": "offer-coach-clase-8",
+     "rol": "cosa",
+     "texto": "Mira una mentoría para agencias de 3.000 dólares, dicha de dos formas.",
+     "t_inicio": 40.18,
+     "t_fin": 43.9
+    },
+    {
+     "id": "offer-coach-clase-9",
+     "rol": "cosa",
+     "texto": "Una: «Doce sesiones conmigo».",
+     "t_inicio": 44.38,
+     "t_fin": 46.12
+    },
+    {
+     "id": "offer-coach-clase-10",
+     "rol": "cosa",
+     "texto": "Otra: «Tus tres primeros clientes en noventa días, con los guiones listos, y yo reviso cada llamada».",
+     "t_inicio": 46.62,
+     "t_fin": 52.3
+    },
+    {
+     "id": "offer-coach-clase-11",
+     "rol": "cosa",
+     "texto": "Entregas casi lo mismo. Pero la segunda vende el resultado, no tus horas.",
+     "t_inicio": 52.82,
+     "t_fin": 57.44
+    },
+    {
+     "id": "offer-coach-clase-12",
+     "rol": "cosa",
+     "texto": "El valor de una oferta se mide con cuatro preguntas.",
+     "t_inicio": 57.96,
+     "t_fin": 60.54
+    },
+    {
+     "id": "offer-coach-clase-13",
+     "rol": "cosa",
+     "texto": "Qué tan grande es el resultado, y cuánta seguridad tiene tu cliente de lograrlo.",
+     "t_inicio": 61,
+     "t_fin": 65.36
+    },
+    {
+     "id": "offer-coach-clase-14",
+     "rol": "cosa",
+     "texto": "Cuánto esfuerzo le pide, y cuánto tiempo tiene que esperar.",
+     "t_inicio": 65.84,
+     "t_fin": 68.92
+    },
+    {
+     "id": "offer-coach-clase-15",
+     "rol": "cosa",
+     "texto": "Para que valga más, subes las dos primeras y bajas las dos últimas.",
+     "t_inicio": 69.38,
+     "t_fin": 73.1
+    },
+    {
+     "id": "offer-coach-clase-16",
+     "rol": "cosa",
+     "texto": "Y la seguridad es lo que más se paga: por eso una garantía clara vende tanto.",
+     "t_inicio": 73.54,
+     "t_fin": 78.18
+    },
+    {
+     "id": "offer-coach-clase-17",
+     "rol": "cosa",
+     "texto": "Ahora, ¿por qué esto te deja vender high ticket? Haz la cuenta.",
+     "t_inicio": 78.7,
+     "t_fin": 82.34
+    },
+    {
+     "id": "offer-coach-clase-18",
+     "rol": "cosa",
+     "texto": "Para facturar 12.000 dólares al mes con algo de 100 dólares, necesitas 120 ventas.",
+     "t_inicio": 82.74,
+     "t_fin": 87.88
+    },
+    {
+     "id": "offer-coach-clase-19",
+     "rol": "cosa",
+     "texto": "Con una oferta de 3.000, te alcanzan cuatro.",
+     "t_inicio": 88.32,
+     "t_fin": 90.64
+    },
+    {
+     "id": "offer-coach-clase-20",
+     "rol": "cosa",
+     "texto": "Y cuatro clientes se consiguen conversando, sin miles de seguidores.",
+     "t_inicio": 91.06,
+     "t_fin": 94.74
+    },
+    {
+     "id": "offer-coach-clase-21",
+     "rol": "cosa",
+     "texto": "Además, lo que ganas de más paga tus anuncios: puedes invertir más por cliente que tu competencia.",
+     "t_inicio": 95.24,
+     "t_fin": 100.5
+    },
+    {
+     "id": "offer-coach-clase-22",
+     "rol": "cosa",
+     "texto": "¿Te da miedo cobrar caro? Le pasa a casi todo el mundo.",
+     "t_inicio": 100.94,
+     "t_fin": 104.16
+    },
+    {
+     "id": "offer-coach-clase-23",
+     "rol": "cosa",
+     "texto": "Pero si bajas el precio, te llega gente que regatea. Mejor, sube el valor.",
+     "t_inicio": 104.4,
+     "t_fin": 108.72
+    },
+    {
+     "id": "offer-coach-clase-24",
+     "rol": "cosa",
+     "texto": "Nadie te paga por tus horas: te pagan la seguridad de llegar al resultado.",
+     "t_inicio": 109.2,
+     "t_fin": 113.18
+    },
+    {
+     "id": "offer-coach-clase-25",
+     "rol": "cierre",
+     "texto": "Ahora mira tu oferta con estos ojos: si alguna de las cuatro preguntas queda floja, Offer Coach te ayuda a mejorarla.",
+     "t_inicio": 113.66,
+     "t_fin": 120.1,
+     "espera_clic": false
+    },
+    {
+     "id": "offer-coach-clase-26",
+     "rol": "cierre",
+     "texto": "Mira aquí, la caja del chat: dile qué quieres mejorar.",
+     "t_inicio": 120.48,
+     "t_fin": 123.42,
+     "sel": "[data-recorrido=\"sb-escribir\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "números dichos en palabras (3.000 → tres mil, 120 → ciento veinte, 100 → cien) y «$» por «dólares»: ortografía del transcriptor, revisado a mano",
+   "hecho": "2026-11-19T00:32:37.324Z"
+  },
+  {
    "key": "funnel-coach",
    "pestana": "Funnel Coach",
    "ruta": "/second-brain",
