@@ -17,7 +17,8 @@
 //   8. un renglón largo que el segundo pedido «adaptó» a una palabra no pisa el texto bueno de la IA principal;
 //   9. el voseo de la voz del negocio pasa a «tú» (la voz es un dato; le ganaba a la regla del prompt);
 //  10. a la IA van todas las láminas (la plancha las necesita), y si devuelve otra cantidad, sin plancha (antes tiraba);
-//  11. la persona que no se puede borrar se tapa con el color de alrededor (antes tumbaba la plancha de todo el carrusel).
+//  11. en un carrusel, el renglón o la persona que no se puede borrar se tapa (antes tumbaba la plancha de todo el carrusel);
+//  12. una plancha que pierde el titular de la portada o más de un cuarto de lo principal no se usa (dejaba el texto del otro).
 //
 // Correr: node --import tsx --test tests/carruseles-tema-del-dueno.test.ts
 
@@ -27,7 +28,7 @@ import { readFileSync } from 'node:fs';
 import { IMAGENES_MAX, LAMINAS_MAX, TOPE_TEMA, alTu, bloqueDelTema, conLaPalabra, leerReplica, palabraDelTema, promptDeCompletar, promptDeReplica, queVaEnLosRenglones, type Replica } from '../lib/carruseles/replica';
 import { TOPE_PEDIDO, leerPedidoGuiado } from '../lib/carruseles/guiado';
 import { usuarioDeLasCuentas } from '../lib/carruseles/marca-kit';
-import { planchar, taparZona } from '../lib/carruseles/plancha-local';
+import { planchaQuePierde, planchar, taparZona } from '../lib/carruseles/plancha-local';
 
 const PEDIDO = 'Tema: en MaKo puedes chatear con Alex Hormozi como tu coach de negocio (Nuevo chat, elegir el referente; hay 32). '
   + 'Voz de partner que recomienda: «Encontré una app que…», el nombre MaKo una sola vez, en la portada. Donde va el logo de Claude '
@@ -151,6 +152,18 @@ test('11 · la persona sobre un fondo que no se puede continuar se tapa con el c
   const fuente = readFileSync(new URL('../lib/carruseles/plancha-servidor.ts', import.meta.url), 'utf8');
   assert.match(fuente, /tapar: replica\.proporcion === '4:5' \|\| replica\.proporcion === '1:1'/, 'sólo en un carrusel');
   void taparZona;
+});
+
+test('12 · una plancha que pierde el titular de la portada o más de un cuarto de lo principal no se usa', () => {
+  // «Las 11 apps» puso 5 de 21 y dejó «LAS 15 HERRAMIENTAS…»; «7 cosas» puso 2 de 24 y dejó el original en inglés (19/11/2026).
+  assert.equal(planchaQuePierde({ principales: 21, perdidos: 16, portada: true }), true);
+  assert.equal(planchaQuePierde({ principales: 24, perdidos: 22, portada: false }), true);
+  assert.equal(planchaQuePierde({ principales: 20, perdidos: 1, portada: true }), true, 'sin el titular de la portada, no');
+  assert.equal(planchaQuePierde({ principales: 26, perdidos: 1, portada: false }), false, 'el de Hormozi perdió uno: se usa');
+  assert.equal(planchaQuePierde({ principales: 0, perdidos: 0, portada: false }), false);
+  const fuente = readFileSync(new URL('../lib/carruseles/plancha-servidor.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  // Se cuenta ANTES de subir: una plancha que no se usa no deja archivos en el bucket.
+  assert.ok(fuente.indexOf('if (planchaQuePierde(cuenta))') < fuente.indexOf('bucket.upload(ruta, jpeg'), 'se decide antes de subir');
 });
 
 test('5 · lo que manda el navegador llega hasta el tope del tema', () => {

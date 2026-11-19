@@ -881,6 +881,17 @@ export function planchar(img: Rgba, lectura: LecturaDeLamina, p: PedidoPlancha):
   return { ok: true, textos: bloques, personas };
 }
 
+/**
+ * ¿La plancha perdió demasiado para usarla? (19/11/2026). Un texto de la IA que la plancha no ubica no se escribe, y queda la letra
+ * del ORIGINAL: con muchos, la réplica es la pieza del otro con dos frases cambiadas y la pantalla dice «lista». Medido: «las 11
+ * apps» (@vilmanunez) puso 5 de 21 y dejó «LAS 15 HERRAMIENTAS de IA que más uso»; «7 cosas» (@tinnaloaizaofficial) puso 2 de 24 y
+ * dejó el original en inglés. Sin el titular de la portada, o con más de un cuarto de lo principal perdido, se arma como antes:
+ * se ve menos parecido, pero dice lo del negocio.
+ */
+export function planchaQuePierde(c: { principales: number; perdidos: number; portada: boolean }): boolean {
+  return c.portada || (c.principales > 0 && c.perdidos / c.principales > 0.25);
+}
+
 /** Una zona tapada con el color que domina en su borde de afuera (ver `planchar`: la persona que no se puede borrar). */
 export function taparZona(img: Rgba, zona: Caja, pad: number): void {
   const z = dentro(img, { x: zona.x - pad, y: zona.y - pad, ancho: zona.ancho + 2 * pad, alto: zona.alto + 2 * pad });
