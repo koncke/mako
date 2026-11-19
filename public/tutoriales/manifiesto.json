@@ -737,6 +737,96 @@
    "hecho": "2026-11-19T00:54:48.172Z"
   },
   {
+   "key": "funnel-clase-youtube",
+   "pestana": "Funnel Coach · Clase: YouTube",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/funnel-clase-youtube.mp4",
+   "poster": "/tutoriales/funnel-clase-youtube.jpg",
+   "duracion_s": 50.07,
+   "peso_kb": 2651,
+   "guion": "Un video de YouTube puede seguir trayéndote clientes meses después de subirlo. Te doy la bienvenida a la clase de YouTube: videos que responden lo que tu cliente busca antes de comprar. Quien los mira te conoce, confía en tu forma de pensar y da un paso: se anota, agenda o compra. A diferencia de un reel, que dura un par de días, un video se sigue encontrando en el buscador. ¿Cuándo te conviene? Cuando tu cliente investiga antes de comprar, y lo que vendes cuesta más. El video largo es el que mejor vende lo caro: explica y genera confianza. Necesitas constancia: arrancar con varios videos hechos te ayuda a no frenar. Y no esperes clientes en una semana: es un activo que crece con el tiempo. Funnel Coach te ayuda a elegir de qué hablar y a dónde llevar a quien te mira. Pídele el primer paso en el chat.",
+   "frases": [
+    {
+     "id": "funnel-clase-youtube-1",
+     "rol": "gancho",
+     "texto": "Un video de YouTube puede seguir trayéndote clientes meses después de subirlo.",
+     "t_inicio": 0.08,
+     "t_fin": 4.46
+    },
+    {
+     "id": "funnel-clase-youtube-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a la clase de YouTube: videos que responden lo que tu cliente busca antes de comprar.",
+     "t_inicio": 4.9,
+     "t_fin": 11
+    },
+    {
+     "id": "funnel-clase-youtube-3",
+     "rol": "cosa",
+     "texto": "Quien los mira te conoce, confía en tu forma de pensar y da un paso: se anota, agenda o compra.",
+     "t_inicio": 11.38,
+     "t_fin": 17.86
+    },
+    {
+     "id": "funnel-clase-youtube-4",
+     "rol": "cosa",
+     "texto": "A diferencia de un reel, que dura un par de días, un video se sigue encontrando en el buscador.",
+     "t_inicio": 18.28,
+     "t_fin": 23.02
+    },
+    {
+     "id": "funnel-clase-youtube-5",
+     "rol": "cosa",
+     "texto": "¿Cuándo te conviene? Cuando tu cliente investiga antes de comprar, y lo que vendes cuesta más.",
+     "t_inicio": 23.44,
+     "t_fin": 28.86
+    },
+    {
+     "id": "funnel-clase-youtube-6",
+     "rol": "cosa",
+     "texto": "El video largo es el que mejor vende lo caro: explica y genera confianza.",
+     "t_inicio": 29.22,
+     "t_fin": 33.98
+    },
+    {
+     "id": "funnel-clase-youtube-7",
+     "rol": "cosa",
+     "texto": "Necesitas constancia: arrancar con varios videos hechos te ayuda a no frenar.",
+     "t_inicio": 34.34,
+     "t_fin": 38.94
+    },
+    {
+     "id": "funnel-clase-youtube-8",
+     "rol": "cosa",
+     "texto": "Y no esperes clientes en una semana: es un activo que crece con el tiempo.",
+     "t_inicio": 39.26,
+     "t_fin": 43.22
+    },
+    {
+     "id": "funnel-clase-youtube-9",
+     "rol": "cierre",
+     "texto": "Funnel Coach te ayuda a elegir de qué hablar y a dónde llevar a quien te mira.",
+     "t_inicio": 43.58,
+     "t_fin": 47.5,
+     "espera_clic": false
+    },
+    {
+     "id": "funnel-clase-youtube-10",
+     "rol": "cierre",
+     "texto": "Pídele el primer paso en el chat.",
+     "t_inicio": 47.94,
+     "t_fin": 49.36,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-19T00:57:54.368Z"
+  },
+  {
    "key": "funnel-clase-anuncios-a-whatsapp",
    "pestana": "Funnel Coach · Clase: Anuncios a WhatsApp",
    "ruta": "/second-brain",
