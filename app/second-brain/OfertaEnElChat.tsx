@@ -23,6 +23,7 @@ import { useEffect, useState } from 'react';
 import { Button, Modal } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { VistaPdf } from '@/app/offer/VistaPdf';
 import { guardadaVisible, textoGuardada, tonoDeNota } from '@/app/offer/ayudas';
 import { descargarPdf, llamarOffer, mensajeDeError, TOPE } from '@/app/offer/offer-api';
@@ -111,7 +112,7 @@ export function OfertaEnElChat({ sesion, conclusion, onSeguir, movil = false }: 
         )}
       </div>
       {guardado?.aviso && <p role="status" className="co-ol__aviso">{guardado.aviso}</p>}
-      {error && <p role="alert" className="co-ol__error">{error}</p>}
+      {error && <p role="alert" className="co-ol__error">{error}<ReportarASoporte /></p>}
       {viendo && (
         <Modal titulo="Tu oferta (PDF)" ancho={860} onCerrar={() => setViendo(false)}
           pie={(
@@ -142,7 +143,7 @@ export function PdfDeOtraVersion({ sesionId, version }: { sesionId: number; vers
       <Button variant="secondary" size="sm" loading={bajando} onClick={() => void bajar()} icon={<Icon name="descargar" size={16} />}>
         Descargar el PDF de la versión {version}
       </Button>
-      {error && <p role="alert" className="co-ol__error">{error}</p>}
+      {error && <p role="alert" className="co-ol__error">{error}<ReportarASoporte /></p>}
     </div>
   );
 }
