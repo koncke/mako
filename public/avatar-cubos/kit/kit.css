@@ -1,0 +1,31 @@
+/* Kit común de los formatos de la galería: escenario 1080×1920, botón «Ver con la voz», barra de control.
+   Cada formato pone su propio fondo y sus capas dentro de #stage. */
+html,body{margin:0;height:100%;background:#0b0b0d;overflow:hidden;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
+#stage{position:absolute;left:0;top:0;width:1080px;height:1920px;transform-origin:0 0;overflow:hidden;font-family:Inter,system-ui,sans-serif;color:#fff;contain:strict}
+#stage *{box-sizing:border-box}
+.capa{position:absolute;inset:0}
+#kit-go{position:fixed;inset:0;margin:auto;width:min(230px,36vw);height:min(230px,36vw);border-radius:50%;border:0;cursor:pointer;
+  background:var(--kit-go,#f2b01e);color:#15130f;font:800 22px Inter,system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.5);z-index:50;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+#kit-go svg{width:70px;height:70px}
+/* APP (19/11/2026): en AI Avatar la vista es chica y la persona arma la CARA de su personaje: el botón no la tapa. Va más
+   chico y abajo, sobre la barra. Sólo la vista: en captura (el MP4) no se dibuja. */
+#kit-go{inset:auto 0 64px 0;margin:0 auto;width:min(150px,34vw);height:auto;aspect-ratio:auto;border-radius:999px;padding:12px 18px;flex-direction:row;gap:8px;font-size:16px}
+#kit-go svg{width:22px;height:22px}
+#kit-ctl{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:rgba(16,16,18,.8);
+  border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 12px;font:600 13px Inter,system-ui,sans-serif;color:#eee;z-index:49}
+#kit-ctl button{all:unset;cursor:pointer;width:30px;height:30px;display:grid;place-items:center;border-radius:50%}
+#kit-ctl .tl{width:120px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;overflow:hidden}
+#kit-ctl .tl i{display:block;height:100%;background:var(--kit-go,#f2b01e);width:0}
+body.kit-cap #kit-ctl,body.kit-cap #kit-go{display:none!important}
+
+/* Subtítulos «punch»: 1 a 3 palabras gigantes, blancas con borde negro grueso */
+.k-punch{position:absolute;left:40px;right:40px;display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:0 26px;text-align:center;pointer-events:none}
+.k-punch span{display:inline-block;font-family:Anton,Impact,'Arial Narrow',sans-serif;font-size:172px;line-height:1.0;color:#fff;text-transform:uppercase;
+  -webkit-text-stroke:14px #0a0a0a;paint-order:stroke fill;letter-spacing:.005em;text-shadow:0 10px 0 rgba(0,0,0,.35)}
+/* Subtítulos «karaoke»: caja de vidrio oscuro en el tercio de abajo, dos líneas, la palabra que suena con píldora */
+.k-kara{position:absolute;left:50%;transform:translateX(-50%);max-width:900px;padding:26px 34px;border-radius:30px;background:rgba(14,16,18,.72);
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:0 18px 50px rgba(0,0,0,.35),inset 0 0 0 1.5px rgba(255,255,255,.08);
+  font:700 64px/1.26 Inter,system-ui,sans-serif;color:#f4f4f2;text-align:center;letter-spacing:-.01em}
+.k-kara span{display:inline-block;padding:0 10px;margin:0 -2px;border-radius:14px;position:relative}
+.k-kara span.on{background:#3ad16f;color:#08130c}

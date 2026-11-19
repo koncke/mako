@@ -260,6 +260,17 @@ const nextConfig: NextConfig = {
       // página que lo enmarca); en hola-mako.com, en producción, el proxy contesta 404. Por eso este
       // bloque NO lleva `has`: tiene que valer en todos los hosts.
       { source: '/l/html/:path*', headers: [...CABECERAS_HTML_LIBRE] },
+      // Las plantillas del personaje en cubos (public/avatar-cubos/, 19/11/2026): AI Avatar las ENMARCA en un iframe de la
+      // misma app (la vista y el MP4 que se arma en el navegador, app/ai-avatar/cubos/). Con el DENY de arriba el iframe
+      // queda en blanco: acá SAMEORIGIN y `frame-ancestors 'self'`, sólo para esta carpeta. Va DESPUÉS del bloque global
+      // a propósito (con dos bloques que ponen la misma cabecera gana el último).
+      {
+        source: '/avatar-cubos/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'" },
+        ],
+      },
       // La página de afuera NO lleva la política del bloque (verificación de la tanda 7): el bloque deja salir sus
       // ventanas del sandbox porque vive en hola-mako.site; ésta se sirve en el origen de la APP (el iframe del
       // Diagnóstico y la ventana del lector, que tiene de opener la pestaña de MaKo) y sólo corre scripts.
