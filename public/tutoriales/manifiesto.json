@@ -550,6 +550,117 @@
    "hecho": "2026-11-18T13:48:38.475Z"
   },
   {
+   "key": "funnel-clase-anuncios-a-vsl",
+   "pestana": "Funnel Coach · Clase: Anuncios a VSL",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/funnel-clase-anuncios-a-vsl.mp4",
+   "poster": "/tutoriales/funnel-clase-anuncios-a-vsl.jpg",
+   "duracion_s": 75.17,
+   "peso_kb": 3869,
+   "guion": "Si cobras 3.000 dólares o más, casi nadie te compra con un clic. Te doy la bienvenida a la clase de Anuncios a VSL: el funnel para vender caro en una llamada. Funciona así. Un anuncio le habla a un tipo de cliente con un problema, y lo lleva a una página. En esa página hay un video corto que explica tu servicio: eso es la VSL. Quien se convence contesta unas preguntas y agenda una llamada contigo. Y en esa llamada se cierra la venta. ¿Cuándo te conviene? Cuando lo que vendes cuesta desde unos 3.000 dólares, alguien sabe cerrar por llamada, y tienes presupuesto para juntar llamadas. Haz la cuenta: con 20 llamadas al mes, cerrando una de cada cinco, son cuatro ventas. A 3.000 dólares, 12.000 al mes. Las preguntas antes de agendar filtran a los curiosos: su negocio, cuánto factura y qué quiere lograr. Y entre la agenda y la llamada, los recordatorios hacen que se presente. Un aviso: si todavía no vendiste esa oferta, véndela primero a gente que ya te conoce, antes de pagar anuncios. Funnel Coach te ayuda a armar cada pieza: el anuncio, la página, las preguntas y tu CRM con sus etapas. Pídele el primer paso en el chat.",
+   "frases": [
+    {
+     "id": "funnel-clase-anuncios-a-vsl-1",
+     "rol": "gancho",
+     "texto": "Si cobras 3.000 dólares o más, casi nadie te compra con un clic.",
+     "t_inicio": 0.08,
+     "t_fin": 4
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a la clase de Anuncios a VSL: el funnel para vender caro en una llamada.",
+     "t_inicio": 4.42,
+     "t_fin": 10.74
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-3",
+     "rol": "cosa",
+     "texto": "Funciona así. Un anuncio le habla a un tipo de cliente con un problema, y lo lleva a una página.",
+     "t_inicio": 11.22,
+     "t_fin": 17.26
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-4",
+     "rol": "cosa",
+     "texto": "En esa página hay un video corto que explica tu servicio: eso es la VSL.",
+     "t_inicio": 17.7,
+     "t_fin": 22.74
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-5",
+     "rol": "cosa",
+     "texto": "Quien se convence contesta unas preguntas y agenda una llamada contigo.",
+     "t_inicio": 23.12,
+     "t_fin": 26.94
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-6",
+     "rol": "cosa",
+     "texto": "Y en esa llamada se cierra la venta.",
+     "t_inicio": 27.34,
+     "t_fin": 29.46
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-7",
+     "rol": "cosa",
+     "texto": "¿Cuándo te conviene? Cuando lo que vendes cuesta desde unos 3.000 dólares, alguien sabe cerrar por llamada, y tienes presupuesto para juntar llamadas.",
+     "t_inicio": 29.92,
+     "t_fin": 38.2
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-8",
+     "rol": "cosa",
+     "texto": "Haz la cuenta: con 20 llamadas al mes, cerrando una de cada cinco, son cuatro ventas. A 3.000 dólares, 12.000 al mes.",
+     "t_inicio": 38.56,
+     "t_fin": 46.72
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-9",
+     "rol": "cosa",
+     "texto": "Las preguntas antes de agendar filtran a los curiosos: su negocio, cuánto factura y qué quiere lograr.",
+     "t_inicio": 47.2,
+     "t_fin": 53.54
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-10",
+     "rol": "cosa",
+     "texto": "Y entre la agenda y la llamada, los recordatorios hacen que se presente.",
+     "t_inicio": 53.92,
+     "t_fin": 57.78
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-11",
+     "rol": "cosa",
+     "texto": "Un aviso: si todavía no vendiste esa oferta, véndela primero a gente que ya te conoce, antes de pagar anuncios.",
+     "t_inicio": 58.2,
+     "t_fin": 64.96
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-12",
+     "rol": "cierre",
+     "texto": "Funnel Coach te ayuda a armar cada pieza: el anuncio, la página, las preguntas y tu CRM con sus etapas.",
+     "t_inicio": 65.4,
+     "t_fin": 72.64,
+     "espera_clic": false
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-13",
+     "rol": "cierre",
+     "texto": "Pídele el primer paso en el chat.",
+     "t_inicio": 73,
+     "t_fin": 74.48,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "3 → tres · 000 → mil · 3 → tres · 000 → mil · 20 → veinte · 3 → tres · 000 → mil · 12 → doce · 000 → mil (ortografía del transcriptor)",
+   "hecho": "2026-11-19T00:40:06.762Z"
+  },
+  {
    "key": "reto-dia-1",
    "pestana": "Reto · Día 1: tu oferta y tu sistema de adquisición",
    "ruta": "/second-brain?reto=1",
