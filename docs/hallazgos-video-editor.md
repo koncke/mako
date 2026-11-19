@@ -6,6 +6,41 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## «No active project» al SALIR de un proyecto, no al entrar (19/11/2026, ticket 118)
+
+**Síntoma:** un ticket automático de Leila (ws 11), «La pantalla Video se rompió», con `Error: No active project` en
+`/video-editor?ver=…`. La pila de `errores_app` es `getActive` ← `saveNow` ← un temporizador.
+
+**El diagnóstico obvio era el equivocado.** Se sospechaba que al entrar con `?ver=…` algo pedía las escenas o el render antes
+de cargar el proyecto. No fue al entrar: fue al SALIR, y no se rompió nada en pantalla. Fue una promesa rechazada que nadie
+esperó. `ReportarErrores` la atrapa con `unhandledrejection`, y `tituloDeError` llama a todo error del navegador «la pantalla
+se rompió».
+
+**Causa:**
+- `closeProject` pone `active = null` y DESPUÉS llama a `scenes.clearScenes()`, que avisa a los suscriptores.
+- El `SaveManager` toma ese aviso como un cambio (`markDirty`), y 800 ms después `saveNow` llama a `project.getActive()`.
+- `getActive()` TIRA sin proyecto: el `if (!activeProject) return` que venía después nunca llegaba.
+- El `hasPendingSave` quedaba en true para siempre, y el `beforeunload` preguntaba «¿salir sin guardar?» en la lista de proyectos.
+
+Pasaba en cada salida: «Volver», la acción `volver-inicio` y la plantilla nueva desde la biblioteca. Desde el primer día del
+motor (`7a2cf1629`).
+
+**Y un daño callado:** `prepareExit` sólo guardaba si cambiaba la miniatura. Un cambio hecho menos de 800 ms antes de «Volver»
+quedaba para un guardado que llegaba con el proyecto ya cerrado, y se perdía.
+
+**La regla:**
+- En el motor, `getActive()` / `getActiveScene()` son para lo que corre CON proyecto (una acción, un comando).
+- Lo que corre por su cuenta (un temporizador, un suscriptor, un `await` largo) usa `getActiveOrNull()` /
+  `getActiveSceneOrNull()` y sale si es null.
+- Una promesa lanzada con `void` en un temporizador lleva su `.catch`: si no, cualquier fallo es un ticket de «pantalla rota».
+
+Vive en `app/video-editor/_opencut/core/managers/save-manager.ts` y `project-manager.ts` (`prepareExit`). Lo reproduce
+`tests/video-editor-guardado-al-cerrar.test.ts`.
+
+**Sin hacer:** si `prepareExit` llega con un guardado EN CURSO (`isSaving`), `flush` vuelve sin esperarlo. Ese guardado termina
+después de `closeProject` y `saveCurrentProject` vuelve a poner `this.active`, el proyecto que se acababa de cerrar. No se vio
+pasar; está en `project-manager.ts` → `saveCurrentProject`.
+
 ## La edición automática con un video SIN VOZ: «no tiene nada que editar», y después lo cortó en astillas (18/11/2026, ticket 99)
 
 **Síntoma:** Leila (ws 11) subió el recorrido de una casa (un plano visto desde arriba con una mujer que camina, sin voz) y
