@@ -305,14 +305,16 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'ver_videos_cubos', area: 'video', tipo: 'lectura',
     datosDeClientes: false,
     titulo: 'Videos del personaje en cubos',
-    descripcion: 'Los videos del personaje en cubos que el negocio ya armó en AI Avatar: el formato, el guion por frases, la voz, cuánto dura, cómo es su personaje (piel, pelo, peinado, ropa, ojos, lentes, barba) y el link para abrirlo en la app. El MP4 no se arma acá: se arma en la app con «Descargar MP4», en la computadora. Si la respuesta dice que no está disponible, repítelo y no ofrezcas crear uno.',
+    // ⚠️ La descripción y los parámetros NO nombran la tab (tests/api-mako-prueba-avatar.test.ts): un Essential ve esta
+    // operación y nombrarla le prometería una función de Pro. Para él contesta «todavía no disponible» (el interruptor).
+    descripcion: 'Los videos del personaje en cubos que el negocio ya armó: el formato, el guion por frases, la voz, cuánto dura, cómo es su personaje (piel, pelo, peinado, ropa, ojos, lentes, barba) y el link para abrirlo en la app. El MP4 no lo arma esta operación: se arma en la app con «Descargar MP4», en la computadora. Si la respuesta dice que no está disponible, repítelo y no ofrezcas crear uno.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: 'ai-avatar', rolMinimo: 'admin' },
   },
   {
     id: 'crear_video_cubos', area: 'video', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Crear un video en cubos',
-    descripcion: 'PROPONE crear un video del personaje en cubos de AI Avatar: el guion (una frase por renglón; las palabras entre *asteriscos* van resaltadas), el formato, cómo es el personaje y la voz. Al confirmarlo en la pantalla de revisión, MaKo genera la voz con sus tiempos (gasta MaKo Tokens con la voz de MaKo; su voz clonada la paga su cuenta de ElevenLabs) y deja el video listo para abrir en la app, donde se mira y se baja el MP4. Escribe el guion antes, corto: 4 a 7 frases, hasta 50 palabras. Si la respuesta dice que no está disponible, repítelo.',
+    descripcion: 'PROPONE crear un video del personaje en cubos (animado, con su voz): el guion (una frase por renglón; las palabras entre *asteriscos* van resaltadas), el formato, cómo es el personaje y la voz. Al confirmarlo en la pantalla de revisión, MaKo genera la voz con sus tiempos (gasta MaKo Tokens con la voz de MaKo; su voz clonada la paga su cuenta de ElevenLabs) y deja el video listo para abrir en la app, donde se mira y se baja el MP4. Escribe el guion antes, corto: 4 a 7 frases, hasta 50 palabras. Si la respuesta dice que no está disponible, repítelo.',
     escribe: 'guarda la voz en el bucket de medios y el video en los ajustes del negocio (ai-avatar.cubos)',
     parametros: [
       { nombre: 'guion', rotulo: 'Guion', tipo: 'string', obligatorio: true, max: 1200, descripcion: 'una frase por renglón; las palabras entre *asteriscos* van resaltadas.' },

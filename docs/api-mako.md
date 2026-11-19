@@ -18506,7 +18506,7 @@ curl -L \
 
 ### `GET /api/v1/video/cubos` — Videos del personaje en cubos
 
-Los videos del personaje en cubos que el negocio ya armó en AI Avatar: el formato, el guion por frases, la voz, cuánto dura, cómo es su personaje (piel, pelo, peinado, ropa, ojos, lentes, barba) y el link para abrirlo en la app. El MP4 no se arma acá: se arma en la app con «Descargar MP4», en la computadora. Si la respuesta dice que no está disponible, repítelo y no ofrezcas crear uno.
+Los videos del personaje en cubos que el negocio ya armó: el formato, el guion por frases, la voz, cuánto dura, cómo es su personaje (piel, pelo, peinado, ropa, ojos, lentes, barba) y el link para abrirlo en la app. El MP4 no lo arma esta operación: se arma en la app con «Descargar MP4», en la computadora. Si la respuesta dice que no está disponible, repítelo y no ofrezcas crear uno.
 
 - **Ruta por operación:** `GET /api/v1/video/ver_videos_cubos`
 - **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
@@ -18528,7 +18528,7 @@ curl -L \
 
 ### `POST /api/v1/video/cubos` — Crear un video en cubos
 
-PROPONE crear un video del personaje en cubos de AI Avatar: el guion (una frase por renglón; las palabras entre *asteriscos* van resaltadas), el formato, cómo es el personaje y la voz. Al confirmarlo en la pantalla de revisión, MaKo genera la voz con sus tiempos (gasta MaKo Tokens con la voz de MaKo; su voz clonada la paga su cuenta de ElevenLabs) y deja el video listo para abrir en la app, donde se mira y se baja el MP4. Escribe el guion antes, corto: 4 a 7 frases, hasta 50 palabras. Si la respuesta dice que no está disponible, repítelo.
+PROPONE crear un video del personaje en cubos (animado, con su voz): el guion (una frase por renglón; las palabras entre *asteriscos* van resaltadas), el formato, cómo es el personaje y la voz. Al confirmarlo en la pantalla de revisión, MaKo genera la voz con sus tiempos (gasta MaKo Tokens con la voz de MaKo; su voz clonada la paga su cuenta de ElevenLabs) y deja el video listo para abrir en la app, donde se mira y se baja el MP4. Escribe el guion antes, corto: 4 a 7 frases, hasta 50 palabras. Si la respuesta dice que no está disponible, repítelo.
 
 - **Ruta por operación:** `POST /api/v1/video/crear_video_cubos`
 - **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)

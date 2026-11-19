@@ -83,7 +83,7 @@ const error = (content: string) => ({ content, isError: true as const });
 // ── El personaje en cubos ────────────────────────────────────────────────────
 /** El interruptor de la revisión de Martín: por el negocio (el ws 3) o por quien chatea en la app (sus cuentas). */
 const veCubos = (ctx: Ctx): boolean => veAvatarCubos({ ws: ctx.ws, email: ctx.quien?.email ?? ctx.actor ?? null });
-const CUBOS_NO_DISPONIBLE = 'El personaje en cubos de AI Avatar todavía no está disponible para este negocio.';
+const CUBOS_NO_DISPONIBLE = 'El personaje en cubos todavía no está disponible para este negocio.';
 /** El link que abre ese video en el estudio (app/ai-avatar/page.tsx: `?cubos=<id>`). */
 const linkCubos = (id: string, ws: number) => linkPantalla(`/ai-avatar?cubos=${encodeURIComponent(id)}`, ws);
 const VOZ_API: Record<string, PedidoVoz> = { david: { tipo: 'mako', id: 'mako-david' }, fernando: { tipo: 'mako', id: 'mako-fernando' }, clon: { tipo: 'clon' } };
