@@ -48,3 +48,12 @@ export function rutaChatsDeWhatsapp(linea: string | null, chatJid: string, n?: n
   if (n != null) q.set('n', String(n));
   return `${RUTA_CHATS}?${q.toString()}`;
 }
+
+/**
+ * EL PANEL DE LA LÍNEA DE MaKo, adentro de Chats (19/11/2026). Los avisos de la voz caída o sorda llevaban a /agencia?canal=1, la página
+ * vieja («esta página viejísima que ya no debería ni existir», Martín): ahora abren el mismo panel (`CanalMaKoPanel`) en Chats, donde se
+ * reconecta y se administra todo. /agencia redirige acá. ChatsApp abre el panel y saca el parámetro de la URL; sólo para el admin.
+ */
+export const PARAM_CANAL_MAKO = 'canal';
+export const VALOR_CANAL_MAKO = 'mako';
+export const RUTA_LINEA_MAKO = `${RUTA_CHATS}?${PARAM_CANAL_MAKO}=${VALOR_CANAL_MAKO}`;

@@ -17,6 +17,9 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **Cambiar la foto o la privacidad de una línea viva por Evolution la rompe** (19/11/2026). En 2.3.7 esas rutas llaman a
+  `reloadConnection()`, que abre un socket nuevo sin cerrar el viejo: la línea recibe y no contesta consultas, la sonda la da por muerta.
+  Se cambia desde el teléfono. Ver «La voz "caída" que recibía», abajo.
 - **Subir Baileys NO cura la línea sorda** (14/11/2026). La causa es un paquete `<status>` de WhatsApp que NINGUNA versión de Baileys
   contesta (ni la rc.9, ni la rc14, ni master): a los 50 min WhatsApp corta y la línea queda «open» sin recibir. Aplicado en Railway el
   14/11 (las líneas reconectaron sin QR y entró lo retenido). El arreglo son 3 líneas
@@ -129,6 +132,117 @@ las copias sin id de los últimos 10 minutos. Una copia más vieja, o con otro t
 apenas vuelve el envío. Si el eco gana la carrera, el espejo crea otra fila y en la app quedan dos burbujas: la base no deja dos
 filas con el mismo id (`ux_grupo_mensajes_wa`). Así lo hace el script del Cerebro, `reenviar-aviso-118.mjs`, en su carpeta de
 notas.
+## La voz «caída» que recibía: un cambio de foto por Evolution dejó dos sockets, y reconectar abrió otra instancia (19/11/2026, claude5)
+
+**El síntoma:** Martín recibió el aviso de que la línea de MaKo (…2605) estaba caída aunque figuraba conectada, y la volvió a conectar
+desde el aviso: «¿No era que habíamos solucionado para que eso no pase más?».
+
+**Lo medido (sólo lectura):**
+- **No estaba sorda.** `muylqv8r` recibió a Joan a las 20:21:03 (guardado 20:21:04) y a las 20:50:57 (guardado 20:51:19). La hora de
+  guardado sale del id de la fila del store, que es un cuid.
+- **Las alarmas del día eran las reglas débiles:**
+  - 13:30 y 16:20 UTC: la ráfaga, disparada por los avisos de leads a grupos;
+  - 19:20: «4,2 h sin una persona»;
+  - entre medio entraron Martín (15:07) y Joan (20:21), en el acto.
+- **El parche del 14/11 sigue haciendo efecto:** todas las líneas de clientes reciben con 0 min de atraso en las últimas 30 h.
+- **La alarma de las 20:48:37 fue la sonda** (`fetchBusinessProfile`, lib/evolution.ts), que falló con el socket recibiendo. 4 min antes
+  (~20:44) se había cambiado la foto de perfil de la voz con `POST /chat/updateProfilePicture`.
+
+**La causa (leída en el código de Evolution 2.3.7, `whatsapp.baileys.service.ts:4092`):**
+- `updateProfilePicture` llama a `reloadConnection()` → `createClient()` → `this.client = makeWASocket(...)`, **sin cerrar el socket
+  viejo**.
+- Quedan dos conexiones del mismo dispositivo: la vieja sigue recibiendo, y las consultas van por la nueva, que no contesta.
+- Lo mismo hacen `updatePrivacySettings` (:4003) y `removeProfilePicture` (:4104).
+- Nuestro código no llama ninguna de las tres: fue un cambio a mano.
+
+**Y reconectar abrió una instancia de más:**
+- El aviso llevaba a /agencia?canal=1, la página vieja.
+- Ahí «Conectar» hizo logout. El logout contestó error, pero WhatsApp la cerró igual (401 «location cco» a las 21:00:27).
+- `conectarCanalMaKo` leyó el error como «trabada» y rotó a `mwo1bdvw`, creada a las 21:00:44.
+- La vieja volvió a «open» a las 21:01:42. Quedaron **dos instancias vivas del mismo número**; las dos contestan consultas al socket.
+- El webhook ignora la vieja (atiende sólo el canal y la voz) y deduplica por id, así que no hubo respuestas dobles.
+- Cerrarla pide la frase de Martín: logout y delete de `mako_superadmin_muylqv8r`.
+
+**El arreglo:**
+- **Antes de rotar, se mira si la sesión se soltó.** La vinculación se lee antes y después del logout (`seSoltoLaSesion`,
+  lib/linea-sorda.ts). Si cambió, se espera el QR de la MISMA instancia.
+- **Los avisos llevan a Chats** (`RUTA_LINEA_MAKO` = /chats?canal=mako, lib/chats-links.ts): ChatsApp abre el panel de la línea (el mismo
+  `CanalMaKoPanel`) sólo a quien ve la línea de MaKo, y /agencia redirige a Chats.
+- Lo fija tests/linea-mako-en-chats.test.ts (L1-L5).
+
+**La regla:** ⛔ **la foto o la privacidad de una línea viva no se cambian por Evolution 2.3.7:** se cambian desde el
+teléfono. Y una alarma de la sonda no prueba que la línea no reciba: la prueba es la última ENTRANTE, con la hora del cuid.
+
+**Además, el aviso de un ticket se daba por salido si quedaba sólo en la app (#118 de Leila, 21:00:48, en plena reconexión):**
+- Qué pasaba:
+  - `enviarAlGrupoMaKo` contestaba `{ ok: true, enApp: true }` y tiraba el error;
+  - `avisarUno` (lib/tickets-cierre.ts) no lo reintentaba;
+  - el historial decía «whatsapp».
+- Ahora:
+  - el motivo viaja en `noEntregado` y va al log;
+  - el aviso se reintenta como si no hubiera copia;
+  - el reintento reusa la copia del hilo (`copiaSinWhatsApp`, lib/grupo-app.ts);
+  - el historial dice «app».
+- Un negocio sin grupo de WhatsApp sigue contando el hilo de la app como su grupo. tests/ticket-aviso-solo-app.test.ts (T1-T5).
+- El #118 no se reenvía solo: ya figuraba avisado. Lo reenvía el Cerebro.
+
+**Sin hacer:**
+- **cerrar `mako_superadmin_muylqv8r`**, con la frase de Martín;
+- **las reglas débiles del detector siguen gritando** con los avisos de leads (la ráfaga) y con el silencio de la tarde;
+- **mirar el Custom Start Command en Railway:** no se pudo, la sesión de Martín se cerró. El efecto del parche sí se midió.
+
+---
+
+## «No lo pude sumar al grupo»: WhatsApp rechazó el pedido entero, y el cartel decía «Evolution 400» (19/11/2026, claude5, Sellers)
+
+**El síntoma:**
+- Martín: «Joan de Código Movilero estaba teniendo un problema con agregar al grupo de WhatsApp de su cliente Sellers desde la
+  aplicación. Le tuve que hacer admin para que pueda agregar, pero manualmente.»
+- El cartel, en Notificaciones de Sellers: «Quedó guardado, pero no entró al grupo — +54 92995096633 — No se pudo hablar con WhatsApp
+  (Evolution 400).»
+
+**Lo medido (sólo lectura):**
+- La agencia es Código Inmobiliario (ws 13) y el cliente, Sellers (ws 24).
+- 20:19:27 UTC: se guardó el segundo teléfono (`setDestinatarios` → `agregarParticipanteGrupo`).
+- 20:19:28: se reclamó el tope de altas de la línea, así que el pedido llegó a Evolution.
+- Le mandamos `{"action":"add","participants":["5492995096633@s.whatsapp.net"]}`. Es el JID correcto: `whatsappNumbers` lo devuelve igual.
+- La línea recibía en ese momento: Joan entró a las 20:21, en el acto. Fue antes del cambio de foto de la entrada de arriba.
+- MaKo es superadmin del grupo.
+- 20:50:57: Joan, ya admin, lo sumó desde su teléfono (su `messageHistoryNotice` está en el store).
+
+**La causa que se pudo ver, y la que no:**
+- ⚠️ **Mi primera lectura fue la equivocada:** la privacidad («sólo me agregan mis contactos») contesta 200 con un 403 por participante,
+  y la pantalla lo dice. Esto fue un **HTTP 400 del pedido entero**: Baileys tiró un error en `groupParticipantsUpdate`, y Evolution lo
+  devuelve como «Error updating participants».
+- **El texto de ese error se tiraba:** nuestro código guardaba sólo el status. Los logs de Evolution piden la sesión de Railway, que se
+  había cerrado, y los de Vercel no se leen por la API. La causa exacta del 400 de las 20:19 no se puede recuperar.
+
+**El arreglo:**
+- **El 400 se lee y se guarda:**
+  - va al log y a `mako.grupo.alta.rechazo` del negocio;
+  - el cartel dice la causa en palabras, sin «Evolution» (`causaDelRechazo`, lib/participantes-grupo.ts): tope de WhatsApp, MaKo no es
+    admin, no contestó a tiempo, línea sin conexión, número no encontrado, u otro.
+- **La salida que Martín hizo a mano está en la pantalla:**
+  - el link del grupo;
+  - si el número principal del negocio es admin del grupo, «que lo sume desde su WhatsApp»;
+  - si está sin ser admin, el botón «Hacer admin a …» (`hacerAdminParaSumar`, acción `hacer-admin` de /api/perfil/destinatarios). Sólo
+    hace admin al principal, sólo si MaKo es admin, y el veredicto sale de releer el grupo.
+  - Vale para el 403 de privacidad y para el 400.
+- **Antes del alta se lee el grupo:** si MaKo está y no es admin, se dice eso (`MAKO_NO_ES_ADMIN`) en vez de prometer un link.
+
+**Probado:**
+- tests/alta-grupo-salida.test.ts, con la escena de Sellers (A1-A9).
+- En vivo, sólo lectura, en los grupos de Sellers, SuperAdmin y el cliente de prueba.
+- La única escritura fue en el grupo del cliente de prueba (ws 3), por indicación del Cerebro: hizo admin al principal en 5,6 s,
+  comprobado al releer, y la segunda vez no tocó nada.
+- En el grupo de Sellers no se escribió nada.
+
+**La regla:** lo que contesta WhatsApp cuando dice que no se GUARDA. Sin el texto, la causa queda en hipótesis. Y la salida que se ofrece
+tiene que funcionar con ESE rechazo.
+
+**Sin hacer:** el detalle de un grupo del super admin (`accionParticipantes`, lib/mako-chat.ts) sigue mostrando sólo el motivo.
+
+---
 
 ## Una «parte» que era un dato, o una lectura, abría un pedido de más (ticket #111, 18/11/2026)
 

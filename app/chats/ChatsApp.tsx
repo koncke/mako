@@ -29,7 +29,7 @@ import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import type { ChatResumen, CuentaSocial, EtapaChat, FunnelChat, LineaChat } from '@/lib/chats-tipos';
 import { FILTRO_INICIAL, LINEA_CANAL_MAKO, claveLead, coincideBusqueda, conNombreElegido, contarBandejas, filtrarChats, type VerNombreChats, parsearClave, rotuloWhatsapp, type FiltroChats } from '@/lib/chats-reglas';
-import { RUTA_CHATS, PARAM_CHATS, rutaChatsDeClave, vistaDeLink } from '@/lib/chats-links';
+import { RUTA_CHATS, PARAM_CHATS, PARAM_CANAL_MAKO, VALOR_CANAL_MAKO, rutaChatsDeClave, vistaDeLink } from '@/lib/chats-links';
 import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import {
   almacenLocal, cambiarClaveEnLista, claveDelLink, filtroRecordado, fusionarRecientes, guardarLocal, leerLinkProfundo, leerLocal, pasoDelLink,
@@ -432,6 +432,15 @@ export function ChatsApp({ ws, esAdmin, productos }: {
     if (c && esAdmin) conectarUno(c);
     router.replace(RUTA_CHATS, { scroll: false });
   }, [conectarLink, esAdmin, conectarUno, router]);
+  // `?canal=mako` (19/11/2026, lib/chats-links.ts `RUTA_LINEA_MAKO`): el panel de la línea de MaKo, adonde llevan los avisos de la voz caída o
+  // sorda. Antes llevaban a /agencia?canal=1, la página vieja, que ahora redirige acá. Sólo si esta persona VE la línea de MaKo en su lista
+  // (el super admin): se espera a que la lista cargue, y a quien no la ve el link no le abre nada.
+  const canalLink = sp.get(PARAM_CANAL_MAKO);
+  useEffect(() => {
+    if (canalLink !== VALOR_CANAL_MAKO || !datos) return;
+    if (esAdmin && lineas.some((l) => l.linea === LINEA_CANAL_MAKO)) setCanalMaKo(true);
+    router.replace(RUTA_CHATS, { scroll: false });
+  }, [canalLink, datos, lineas, esAdmin, router]);
   // La alarma del número caído (la tenía la tab vieja): un número que no está conectado no manda nada.
   const caida = lineasNegocio.find((l) => l.estado === 'desconectado') ?? null;
 
