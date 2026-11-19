@@ -8,6 +8,28 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## «Ver ejemplo»: el titular encima del texto, en 14 de 53 láminas (19/11/2026)
+
+**El síntoma** (lo vio el chat de los carruseles de ventas dibujando los ejemplos; quedó «sin confirmar» en
+docs/hallazgos-contenido.md de su rama): en «Ver ejemplo», el titular de varias láminas tapa su bajada. La que peor está es la
+portada de «Opinión»: «Comprar en preventa no es para todos».
+
+**Confirmado con el código de la app**: el documento de cada ejemplo armado como `DialogosCarrusel` (`documentoDeCarrusel`) y el
+titular medido con la tabla real de anchos del editor y el corte de fabric (lib/carruseles/medir-letra.ts, tipografia-medida.ts).
+Eran 14 de 53, no 6: las 6 que vio el chat y además «Paso a paso» 1, «Antes y después» 1, «Caso» 1, «Preguntas» 1, «Lista» 1 y 5 e
+«Historia» 1. El montado llegaba a 207 px. Y mirado en el banco con el `PaginaCarrusel` real (`node scripts/banco-carruseles/build.mjs`,
+`servir.cjs`, `/?p=ejemplos&tipo=opinion`).
+
+**La causa**: `pagina` (lib/carruseles/documento.ts) decidía la letra y el alto del titular con `tamanoQueLlena` / `altoEstimado`,
+que cuentan 0,58 del cuerpo por letra. Archivo Black y Montserrat 800 son más anchas: el titular ocupaba un renglón más de lo
+calculado y la bajada, puesta debajo del alto estimado, quedaba abajo de él. **Cómo quedó**: `altoMedido` (los renglones con la tabla
+real, el alto de fabric y `null` si una palabra sola no entra a lo ancho) y `tamanoQueLlena(…, { letra })`; el alto medido viaja al
+objeto. tests/carruseles-ver-ejemplo-sin-montar.test.ts, probado rompiéndolo (con el estimado fallan los 3).
+
+- ⚠️ DM Serif Display, Fraunces y Space Grotesk no están en la tabla: se miden con la más ancha (Montserrat 800). Sobra, no falta:
+  esos titulares quedan un poco más chicos de lo que entraría. Para medirlas de verdad hay que sumarlas a `anchos-de-letra.json`.
+- Lo mismo vale para «Crear desde cero» y para las fuentes de un kit de marca: todo lo que arma `documentoDeCarrusel`.
+
 ## Los carruseles de ventas hechos DENTRO de MaKo: el diseño salía, el texto perdía el tema (19/11/2026)
 
 **La prueba** (Martín: «pasarlo a un chat que intente replicar lo que hicimos pero dentro de MaKo… iterando hasta que le pueda

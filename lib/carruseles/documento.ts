@@ -14,6 +14,8 @@
 // =============================================================================
 
 import type { EstiloCarrusel, Lamina } from './tipos';
+import { altoEnElEditor, medidorReal } from './medir-letra';
+import { partirEnRenglones } from './tipografia-medida';
 
 export const ANCHO_CARRUSEL = 1080;
 export const ALTO_CARRUSEL = 1350;
@@ -53,8 +55,37 @@ export function altoEstimado(t: string, tam: number, ancho: number, interlineado
   return Math.round(lineas * tam * interlineado);
 }
 
-/** La letra más grande (entre `min` y `max`) con la que el texto entra en `alto` px: así el texto LLENA la lámina en vez de quedar chiquito. */
-export function tamanoQueLlena(t: string, o: { ancho: number; alto: number; min: number; max: number; interlineado: number }): number {
+/** Una letra para medir: la familia como la guarda el motor («"Archivo Black", sans-serif») y su peso. */
+export type LetraMedible = { familia: string; peso: number };
+
+/**
+ * El alto MEDIDO de un texto en el editor (19/11/2026): los renglones con la tabla real de anchos (./medir-letra.ts) y el corte de
+ * fabric (./tipografia-medida.ts), y el alto que fabric le da a esos renglones. Y si un renglón no entra a lo ancho (una palabra
+ * sola más ancha que la caja), `null`: esa letra no sirve.
+ */
+export function altoMedido(t: string, letra: LetraMedible, tam: number, ancho: number, interlineado: number): number | null {
+  const f = { familia: letra.familia, peso: letra.peso, italica: false, tam, espaciado: 0 };
+  const renglones = partirEnRenglones(t, ancho, f, medidorReal);
+  if (renglones.some((r) => medidorReal(r, f) > ancho)) return null;
+  return Math.ceil(altoEnElEditor(Math.max(1, renglones.length), tam, interlineado));
+}
+
+/**
+ * La letra más grande (entre `min` y `max`) con la que el texto entra en `alto` px: así el texto LLENA la lámina en vez de quedar
+ * chiquito. Con `letra`, se MIDE (`altoMedido`); sin ella, el estimado de 0,58 del cuerpo por letra.
+ *
+ * ⚠️ 19/11/2026, «Ver ejemplo» (lo encontró el chat de los carruseles de ventas): con el estimado, el titular de 14 de las 53
+ * láminas de ejemplo terminaba ENCIMA del texto de abajo («Comprar en preventa no es para todos» tapaba su bajada). Archivo Black
+ * es más ancha que 0,58 por letra: el titular ocupaba un renglón más de lo calculado y bajaba hasta 207 px sobre el texto.
+ */
+export function tamanoQueLlena(t: string, o: { ancho: number; alto: number; min: number; max: number; interlineado: number; letra?: LetraMedible }): number {
+  if (o.letra) {
+    for (let tam = Math.max(o.min, o.max); tam > o.min; tam--) {
+      const alto = altoMedido(t, o.letra, tam, o.ancho, o.interlineado);
+      if (alto != null && alto <= o.alto) return tam;
+    }
+    return o.min;
+  }
   let lo = o.min;
   let hi = Math.max(o.min, o.max);
   while (lo < hi) {
@@ -160,19 +191,23 @@ function pagina(l: Lamina, i: number, total: number, e: EstiloCarrusel, marca: M
   const ZONA_ARRIBA = 300;
   const ZONA_ABAJO = 1120;
   const titularInter = portada ? 1.05 : 1.08;
+  // Los altos se MIDEN con la letra de verdad (`altoMedido`): con el estimado, el titular de 14 de las 53 láminas de «Ver ejemplo»
+  // se montaba sobre el texto (19/11/2026).
+  const letraT: LetraMedible = { familia: famT, peso: e.titular.peso };
+  const letraX: LetraMedible = { familia: famX, peso: e.texto.peso };
   const tamTitular = tamanoQueLlena(l.titulo, portada
-    ? { ancho, alto: 640, min: 84, max: 150, interlineado: titularInter }
-    : { ancho, alto: cierre ? 420 : 400, min: 64, max: cierre ? 120 : 108, interlineado: titularInter });
-  const altoTitular = altoEstimado(l.titulo, tamTitular, ancho, titularInter);
+    ? { ancho, alto: 640, min: 84, max: 150, interlineado: titularInter, letra: letraT }
+    : { ancho, alto: cierre ? 420 : 400, min: 64, max: cierre ? 120 : 108, interlineado: titularInter, letra: letraT });
+  const altoTitular = altoMedido(l.titulo, letraT, tamTitular, ancho, titularInter) ?? altoEstimado(l.titulo, tamTitular, ancho, titularInter);
   const HUECO = 44;
   const topCuerpoMax = ZONA_ABAJO;
-  const tamCuerpo = l.cuerpo ? tamanoQueLlena(l.cuerpo, { ancho, alto: Math.max(120, topCuerpoMax - ZONA_ARRIBA - altoTitular - HUECO), min: 40, max: portada ? 54 : 62, interlineado: 1.3 }) : 0;
-  const altoCuerpo = l.cuerpo ? altoEstimado(l.cuerpo, tamCuerpo, ancho, 1.3) : 0;
+  const tamCuerpo = l.cuerpo ? tamanoQueLlena(l.cuerpo, { ancho, alto: Math.max(120, topCuerpoMax - ZONA_ARRIBA - altoTitular - HUECO), min: 40, max: portada ? 54 : 62, interlineado: 1.3, letra: letraX }) : 0;
+  const altoCuerpo = l.cuerpo ? altoMedido(l.cuerpo, letraX, tamCuerpo, ancho, 1.3) ?? altoEstimado(l.cuerpo, tamCuerpo, ancho, 1.3) : 0;
   const bloque = altoTitular + (l.cuerpo ? HUECO + altoCuerpo : 0);
   const arriba = Math.max(ZONA_ARRIBA, Math.round(ZONA_ARRIBA + (ZONA_ABAJO - ZONA_ARRIBA - bloque) / 2));
   if (!portada && !cierre) objetos.push(texto(nuevoId(), 'Rótulo', l.rotulo, { left: MARGEN, top: arriba - 70, width: ancho, tam: 28, peso: 700, fam: famX, color: e.acento, espaciado: 120, mayus: true, interlineado: 1.1 }));
-  objetos.push(texto(nuevoId(), 'Titular', l.titulo, { left: MARGEN, top: arriba, width: ancho, tam: tamTitular, peso: e.titular.peso, fam: famT, color: tinta, interlineado: titularInter }));
-  if (l.cuerpo) objetos.push(texto(nuevoId(), portada ? 'Bajada' : 'Texto', l.cuerpo, { left: MARGEN, top: arriba + altoTitular + HUECO, width: ancho, tam: tamCuerpo, peso: e.texto.peso, fam: famX, color: suave, interlineado: 1.3 }));
+  objetos.push(texto(nuevoId(), 'Titular', l.titulo, { left: MARGEN, top: arriba, width: ancho, tam: tamTitular, peso: e.titular.peso, fam: famT, color: tinta, interlineado: titularInter, alto: altoTitular }));
+  if (l.cuerpo) objetos.push(texto(nuevoId(), portada ? 'Bajada' : 'Texto', l.cuerpo, { left: MARGEN, top: arriba + altoTitular + HUECO, width: ancho, tam: tamCuerpo, peso: e.texto.peso, fam: famX, color: suave, interlineado: 1.3, alto: altoCuerpo }));
   if (portada) objetos.push(texto(nuevoId(), 'Desliza', 'Desliza →', { left: MARGEN, top: 1176, width: 420, tam: 32, peso: 600, fam: famX, color: e.acento, interlineado: 1.1 }));
 
   // La barra de progreso (abajo, del ancho de lo que lleva leído) y la flecha (menos en la última).
