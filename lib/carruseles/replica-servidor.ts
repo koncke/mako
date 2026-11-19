@@ -38,7 +38,7 @@ import { esNuestra, tipoDeImagen } from '../spy-miniaturas';
 import { kitParaUsar } from '../marca/kits-server';
 import { fuenteDelEditorDeImagen } from '../image-editor/fuente-del-editor';
 import { estiloConKit, estiloSinSerif } from './marca-kit';
-import { marcaDelNegocio } from './marca';
+import { marcaDelNegocio, usuarioDeInstagram } from './marca';
 import { tipoCarrusel } from './tipos';
 import { estructuraDe } from './referencia';
 import { imagenesDe, type Carrusel } from './explorar';
@@ -50,7 +50,7 @@ import {
 import { imagenDeVideo, urlDeVideo, type Thumbnail } from '../thumbnails/explorar';
 import { notasDeVertical, type Vertical } from '../thumbnails/verticales';
 import { LAMINAS_DE_LA_LECTURA, PROMPT_LECTURA, fotoDelGuiado, leerLectura, type Lectura, type PedidoGuiado } from './guiado';
-import { bloqueDeOferta, cifrasDeLaReplica, leerCompletado, medidasDe, promptDeCompletar, type OfertaDelPrompt, type Replica } from './replica';
+import { bloqueDeOferta, cifrasDeLaReplica, leerCompletado, medidasDe, palabraDelTema, promptDeCompletar, type OfertaDelPrompt, type Replica } from './replica';
 import { marcarLaminas, planchasDeLaReplica } from './plancha-servidor';
 
 /** La función de la IA para el registro del uso y la puerta de «sólo su IA» (lib/model-catalogo.ts). */
@@ -185,6 +185,8 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   } catch { return { ok: false, error: miniatura ? 'No pude leer esa miniatura. Vuelve a intentar.' : 'No pude leer ese carrusel. Vuelve a intentar.', falla: true }; }
   if (!c && !t && !v) return { ok: false, error: miniatura ? 'Esa miniatura ya no está: elige otra.' : 'Ese ejemplo ya no está: elige otro.' };
 
+  // El @ de su Instagram (Zernio) se pide YA, mientras bajan las láminas: la marca lo usa después sin esperar otra vez.
+  void usuarioDeInstagram(ws);
   const anuncio = c?.clase === 'anuncio';
   // La miniatura de YouTube: la grande si la tiene, si no la de siempre (`hq` existe en todos los videos). La vertical: su portada.
   const urls = t ? [imagenDeVideo(t.video, 'max'), imagenDeVideo(t.video, 'hq')] : v ? [v.miniatura] : imagenesDe(c as Carrusel).slice(0, IMAGENES_MAX);
@@ -311,7 +313,9 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
     console.warn(`[carruseles] «Editar» sin la IA del negocio (ws=${ws}, ${ej.que} ${ej.id}): ${m.slice(0, 600)}`);
     return conGuias(avisoSinIA(m, o.negocioAjeno ?? null), errores);
   }
-  const replica = leerReplica(crudo, { laminas: total, miniatura, vertical, usuario: marca.usuario, nombre: marca.nombre });
+  // La palabra que el dueño pide comentar la pone el código (./replica.ts, `palabraDelTema`): la IA la cambió una vez de tres.
+  const palabra = palabraDelTema(pedidoDelDueno);
+  const replica = leerReplica(crudo, { laminas: total, miniatura, vertical, usuario: marca.usuario, nombre: marca.nombre, palabra });
   // Lo que leyó la IA TAL CUAL (la plancha le suma y le saca textos a `replica`): en seco viaja esto, para repetir la plancha.
   const leidaDeLaIA = o.seco && !('error' in replica) ? structuredClone(replica) : null;
   if ('error' in replica) {
@@ -336,10 +340,10 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
           const { conSuIADelNegocio } = await import('../ia-del-negocio');
           const r = await conSuIADelNegocio(ws, () => leerDocumentoIA({
             dataUrl: p.recortes[0], dataUrls: p.recortes, isPdf: false, nombreArchivo: 'recortes', json: true,
-            prompt: promptDeCompletar({ textos: p.textos, figuras: p.figuras, nombreNegocio: marca.nombre, contexto: p.contexto, oferta }),
+            prompt: promptDeCompletar({ textos: p.textos, figuras: p.figuras, nombreNegocio: marca.nombre, contexto: p.contexto, oferta, tema: pedidoDelDueno }),
             feature: FEATURE_REPLICA, motivo: 'Leer lo que faltaba de un carrusel de ejemplo', timeoutMs: 90_000, maxTokens: 4_000,
           }));
-          return leerCompletado(r.text, { textos: p.textos, figuras: p.figuras, usuario: marca.usuario, nombre: marca.nombre });
+          return leerCompletado(r.text, { textos: p.textos, figuras: p.figuras, usuario: marca.usuario, nombre: marca.nombre, palabra });
         } catch (e) {
           console.warn(`[carruseles] el segundo pedido (lo que faltaba) no contestó (ws=${ws}): ${(e instanceof Error ? e.message : String(e)).slice(0, 300)}`);
           return null;

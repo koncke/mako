@@ -52,7 +52,11 @@ const seg = () => `${((Date.now() - t0) / 1000).toFixed(1)} s`;
 const r = await runWithWorkspace(ws, () => R.replicarEjemplo(ws, 'script:probar-editar', que === 'vertical' ? { que, id: idVertical } : { que, id }, {
   seco: !tiene('guardar'),
   // --avatar cara|look|ninguno: lo que contestaría el dueño en el guiado (sin esto, la API vieja: sin foto del negocio).
-  guiado: op('avatar') ? { ofertaId: null, ofertaLibre: null, avatar: op('avatar') as 'cara' | 'look' | 'ninguno', cambio: 'textos', pedido: null } : null,
+  // --oferta «…» (la escrita a mano: «Lo escribo yo») y --pedido «…» (lo que escribe en la caja del chat): lo mismo que manda la
+  // pantalla (19/11/2026, la prueba de hacer DENTRO de MaKo los carruseles de ventas).
+  guiado: op('avatar') || op('oferta') || op('pedido')
+    ? { ofertaId: null, ofertaLibre: op('oferta'), avatar: (op('avatar') ?? 'cara') as 'cara' | 'look' | 'ninguno', cambio: 'textos', pedido: op('pedido') }
+    : null,
   alEvento: (e: { fase: string; [k: string]: unknown }) => {
     if (e.fase === 'leer') console.log(`[${seg()}] leer: ${e.vistas} de ${e.laminas} láminas llegaron a la IA`);
     else if (e.fase === 'escribir') console.log(`[${seg()}] escribir: con ${e.con}`);
