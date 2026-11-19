@@ -17,8 +17,10 @@
 // CON EL ONBOARDING V2 (18/11/2026, `dosCoaches`; Martín, 15/11: «Oferta y Funnel Coach en DOS chats separados»): esta MISMA pantalla
 // es cualquiera de los dos (`cual`). El Offer Coach, con la cara de quien aconseja (se elige tocándola) y sin plan; el Funnel Coach,
 // con su propia criatura, sin elegir referente y con «Ver el plan». Los dos abren con su video la primera vez (./VideoDelCoach.tsx).
+// EL OFFER COACH = EL MOTOR DE OFFER (19/11/2026, ./useChatDelCoach.ts → `motorOffer`): el hilo es SU conversación de Offer, con su
+// presentación y su video arriba hasta que la persona escribe, y la oferta armada en UN mensaje (./OfertaEnElChat.tsx).
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Modal } from '@/app/_ui';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
@@ -35,11 +37,11 @@ import type { CoachDelOps } from '@/lib/chat-mako-reglas';
 import { inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import { ROTULO_FUNNEL, type OfertaDelCoach } from '@/lib/funnel-plan';
 import { VideosDelChat } from '@/app/_ui/tutorial/VideosDelChat';
-import { BotonVozCoach } from '@/app/_ui/voz-coach/BotonVozCoach';
 import type { EnMensaje } from '@/app/_chat/HiloMako';
 import { VIDEOS_DEL_FUNNEL, VIDEOS_DEL_OFFER } from './VideoDelCoach';
 import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
 import { PARA_TODOS } from '@/lib/onboarding-v2/revision';
+import { ErrorDelOfferCoach, useHiloConPortada, useOfertaEnMensaje, vozDelCoach } from './coach-compartido';
 
 
 export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVolver, cual = 'funnel', dosCoaches = false, visible = false }: {
@@ -59,23 +61,24 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
 }) {
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  const { k, r, aspecto, quien, vacio, saludo, plan, titulo, tab, entregadaEn, ocupado } = useChatDelCoach({ referente, oferta, caja, cual, dosCoaches });
+  const { k, r, aspecto, quien, vacio, saludo, plan, titulo, tab, entregadaEn, ocupado, motorOffer, sinEscribir, errorOffer, reintentarOffer } = useChatDelCoach({ referente, oferta, caja, cual, dosCoaches });
   const claseDelCoach = !dosCoaches ? null
     : cual === 'funnel' ? (plan?.funnel ? { clave: `funnel-clase-${plan.funnel}`, titulo: `la clase de ${ROTULO_FUNNEL[plan.funnel]}` } : null)
-      : oferta?.estado === 'hay' ? { clave: 'offer-coach-clase', titulo: 'la clase de la oferta' } : null;
+      : oferta?.estado === 'hay' || k.sesionOffer?.conclusion ? { clave: 'offer-coach-clase', titulo: 'la clase de la oferta' } : null;
   // Con la oferta entregada, la marca a Funnel Coach, recién cuando la persona la vio (Martín, 18/11: «mínimo déjame verla»).
   usePasoAlFunnel({ activo: dosCoaches && cual === 'offer' && visible, entregadaEn, ocupado, contenedor: useCallback(() => hilo.current, []) });
   const portada = useVideoDelCoach(cual, dosCoaches, saludo);
   // LA VOZ DE LOS COACHES (el Cerebro, 18/11; app/_ui/voz-coach): un botón debajo de cada mensaje del coach, sin tapar el texto. El
   // último del coach suena solo; el saludo (la portada) es una pregunta fija. Sin la clave de ElevenLabs, o fuera de la revisión de
   // Martín, BotonVozCoach no dibuja nada.
-  const ultimoDelCoach = [...k.items].reverse().find((x) => x.k === 'msg')?.id ?? null;
-  const conVoz = (fija: boolean, previo?: (x: { id: string; texto: string }) => EnMensaje | null) => (x: { id: string; texto: string; k?: string }): EnMensaje | null => {
-    const antes = previo?.(x as never) ?? null;
-    if (!x.texto?.trim()) return antes;
-    const voz = <BotonVozCoach id={x.id} texto={x.texto} fija={fija} autoplay={fija ? false : x.id === ultimoDelCoach} />;
-    return { ...antes, abajo: <>{antes?.abajo}{voz}</> };
-  };
+  const conVoz = vozDelCoach(k.items);
+  // Con el motor de Offer: la presentación del coach y su video arriba de la conversación hasta que la persona escribe, y la oferta
+  // armada adentro del mensaje que trae su PDF.
+  const hiloCoach = useHiloConPortada(k, motorOffer && sinEscribir ? portada.items : null);
+  const deLaOferta = useOfertaEnMensaje(motorOffer ? k.sesionOffer : null, () => caja.current?.focus(), false);
+  const idsPortada = useMemo(() => new Set(portada.items.map((x) => x.id)), [portada.items]);
+  const enMensajeOffer = (x: { id: string; texto: string }): EnMensaje | null => (idsPortada.has(x.id)
+    ? conVoz(true, portada.enMensaje as never)(x) : conVoz(false, deLaOferta)(x));
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);
   // Quién aconseja se elige en el coach único y, con el V2, en el Offer Coach: el Funnel Coach del V2 no tiene referente al frente.
@@ -121,10 +124,11 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
         caja={mostrandoPlan ? null : <div className="co-caja"><CajaDelCliente k={k} campo={caja} seguir={seguirHilo} /></div>}
         estado={estadoDelCliente(k)}>
         {mostrandoPlan ? <VistaDelPlan plan={plan} />
-          : vacio ? (
-            <HiloMako items={portada.items} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null} enMensaje={dosCoaches ? conVoz(true, portada.enMensaje as never) : portada.enMensaje}
-              onTarjeta={() => {}} onReintentar={() => {}} onRecargar={k.recargar} onResponder={(t) => k.enviar(t)} />
-          ) : <HiloDelCliente k={k} enMensaje={dosCoaches ? conVoz(false) : undefined} />}
+          : motorOffer && errorOffer ? <ErrorDelOfferCoach error={errorOffer} onReintentar={reintentarOffer} />
+            : vacio ? (
+              <HiloMako items={portada.items} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null} enMensaje={dosCoaches ? conVoz(true, portada.enMensaje as never) : portada.enMensaje}
+                onTarjeta={() => {}} onReintentar={() => {}} onRecargar={k.recargar} onResponder={(t) => k.enviar(t)} />
+            ) : <HiloDelCliente k={hiloCoach} enMensaje={motorOffer ? enMensajeOffer : dosCoaches ? conVoz(false) : undefined} />}
       </PanelDeChat>
       {eligiendo && <ElegirReferente titulo={titulo} elegido={referente} onCerrar={() => setEligiendo(false)} onElegir={(id) => { setEligiendo(false); onReferente(id); }} />}
       {k.conectando && (
