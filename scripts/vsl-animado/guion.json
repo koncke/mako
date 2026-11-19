@@ -1,0 +1,627 @@
+{
+ "_que_es": "El guion del VSL principal de MaKo (v2, 19/11/2026: un ida y vuelta entre Martín a cámara y el personaje). Cada sección es un MP4 aparte; las de \"martin\": true son las tomas de Martín (de vos, su voz real; mientras no grabe, su clon de provisoria). En las tomas, \"gira\" es la palabra en que mira al personaje (a la derecha de la pantalla); el personaje contesta en el corte siguiente, a la derecha y mirándolo. En \"dice\", «Máko» con tilde y «vsl» en minúscula; en pantalla, MaKo y VSL.",
+ "musica": 0.1,
+ "secciones": [
+  {
+   "id": "gancho",
+   "escenas": [
+    {
+     "id": "g1",
+     "dice": "Si vendes high ticket, probablemente pagas casi cuatrocientos dólares al mes en aplicaciones.",
+     "vis": {
+      "tipo": "cara",
+      "lugar": "der",
+      "pose": "explica",
+      "clave": [
+       "cuatrocientos"
+      ],
+      "dato": {
+       "en": "cuatrocientos",
+       "v": "US$386,98",
+       "s": "al mes: lo que suman 11 apps sueltas, con los precios de sus webs",
+       "x": 600,
+       "y": 470
+      }
+     }
+    },
+    {
+     "id": "g2",
+     "dice": "Un CRM, un editor de video, otro para diseñar, otro para tus cursos, otro para tu WhatsApp… y un ChatGPT que no sabe nada de tu negocio.",
+     "vis": {
+      "tipo": "lista",
+      "lugar": "centro",
+      "pose": "encoge",
+      "poses": [
+       [
+        "chatgpt",
+        "abre"
+       ]
+      ],
+      "items": [
+       {
+        "en": "crm",
+        "logo": "gohighlevel",
+        "txt": "GoHighLevel",
+        "sub": "CRM · US$97",
+        "pos": [
+         360,
+         230
+        ],
+        "rot": -3
+       },
+       {
+        "en": "video",
+        "logo": "capcut",
+        "txt": "CapCut",
+        "sub": "Video · US$17,99",
+        "pos": [
+         1560,
+         230
+        ],
+        "rot": 3
+       },
+       {
+        "en": "diseñar",
+        "logo": "canva",
+        "txt": "Canva",
+        "sub": "Diseño · US$18",
+        "pos": [
+         330,
+         520
+        ],
+        "rot": 2
+       },
+       {
+        "en": "cursos",
+        "logo": "skool",
+        "txt": "Skool",
+        "sub": "Cursos · US$99",
+        "pos": [
+         1590,
+         520
+        ],
+        "rot": -2
+       },
+       {
+        "en": "whatsapp",
+        "logo": "manychat",
+        "txt": "ManyChat",
+        "sub": "WhatsApp · US$39",
+        "pos": [
+         380,
+         800
+        ],
+        "rot": -2
+       },
+       {
+        "en": "chatgpt",
+        "ico": "lucide-sparkles",
+        "txt": "ChatGPT",
+        "sub": "no conoce tu negocio",
+        "pos": [
+         1540,
+         800
+        ],
+        "rot": 3
+       }
+      ]
+     }
+    },
+    {
+     "id": "g3",
+     "dice": "Y cuando algo no vende, no sabes dónde se cortó.",
+     "vis": {
+      "tipo": "golpe"
+     }
+    },
+    {
+     "id": "g4",
+     "dice": "Por eso existe Máko: el mejor software para vender high ticket.",
+     "vis": {
+      "tipo": "lista",
+      "lugar": "der",
+      "heredar": "g2",
+      "junta": "máko",
+      "juntaEn": {
+       "x": 640,
+       "y": 470
+      },
+      "pose": "senala",
+      "pos": [
+       [
+        300,
+        220
+       ],
+       [
+        880,
+        200
+       ],
+       [
+        260,
+        520
+       ],
+       [
+        960,
+        520
+       ],
+       [
+        320,
+        820
+       ],
+       [
+        900,
+        830
+       ]
+      ]
+     }
+    },
+    {
+     "id": "g5",
+     "dice": "Todo en una sola app, con una inteligencia artificial que conoce tu negocio de verdad.",
+     "vis": {
+      "tipo": "cara",
+      "lugar": "centro",
+      "pose": "abre",
+      "clave": [
+       "sola",
+       "conoce"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "toma1",
+   "martin": true,
+   "n": 1,
+   "de": 4,
+   "titulo": "Quién soy, y le pide al personaje que muestre",
+   "dice": "Hola, mi nombre es Martín Koncke y en los últimos siete años me dediqué a los negocios digitales. La verdad, me atrevo a decir que probé todos los funnels que existen. ¿Les mostrás cómo se ve todo junto?",
+   "grabar": "A cámara. En «¿Les mostrás…?» gira la cabeza hacia su izquierda (la derecha de la pantalla), unos 45°, como si el personaje estuviera parado al lado de la cámara; lo pregunta mirándolo y sostiene la mirada 1 segundo.",
+   "gira": "mostrás"
+  },
+  {
+   "id": "cerebro",
+   "escenas": [
+    {
+     "id": "b0",
+     "dice": "Todo empieza en tu Second Brain:",
+     "vis": {
+      "tipo": "cara",
+      "lugar": "der",
+      "mira": -0.75,
+      "pose": "abre",
+      "clave": [
+       "second",
+       "brain"
+      ]
+     }
+    },
+    {
+     "id": "b1",
+     "dice": "Máko aprende tu oferta, tu cliente y a tu competencia.",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "cerebro",
+      "desde": 5,
+      "rotulo": {
+       "t": "Second Brain",
+       "ico": "brain"
+      },
+      "clave": [
+       "oferta",
+       "cliente",
+       "competencia"
+      ]
+     }
+    },
+    {
+     "id": "b2",
+     "dice": "Y le pides consejo a referentes como Alex Hormozi: una IA inspirada en su método, llevada a tu negocio.",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "referentes",
+      "desde": 1.2,
+      "rotulo": {
+       "t": "Referentes",
+       "ico": "lucide-users-round"
+      },
+      "clave": [
+       "hormozi"
+      ],
+      "pose": "explica",
+      "vel": 0.8
+     }
+    }
+   ]
+  },
+  {
+   "id": "atraer",
+   "escenas": [
+    {
+     "id": "a1",
+     "dice": "Primero, atraer. En Competitor Spy ves qué le funciona a tu competencia: los videos de Hormozi con más vistas, ordenados.",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "spy",
+      "desde": 6.5,
+      "rotulo": {
+       "n": "1",
+       "t": "Atraer · Competitor Spy",
+       "ico": "lucide-binoculars"
+      },
+      "clave": [
+       "funciona",
+       "vistas"
+      ]
+     }
+    },
+    {
+     "id": "a2",
+     "dice": "Eliges uno, y Máko escribe tu guion con la misma estructura, pero con tu oferta.",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "copywriting",
+      "desde": 0.4,
+      "rotulo": {
+       "n": "1",
+       "t": "Atraer · Copywriting",
+       "ico": "lucide-pen-line"
+      },
+      "clave": [
+       "estructura",
+       "oferta"
+      ],
+      "pose": "explica"
+     }
+    },
+    {
+     "id": "a3",
+     "dice": "Lo mismo con tus carruseles,",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "carruseles",
+      "desde": 6.5,
+      "rotulo": {
+       "n": "1",
+       "t": "Atraer · Carruseles",
+       "ico": "lucide-image"
+      }
+     }
+    },
+    {
+     "id": "a4",
+     "dice": "tus videos, editados con subtítulos,",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "video",
+      "desde": 6,
+      "rotulo": {
+       "n": "1",
+       "t": "Atraer · Video",
+       "ico": "lucide-clapperboard"
+      },
+      "pose": "abre"
+     }
+    },
+    {
+     "id": "a5",
+     "dice": "y hasta tu landing: pegas la de tu competencia y Máko la replica con tu oferta.",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "replicar",
+      "desde": 0.3,
+      "rotulo": {
+       "n": "1",
+       "t": "Atraer · Web Generator",
+       "ico": "lucide-globe"
+      },
+      "clave": [
+       "replica"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "vender",
+   "escenas": [
+    {
+     "id": "v1",
+     "dice": "Después, vender. Los mensajes de WhatsApp e Instagram caen en una sola bandeja,",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "chats",
+      "desde": 0.3,
+      "rotulo": {
+       "n": "2",
+       "t": "Vender · Chats",
+       "ico": "lucide-messages-square"
+      },
+      "clave": [
+       "bandeja"
+      ]
+     }
+    },
+    {
+     "id": "v2",
+     "dice": "y el setter con IA les responde y les manda tu agenda.",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "automations",
+      "desde": 0.5,
+      "rotulo": {
+       "n": "2",
+       "t": "Vender · Automations",
+       "ico": "lucide-workflow"
+      },
+      "clave": [
+       "agenda"
+      ],
+      "pose": "explica"
+     }
+    },
+    {
+     "id": "v3",
+     "dice": "En tu CRM ves cada lead: cuánto vio de tu vsl y qué hizo antes de agendar.",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "crm-ficha",
+      "desde": 5,
+      "rotulo": {
+       "n": "2",
+       "t": "Vender · CRM",
+       "ico": "lucide-contact"
+      },
+      "clave": [
+       "vio"
+      ]
+     }
+    },
+    {
+     "id": "v4",
+     "dice": "Y cada llamada de venta que grabas, Máko la analiza y te marca las objeciones.",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "tableros/closing",
+      "desde": 0,
+      "rotulo": {
+       "n": "2",
+       "t": "Vender · Closing",
+       "ico": "lucide-handshake"
+      },
+      "clave": [
+       "objeciones"
+      ]
+     }
+    },
+    {
+     "id": "v5",
+     "dice": "Y cuando vendes, entregas en el mismo lugar: tu curso y tu comunidad.",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "comunidad",
+      "desde": 8,
+      "rotulo": {
+       "n": "4",
+       "t": "Entregar · Curso y comunidad",
+       "ico": "lucide-graduation-cap"
+      },
+      "clave": [
+       "curso",
+       "comunidad"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "toma2",
+   "martin": true,
+   "n": 2,
+   "de": 4,
+   "titulo": "La pregunta del anuncio",
+   "gira": "dónde",
+   "dice": "Ahora, la pregunta más importante: ¿qué anuncio te trae a los leads que pagan, y no solamente curiosos? ¿Dónde se ve eso?",
+   "grabar": "La primera pregunta, a cámara y directo. En «¿Dónde se ve eso?» gira hacia el personaje (el mismo lado) y sostiene 1 segundo."
+  },
+  {
+   "id": "decidir",
+   "escenas": [
+    {
+     "id": "d0",
+     "dice": "Lo ve tu Marketing CoPilot:",
+     "vis": {
+      "tipo": "cara",
+      "lugar": "der",
+      "mira": -0.75,
+      "pose": "explica",
+      "clave": [
+       "copilot"
+      ]
+     }
+    },
+    {
+     "id": "d1",
+     "dice": "revisa tus anuncios todos los días y le sube el presupuesto al que vende, sin pasarse del tuyo.",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "copilot",
+      "desde": 0.8,
+      "rotulo": {
+       "n": "3",
+       "t": "Decidir · Marketing CoPilot",
+       "ico": "lucide-compass"
+      },
+      "clave": [
+       "presupuesto"
+      ]
+     }
+    },
+    {
+     "id": "d2",
+     "dice": "Y en tus dashboards ves qué anuncio te trajo ventas, no solo clics.",
+     "vis": {
+      "tipo": "pantalla",
+      "rec": "tableros",
+      "desde": 7,
+      "rotulo": {
+       "n": "3",
+       "t": "Decidir · Dashboards",
+       "ico": "lucide-layout-dashboard"
+      },
+      "clave": [
+       "ventas"
+      ],
+      "pose": "explica"
+     }
+    }
+   ]
+  },
+  {
+   "id": "toma3",
+   "martin": true,
+   "n": 3,
+   "de": 4,
+   "titulo": "El caso de Mauricio",
+   "gira": "qué#2",
+   "dice": "Como por ejemplo, el caso de mi querido cliente Mauricio. Él ya vendía, pero un mes le iba bien, otro no, y nunca sabía por qué. ¿Qué cambió?",
+   "grabar": "A cámara, contándolo tranquilo. En «¿Qué cambió?» gira hacia el personaje y sostiene 1 segundo."
+  },
+  {
+   "id": "caso",
+   "escenas": [
+    {
+     "id": "c1",
+     "dice": "Empezó a decidir con datos.",
+     "vis": {
+      "tipo": "cara",
+      "lugar": "der",
+      "mira": -0.75,
+      "pose": "explica",
+      "clave": [
+       "datos"
+      ]
+     }
+    },
+    {
+     "id": "c2",
+     "dice": "Pasó de meses de menos de nueve mil dólares a más de cien mil vendidos. La misma oferta, el mismo funnel.",
+     "vis": {
+      "tipo": "cara",
+      "lugar": "der",
+      "pose": "explica",
+      "poses": [
+       [
+        "cien",
+        "festeja"
+       ],
+       [
+        "misma",
+        "abre"
+       ]
+      ],
+      "clave": [
+       "cien"
+      ],
+      "dato": [
+       {
+        "en": "nueve",
+        "v": "US$9k",
+        "s": "al mes o menos, antes",
+        "x": 440,
+        "y": 330,
+        "color": "#8a877f"
+       },
+       {
+        "en": "cien",
+        "v": "+US$100k",
+        "s": "vendidos con MaKo",
+        "x": 640,
+        "y": 690,
+        "color": "#2F6FED"
+       }
+      ],
+      "mira": -0.3
+     }
+    }
+   ]
+  },
+  {
+   "id": "precio",
+   "escenas": [
+    {
+     "id": "p1",
+     "dice": "Todo esto, por separado, cuesta casi cuatrocientos dólares al mes.",
+     "vis": {
+      "tipo": "cara",
+      "lugar": "der",
+      "pose": "explica",
+      "clave": [
+       "separado"
+      ],
+      "dato": {
+       "en": "cuesta",
+       "v": "US$386,98",
+       "s": "al mes, en apps sueltas",
+       "x": 600,
+       "y": 470,
+       "tacha": "mes"
+      }
+     }
+    },
+    {
+     "id": "p2",
+     "dice": "Máko Essential cuesta cuarenta y siete dólares al mes, y Máko Pro, con todo lo que viste, noventa y siete.",
+     "vis": {
+      "tipo": "precio",
+      "pose": "explica",
+      "x": 170,
+      "y": 300,
+      "planes": [
+       {
+        "en": "essential",
+        "nombre": "MaKo Essential",
+        "precio": 47,
+        "resumen": "Para quien vende solo: tu página, tus leads y tu WhatsApp en un solo lugar."
+       },
+       {
+        "en": "pro",
+        "nombre": "MaKo Pro",
+        "precio": 97,
+        "pro": true,
+        "resumen": "Para quien ya vende y tiene equipo: MaKo produce, pauta y responde, y tú apruebas."
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "toma4",
+   "martin": true,
+   "n": 4,
+   "de": 4,
+   "titulo": "El cierre",
+   "dice": "Así que, si te cansaste de escalar a ciegas, probá Máko siete días gratis. El link lo tenés abajo. Nos vemos.",
+   "grabar": "A cámara todo el tiempo. En «El link lo tenés abajo» puedes señalar hacia abajo. Termina en «Nos vemos.» con una sonrisa y sostén 2 segundos."
+  },
+  {
+   "id": "cierre",
+   "escenas": [
+    {
+     "id": "z1",
+     "dice": "Máko: el mejor software para vender high ticket.",
+     "vis": {
+      "tipo": "cierre",
+      "pose": "saludo",
+      "titular": "El mejor software<br>para vender<br><b>High Ticket</b>.",
+      "cta": "PRUÉBALO GRATIS AHORA",
+      "ctaEn": "software",
+      "clicEn": "ticket"
+     }
+    }
+   ]
+  }
+ ]
+}
