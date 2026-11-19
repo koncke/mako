@@ -196,38 +196,4 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'guarda el original (app_settings mako.copywriter.original.<n>) y agrega un documento al Copywriter (mako.copywriter.indice y mako.copywriter.doc.<id>)',
     canales: TODOS, costo: 'gratis', gating: G, lenta: true,
   },
-  // ── Inspiración (19/11/2026, docs/inspiracion/diseno.md): los links de Instagram que el dueño guarda mandándolos por WhatsApp,
-  // las carpetas del negocio (sus series de contenido) y la bandeja de lo que MaKo no sabe dónde va. Detrás del interruptor de la
-  // revisión (lib/inspiracion/revision.ts), preguntado en cada runner.
-  {
-    id: 'listar_inspiracion', area: 'contenido', tipo: 'lectura',
-    titulo: 'Inspiración guardada',
-    descripcion: 'Lo que el dueño guardó como inspiración (los links de Instagram que le mandó a MaKo por WhatsApp): las carpetas del negocio (sus series de contenido) y cada pieza con su cuenta, de qué trata, en qué carpeta está o, si espera en la bandeja, en cuál sospecha MaKo que va y con cuánta seguridad.',
-    parametros: [{ nombre: 'soloPendientes', tipo: 'boolean', descripcion: 'true trae sólo las que esperan en la bandeja (sin carpeta).' }],
-    salida: 'json', canales: TODOS, costo: 'gratis', gating: G,
-  },
-  {
-    id: 'ordenar_inspiracion', area: 'contenido', tipo: 'accion',
-    titulo: 'Ordenar una pieza de inspiración',
-    descripcion: 'Pone una pieza de inspiración en una carpeta que ya existe (lo mismo que el «Sí» de la bandeja), en una carpeta nueva que crea, o la devuelve a la bandeja. Lo confirmado le enseña a MaKo qué va en cada carpeta.',
-    parametros: [
-      { nombre: 'piezaId', tipo: 'number', entero: true, obligatorio: true, minimo: 1, descripcion: 'id de la pieza (listar_inspiracion).' },
-      { nombre: 'carpetaId', tipo: 'number', entero: true, minimo: 1, descripcion: 'id de una carpeta que ya existe (listar_inspiracion).' },
-      { nombre: 'carpetaNueva', tipo: 'string', max: 60, descripcion: 'Nombre de una carpeta nueva: se crea y la pieza va ahí.' },
-      { nombre: 'queVaAhi', tipo: 'string', max: 200, descripcion: 'Con carpetaNueva: una línea de qué va en esa carpeta (MaKo la lee para ordenar las próximas).' },
-      { nombre: 'aLaBandeja', tipo: 'boolean', descripcion: 'true la saca de su carpeta y la devuelve a la bandeja.' },
-    ],
-    confirmacion: 'chat', reversible: true,
-    escribe: 'mueve la pieza en inspiracion_piezas y, con carpetaNueva, agrega la carpeta en inspiracion_carpetas',
-    canales: TODOS, costo: 'gratis', gating: G,
-  },
-  {
-    id: 'borrar_inspiracion', area: 'contenido', tipo: 'accion',
-    titulo: 'Borrar una pieza de inspiración',
-    descripcion: 'Borra una pieza de inspiración guardada: deja de estar en su carpeta y en la bandeja. No se deshace (para tenerla de nuevo, se vuelve a mandar el link por WhatsApp).',
-    parametros: [{ nombre: 'piezaId', tipo: 'number', entero: true, obligatorio: true, minimo: 1, descripcion: 'id de la pieza (listar_inspiracion).' }],
-    confirmacion: 'chat', reversible: false,
-    escribe: 'borra la pieza de inspiracion_piezas',
-    canales: TODOS, costo: 'gratis', gating: G,
-  },
 ];

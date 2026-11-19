@@ -2106,7 +2106,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         return null;
       });
       const dicho = guardados?.length
-        ? respuestaWhatsApp(guardados, `${APP_URL}/copywriter?ver=inspiracion`)
+        ? respuestaWhatsApp(guardados, linkApp('/copywriter?ver=inspiracion', wsData))
         : 'No pude guardar ese link ahora: mándamelo de nuevo en un rato.';
       const env = await enviarAGrupoJid(jid, dicho);
       if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
