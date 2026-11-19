@@ -133,8 +133,28 @@ export function MotorTutorial({ revision }: { revision: boolean }) {
 function TutorialDeLaRuta() {
   const ruta = usePathname() ?? '/';
   const t = tutorialDeRuta(ruta);
-  return t ? <PrimeraVez key={t.pestana} t={t} /> : null;
+  return t ? <><PrimeraVez key={t.pestana} t={t} /><BotonDelVideo t={t} /></> : null;
 }
+
+/** El «?» de cada pestaña con tutorial (Martín, 18/11: «el botoncito de pregunta… si el usuario cerró el video, pueda volver a
+ *  abrirlo»): abajo a la derecha, mientras no corre nada; vuelve a abrir el video de la pestaña, directo y con sus marcas. */
+function BotonDelVideo({ t }: { t: TutorialPestana }) {
+  const senal = useSenal();
+  if (senal) return null;
+  return (
+    <button type="button" className="mk-tuto-ayuda" aria-label={`Ver el video de ${t.nombre}`} title="Ver el video de esta pestaña"
+      onClick={() => mostrarTutorial(t, { directo: true })}>
+      <style>{CSS_AYUDA}</style>
+      <span aria-hidden>?</span>
+    </button>
+  );
+}
+// ⚠️ SIN COMILLAS INVERTIDAS ADENTRO (es un template literal: AGENTS.md).
+const CSS_AYUDA = `
+.mk-tuto-ayuda { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 900; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.14); padding: 0; }
+.mk-tuto-ayuda:hover { background: var(--surface-2, rgba(0,0,0,.05)); }
+@media (max-width: 640px) { .mk-tuto-ayuda { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
+`;
 function PrimeraVez({ t }: { t: TutorialPestana }) {
   // En el ensayo «desde cero» (./desde-cero.ts), lo visto vive en el navegador y no se le escribe al server.
   const ensayo = useEnsayo();
@@ -158,7 +178,10 @@ function PrimeraVez({ t }: { t: TutorialPestana }) {
       // a los coaches, Uso, la Ticketera y termina mandando al chat del reto (acordado con el chat de los videos, 18/11).
       // La PRIMERA vez en el Ops Center, el RECORRIDO APROBADO (lib/onboarding-v2/recorrido.ts) en lugar del tutorial de la pestaña:
       // el reto, la barra, el Second Brain, la Ticketera. Lo visto se anota como el del Ops Center, así sale una vez.
-      if (lugarDe(pasos[0].sel) || Date.now() - desde > 6000) { pedido.current = true; mostrarTutorial(t.pestana === 'ops-center' ? TUTORIAL_RECORRIDO : t, { alTerminar: onCerrar }); return; }
+      // Martín, 18/11, noche: «no es necesario que cada vez que entro en una pestaña me diga cómo funciona… omitir recorrido y
+      // empezar… solamente que esté el video abajo a la derecha». Una pestaña abre DIRECTO su video (con sus marcas); el recorrido
+      // aprobado del Ops Center sigue con su presentación.
+      if (lugarDe(pasos[0].sel) || Date.now() - desde > 6000) { pedido.current = true; mostrarTutorial(t.pestana === 'ops-center' ? TUTORIAL_RECORRIDO : t, { alTerminar: onCerrar, ...(t.pestana === 'ops-center' ? {} : { directo: true }) }); return; }
       window.setTimeout(mirar, 250);
     };
     const id = window.setTimeout(mirar, 600);
