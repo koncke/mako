@@ -35,6 +35,11 @@ El ranking de temas, con cómo lo explica cada mentor, está en [serie-2-temas.m
   vacíos se leen como un boceto sin terminar. Cada tarjeta muestra desde que aparece lo que la hace distinta (su frase,
   su número); para marcar el momento en que la voz lo dice, un golpe de escala o de color, no aparecer de la nada. Y un
   título que no alcanza a leerse entero (menos de 1 s, o cortado) se saca.
+- **Nada de letra chica (Martín, 19/11, por la galería):** todo texto se lee en el teléfono sin acercarse. Piso: 44 px
+  en el cuadro de 1080 (≈ 16 pt en un celular) para lo secundario (fuente, «vistas», etiquetas) y 48+ para lo que se lee.
+  Ojo con lo que vive dentro de algo escalado: una frase de 58 px en una tarjeta que la cámara aleja a ×0,46 queda en
+  27 px. Si hay que mostrar varias cosas juntas, se arma una tabla sin escalar (video 1) o filas a ancho completo (las
+  cinco versiones), no tarjetitas.
 - **Voseo que el chequeo no ve:** con el clon rioplatense, los verbos de «tú» que en voseo sólo cambian el acento
   («dejas» → «dejás», «completes», «quédate») pueden salir agudos. Se lee la transcripción buscando esas tildes; si una
   sale aguda, se cambia por un verbo de raíz distinta («le pierdes el miedo», no «dejas de tenerle miedo»).
@@ -128,6 +133,10 @@ el commit, la cosecha).
   y «TRES VECES» salía apenas visible y cortado. Ahora cada tarjeta muestra desde el principio su primera frase y sus
   vistas (el número final, con un golpe de escala cuando la voz lo dice), y el título se sacó. El HTML anterior quedó
   en `reels/edu-mismo-video.v2.html`.
+- **Versión 4 (19/11, «nada de letra chica»):** la cámara ya no se aleja a ver las tres tarjetas (la frase quedaba en
+  27 px); con «tres veces» y con «casi cuatro millones» entra una tabla sin escalar (frase en 48 px, vistas en 72 px,
+  el ×130 debajo de la fila 3). Las cinco versiones A-E pasaron de tarjetitas con rayitas a filas a ancho completo, cada
+  una con su primera frase (48 px); la que gana (C) es la que el video recomendó y se llena de amarillo.
 
 ### 2. «Cinco primeras frases» (`edu-cinco-frases`) — tema 1 (el gancho), lo que promete el cierre del video 1
 
@@ -153,6 +162,23 @@ el commit, la cosecha).
 - **Formato:** el reel de «Hola, soy Carla…» que se pasa de largo → la lista de cinco → una ficha por frase (nombre,
   hueco, ejemplo y de qué Short sale; la ficha crece cuando llega cada cosa, nunca hay espacio vacío ni rayitas) → el
   aro que se abre y se cierra («abren una pregunta que sólo se cierra si sigues mirando») → la suma.
+
+### 3. «Lo tengo que pensar» (`edu-lo-pienso`) — tema 2 (las objeciones del cierre)
+
+- **Qué enseña:** el cierre del 1 al 10 de Hormozi: «del uno al diez, ¿dónde estás?» → «¿por qué no un uno?» (el
+  cliente se vende solo) → «¿qué haría falta para llegar a diez?» → si no nombra nada, «¿a qué le tienes miedo?».
+- **Gancho:** la frase literal del cliente, «Me encanta. Lo tengo que pensar.». Es la estructura del viral de Hormozi
+  «Sales Objections» (VQBH4XvZGvs, 1.480.002): el mismo clip pasó de 413.547 a 1.480.002 vistas cuando se reeditó para
+  abrir con la frase del cliente.
+- **El dato:** «Sales Close For Hesitant Buyers», subido tres veces: https://www.youtube.com/watch?v=f0mnkPDtiWg
+  (1.047.716), https://www.youtube.com/watch?v=9jeuJA2QuHw (160.700), https://www.youtube.com/watch?v=wGmrvuVtmNI
+  (341.171) = 1.549.587 vistas al 19/11/2026. El guion dice «más de un millón y medio».
+- **Guion:** `voz/guion-edu-lo-pienso.json`, 138 palabras, 44,94 s, una toma exacta. Antes de grabar se sacaron los
+  verbos que en voseo sólo cambian el acento: «pregúntale» → «hazle esta pregunta», «no le preguntes» → «en vez de…, le
+  dices», «si vendes» → «si eres coach».
+- **Formato:** globos de chat (el cliente en blanco a la izquierda, tú en amarillo a la derecha) sobre una escala del 1
+  al 10 que se llena (la idea es de la pieza #68). Los globos crecen con su texto (`width:max-content`, máximo 880 px):
+  con `white-space:nowrap` las preguntas largas se salían del cuadro.
 
 ## Piezas que guardó Martín para esta serie (19/11/2026)
 
