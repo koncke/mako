@@ -410,8 +410,11 @@ export function pedidoDelGuiado(h: HechosGuiado, r: RespuestasGuiado): PedidoGui
 export const fotoDelGuiado = (g: PedidoGuiado | null | undefined): 'cara' | 'look' | null =>
   g?.avatar === 'ninguno' ? null : g?.avatar === 'look' ? 'look' : 'cara';
 
-/** El tope de lo escrito que viaja (el de la ruta de la réplica es 400; se deja lugar para la oferta escrita). */
-export const TOPE_PEDIDO = 360;
+/**
+ * El tope de lo escrito que viaja. Era 360 y el prompt lo cortaba en 300: el tema, la voz y la palabra del CTA de un carrusel
+ * («encontré una app que…», 19/11/2026) no entraban. Es el `TOPE_TEMA` del prompt (lib/carruseles/replica.ts).
+ */
+export const TOPE_PEDIDO = 600;
 
 /**
  * El pedido que manda el NAVEGADOR, leído en el server: nada se cree. Un id que no es entero es `null`, un avatar o un cambio que
