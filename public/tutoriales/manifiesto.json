@@ -1499,41 +1499,105 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-4.mp4",
    "poster": "/tutoriales/reto-dia-4.jpg",
-   "duracion_s": 25.9,
-   "peso_kb": 1456,
-   "guion": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia. Primero, toca aquí, en Competitor Spy, y agrega a tres competidores: mira lo que más tiempo llevan activo, porque si sigue activo, vende. Después, toca aquí, en Web Generator: pegas una página que ya vende, y la arma con tu oferta. Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
+   "duracion_s": 69.77,
+   "peso_kb": 3725,
+   "guion": "¿Por qué hay anuncios que duran meses al aire, y otros se apagan en una semana? Te doy la bienvenida al día cuatro: hoy copias lo que ya le funciona a tu competencia. Si un anuncio lleva meses activo, es porque a su dueño le sigue dejando más dinero del que cuesta. Otros de tu mercado ya pagaron para descubrir qué atrae clientes. Toma una agencia que hace los anuncios de clínicas dentales, por mil quinientos dólares al mes. En Competitor Spy, la agencia ve que un rival tiene un anuncio corriendo hace noventa días. Ahí mismo descubre a dónde manda a quien hace clic, y mira su web por dentro. ¿Y copiar no está mal? No, si tomas cómo está armado, y no su texto ni sus videos. Con esa estructura y su propia oferta, su página no arranca de cero. Primero, toca aquí, en Competitor Spy, y agrega a tres competidores: mira lo que más tiempo llevan activo, porque si sigue activo, vende. Después, toca aquí, en Web Generator: pegas una página que ya vende, y la arma con tu oferta. Hoy partes de algo probado, no de una corazonada. Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
    "frases": [
     {
      "id": "reto-dia-4-1",
      "rol": "gancho",
-     "texto": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia.",
+     "texto": "¿Por qué hay anuncios que duran meses al aire, y otros se apagan en una semana?",
      "t_inicio": 0.04,
-     "t_fin": 5.44
+     "t_fin": 4.24
     },
     {
      "id": "reto-dia-4-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida al día cuatro: hoy copias lo que ya le funciona a tu competencia.",
+     "t_inicio": 4.82,
+     "t_fin": 9.98
+    },
+    {
+     "id": "reto-dia-4-3",
+     "rol": "porque",
+     "texto": "Si un anuncio lleva meses activo, es porque a su dueño le sigue dejando más dinero del que cuesta.",
+     "t_inicio": 10.78,
+     "t_fin": 16.16
+    },
+    {
+     "id": "reto-dia-4-4",
+     "rol": "porque",
+     "texto": "Otros de tu mercado ya pagaron para descubrir qué atrae clientes.",
+     "t_inicio": 16.78,
+     "t_fin": 20.44
+    },
+    {
+     "id": "reto-dia-4-5",
+     "rol": "porque",
+     "texto": "Toma una agencia que hace los anuncios de clínicas dentales, por mil quinientos dólares al mes.",
+     "t_inicio": 20.98,
+     "t_fin": 25.58
+    },
+    {
+     "id": "reto-dia-4-6",
+     "rol": "porque",
+     "texto": "En Competitor Spy, la agencia ve que un rival tiene un anuncio corriendo hace noventa días.",
+     "t_inicio": 26.2,
+     "t_fin": 31.32
+    },
+    {
+     "id": "reto-dia-4-7",
+     "rol": "porque",
+     "texto": "Ahí mismo descubre a dónde manda a quien hace clic, y mira su web por dentro.",
+     "t_inicio": 31.84,
+     "t_fin": 36.02
+    },
+    {
+     "id": "reto-dia-4-8",
+     "rol": "porque",
+     "texto": "¿Y copiar no está mal? No, si tomas cómo está armado, y no su texto ni sus videos.",
+     "t_inicio": 36.48,
+     "t_fin": 42.18
+    },
+    {
+     "id": "reto-dia-4-9",
+     "rol": "porque",
+     "texto": "Con esa estructura y su propia oferta, su página no arranca de cero.",
+     "t_inicio": 42.68,
+     "t_fin": 46.68
+    },
+    {
+     "id": "reto-dia-4-10",
      "rol": "accion",
      "texto": "Primero, toca aquí, en Competitor Spy, y agrega a tres competidores: mira lo que más tiempo llevan activo, porque si sigue activo, vende.",
-     "t_inicio": 5.92,
-     "t_fin": 14.72,
+     "t_inicio": 47.12,
+     "t_fin": 55.6,
      "sel": "aside[data-sidebar] a[href^=\"/competitor-spy\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-4-3",
+     "id": "reto-dia-4-11",
      "rol": "accion",
      "texto": "Después, toca aquí, en Web Generator: pegas una página que ya vende, y la arma con tu oferta.",
-     "t_inicio": 15.2,
-     "t_fin": 21.3,
+     "t_inicio": 56.14,
+     "t_fin": 61.78,
      "sel": "aside[data-sidebar] a[href^=\"/web-generator\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-4-4",
+     "id": "reto-dia-4-12",
+     "rol": "cierre",
+     "texto": "Hoy partes de algo probado, no de una corazonada.",
+     "t_inicio": 62.28,
+     "t_fin": 65.06,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-4-13",
      "rol": "cierre",
      "texto": "Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
-     "t_inicio": 21.72,
-     "t_fin": 25.22,
+     "t_inicio": 65.58,
+     "t_fin": 69.08,
      "espera_clic": false
     }
    ],
@@ -1541,8 +1605,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "4 → cuatro (ortografía del transcriptor)",
-   "hecho": "2026-11-18T15:28:49.888Z"
+   "chequeo": "spy → competitorspy · spy → competitorspy · mako → maco · falta competitor · falta competitor (ortografía del transcriptor)",
+   "hecho": "2026-11-19T02:54:22.794Z"
   },
   {
    "key": "reto-dia-5",
