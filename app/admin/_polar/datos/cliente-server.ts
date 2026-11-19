@@ -32,6 +32,7 @@ import { leerClientes, leerIngresos } from './clientes-server'
 import { clientesEnRiesgo } from './clientes'
 import { vistaSuscripciones } from './ventas-server'
 import { leerActividad, leerOrdenes, leerTimelineDelNegocio, leerUsuarios } from './eventos-server'
+import { mensualidadDeAgencia } from '@/lib/agencia-mes'
 import type { EventoDeTimeline } from './eventos'
 import type { Pedido, SuscripcionVenta } from './ventas'
 import {
@@ -252,11 +253,16 @@ export const leerResumen = cache(async (ws: number): Promise<ResumenNegocio> => 
   // Lo que el Timeline no pudo leer, salvo lo que ya dijeron los pagos de arriba (Sales lee lo mismo y lo avisa una vez).
   avisos.push(...subs.avisos, ...eventos.avisos.filter((a) => !avisos.some((b) => a.endsWith(b))))
   const suyas = suscripcionesDelNegocio(subs.suscripciones, ws)
+  const real = await mensualidadDeAgencia(ws).catch(() => null)
+  const mensualidadReal = real && real.ok && real.config ? real.actual.cuenta.totalUsd : null
   return {
     hoy: ingresos.hoy,
     pedidos: ingresos.pedidos,
     // La caja lee la mensualidad de sus suscripciones, la misma de su tabla (punto 10); sin ninguna viva, el MRR de lo cobrado.
-    mrrUsd: mensualidadDelNegocio(suyas) ?? ingresos.mrrUsd,
+    // ⚠️ UNA AGENCIA PAGA SU MENSUALIDAD REAL DE HOY (19/11/2026, Martín: «me dice lo que paga por mes 238… ya es más que 238 con todos los usuarios
+    // que tiene dentro»): su plan MÁS sus clientes activos, con la regla de lib/agencia-mes-reglas.ts (`mensualidadDeAgencia`), no el número de lo
+    // que pagó o de una suscripción guardada. Una cuenta sin la mensualidad prendida sigue como antes.
+    mrrUsd: mensualidadReal ?? mensualidadDelNegocio(suyas) ?? ingresos.mrrUsd,
     suscripciones: suyas,
     conexiones,
     computadoras: computadorasDeLaFicha(opera, computadoras),

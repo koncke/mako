@@ -71,8 +71,10 @@ export type ClienteDeLista = {
   /** El plan como lo vende MaKo (la segunda línea del renglón y el CSV). */
   plan: string
   estado: string
-  /** Es cliente de una agencia (`esClienteDeMaKo` da false): sólo sale con el filtro «De agencias». */
+  /** Es cliente de una agencia (`esClienteDeMaKo` da false): sale en «Todos» y en «De agencias». */
   deAgencia: boolean
+  /** Un negocio de prueba (el Cliente de Prueba, el de Diseño, la cuenta de revisión): se ve en la lista para poder probarlo, pero no cuenta en ningún número. */
+  esPrueba: boolean
   /** El nombre de su agencia, si se sabe. */
   agencia: string | null
 }
@@ -80,9 +82,11 @@ export type ClienteDeLista = {
 export const ORDENES = ['-created_at', 'created_at', 'name', '-name'] as const
 export type OrdenLista = (typeof ORDENES)[number]
 /**
- * El filtro de la lista (el `CustomerFilter` de Polar: All, Active, Inactive) y uno más de MaKo, «De agencias» (decisión del
- * Cerebro, 6/11/2026): los clientes de una agencia no son clientes de MaKo y no salen en «Todos», pero tienen que poder
- * encontrarse en la lista además de en la búsqueda ⌘K. Es un filtro más del mismo menú, como los de Polar.
+ * El filtro de la lista (el `CustomerFilter` de Polar: All, Active, Inactive) y uno más de MaKo, «De agencias» (6/11/2026: sólo los
+ * clientes de una agencia). ⚠️ DESDE EL 19/11/2026 «TODOS» LOS TRAE TAMBIÉN (Martín: «estoy parado en el filtro de todos y no me sale
+ * los usuarios de agencia»; los de Código Inmobiliario que ya pagan «aparecen como cualquier otro»): el 6/11 se habían sacado de «Todos»
+ * porque «no son clientes de MaKo», pero escondidos no se encontraban. Los NÚMEROS de arriba (kpis, crecimiento) siguen sin contarlos
+ * (`kpisDeClientes`): ahí sí no son clientes de MaKo; en la lista, se ven y se buscan, también por el nombre de su agencia.
  * ⚠️ El de Polar «Inactive» se dice «Pausados» (punto 35): un negocio inactivo es uno pausado (`workspaces.estado` no tiene
  *    otro), y «Inactivos» se confundía con «Sin uso» de At Risk. La clave de la URL sigue siendo `inactive`.
  */
@@ -112,13 +116,16 @@ export const filtroDeParam = (v: string | null | undefined): FiltroLista =>
 export const esClienteDeMaKo = (f: Pick<FilaCliente, 'segmentos'>): boolean => !f.segmentos.includes('de-agencia')
 
 /**
- * Los renglones de la lista: TODOS los negocios, cada uno con su agencia si es cliente de una. Los de agencia no salen con los
- * filtros de siempre (`filtrarClientes`), sólo con «De agencias».
+ * Los renglones de la lista: TODOS los negocios, cada uno con su agencia si es cliente de una, y los de PRUEBA al final marcados
+ * (19/11/2026, Martín: «no veo el usuario de prueba como para poder probarlo»: F21 los había sacado de la lista junto con los números, y
+ * sin verlos no se podía abrir su ficha desde acá; siguen sin contar en ningún número).
  */
 export function listaDeClientes(
   filas: ReadonlyArray<Pick<FilaCliente, 'ws' | 'nombre' | 'creado' | 'estado' | 'capa' | 'segmentos'> & { agencia?: string | null }>,
+  pruebas: ReadonlyArray<Pick<FilaCliente, 'ws' | 'nombre' | 'creado' | 'estado' | 'capa' | 'segmentos'> & { agencia?: string | null }> = [],
 ): ClienteDeLista[] {
-  return filas.map((f) => ({
+  const una = (f: (typeof filas)[number], esPrueba: boolean): ClienteDeLista => ({
+    esPrueba,
     ws: f.ws,
     nombre: f.nombre,
     creado: f.creado,
@@ -127,7 +134,8 @@ export function listaDeClientes(
     estado: f.estado,
     deAgencia: !esClienteDeMaKo(f),
     agencia: esClienteDeMaKo(f) ? null : (f.agencia ?? null),
-  }))
+  })
+  return [...filas.map((f) => una(f, false)), ...pruebas.map((f) => una(f, true))]
 }
 
 /** Sin mayúsculas ni tildes: «Óptica» se encuentra escribiendo «optica». */
@@ -140,11 +148,12 @@ export function filtrarClientes(
 ): ClienteDeLista[] {
   const q = plano(query ?? '')
   const out = lista.filter((c) => {
-    // «De agencias» muestra SÓLO los clientes de una agencia; los demás filtros, sólo los de MaKo (`esClienteDeMaKo`).
-    if ((filter === 'agency') !== c.deAgencia) return false
+    // «De agencias» muestra SÓLO los clientes de una agencia; «Todos», «Activos» y «Pausados» los incluyen (19/11/2026).
+    if (filter === 'agency' && !c.deAgencia) return false
     if (filter === 'active' && !c.activo) return false
     if (filter === 'inactive' && c.activo) return false
-    return !q || plano(c.nombre).includes(q) || String(c.ws) === q
+    // Se busca por el nombre del negocio, su número o el de SU AGENCIA («Código Inmobiliario» trae a sus clientes).
+    return !q || plano(c.nombre).includes(q) || String(c.ws) === q || (c.agencia != null && plano(c.agencia).includes(q))
   })
   const desc = sorting.startsWith('-')
   const porNombre = sorting.endsWith('name')

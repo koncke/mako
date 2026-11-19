@@ -20,7 +20,7 @@ export default async function Layout(props: PropsWithChildren) {
     <MasterDetailLayout
       listView={
         <CustomerListSidebar
-          customers={lectura.ok ? listaDeClientes(lectura.datos.filas) : null}
+          customers={lectura.ok ? listaDeClientes(lectura.datos.filas, lectura.datos.pruebas ?? []) : null}
           error={lectura.ok ? null : lectura.error}
           opciones={opcionesDeAlta()}
         />

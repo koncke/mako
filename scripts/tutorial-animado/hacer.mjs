@@ -60,7 +60,7 @@ const otras = /faltante|sobrante|repetida|de más:/i.test(chequeo);   // «de m�
 // two words the transcriber glued («Ops Center» → «Opcenter»): a «falta X» plus a «Y → XY»
 const faltas = [...chequeo.matchAll(/falta: «(.+?)»/g)].map((m) => m[1]);
 const pegadas = difs.filter(([a, b]) => faltas.some((f) => b === f + a || b === f.replace(/s$/, '') + a));
-const soloOrtografia = !/sobrante|repetida|de más:/i.test(chequeo) && faltas.every((f) => f === 'ei' || pegadas.some(([a, b]) => b.startsWith(f.replace(/s$/, '')))) && difs.filter((d) => !pegadas.includes(d)).every(([a, b]) => /^\d+$/.test(a) || a === b + 's' || b === a + 's' || ORTOGRAFIA.some(([x, y]) => x === a && y === b));
+const soloOrtografia = !/sobrante|repetida|de más:/i.test(chequeo) && faltas.every((f) => f === 'ei' || (/^d[oó]lares$/.test(f) && chequeo.includes('$')) || pegadas.some(([a, b]) => b.startsWith(f.replace(/s$/, '')))) && difs.filter((d) => !pegadas.includes(d)).every(([a, b]) => /^\d+$/.test(a) || a === b + 's' || b === a + 's' || ORTOGRAFIA.some(([x, y]) => x === a && y === b));
 const dijoBien = chequeo.includes('✅') || ((difs.length > 0 || faltas.length > 0) && soloOrtografia);
 const diferencias = difs.map(([a, b]) => `${a} → ${b}`);
 paso('chequeo: ' + chequeo.split('\n').filter(Boolean).slice(0, 2).join(' · '));
@@ -310,7 +310,7 @@ if (modo === 'video' || modo === 'web') {                        // 'web': only 
   for (; crf <= 37; crf += 2) {
     execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', salida, '-vf', 'scale=1280:720:flags=lanczos', '-c:v', 'libx264', '-preset', 'slow', '-crf', String(crf),
       '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', web]);
-    peso = statSync(web).size; if (peso <= 1.5 * 1024 * 1024) break;
+    peso = statSync(web).size; if (peso <= (g.clase ? 5 : 1.5) * 1024 * 1024) break;   // a 2-4 min class does not fit in 1,5 MB with clean text: up to 5 MB
   }
   const poster = `${PUBLICO}/${id}.jpg`;
   const tPoster = (beats.find((b) => b.type !== 'app') || beats[0]); const tp = ((tPoster.s + Math.min(tPoster.e, tPoster.s + 1600)) / 2 / 1000).toFixed(2);

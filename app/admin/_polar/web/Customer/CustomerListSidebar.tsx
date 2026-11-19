@@ -310,6 +310,7 @@ export const CustomerListSidebar: React.FC<CustomerListSidebarProps> = ({
                         pausado: !customer.activo,
                         deAgencia: customer.deAgencia,
                         agencia: customer.agencia,
+                        prueba: customer.esPrueba,
                       })}
                     </div>
                   </div>

@@ -65,7 +65,7 @@ test('3. lo que se editaba SÓLO ahí tiene casa: Methodology, Prompts y las bib
   assert.ok(seccionesDe(false).some((s) => s.id === 'clients'), 'un negocio perdió su kanban');
   // Desde el 5/11/2026 /admin ES la tab Admin (era un redirect a /customers); desde el 6/11/2026 es la copia de Polar y la grilla
   // de los negocios es Admin › Customers: la lista de la izquierda, en su layout.
-  assert.match(sinComentarios(leer('app/admin/(polar)/customers/layout.tsx')), /<CustomerListSidebar\s+customers=\{lectura\.ok \? listaDeClientes\(lectura\.datos\.filas\) : null\}/, 'el super admin entra por su grilla');
+  assert.match(sinComentarios(leer('app/admin/(polar)/customers/layout.tsx')), /<CustomerListSidebar\s+customers=\{lectura\.ok \? listaDeClientes\(lectura\.datos\.filas, lectura\.datos\.pruebas \?\? \[\]\) : null\}/, 'el super admin entra por su grilla');
   const metodologia = sinComentarios(leer('app/classroom/methodology/page.tsx'));
   assert.match(metodologia, /if \(!\(await getSesionAdmin\(\)\)\) notFound\(\);\s*return <ConocimientoView\b/, 'Methodology dibuja algo antes de la puerta de la plataforma');
   // Los prompts: salieron del índice de Settings el 26/10/2026 (Martín: «sobra la de prompts en super admin»), pero su
