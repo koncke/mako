@@ -143,7 +143,14 @@ Parte 2+: s1 = «Eligieron la A.» + la opción dicha como acción; giro al 75-8
 
 ## 5. Episodios
 ### Hechos
-- **«El mastermind», parte 1** — ver §6 (estado y archivos).
+- **«El avión», parte 1** (`reels/serie1-avion-1.html`, voz 47,1 s, video 48,32 s). 19/11 por la tarde, las 6 correcciones
+  del Cerebro, cada una en su segundo: el piloto de frente en la cabina (gorra, auriculares con micrófono, parabrisas de
+  noche) desde «Y el piloto»; las filas que se dan vuelta a la vez y miran a cámara (se arrodillan en el asiento y se
+  asoman); la ventanilla redonda con el ala, la turbina y bocanadas de humo negro en «toser»; manos con celulares hacia
+  cámara (punto rojo de grabar) en «sacan el celular»; Martín sin ojos rojos (cejas arriba y una gota de sudor) y la
+  escena 11 en «Atrás, todos sacan el celular y empiezan a grabarme». Una toma desde atrás del asiento del piloto lo
+  tapaba con el respaldo durante 1 s: se sacó (regla 6 del §0).
+- **«El mastermind», parte 1** — rechazado; ver §6 (estado y archivos).
 
 ### En obra: la parte 2 en sus dos ramas (19/11)
 - Voces hechas y chequeadas (dicen exactamente el guion): `reels/voz-serie1-mastermind-2a.mp3` (47,8 s) y `-2b` (47,9 s).

@@ -19,10 +19,16 @@ La fuente de los reels NO está en el repo: `C:/dev/artefactos-animaciones/` (le
 - Hallazgos: `docs/hallazgos-contenido.md` (índice: `docs/hallazgos.md`).
 
 ## Lo que sigue
-0. **19/11 ~10:15 UTC — EN CURSO:** un agente rehace 5 tomas de «El avión» + cambia s11 a «Atrás, todos sacan el celular…»
-   y renderiza la Serie 4, con el brief `C:/dev/artefactos-animaciones/series/BRIEF-avion-retoques.md`. Al volver: revisar
-   los MP4, rehacer los `mp4/para-ig/` (crf 27), armar y publicar la galería, y mandarle el link al Cerebro (él revisa
-   antes de pasárselo a Martín). Lo de «retoque por rango en la fila» de abajo ya está hecho.
+0. **19/11 ~11:30 (hora de la PC) — EN CURSO, después del reinicio de la app por RAM:** las 6 correcciones de «El avión»
+   están hechas en la página (las dejó el agente, que murió en el reinicio; ver docs/series/serie-1-elige-a-o-b.md §5).
+   Render entero lanzado desde un script del scratchpad (espera 3 GB libres antes de cada tramo, un render por vez, por
+   `turno.mjs`): `render-gl.mjs reels/serie1-avion-1.html mp4/serie1-avion-1.mp4 48.32 reels/voz-serie1-avion-1.mp3 30 1/2`
+   y `2/2`. Si se cortó: borrar `mp4/_cuadros_reels_serie1_avion_1_html` y relanzar. Después, la Serie 4 (abajo; su
+   hoja `cap/s4v2-hoja.jpg` ya se revisó: ninguna tarjeta tapa la cara). Con los dos MP4: mirarlos con `mirar-mp4.sh`,
+   rehacer `mp4/para-ig/` (crf 27), armar, publicar (los archivos del avión y de la Serie 4 se sacaron del manifiesto
+   a propósito: van en esa publicación; `edu-cinco-frases.html` también, pero ése espera a que la Serie 2 avise que
+   terminó sus dos retoques) y mandarle el link al Cerebro.
+   `edu-lo-pienso` (Serie 2, video 3) ya está publicado (versión 11).
 0. **Pendientes concretos (19/11 ~10:00 UTC, el chat llegó al tope de contexto):**
    - Serie 1 «El avión»: un retoque por rango quedó en la fila (`render-gl … t:8.3-11.0`: los pasajeros que se asoman
      al darse vuelta). Cuando esté, rehacer `mp4/para-ig/serie1-avion-1.mp4` (crf 27) y republicar. A mejorar: el plano

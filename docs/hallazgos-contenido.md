@@ -442,6 +442,20 @@ Black y Space Grotesk la estimación se queda corta. Falta mirarlo en Image con 
 (app/crm/TraerDeGrupoWA.tsx), y en el claro vale `#a3a39e`: una tabla de 11 tildados queda casi toda gris medio. Se mostró así en el
 carrusel GRUPO porque es la pantalla real.
 
+## Cuando la app se reinicia por falta de RAM (19/11/2026)
+- **El agente de fondo se muere sin informe, pero su trabajo queda en disco.** El que rehacía «El avión» había terminado
+  las 6 correcciones (página, voz nueva, ficha, capturas en `cap/avion-r2`); sólo se perdió el informe. Antes de rehacer
+  nada: mirar las horas de los archivos y la última hoja de capturas.
+- **El servidor `python -m http.server 8765` también se muere** (lo había levantado un chat): `turno.mjs` no lo revisa y
+  el render o la captura se cuelgan esperando una página que no carga. Antes de renderizar: `curl -s -o /dev/null -w
+  "%{http_code}" http://localhost:8765/reels/kit/kit.js` → 200; si no, levantarlo de nuevo desde `C:/dev/artefactos-animaciones`.
+- **Los cuadros viejos de un render cortado arruinan el siguiente.** `render-gl.mjs` cuenta los `.jpg` de
+  `mp4/_cuadros_<reel>` para saber si ya puede armar el MP4, y ffmpeg lee `%05d.jpg` hasta el primer hueco: si la voz
+  cambió (48,3 s en vez de 49,1 s), los cuadros viejos que pasan del final nuevo se pegan al video, o el conteo arma el
+  MP4 antes de tiempo. Regla: antes de un render entero, borrar SU carpeta `_cuadros_` (nunca la de otro chat).
+- **Con Martín usando la PC:** un render por vez, siempre por `turno.mjs`, y sólo con 3 GB libres o más (el script espera
+  de a un minuto antes de cada tramo); al terminar, cerrar el navegador y los ffmpeg propios, por PID.
+
 ## Lo que quedó sin hacer
 - Ver `docs/series/serie-1-elige-a-o-b.md` y `docs/series/serie-4-reacciona-comentarios.md`, §5 «Por hacer».
 ## Relevo de referentes: Ramiro Cubría, Víctor Heras y Alex Hormozi — 19/11/2026
