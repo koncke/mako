@@ -47,7 +47,7 @@ const guardarJson = (p, v) => {
 
 function token() {
   const out = execFileSync('git', ['credential', 'fill'], {
-    input: 'protocol=https\nhost=github.com\n\n', encoding: 'utf8', timeout: 20_000,
+    input: 'protocol=https\nhost=github.com\n\n', encoding: 'utf8', timeout: 60_000, // 19/11: con la PC cargada, el Credential Manager tardó más de 20 s y el vigía quedó ciego
     env: { ...process.env, GCM_INTERACTIVE: 'never', GIT_TERMINAL_PROMPT: '0' }, windowsHide: true,
   });
   const m = out.match(/^password=(.+)$/m);
