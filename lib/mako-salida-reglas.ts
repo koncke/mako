@@ -34,6 +34,32 @@ export function puedeEscribirleAPersona(p: QuienRecibe): boolean {
   return p.leEscribio === true;
 }
 
+/** Una fila del store de Evolution (`findMessages`), con lo que dice quién la mandó. */
+export type FilaQuienEscribio = { key?: { fromMe?: boolean; remoteJid?: string; remoteJidAlt?: string; senderPn?: string } };
+
+const TELEFONO_DE_JID = /^(\d{8,15})(?::\d+)?@(?:s\.whatsapp\.net|c\.us)$/;
+
+/**
+ * ¿Alguna de estas filas es un mensaje que ESA persona le mandó a la línea? (la regla 1, sobre lo que guardó Evolution).
+ *
+ * ⚠️ UN CHAT BAJO UN `@lid` (19/11/2026, el onboarding nuevo con el cliente de prueba). Martín escribió «Hola, quiero confirmar mi
+ * WhatsApp.» y MaKo no le mandó el código: en la línea recién vinculada el chat quedó guardado como `remoteJid: …4969@lid`, con el
+ * teléfono en `remoteJidAlt`, y la regla buscaba sólo `remoteJid === 549…@s.whatsapp.net`. Dijo «nunca le escribió» a quien le
+ * acababa de escribir. Ahora el teléfono se busca en los tres campos (`remoteJid`, `remoteJidAlt`, `senderPn`), siempre en una fila
+ * ENTRANTE (`fromMe: false`). Un jid que no es un teléfono (un `@lid` que se pidió tal cual) se compara exacto.
+ */
+export function leEscribioEnLasFilas(filas: readonly FilaQuienEscribio[], numeroOJid: string): boolean {
+  const pedido = String(numeroOJid ?? '').trim();
+  const esJidOpaco = pedido.includes('@') && !TELEFONO_DE_JID.test(pedido);
+  const tel = esJidOpaco ? '' : (TELEFONO_DE_JID.exec(pedido)?.[1] ?? pedido.replace(/\D/g, ''));
+  if (!esJidOpaco && !tel) return false;
+  return filas.some((f) => {
+    if (f?.key?.fromMe !== false) return false;
+    if (esJidOpaco) return f.key.remoteJid === pedido;
+    return [f.key.remoteJid, f.key.remoteJidAlt, f.key.senderPn].some((v) => TELEFONO_DE_JID.exec(String(v ?? '').trim())?.[1] === tel);
+  });
+}
+
 const LINK = /(?:https?:\/\/|www\.|wa\.me\/|chat\.whatsapp\.com\/|\b[a-z0-9-]+\.(?:com|net|org|io|co|app|site|link|ly|me|mx|ar|es)(?:\/|\b))/i;
 
 /** ¿El texto lleva un link? (Un dominio pelado también cuenta: WhatsApp le arma la tarjeta igual.) */

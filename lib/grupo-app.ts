@@ -246,6 +246,20 @@ export async function atarIdDeWhatsApp(ws: number, fila: number, waId: string): 
 }
 
 /**
+ * La copia de ESE texto del equipo que quedó en el hilo SIN WhatsApp en las últimas `ventanaMs`: el reintento del aviso de un ticket la reusa
+ * en vez de sumar otra burbuja (19/11/2026, #118; `enviarAlGrupoMaKo`). null si no hay, y también si no se pudo leer: quien llama copia de nuevo,
+ * que es lo que hacía antes (una burbuja de más es mejor que un aviso que no queda).
+ */
+export async function copiaSinWhatsApp(ws: number, texto: string, ventanaMs: number): Promise<Copia | null> {
+  const desde = new Date(Date.now() - ventanaMs).toISOString();
+  const { data, error } = await db().from(T).select('id').eq('workspace_id', ws).eq('autor_tipo', 'equipo').eq('texto', texto)
+    .is('wa_message_id', null).gte('created_at', desde).order('id', { ascending: false }).limit(1);
+  if (error || !data?.length) return null;
+  const id = Number((data[0] as { id: number | string }).id);
+  return Number.isFinite(id) ? { id, ids: [id], porParte: [id] } : null;
+}
+
+/**
  * Ata los ids de WhatsApp de un envío POR PARTES a las filas que dejó su copia, parte por parte (`paresFilaWa`). Nunca tira: el eco por
  * texto cubre lo que no se ate. Es la única forma de atar una copia entera: un `copia.ids.map((f, i) => ids[i] …)` empareja por posición.
  */

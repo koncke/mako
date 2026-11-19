@@ -174,7 +174,7 @@ export function motivoParaVolverAVincular(
 
 /** Los pasos para re-vincular la voz. Con la marca, el panel la desvincula solo y da el QR (lib/mako-canal.ts, `conectarCanalMaKo`). */
 export const PASOS_QR = [
-  '1. En hola-mako.com/agencia → «MaKo» → «Volver a vincular por QR»: como está marcada sorda, la desvincula sola y muestra el QR.',
+  '1. En hola-mako.com/chats?canal=mako → «MaKo» → «Volver a vincular por QR»: como está marcada sorda, la desvincula sola y muestra el QR.',
   '2. Escanearlo con el teléfono de MaKo (…2605): WhatsApp → Dispositivos vinculados → Vincular un dispositivo.',
   '3. Lo que llegue por la resincronización no lo atiende MaKo sola: hay que leer los grupos y contestar lo que quedó.',
   'Si el botón no aparece: en ese teléfono, WhatsApp → Dispositivos vinculados → Cerrar sesión del dispositivo de MaKo, y «Conectar por QR».',
@@ -182,7 +182,7 @@ export const PASOS_QR = [
 
 /** Los pasos cuando la voz es la línea de Martín (el …3479, «Tu número»: su decisión del 13/11/2026). Mismo panel, otro botón y otro teléfono. */
 export const PASOS_QR_TU_NUMERO = [
-  '1. En hola-mako.com/agencia → «Tu número» → «Volver a vincular por QR»: como está marcada sorda, la desvincula sola y muestra el QR.',
+  '1. En hola-mako.com/chats?canal=mako → «Tu número» → «Volver a vincular por QR»: como está marcada sorda, la desvincula sola y muestra el QR.',
   '2. Escanearlo con tu teléfono personal: WhatsApp → Dispositivos vinculados → Vincular un dispositivo.',
   '3. Lo que llegue por la resincronización no lo atiende MaKo sola: hay que leer los grupos y contestar lo que quedó.',
   'Si el botón no aparece: en ese teléfono, WhatsApp → Dispositivos vinculados → Cerrar sesión del dispositivo de MaKo, y «Vincular por QR».',
@@ -202,4 +202,13 @@ export function avisoDeSordera(accion: Exclude<Accion, 'nada'>, motivo: string, 
     : `⛔ La voz de MaKo (${linea}) sigue sin recibir: ${motivo}. Hay que re-vincularla.`;
   const fondo = 'La causa de fondo es la versión de la librería de WhatsApp de Evolution (Baileys 7.0.0-rc.9): el QR la cura por horas o días.';
   return { titulo: accion === 'avisar' ? 'La voz de MaKo no recibe mensajes' : 'La voz de MaKo sigue sorda: hace falta el QR', cuerpo: `${cabeza}\n\n${pasosQrDe(linea)}\n\n${fondo}` };
+}
+
+/**
+ * ¿Un logout que contestó error soltó igual la sesión? (19/11/2026, `conectarCanalMaKo`). Sí sólo si se leyó la vinculación antes y
+ * después, y la de después es posterior: Evolution anota el corte (`disconnectionAt`) cuando WhatsApp la cierra. Sin poder leer alguna
+ * de las dos, no se sabe, y se rota como siempre: es la salida que no pasa por un socket muerto.
+ */
+export function seSoltoLaSesion(antesMs: number | null, despuesMs: number | null): boolean {
+  return antesMs != null && despuesMs != null && despuesMs > antesMs;
 }

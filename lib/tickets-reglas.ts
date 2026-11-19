@@ -1130,11 +1130,17 @@ export const HORAS_REINTENTO_GRUPO = 24;
  *  · falló → `reintentar` (el ticket NO queda avisado y el cron lo vuelve a probar en 15 minutos) hasta `HORAS_REINTENTO_GRUPO`
  *    después del cambio de estado; pasado eso, `perdido`: se avisa por lo demás y el historial dice que el WhatsApp no salió.
  * ⚠️ Lo que NO existe acá es un «no salió, pero contalo como avisado»: el tope de 3 por día hacía exactamente eso.
+ *
+ * ⚠️ «QUEDÓ EN LA APP» NO ES «SALIÓ POR WHATSAPP» (19/11/2026, ticket #118 de Leila). `enviarAlGrupoMaKo` contesta `ok` con `enApp` cuando
+ * WhatsApp no lo tomó y la copia quedó en el hilo de la app, con el motivo en `noEntregado`. Se contaba como salido: el aviso del #118 salió
+ * a las 21:00:48 UTC, con la línea en plena reconexión, el WhatsApp no llegó y el historial dijo «whatsapp». Ahora, con `noEntregado`, se
+ * reintenta como si no hubiera copia (la copia no se repite: `enviarAlGrupoMaKo` la reusa). Sólo cuenta como salido si el negocio no tiene
+ * grupo de WhatsApp (`sinGrupo`): ahí el hilo de la app ES su grupo.
  */
 export type DestinoDelAvisoAlGrupo = 'salio' | 'sin_grupo' | 'reintentar' | 'perdido';
-export function destinoDelAvisoAlGrupo(r: { ok: boolean; sinGrupo?: boolean }, cambioMs: number, ahoraMs: number): DestinoDelAvisoAlGrupo {
-  if (r.ok) return 'salio';
-  if (r.sinGrupo) return 'sin_grupo';
+export function destinoDelAvisoAlGrupo(r: { ok: boolean; sinGrupo?: boolean; noEntregado?: string }, cambioMs: number, ahoraMs: number): DestinoDelAvisoAlGrupo {
+  if (r.ok && (!r.noEntregado || r.sinGrupo)) return 'salio';
+  if (!r.ok && r.sinGrupo) return 'sin_grupo';
   if (!Number.isFinite(cambioMs)) return 'reintentar';
   return ahoraMs - cambioMs < HORAS_REINTENTO_GRUPO * 3600_000 ? 'reintentar' : 'perdido';
 }
