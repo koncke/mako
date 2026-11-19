@@ -8,7 +8,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { palabrasDeLetras, tiemposDeEscenas, apretar, textoParaVoz, palabrasDelGuion, COLA_S, type Tiempos } from '../lib/ai-avatar/cubos-tiempos';
 import { cortar, lufs, nivelar, LUFS_OBJETIVO } from '../lib/ai-avatar/cubos-audio';
-import { FORMATOS_CUBOS, normalizarGuion, normalizarDatos, datosAutomaticos, frasesDeTexto, MAX_PALABRAS } from '../lib/ai-avatar/cubos-formatos';
+import { FORMATOS_CUBOS, normalizarGuion, normalizarDatos, datosAutomaticos, frasesDeTexto, leerMarcas, datosDeMarcas, textoConMarcas, MAX_PALABRAS } from '../lib/ai-avatar/cubos-formatos';
 import { normalizarPersonaje, resolverPersonaje, PERSONAJE_MARTIN } from '../lib/ai-avatar/cubos-personaje';
 import { veAvatarCubos, PARA_TODOS } from '../lib/ai-avatar/cubos-interruptor';
 
@@ -87,6 +87,24 @@ test('los datos de un formato se validan contra SU guion: nada que el guion no d
   assert.deepEqual(k.golpes, [{ escena: 's1', palabra: 'terrible' }]);
   assert.equal(k.trozos, undefined, 'unos trozos que no cubren todas las palabras se descartan');
   assert.equal(k.marca, 'Mi Negocio');
+});
+
+test('las *marcas* del guion: la persona elige qué resaltar, y lo que eligió la IA vuelve marcado (ida y vuelta)', () => {
+  const txt = 'Hay una sola *cosa* que separa\n\nY no es el *precio.*\nEs la *high ticket*.';
+  assert.deepEqual(frasesDeTexto(txt), ['Hay una sola cosa que separa', 'Y no es el precio.', 'Es la high ticket.']);
+  assert.deepEqual(leerMarcas(txt), [{ escena: 's1', palabra: 'cosa' }, { escena: 's2', palabra: 'precio' }, { escena: 's3', palabra: 'high' }, { escena: 's3', palabra: 'ticket' }]);
+  assert.deepEqual(datosDeMarcas('punch-captions', txt, 'X')?.claves, ['cosa', 'precio', 'high', 'ticket']);
+  assert.deepEqual(datosDeMarcas('karaoke-subs', txt, 'X')?.golpes, [{ escena: 's1', palabra: 'cosa' }, { escena: 's2', palabra: 'precio' }]);
+  assert.equal(datosDeMarcas('punch-captions', 'sin marcas', 'X'), null);
+  // el ejemplo de la galería, marcado y leído de vuelta, da sus mismas palabras
+  for (const f of FORMATOS_CUBOS) {
+    const marcado = textoConMarcas(f.id, f.ejemplo.escenas.map((e) => e.texto), f.ejemplo.datos);
+    assert.deepEqual(frasesDeTexto(marcado), f.ejemplo.escenas.map((e) => e.texto), `${f.id}: las marcas cambian el guion`);
+    const d = datosDeMarcas(f.id, marcado, 'MaKo')!;
+    if (f.id === 'punch-captions') assert.deepEqual([...d.claves!].sort(), [...f.ejemplo.datos.claves!].sort());
+    else assert.deepEqual(d.golpes, f.ejemplo.datos.golpes);
+  }
+  assert.match(textoConMarcas('punch-captions', ['Es la oferta.'], { marca: 'X', claves: ['oferta'] }), /\*oferta\*\.$/, 'la puntuación queda afuera');
 });
 
 test('los datos sin IA (cero MaKo Tokens): la palabra fuerte de cada frase', () => {

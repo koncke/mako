@@ -129,8 +129,46 @@ export function normalizarGuion(x: unknown): { ok: true; escenas: Escena[] } | {
   return { ok: true, escenas };
 }
 
-/** El guion escrito de corrido (una frase por renglón en la pantalla) pasado a frases. */
-export const frasesDeTexto = (txt: string): string[] => txt.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+/** El guion escrito de corrido (una frase por renglón en la pantalla) pasado a frases, sin las marcas de `*resaltado*`. */
+export const frasesDeTexto = (txt: string): string[] => txt.split(/\n+/).map((l) => l.replace(/\*/g, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+
+/**
+ * Las palabras entre *asteriscos* del guion: las que la persona RESALTA (Palabras gigantes: van en amarillo; karaoke: ahí se
+ * acerca la cámara). Es la forma más simple de elegirlas sin una pantalla aparte, y la IA devuelve su guion ya marcado
+ * (`textoConMarcas`). `*high ticket*` marca las dos palabras.
+ */
+export function leerMarcas(txt: string): { escena: string; palabra: string }[] {
+  const out: { escena: string; palabra: string }[] = [];
+  txt.split(/\n+/).map((l) => l.trim()).filter((l) => l.replace(/\*/g, '').trim()).forEach((l, i) => {
+    for (const m of l.matchAll(/\*([^*]+)\*/g)) for (const p of m[1].split(/\s+/)) { const w = limpiar(p); if (w) out.push({ escena: `s${i + 1}`, palabra: w }); }
+  });
+  return out;
+}
+
+/** Los datos que dicen las marcas del guion, o null si no hay ninguna (entonces van los automáticos). */
+export function datosDeMarcas(formato: IdFormato, txt: string, marca: string): DatosCubos | null {
+  const m = leerMarcas(txt);
+  if (!m.length) return null;
+  return formato === 'punch-captions' ? { marca, claves: [...new Set(m.map((x) => x.palabra))] } : { marca, golpes: m.slice(0, 2) };
+}
+
+/** El guion con los datos de un formato puestos como marcas, para que la persona los vea y los cambie. */
+export function textoConMarcas(formato: IdFormato, frases: readonly string[], datos: DatosCubos): string {
+  const claves = new Set(datos.claves ?? []);
+  const golpes = datos.golpes ?? [];
+  return frases.map((f, i) => {
+    let usado = false;
+    return f.split(' ').map((p) => {
+      const w = limpiar(p);
+      const marcar = formato === 'punch-captions' ? claves.has(w) : !usado && golpes.some((g) => g.escena === `s${i + 1}` && g.palabra === w);
+      if (!marcar || !w) return p;
+      usado = true;
+      // la puntuación queda afuera de la marca: «*oferta*.»
+      const m = /^([¿¡«"(]*)(.*?)([.,;:?!»")]*)$/.exec(p)!;
+      return `${m[1]}*${m[2]}*${m[3]}`;
+    }).join(' ');
+  }).join('\n');
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los datos del formato

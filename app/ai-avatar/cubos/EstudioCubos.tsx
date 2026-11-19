@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { inicioCubosAction, guionCubosAction, personajeDesdeFotoAction, crearVideoCubosAction, cambiarCubosAction, borrarCubosAction, type InicioCubos, type ProyectoConVoz } from './actions';
 import { armarMp4, esperarPlantilla, prepararVoz } from './mp4';
-import { FORMATOS_CUBOS, formatoCubos, frasesDeTexto, normalizarGuion, MAX_PALABRAS, type DatosCubos, type IdFormato } from '@/lib/ai-avatar/cubos-formatos';
+import { FORMATOS_CUBOS, formatoCubos, frasesDeTexto, normalizarGuion, datosDeMarcas, textoConMarcas, MAX_PALABRAS, type IdFormato } from '@/lib/ai-avatar/cubos-formatos';
 import { PARTES_PERSONAJE, PERSONAJE_MARTIN, PIELES, PELOS, ROPAS, OJOS, resolverPersonaje, type Personaje } from '@/lib/ai-avatar/cubos-personaje';
 import { apretar, palabrasDelGuion, textoParaVoz, type Tiempos } from '@/lib/ai-avatar/cubos-tiempos';
 import { mtDeVoz } from '@/lib/mako-tokens-reglas';
@@ -58,7 +58,6 @@ export function EstudioCubos({ alVolver }: { alVolver: () => void }) {
   const [fotoId, setFotoId] = useState('');
   const [formato, setFormato] = useState<IdFormato>('punch-captions');
   const [texto, setTexto] = useState('');
-  const [datosIa, setDatosIa] = useState<DatosCubos | null>(null);
   const [idea, setIdea] = useState('');
   const [voz, setVoz] = useState<Voz>({ tipo: 'mako', id: 'mako-david' });
   const [audio, setAudio] = useState<File | null>(null);
@@ -120,7 +119,7 @@ export function EstudioCubos({ alVolver }: { alVolver: () => void }) {
     const p = { ...personaje, [clave]: valor } as Personaje;
     setPersonaje(p); cambiar({ personaje: p });
   };
-  const elegirFormato = (f: IdFormato) => { setFormato(f); setDatosIa(null); if (actual) cambiar({ formato: f }); };
+  const elegirFormato = (f: IdFormato) => { setFormato(f); if (actual) cambiar({ formato: f }); };
 
   // ── las acciones con IA y la voz ──
   const leerFoto = async () => {
@@ -136,11 +135,13 @@ export function EstudioCubos({ alVolver }: { alVolver: () => void }) {
     const r = await guionCubosAction({ formato, idea });
     setOcupado('');
     if (!r.ok) { setError(r.error); return; }
-    setTexto(r.frases.join('\n')); setDatosIa(r.datos);
+    setTexto(textoConMarcas(formato, r.frases, r.datos));   // lo que eligió la IA queda a la vista, como *marcas*
   };
   const frases = frasesDeTexto(texto);
   const guion = normalizarGuion(frases);
   const palabras = guion.ok ? palabrasDelGuion(guion.escenas) : 0;
+  // las palabras entre *asteriscos*: las que resalta la persona (sin marcas, MaKo elige solo las fuertes)
+  const marcadas = datosDeMarcas(formato, texto, inicio?.marca ?? 'MaKo');
   const costoVoz = guion.ok && voz.tipo === 'mako' ? mtDeVoz(textoParaVoz(guion.escenas).length) : 0;
   const crear = async () => {
     if (!guion.ok) { setError(guion.error); setPestana('video'); return; }
@@ -150,11 +151,11 @@ export function EstudioCubos({ alVolver }: { alVolver: () => void }) {
       if (!audio) { setOcupado(''); setError('Sube tu audio.'); return; }
       const fd = new FormData();
       fd.append('file', audio); fd.append('frases', JSON.stringify(frases)); fd.append('formato', formato);
-      fd.append('personaje', JSON.stringify(personaje)); if (datosIa) fd.append('datos', JSON.stringify(datosIa));
+      fd.append('personaje', JSON.stringify(personaje)); if (marcadas) fd.append('datos', JSON.stringify(marcadas));
       fd.append('segundos', String(await duracionDe(audio).catch(() => 0)));
       r = await fetch('/api/ai-avatar/cubos/alinear', { method: 'POST', body: fd }).then((x) => x.json()).catch(() => ({ ok: false as const, error: 'No pude subir tu audio.' }));
     } else {
-      r = await crearVideoCubosAction({ formato, frases, datos: datosIa ?? undefined, personaje, voz });
+      r = await crearVideoCubosAction({ formato, frases, datos: marcadas ?? undefined, personaje, voz });
     }
     setOcupado('');
     if (!r.ok) { setError(r.error); return; }
@@ -163,7 +164,7 @@ export function EstudioCubos({ alVolver }: { alVolver: () => void }) {
     setActual(nuevo);
   };
   const abrir = (p: ProyectoConVoz) => {
-    setActual(p); setPersonaje(p.personaje); setFormato(p.formato); setTexto(p.escenas.map((e) => e.texto).join('\n')); setDatosIa(p.datos); setError('');
+    setActual(p); setPersonaje(p.personaje); setFormato(p.formato); setTexto(textoConMarcas(p.formato, p.escenas.map((e) => e.texto), p.datos)); setError('');
   };
   const borrar = async (p: ProyectoConVoz) => {
     if (!window.confirm('¿Borrar este video? Su voz no se recupera.')) return;
@@ -274,8 +275,9 @@ export function EstudioCubos({ alVolver }: { alVolver: () => void }) {
                 </button>
                 <span className="cb-nota">Usa unos {inicio.costos.guion} MaKo Tokens.</span>
               </div>
-              <textarea className="cb-guion" value={texto} rows={7} onChange={(e) => { setTexto(e.target.value); setDatosIa(null); }}
-                placeholder={'Una frase por renglón.\nEjemplo: Hay una sola cosa que separa a quien vende de quien no.'} />
+              <textarea className="cb-guion" value={texto} rows={7} onChange={(e) => setTexto(e.target.value)}
+                placeholder={'Una frase por renglón.\nEjemplo: Hay una sola *cosa* que separa a quien vende de quien no.'} />
+              <p className="cb-nota">Las palabras entre *asteriscos* van resaltadas.</p>
               <p className={palabras > MAX_PALABRAS ? 'cb-nota cb-nota--mal' : 'cb-nota'}>{palabras} de {MAX_PALABRAS} palabras · unos {Math.round(palabras / 2.6)} s</p>
             </Seccion>
             <Seccion titulo="Voz">
