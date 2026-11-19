@@ -153,7 +153,11 @@ desde el aviso: «¿No era que habíamos solucionado para que eso no pase más?�
   viejo**.
 - Quedan dos conexiones del mismo dispositivo: la vieja sigue recibiendo, y las consultas van por la nueva, que no contesta.
 - Lo mismo hacen `updatePrivacySettings` (:4003) y `removeProfilePicture` (:4104).
-- Nuestro código no llama ninguna de las tres: fue un cambio a mano.
+- Nuestro código no llama ninguna de las tres: fue un cambio a mano. Desde ahora tests/linea-perfil-solo-telefono.test.ts falla si alguien
+  del repo las llama.
+- ⚠️ **El diagnóstico obvio era el equivocado:** «sorda otra vez, se perdió el parche del 14/11». La línea recibía (la hora del cuid lo
+  prueba) y el parche seguía haciendo efecto (0 min de atraso en todas las líneas de clientes). Lo que se rompió fue la conexión que
+  contesta, por el cambio de foto.
 
 **Y reconectar abrió una instancia de más:**
 - El aviso llevaba a /agencia?canal=1, la página vieja.
