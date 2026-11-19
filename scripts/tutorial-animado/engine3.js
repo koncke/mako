@@ -92,7 +92,9 @@ function textoHeroe(ctx, W, H, c, age, life) {
 // The entrance of the big text (the Cerebro, 18/11): it still rises from behind him, but it is in place after ENTRA ms —
 // so is he, coming from the side. The covered-letters rule holds in EVERY frame after the first quarter of a second.
 var ENTRA = 240;
-function entrada(age) { var p = eoCubic(clamp(age / ENTRA, 0, 1)); return { sube: lerp(300, 0, p), sc: lerp(0.86, 1, p) }; }
+// The hook does NOT rise from behind him (the Cerebro, 19/11): rising 300 px, its last line crossed his head in the first frames
+// (day 3: «su··te»). It grows in place, from the centre of the text, which only moves the lines UP and away from him.
+function entrada(age, c) { var p = eoCubic(clamp(age / ENTRA, 0, 1)); return { sube: c && c.gancho ? 0 : lerp(300, 0, p), sc: lerp(0.86, 1, p) }; }
 // «Letters behind the person» (the Cerebro, 18/11): the text is BIG and its LAST line passes behind his head, which covers only
 // the lower half of the letters of that line's longest word — letters, never a whole word: everything stays readable. Where he
 // stands (cx, top) comes from the text, so it is measured once per screen.
@@ -120,6 +122,15 @@ function layoutDetras(ctx, W, H, c) {
   // The Cerebro's rule (18/11), measured: his hair top (canvas y 134, a dome that widens downwards) sits 12 % of the font size
   // below the centre of the last line, so it can only cover the LOWER THIRD of those letters — every word stays ≥ 70 % visible.
   var s = 1.2, cx = clamp(mejor.c, 700, 1220);
+  if (c.gancho) {
+    // up to 70 px higher, never closer than 60 px to the top edge (the first line's capitals reach ~0.5 × size above its centre)
+    var subir = Math.min(70, Math.max(0, y0 - 0.5 * f.size - 60)); y0 -= subir; yLast -= subir;
+    _detras[k] = { lines: f.lines, size: f.size, lh: lh, y0: y0, yLast: yLast, lugar: null };
+    // his hair 0.5 × size + 24 px under the centre of the last line: below the descenders (p, g, y), with room for his head tilt
+    var pelo = 0; CH.forEach(function (x) { if (x.gancho) { var L = x === c ? _detras[k] : layoutDetras(ctx, W, H, x); pelo = Math.max(pelo, L.yLast + 0.5 * L.size + 24); } });
+    _detras[k].lugar = { s: s, cx: 960, top: pelo - (PELO - 100) * s, a: 1 };
+    return _detras[k];
+  }
   return (_detras[k] = { lines: f.lines, size: f.size, lh: lh, y0: y0, lugar: { s: s, cx: cx, top: yLast + 0.19 * f.size - (PELO - 100) * s, a: 1 } });   // 0.19, not 0.12: his head tilts while he talks; measured in every frame (0.12 → 62 %, 0.16 → 65.5 % at the end of a long hook)
 }
 var PELO = 134;   // the top of his hair in the #vox canvas (measured: prueba-vox/medir.cjs); raised hands never go above it
@@ -133,7 +144,7 @@ function layoutArriba(ctx, W, H, c) {
 }
 function textoDetras(ctx, W, H, c, age, life) {
   var L = layoutDetras(ctx, W, H, c);
-  var E = entrada(age), sube = E.sube, sc = E.sc;
+  var E = entrada(age, c), sube = E.sube, sc = E.sc;
   var op = eoCubic(clamp(age / 160, 0, 1)); if (age > life - 200) op *= 1 - clamp((age - (life - 200)) / 200, 0, 1) * 0.9;
   var mid = L.y0 + (L.lines.length - 1) * L.lh / 2;
   ctx.save(); ctx.globalAlpha = op; ctx.translate(W / 2, mid + sube); ctx.scale(sc, sc);
@@ -217,7 +228,7 @@ window.medirTapado = function (t) {
   var k = 0; for (var i = 0; i < CH.length; i++) { if (t >= CH[i].s && t < CH[i].e) { k = i; break; } }
   var c = CH[k]; if (c.modo !== 'heroe') return null;
   var W = 1920, H = 1080, ctx = document.getElementById('c').getContext('2d'); _ctx = ctx;
-  var age = t - c.s, E = entrada(age), lines, size, lh, cy0, primera;
+  var age = t - c.s, E = entrada(age, c), lines, size, lh, cy0, primera;
   // the text exactly where it is drawn at time t (textoDetras / textoHeroe): centre cy0 + E.sube, scale E.sc
   if (c.detras) { var D = layoutDetras(ctx, W, H, c); lines = D.lines; size = D.size; lh = D.lh; var mid = D.y0 + (lines.length - 1) * lh / 2; cy0 = mid; primera = D.y0 - mid; }
   else { var A = layoutArriba(ctx, W, H, c); lines = A.f.lines; size = A.f.size; lh = A.lh; cy0 = A.yFin + A.alto / 2 - lh / 2; primera = -A.alto / 2 + lh / 2; }
@@ -229,14 +240,14 @@ window.medirTapado = function (t) {
   lines.forEach(function (ln, li) {
     var ws = ln.split(' '), wd = ws.map(function (w) { return ctx.measureText(w).width; });
     var tot = wd.reduce(function (a, b) { return a + b; }, 0) + sp * (ws.length - 1), x = -tot / 2, yl = cy + (primera + li * lh) * sc;
-    var top = Math.round(yl - 0.36 * size * sc), bot = Math.round(yl + 0.36 * size * sc);
+    var top = Math.round(yl - 0.36 * size * sc), bot = Math.round(yl + (c.gancho ? 0.5 : 0.36) * size * sc);
     ws.forEach(function (w, wi) {
       var x0 = Math.round(W / 2 + x * sc), x1 = Math.round(W / 2 + (x + wd[wi]) * sc), tap = 0, area = 0, yMin = bot + 1;
       for (var yy = Math.max(0, top); yy <= Math.min(H - 1, bot); yy += 2) for (var xx = Math.max(0, x0); xx <= Math.min(W - 1, x1); xx += 2) {
         area++; if (px[(yy * W + xx) * 4 + 3] > 40) { tap++; if (yy < yMin) yMin = yy; }
       }
       var visible = area ? 1 - tap / area : 1, desde = tap ? (yMin - top) / (bot - top) : 1;
-      res.push({ palabra: w, visible: +visible.toFixed(2), tapadoDesde: +desde.toFixed(2), ok: visible >= 0.7 && desde >= 0.66 - 0.001 });
+      res.push({ palabra: w, visible: +visible.toFixed(2), tapadoDesde: +desde.toFixed(2), ok: c.gancho ? visible >= 0.999 : visible >= 0.7 && desde >= 0.66 - 0.001 });
       x += wd[wi] + sp;
     });
   });

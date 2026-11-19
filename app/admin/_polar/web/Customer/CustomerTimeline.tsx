@@ -31,6 +31,7 @@ import ShadowBox from '@/app/admin/_polar/atoms/ShadowBox'
 import Link from '@/app/_ui/Link'
 import { Fragment, PropsWithChildren, ReactNode, useMemo, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
+import { useEnElNavegador } from './useEnElNavegador'
 
 type SourceFilter = 'system' | 'all'
 
@@ -78,12 +79,24 @@ export const formatRelativeTime = (timestamp: string, soloDia = false): string =
   return date.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' })
 }
 
+/**
+ * ⚠️ LO QUE SE DIBUJA EN EL SERVER Y EN LA HIDRATACIÓN (ticket #116, 19/11/2026: «Minified React error #418» en /admin/customers/13 y la pantalla se
+ * volvía a dibujar). `formatRelativeTime` cuenta «hoy / ayer / hace N min» con el RELOJ y el día LOCAL: el server está en UTC y el navegador de
+ * Martín en Argentina, así que a la noche (00:57) un pago de ese día decía «hoy» en uno y «ayer» en el otro, y la fecha de más de 7 días no fijaba
+ * zona. Antes de llegar al navegador va esto: la fecha fija, en UTC, igual en los dos lados; después, lo relativo (`useEnElNavegador`).
+ */
+export const fechaFijaDelEvento = (timestamp: string): string => {
+  const d = new Date(timestamp)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('es-AR', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+}
+
 const fechaLarga = (timestamp: string, soloDia = false) =>
   soloDia
     ? new Date(timestamp).toLocaleDateString('es-AR', { dateStyle: 'medium', timeZone: 'UTC' })
     : new Date(timestamp).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'medium' })
 
 const TimelineItem = ({ evento }: { evento: EventoDeTimeline }) => {
+  const enNavegador = useEnElNavegador()
   const contenido = (
     <Box
       alignItems="center"
@@ -122,7 +135,7 @@ const TimelineItem = ({ evento }: { evento: EventoDeTimeline }) => {
           <Tooltip>
             <TooltipTrigger>
               <Text variant="caption" color="muted" wrap="nowrap">
-                {formatRelativeTime(evento.timestamp, evento.soloDia)}
+                {enNavegador ? formatRelativeTime(evento.timestamp, evento.soloDia) : fechaFijaDelEvento(evento.timestamp)}
               </Text>
             </TooltipTrigger>
             <TooltipContent side="top" align="end">

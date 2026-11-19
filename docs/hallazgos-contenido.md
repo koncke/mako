@@ -83,6 +83,59 @@ y≈500 y 1000: cualquier tarjeta en la franja 150-700 la tapa. Si el video abre
 medio; el plano cerca sólo cuando arriba no hay nada (el visor de CUBOS).
 
 ## Lo que quedó sin hacer (serie 3)
+## Carruseles de ventas (réplicas de outliers, «encontré una app») — 19/11/2026
+
+El proceso entero, en [series/carruseles-ventas.md](series/carruseles-ventas.md). Acá, lo que no se deduce del código.
+
+**Las referencias ya están bajadas: la biblioteca de outliers de MaKo.** `carruseles_biblioteca_piezas` (1.590 carruseles de 456
+cuentas el 19/11) guarda las láminas en el Storage (`laminas_imagenes`) y la palabra del CTA (`cta`, `cta_via='comentario'`: 247
+con láminas). Se lee en sólo lectura y se ordena por veces la mediana de su cuenta; no hace falta Instagram, Apify ni navegador.
+El `curl` de `instagram.com/p/<código>/embed/captioned/` NO trae las láminas (0 `display_url`: las arma el JavaScript), y un `/p/`
+puede ser un reel: `DffeOMPgNyA`, la «referencia del mismo estilo» de la serie 3, es un video de 42 s.
+
+**La frase de la referencia se verifica contra MaKo, no la función.** «They work 24/7» (el equipo de bots, `DcnHxFDgv2y`) es falso
+para el setter con IA: sin horario de oficina contesta SOLO de 9 a 21 hora del negocio (`HORARIO_RESPUESTA_SOLA`,
+lib/setter-conversacion.ts), hasta 3 veces por día (`TOPE_RESPUESTAS_SOLAS_24H`), y lo que habla de plata queda en borrador
+(`HABLA_DE_PLATA`). Lo mismo con un gurú: la app dice «Inspirado en» y responde «con el método de», no «como lo haría». Y el chat
+adjunta imágenes y PDF (`ACCEPT_ADJUNTOS_CHAT`), no `.docx`, aunque el catálogo hable de «un .docx» para el Second Brain.
+
+**Una respuesta de la app para mostrar: no había ninguna conversación con un gurú en producción** (`chart_chats` con
+`…referente-…`: 0 filas en todos los workspaces el 19/11). Se corrió el contexto real (`contextoDeReferente` +
+`CONTEXTO_SECOND_BRAIN`) con el negocio de mentira; sin el resto del system del turno (`VOZ_APP`, `REGLA_NO_EXISTE`) la respuesta
+nombró el curso del referente, que Martín no quiere que se nombre. Para una pieza pública, el texto de la respuesta se revisa
+contra las reglas del system entero, o se genera desde la app (ws 3).
+
+**Escribir o editar un `.html` con Write/Edit lo abre el navegador de la app** (un hook), que gasta RAM y no deja hacer nada en
+un `file://` («This tab shows a local file»). Con la PC en 0,5-1 GB libres, las páginas se generan con un script de Python
+(`C:/dev/carruseles-ventas/tools/escribir-*.py`) y se miran por el turno con Playwright. Cerrar la pestaña que abrió.
+
+**Dibujar un componente real tarda lo que tarda compilar su grafo, y con la RAM llena es mucho.** El panel de chat
+(`PanelDeChat` + `HiloMako` + `CajaChat`) tardó 17 min la primera vez con < 1 GB libre y 30 s la segunda (caché de tsx). Se
+corre en segundo plano apenas está el guion, no al final.
+
+**La fila del navegador: encolar TODAS las capturas apenas cada HTML existe.** Con 5 carruseles y renders de 60 s de otros
+chats adelante, cada vuelta esperaba 30-40 min. Encolarlas juntas (piezas, personaje en cubos, criaturas, láminas de cada
+carrusel) hace que salgan seguidas; la que necesita lo que hace otra va detrás en la fila.
+**El diagnóstico obvio del ticket era el equivocado: no era el diseño del papel, era quién ocupa la pantalla.** El primer
+ticket tenía a Martín en cubos grande en el centro y el ticket arriba, chico; la referencia tiene lo que se cuenta (los
+bloques de precios) en el centro y el personaje chico. Martín: «el ticket tiene que ser mucho más protagonista… no
+necesariamente siempre tiene que salir el muñequito». Regla: antes de diseñar, mirar en la referencia QUÉ ocupa la
+pantalla, cuánto tiempo y dónde está el foco, y copiar eso. Con el personaje chico y abajo, los subtítulos van arriba.
+
+**Las apps del ticket tienen que ser de una misma familia.** Mezclar GoHighLevel, Skool, Zapier y CapCut en un ticket no
+tenía sentido para Martín («no mezcles tanto»). Cada ticket, una familia (vender, contenido, cursos) y termina en lo que
+hace MaKo de esa familia. Y Skool con Kajabi no van juntas: son alternativas, nadie paga las dos.
+
+**Cortar un trabajo propio que tiene el navegador: por PID y con su árbol.** `turno.mjs` lanza bash → node → Chromium; si
+se mata sólo el `turno`, el render sigue corriendo huérfano y pisa al siguiente de la fila. `taskkill /PID <turno> /T /F`
+corta todo lo que cuelga de él (y sólo eso). Después, borrar su carpeta `mp4/_cuadros_*`.
+
+**Una lluvia que arranca en T=0 deja el primer cuadro vacío.** El gancho del ticket nuevo eran suscripciones que caen; con
+demoras de 0 a 1,6 s el cuadro 0,2 s quedaba casi negro. La mitad de los papelitos arranca con demora negativa (ya
+están a mitad de camino). Y una capa con `z-index` alto por elemento tapa los subtítulos si no tiene su propio apilado:
+`z-index` en el contenedor.
+
+## Lo que quedó sin hacer
 
 - La respuesta automática a CUBOS (qué se manda: la guía del método) no existe todavía. Está en
   `docs/series/serie-3-ventas.md` → «Palabras de CTA».
@@ -267,6 +320,17 @@ galería de formatos (el motor, el kit, la voz) está en `docs/editor-video/anim
   lee y la página nunca avisa que está lista). Para la tapa del reel: `series/tools/portada.mjs` (`?cap&portada&t=`).
 - `drawtext` de ffmpeg en Windows se cae (no hay fontconfig) y la «C:» de `fontfile` rompe el filtro: para mirar un MP4
   entero, `series/tools/mirar-mp4.sh` saca un cuadro cada 0,5 s y arma las hojas con `tools/hoja.py`.
+
+**«Ver ejemplo» de algunas estructuras de carrusel monta el título sobre el texto (19/11, sin confirmar en la app).** Dibujando
+los ejemplos de `lib/carruseles/tipos.ts` con el mismo código que «Ver ejemplo» (`documentoDeCarrusel` → `PaginaCarrusel`, con las
+fuentes del catálogo del editor cargadas), la portada de «Mito vs. realidad» («4 mitos que te hacen cobrar de menos») y una lámina
+de «Antes y después» («5 preguntas antes de la cita») tienen el título de varias líneas encima del texto de abajo. El alto de cada
+caja sale de una estimación (`altoEstimado` / `tamanoQueLlena`, lib/carruseles/documento.ts), no de medir la fuente: con Archivo
+Black y Space Grotesk la estimación se queda corta. Falta mirarlo en Image con la pantalla real antes de tocarlo.
+
+**Las filas tildadas de «Extraer de un grupo de WhatsApp» se ven gris oscuro en el tema claro.** El fondo es `var(--primary-weak)`
+(app/crm/TraerDeGrupoWA.tsx), y en el claro vale `#a3a39e`: una tabla de 11 tildados queda casi toda gris medio. Se mostró así en el
+carrusel GRUPO porque es la pantalla real.
 
 ## Lo que quedó sin hacer
 - Ver `docs/series/serie-1-elige-a-o-b.md` y `docs/series/serie-4-reacciona-comentarios.md`, §5 «Por hacer».

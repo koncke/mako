@@ -2348,3 +2348,17 @@ que esa corrida encontró en el código de la app está en docs/hallazgos-onboar
   que viene después del encabezado de ESTA corrida (`# renders <fecha de hoy> · <key>`).
 - **Medido:** seis voces, siete tomas (el día 7 pidió una más), ~3.500 créditos de ElevenLabs. Cada render, de 3 a 4,5 min con la
   pasada de cuadros; la cola del navegador (`turno.mjs`) sumó esperas de varios minutos con otros chats renderizando.
+- **⚠️ El gancho salía tapado, y «tapado ok» no lo veía (19/11, el Cerebro: «la cabeza tapa el final del gancho», día 3).** Eran dos
+  cosas a la vez:
+  - **La medida salteaba la entrada.** El texto grande entraba subiendo 300 px desde atrás del muñeco, y en los primeros cuadros
+    su última línea cruzaba la cabeza: «su··te» en el día 3. `render2.cjs` medía desde los 250 ms de cada pantalla, justo después.
+  - **La regla misma lo permitía.** La del 18/11 (letras por detrás) deja que la cabeza tape el tercio de abajo de la última línea:
+    los seis ganchos daban «ok» con palabras al 82-96 % visibles.
+  - **Ahora el gancho no lo tapa nada, en ningún cuadro.** `hacer.mjs` marca sus pantallas (`b.gancho`, rol `gancho`), y
+    `engine3.js` hace tres cosas: el texto crece en su lugar sin subir, va hasta 70 px más arriba, y el muñeco queda con el pelo
+    0,5 × el tamaño de la letra + 24 px debajo de la última línea (debajo de la p, la g y la y). Ese lugar es el mismo en todas las
+    pantallas del gancho, así que al pasar de una a otra la cabeza no sube a la siguiente.
+  - **La medida corre en cada cuadro del video (30 por segundo) desde el primero, con cero píxeles tapados.** «Te doy la
+    bienvenida…» sigue con la regla del 18/11.
+  - **Regla:** una medida que «da ok» se contrasta con un cuadro mirado de cerca en el momento que no mide (la entrada). Si la
+    hoja muestra algo tapado y la medida dice ok, falla la medida, no la hoja.
