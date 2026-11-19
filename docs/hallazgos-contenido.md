@@ -82,7 +82,49 @@ ocultar.
 y≈500 y 1000: cualquier tarjeta en la franja 150-700 la tapa. Si el video abre con una tarjeta arriba, arranca ya en el plano
 medio; el plano cerca sólo cuando arriba no hay nada (el visor de CUBOS).
 
+**El diagnóstico obvio del ticket era el equivocado: no era el diseño del papel, era quién ocupa la pantalla.** El primer
+ticket tenía a Martín en cubos grande en el centro y el ticket arriba, chico; la referencia tiene lo que se cuenta (los
+bloques de precios) en el centro y el personaje chico. Martín: «el ticket tiene que ser mucho más protagonista… no
+necesariamente siempre tiene que salir el muñequito». Regla: antes de diseñar, mirar en la referencia QUÉ ocupa la
+pantalla, cuánto tiempo y dónde está el foco, y copiar eso. Con el personaje chico y abajo, los subtítulos van arriba.
+
+**Las apps del ticket tienen que ser de una misma familia.** Mezclar GoHighLevel, Skool, Zapier y CapCut en un ticket no
+tenía sentido para Martín («no mezcles tanto»). Cada ticket, una familia (vender, contenido, cursos) y termina en lo que
+hace MaKo de esa familia. Y Skool con Kajabi no van juntas: son alternativas, nadie paga las dos.
+
+**Cortar un trabajo propio que tiene el navegador: por PID y con su árbol.** `turno.mjs` lanza bash → node → Chromium; si
+se mata sólo el `turno`, el render sigue corriendo huérfano y pisa al siguiente de la fila. `taskkill /PID <turno> /T /F`
+corta todo lo que cuelga de él (y sólo eso). Después, borrar su carpeta `mp4/_cuadros_*`.
+
+**Una lluvia que arranca en T=0 deja el primer cuadro vacío.** El gancho del ticket nuevo eran suscripciones que caen; con
+demoras de 0 a 1,6 s el cuadro 0,2 s quedaba casi negro. La mitad de los papelitos arranca con demora negativa (ya
+están a mitad de camino). Y una capa con `z-index` alto por elemento tapa los subtítulos si no tiene su propio apilado:
+`z-index` en el contenedor.
+
+**Antes de arreglar un cuadro raro, mirar a qué palabra va.** En la hoja del ticket de contenido el renglón rojo salía
+«VEN» y en el de cursos «MaKo Pro» no estaba marcado: parecían errores y no lo eran. La captura caía 0,06 s después de que
+el renglón empezaba a imprimirse, y la otra 0,3 s antes de «Máko» (23,72 s en `t-s3-ticket-cursos.js`). Regla: buscar el
+tiempo de la palabra en `reels/t-<id>.js` y compararlo con el del cuadro; si cae en el medio de la animación, no hay nada
+que arreglar.
+
+**Un comentario agregado con `sed` en una línea con dos instrucciones apaga la segunda.** Para anotar por qué el ticket de
+MaKo bajó a `top:1070px`, el `// …` quedó en el medio de la línea y comentó `$('mk').style.opacity = …`: el ticket de MaKo
+no iba a aparecer nunca, sin ningún error. Se vio de casualidad en el `grep` de control. Regla: el comentario va al FINAL de
+la línea entera (con un script que reemplaza la línea completa), y después se busca la línea para leerla.
+
+**El tamaño de la letra se calcula por el ancho, no por la cantidad de letras.** El generador de tickets achicaba la
+palabra del CTA desde 8 letras: ALUMNOS (7, con M y W anchas) se salía a 230 px y TICKET (6) entraba. El encabezado «SÓLO
+PARA HACER CONTENIDO» (25 caracteres) no entraba a 60 px en monoespaciada: cada carácter mide 0,6 de la letra más el
+espaciado, y el papel deja 928 px. Al armar una variante desde otro HTML, medir el texto más largo de cada variante.
+
 ## Lo que quedó sin hacer (serie 3)
+
+- La respuesta automática a cada palabra (CUBOS, TICKET, ALUMNOS, CONTENIDO, COPIAR, GRUPO, …) no está en producción. Los
+  textos están en `docs/series/serie-3-ventas.md` → «El mensaje que le llega a quien comenta»; el Cerebro se los lleva a
+  Martín.
+- Ticket de cursos con Kajabi: no se hizo (Skool o Kajabi, nunca las dos; se eligió Skool). OpusClip quedó afuera del de
+  contenido: MaKo no corta un video largo en clips. Canva no se usó: su página muestra el precio sólo en pesos.
+
 ## Carruseles de ventas (réplicas de outliers, «encontré una app») — 19/11/2026
 
 El proceso entero, en [series/carruseles-ventas.md](series/carruseles-ventas.md). Acá, lo que no se deduce del código.
@@ -116,29 +158,6 @@ corre en segundo plano apenas está el guion, no al final.
 **La fila del navegador: encolar TODAS las capturas apenas cada HTML existe.** Con 5 carruseles y renders de 60 s de otros
 chats adelante, cada vuelta esperaba 30-40 min. Encolarlas juntas (piezas, personaje en cubos, criaturas, láminas de cada
 carrusel) hace que salgan seguidas; la que necesita lo que hace otra va detrás en la fila.
-**El diagnóstico obvio del ticket era el equivocado: no era el diseño del papel, era quién ocupa la pantalla.** El primer
-ticket tenía a Martín en cubos grande en el centro y el ticket arriba, chico; la referencia tiene lo que se cuenta (los
-bloques de precios) en el centro y el personaje chico. Martín: «el ticket tiene que ser mucho más protagonista… no
-necesariamente siempre tiene que salir el muñequito». Regla: antes de diseñar, mirar en la referencia QUÉ ocupa la
-pantalla, cuánto tiempo y dónde está el foco, y copiar eso. Con el personaje chico y abajo, los subtítulos van arriba.
-
-**Las apps del ticket tienen que ser de una misma familia.** Mezclar GoHighLevel, Skool, Zapier y CapCut en un ticket no
-tenía sentido para Martín («no mezcles tanto»). Cada ticket, una familia (vender, contenido, cursos) y termina en lo que
-hace MaKo de esa familia. Y Skool con Kajabi no van juntas: son alternativas, nadie paga las dos.
-
-**Cortar un trabajo propio que tiene el navegador: por PID y con su árbol.** `turno.mjs` lanza bash → node → Chromium; si
-se mata sólo el `turno`, el render sigue corriendo huérfano y pisa al siguiente de la fila. `taskkill /PID <turno> /T /F`
-corta todo lo que cuelga de él (y sólo eso). Después, borrar su carpeta `mp4/_cuadros_*`.
-
-**Una lluvia que arranca en T=0 deja el primer cuadro vacío.** El gancho del ticket nuevo eran suscripciones que caen; con
-demoras de 0 a 1,6 s el cuadro 0,2 s quedaba casi negro. La mitad de los papelitos arranca con demora negativa (ya
-están a mitad de camino). Y una capa con `z-index` alto por elemento tapa los subtítulos si no tiene su propio apilado:
-`z-index` en el contenedor.
-
-## Lo que quedó sin hacer
-
-- La respuesta automática a CUBOS (qué se manda: la guía del método) no existe todavía. Está en
-  `docs/series/serie-3-ventas.md` → «Palabras de CTA».
 
 ## Serie 2 (educación: temas de los cursos e investigación de afuera) — 19/11/2026
 
