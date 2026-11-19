@@ -88,6 +88,19 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## La foto de una línea, por Evolution, la deja medio rota: un 200 no dice que la línea siga sana (19/11/2026)
+
+**Vive en:** Evolution 2.3.7 (`whatsapp.baileys.service.ts`, `updateProfilePicture` → `reloadConnection()`); la voz de MaKo es la
+instancia del setting `mako.voz.instancia` (lib/mako-grupo.ts → `instanciaVoz`).
+
+- **Síntoma:** a pedido de Martín, la foto de la línea de MaKo pasó a la estrellita con `POST /chat/updateProfilePicture/{instancia}`.
+  Respondió 200 y la foto quedó bien. A los 4 minutos saltó la alarma de línea caída, y un aviso que salió en ese momento se perdió.
+- **La causa:** en 2.3.7 ese endpoint llama a `reloadConnection()`, que abre un socket nuevo SIN cerrar el viejo. Quedan dos conexiones
+  del mismo dispositivo: el viejo sigue recibiendo y las consultas van por el nuevo, que no contesta. Pasa lo mismo con
+  `updatePrivacySettings` y `removeProfilePicture`.
+- **La regla:** la foto, el nombre y la privacidad de cualquier línea (la voz o la de un cliente) se cambian desde el TELÉFONO, nunca por
+  Evolution. Un 200 de Evolution no prueba que la línea siga recibiendo: se mira la alarma de línea caída.
+
 ## «Salió por WhatsApp» cuando sólo llegó a la app: el `ok: true` con `enApp` (ticket #118, 19/11/2026)
 
 **Vive en:** `lib/mako-grupo.ts` (`enviarAlGrupoMaKo`, al final) · `lib/tickets-cierre.ts` (`avisarUno`) ·

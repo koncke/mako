@@ -28,9 +28,10 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
   - `useRouter` de Next necesita su `AppRouterContext.Provider`;
   - en el Chromium sin ventana de esta PC, las animaciones CSS quedan en `currentTime 0`, así que algo que entra con `opacity: 0 → 1`
     (el velo oscuro) sale invisible en la captura. Se captura con `screenshot({ animations: 'disabled' })`.
+- **La foto de perfil de la línea (la criatura) NO se cambia por Evolution.** Se cambió con `POST /chat/updateProfilePicture`: dio 200
+  y la foto quedó bien, pero a los 4 minutos la voz de MaKo se cayó. La trampa, en docs/hallazgos-comunicacion.md. La foto, el nombre
+  y la privacidad de una línea se cambian desde el teléfono. El script de las notas compartidas (`foto-linea-mako.mjs`) quedó cortado.
 - **Lo que quedó sin hacer:**
-  - la foto de perfil de la línea con la criatura: la cambia el Cerebro con el script de las notas compartidas, `foto-linea-mako.mjs`
-    (Evolution `POST /chat/updateProfilePicture/{instancia}`);
   - la tarjeta de contacto que manda MaKo con el código: va por `/message/sendContact`, con la forma de Evolution v2, y no se probó
     contra la línea;
   - probarlo de punta a punta en producción, después del deploy, en el ws 3;
