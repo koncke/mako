@@ -138,4 +138,20 @@ test('«Elegir mi plan» durante la prueba: la tarjeta ahora y el primer cobro e
   assert.match(fuente('app/_components/AvisoMoraPlan.tsx'), /if \(!mora && prueba\) return <AvisoPrueba prueba=\{prueba\} \/>;/);
 });
 
+test('P2P sin tocar y sin pagar por ninguna vía se ve PRENDIDO (apagarlo es lo que lo pasa a la prueba); quien paga, no', () => {
+  const sin = async () => ({ ok: false as const, error: 'x' });
+  const deHecho = renderToStaticMarkup(createElement(CustomerSinCobro, { ws: 14, inicial: null, paga: false, poner: sin }));
+  assert.match(deHecho, /Entra sin cobro \(cargado a mano\)\. Apágalo para que pase a la prueba de 7 días/);
+  assert.match(fuente('app/admin/_polar/web/Customer/CustomerPage/CustomerSinCobro.tsx'), /const deHecho = estado == null && paga === false\n  const prendido = habilitadoSinCobro\(estado\) \|\| deHecho/);
+  const paga = renderToStaticMarkup(createElement(CustomerSinCobro, { ws: 13, inicial: null, paga: true, poner: sin }));
+  assert.match(paga, /Paga su lugar \(su plan, su mensualidad o su agencia\)/);
+  // La pausa y la prueba miran si PAGA SU LUGAR por cualquier vía (su plan, su mensualidad, su agencia), no sólo su plan de la pasarela:
+  // apagar el interruptor de un cliente de agencia o de Leila no los pausa.
+  const s = fuente('lib/cuenta-sin-cobro.ts');
+  assert.match(s, /const plan = apagado \? await pagaSuLugar\(ws\) : undefined;/);
+  assert.match(s, /return \(await pagaSuLugar\(ws\)\) === false \? \{ hasta: fin \} : null;/);
+  assert.match(s, /if \(propio === true \|\| \(mensualidad !== undefined && mensualidad !== null\) \|\| deAgencia === true\) return true;/);
+  assert.match(fuente('app/admin/(polar)/customers/[id]/page.tsx'), /pagaSuLugar=\{paga \?\? null\}/);
+});
+
 // Roturas (19/11/2026), cada una restaurada: ver docs/hallazgos-agencias.md.

@@ -7,17 +7,20 @@ import { Alert, Text } from '@/app/admin/_polar/orbit'
 import { Switch } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { ConfirmModal } from '@/app/admin/_polar/web/Modal/ConfirmModal'
-import { TEXTO_CONFIRMAR_APAGAR, TEXTO_SIN_COBRO, habilitadoSinCobro, textoDelApagado, type SinCobro } from '@/lib/cuenta-sin-cobro-reglas'
+import { TEXTO_CONFIRMAR_APAGAR, TEXTO_SIN_COBRO, TEXTO_SIN_COBRO_DE_HECHO, habilitadoSinCobro, textoDelApagado, type SinCobro } from '@/lib/cuenta-sin-cobro-reglas'
 import { useState } from 'react'
 
 export type PonerSinCobro = (ws: number, activo: boolean) => Promise<{ ok: true; sinCobro: SinCobro } | { ok: false; error: string }>
 
-export const CustomerSinCobro = ({ ws, inicial, poner }: { ws: number; inicial: SinCobro | null; poner: PonerSinCobro }) => {
+export const CustomerSinCobro = ({ ws, inicial, paga = null, poner }: { ws: number; inicial: SinCobro | null; paga?: boolean | null; poner: PonerSinCobro }) => {
   const [estado, setEstado] = useState<SinCobro | null>(inicial)
   const [confirmando, setConfirmando] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const prendido = habilitadoSinCobro(estado)
+  // Nunca tocado y sin pagar por ninguna vía (P2P, cargado a mano): entra sin cobro DE HECHO, así que el interruptor se ve prendido y apagarlo es
+  // lo que lo pasa a la prueba (19/11/2026, Martín: «si desactivo eso, simplemente entra en la configuración de siempre»).
+  const deHecho = estado == null && paga === false
+  const prendido = habilitadoSinCobro(estado) || deHecho
 
   async function guardar(activo: boolean) {
     setGuardando(true)
@@ -35,7 +38,7 @@ export const CustomerSinCobro = ({ ws, inicial, poner }: { ws: number; inicial: 
         <Box flexDirection="column" rowGap="xs">
           <Text>Habilitado sin cobro</Text>
           <Text variant="caption" color="muted">
-            {prendido ? TEXTO_SIN_COBRO : estado ? textoDelApagado(estado) : 'Sin tocar: como hasta hoy.'}
+            {deHecho ? TEXTO_SIN_COBRO_DE_HECHO : prendido ? TEXTO_SIN_COBRO : estado ? textoDelApagado(estado) : paga ? 'Paga su lugar (su plan, su mensualidad o su agencia): no hace falta tocarlo.' : 'Sin tocar: como hasta hoy.'}
           </Text>
         </Box>
         <Switch

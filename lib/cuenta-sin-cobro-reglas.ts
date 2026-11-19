@@ -40,6 +40,8 @@ export const habilitadoSinCobro = (s: SinCobro | null | undefined): boolean => s
 /** Lo que pide el cartel antes de APAGAR. */
 export const TEXTO_CONFIRMAR_APAGAR = 'Este negocio pasa al circuito normal: 7 días de prueba y después el cobro de su plan. Si en esos 7 días no carga su tarjeta, su cuenta se pausa hasta que pague.';
 export const TEXTO_SIN_COBRO = 'Habilitado sin cobro: cargado a mano, sin prueba ni cobro.';
+/** Nunca se tocó y no paga por ninguna vía (su plan, su mensualidad, su agencia): entra sin cobro de hecho (19/11/2026). */
+export const TEXTO_SIN_COBRO_DE_HECHO = 'Entra sin cobro (cargado a mano). Apágalo para que pase a la prueba de 7 días y después al cobro de su plan.';
 export const CHIP_SIN_COBRO = 'Sin cobro';
 
 // ── Apagado: la prueba y la pausa (19/11/2026) ─────────────────────────────────────────────────────────────────

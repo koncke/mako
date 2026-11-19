@@ -61,14 +61,30 @@ export async function tienePlanPropio(ws: number): Promise<boolean | undefined> 
 }
 
 /**
- * La prueba del negocio, para el aviso de la esquina: hasta cuándo, si el interruptor está APAGADO, la prueba sigue y todavía no tiene su plan.
+ * ¿PAGA SU LUGAR por alguna vía? Su plan propio (arriba), su mensualidad por Binance (una agencia, o una cuenta con ciclo propio como Leila), o
+ * es cliente de una agencia (la paga la agencia). ⚠️ Sin esto, apagar el interruptor de un cliente de agencia o de Leila los PAUSABA a los 7 días
+ * (no tienen un cobro con `alta_ws`). `undefined` = algo no se pudo leer (nunca se pausa ni se muestra la prueba).
+ */
+export async function pagaSuLugar(ws: number): Promise<boolean | undefined> {
+  const [propio, mensualidad, deAgencia] = await Promise.all([
+    tienePlanPropio(ws),
+    import('./agencia-mes').then((m) => m.planDeLaMensualidad(ws), () => undefined),
+    import('./agencia').then((m) => m.esClienteDeAgencia(ws), () => null),
+  ]);
+  if (propio === true || (mensualidad !== undefined && mensualidad !== null) || deAgencia === true) return true;
+  if (propio === undefined || mensualidad === undefined || deAgencia == null) return undefined;
+  return false;
+}
+
+/**
+ * La prueba del negocio, para el aviso de la esquina: hasta cuándo, si el interruptor está APAGADO, la prueba sigue y todavía no paga.
  * null en cualquier otro caso (y si algo no se pudo leer: el aviso no se muestra antes que mostrar uno falso).
  */
 export async function pruebaSinCobroDe(ws: number, ahora: number = Date.now()): Promise<{ hasta: string } | null> {
   try {
     const fin = finDeLaPruebaSinCobro(await leerSinCobro(ws));
     if (!fin || Date.parse(fin) <= ahora) return null;
-    return (await tienePlanPropio(ws)) === false ? { hasta: fin } : null;
+    return (await pagaSuLugar(ws)) === false ? { hasta: fin } : null;
   } catch { return null; }
 }
 
@@ -107,7 +123,7 @@ export async function revisarSinCobro(o: { soloWs?: number; ahora?: number } = {
         const corte = corteDe.get(ws) ?? null;
         const corteNuestro = corte?.motivo === MOTIVO_PRUEBA_TERMINADA && corte.vigente;
         const apagado = finDeLaPruebaSinCobro(s) != null;
-        const plan = apagado ? await tienePlanPropio(ws) : undefined;
+        const plan = apagado ? await pagaSuLugar(ws) : undefined;
         const paso = pasoSinCobro({ sinCobro: s, plan, estado: estadoDe.get(ws) ?? null, corteNuestro, ahora });
         if (paso.tipo === 'pausar') {
           if (await cortar(ws, { cobroId: 0, hasta: paso.hasta, motivo: MOTIVO_PRUEBA_TERMINADA, desde: new Date(ahora).toISOString(), vigente: true })) {
