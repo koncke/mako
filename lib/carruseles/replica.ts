@@ -1455,6 +1455,12 @@ export function avisoSinIA(error: string, negocio: string | null = null): { avis
       conectar: CONECTAR_IA,
     };
   }
+  // ⏱ Se acabó el plazo de la corrida (ticket 119, `hastaMs` en lib/ai-cheap.ts → «sin tiempo: …»): lo que pasó es la DEMORA
+  // de las IA que se probaron, aunque antes una haya dicho «sin crédito». Va antes que la clave y la cuota, que la taparían.
+  if (/\bsin tiempo\b/i.test(error)) {
+    const ia = ajeno ? `La IA de ${ajeno}` : 'Tu IA';
+    return { aviso: `${ia} no alcanzó a escribir ${su} versión a tiempo: las IA que probé tardaron o fallaron. ${guia} Vuelve a intentar en un rato; si se repite, revisa en ${ajeno ? 'sus Integraciones' : 'Integraciones'} que ${su} IA tenga crédito.`, conectar: null };
+  }
   if (/\b(401|403)\b|invalid[_ ]?api[_ ]?key|api key not valid|incorrect api key|authentication|permission[_ ]?denied|unauthorized/i.test(error)) {
     return { aviso: `${tu} rechazó la clave: revísala en ${ajeno ? 'sus Integraciones' : 'Integraciones'}. ${guia}`, conectar: CONECTAR_IA };
   }
@@ -1473,7 +1479,8 @@ export function avisoSinIA(error: string, negocio: string | null = null): { avis
  * ninguna IA: ahí el aviso dice qué hacer.
  */
 export function vuelveASinVer(error: string): boolean {
-  if (esTimeout(error) || esSaturacion(error)) return false;
+  // Sin tiempo (ticket 119): otro pedido no entra en el plazo de la corrida.
+  if (esTimeout(error) || esSaturacion(error) || /\bsin tiempo\b/i.test(error)) return false;
   if (/\b(401|403|429)\b|quota|rate.?limit|resource[_ ]?exhausted|insufficient|billing|credit balance|prepayment|invalid[_ ]?api[_ ]?key|api key not valid|incorrect api key|unauthorized|permission[_ ]?denied/i.test(error)) return false;
   if (/sin_keys|no hay ninguna IA|Conecta tu (?:Claude|GPT|Gemini)/i.test(error)) return false;
   return true;

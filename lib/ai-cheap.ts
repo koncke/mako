@@ -1172,6 +1172,20 @@ type DocOpts = {
    * puede caer en la cuenta gratis de MaKo, que es justo lo contrario de su IA.
    */
   sinGemini?: boolean;
+  /**
+   * El modelo que se prueba PRIMERO en cada proveedor, como en `chatCheapCascade` (sólo Gemini rota de modelo); sin él, el de
+   * visión por defecto.
+   * ⚠️ 19/11/2026, ticket 119 (Leila, «Editar» un carrusel): con el MISMO pedido de 12 láminas, `gemini-flash-latest` tardó 184 s con
+   * el pensar al mínimo y no terminó en 240 s con el de siempre; `gemini-flash-lite-latest` lo escribió en 27 s. Con el plazo de
+   * 120 s de «Editar», el de por defecto se cortaba SIEMPRE: cada corrida perdía 2 minutos antes de probar el siguiente.
+   */
+  modelos?: Partial<Record<ProvName, string>>;
+  /**
+   * El plazo del que llama, una fecha ABSOLUTA (epoch ms), como en `chatCheapCascade`: cada intento se acota a lo que queda y no
+   * se arranca uno con menos de `MIN_INTENTO_MS`. Sin él, cada intento tiene su `timeoutMs` ENTERO, y varios seguidos (su Claude,
+   * sus Gemini, su OpenAI) sumaban más de lo que tiene la ruta que llama: el ticket 119, cortado a los 4 minutos.
+   */
+  hastaMs?: number;
 };
 
 /** Una data URL (imagen o PDF) como bloque de Claude. Lo que no es base64 o no es un tipo que Claude mira, afuera. */
@@ -1195,6 +1209,15 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
   if (!medidorAbierto()) return conMedidorDeMt(opts.feature, () => leerDocumentoIA(opts));
   const errores: string[] = [];
   const sinKey: ProvName[] = [];
+  // ⏱ El plazo del que llama (`hastaMs`, ticket 119): lo que queda, el timeout de UN intento acotado a eso, y «no alcanza para
+  // arrancar otro» (que queda escrito una sola vez en los errores).
+  const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
+  const plazoDeIntento = (ms: number): number => Math.min(ms, quedan());
+  const sinTiempo = (errs: string[]): boolean => {
+    if (quedan() >= MIN_INTENTO_MS) return false;
+    if (!errs.some((x) => x.startsWith('sin tiempo'))) errs.push(`sin tiempo: el plazo del pedido vence en ${Math.max(0, Math.round(quedan() / 1000))} s`);
+    return true;
+  };
 
   // El intento, en UNA función: la usan las keys del cliente y la red de plataforma.
   // Con dos copias, cualquier arreglo de la rotación de modelo (que acá costó un
@@ -1205,11 +1228,13 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
       // retirado (404), rotar cuentas no sirve — todas pegan contra el mismo modelo
       // muerto. Acá pegó fuerte: el paso de la cara de marca es VISIÓN, y el free tier
       // de `gemini-flash-latest` son 20 requests, que un onboarding se come solo.
-      for (const model of modelosAProbar(prov, undefined)) {
+      for (const model of modelosAProbar(prov, o.modelos?.[prov])) {
+        if (sinTiempo(errs)) return null;
+        const oi: DocOpts = { ...o, timeoutMs: plazoDeIntento(o.timeoutMs ?? 100_000) };
         try {
           const text = prov === 'gemini'
-            ? await leerConGemini(inst.key, o, nroCuenta(inst), model)
-            : await leerConOpenAI(inst.key, o, nroCuenta(inst), prov);
+            ? await leerConGemini(inst.key, oi, nroCuenta(inst), model)
+            : await leerConOpenAI(inst.key, oi, nroCuenta(inst), prov);
           if (text.trim()) return { text, provider: prov };
           errs.push(`${rotulo(inst)}: respuesta vacía`);
         } catch (e) {
@@ -1229,9 +1254,9 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
   // imágenes y PDF como bloques. Si no anda (o el negocio no tiene su clave), sigue lo de siempre.
   {
     const bloques = bloquesParaClaude(opts);
-    if (bloques.length) {
+    if (bloques.length && !sinTiempo(errores)) {
       const { conClaveDelNegocio } = await import('./anthropic');
-      const r = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques }).catch((e) => { if (esSinSaldoDeMt(e)) throw e; return null; });
+      const r = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDeIntento(opts.timeoutMs ?? 90_000), bloques }).catch((e) => { if (esSinSaldoDeMt(e)) throw e; return null; });
       if (r && 'texto' in r) return { text: opts.json ? soloElJson(r.texto) || r.texto : r.texto, provider: 'anthropic' };
       if (r && 'error' in r) errores.push(`anthropic/ANTHROPIC_API_KEY: ${r.error}`);
       // ── Y EL CRÉDITO DE CLAUDE (11/11/2026): en el espacio de MaKo para todo menos el Plan, y en CUALQUIER negocio para las
@@ -1249,7 +1274,9 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
         const noHayQuienMire = () => (sinNadaDespues ??= Promise.all(VISION_CASCADE.filter((p) => !opts.sinGemini || p !== 'gemini').map((p) => provsDe(p).catch(() => [])))
           .then((ls) => ls.every((l) => l.length === 0)));
         for (const cuenta of await cuentasDelCreditoParaElPedido(opts.feature, { tambienLosGrupos: true }).catch(() => [] as string[])) {
-          const c = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques, cuentaDeLosGrupos: cuenta }).catch((e) => { if (esSinSaldoDeMt(e)) throw e; return { error: e instanceof Error ? e.message : String(e) }; });
+          // Sus errores no van a la lista del negocio (el crédito es nuestro): el «sin tiempo» tampoco.
+          if (sinTiempo([])) break;
+          const c = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDeIntento(opts.timeoutMs ?? 90_000), bloques, cuentaDeLosGrupos: cuenta }).catch((e) => { if (esSinSaldoDeMt(e)) throw e; return { error: e instanceof Error ? e.message : String(e) }; });
           if (c && 'texto' in c) return { text: opts.json ? soloElJson(c.texto) || c.texto : c.texto, provider: 'anthropic' };
           if (!c) break;
           console.warn(`[ai-cheap] leer con el crédito de Claude (${cuenta}) no pudo: ${c.error.slice(0, 200)}`);
