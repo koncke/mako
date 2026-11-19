@@ -1614,41 +1614,105 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-5.mp4",
    "poster": "/tutoriales/reto-dia-5.jpg",
-   "duracion_s": 22.33,
-   "peso_kb": 1216,
-   "guion": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco. Primero, toca aquí, en Ímich, y replica un carrusel que ya funcionó, con tu oferta. Después, toca aquí, en Copywriting, y escribe tu guion replicando a tu referente. Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
+   "duracion_s": 66.83,
+   "peso_kb": 3549,
+   "guion": "¿Te pasa que se te van horas pensando qué publicar, y después casi nadie lo ve? Te doy la bienvenida al día cinco: hoy armas una semana de contenido, sin hoja en blanco. Lo que más rinde casi nunca sale de cero: parte de una idea que ya enganchó. Por eso MaKo te muestra las piezas que rindieron varias veces lo usual de quien las publicó. Pongamos una coach de liderazgo que cobra dos mil quinientos dólares. Ella elige un carrusel que tuvo cuatro veces las reacciones que suele tener esa cuenta. MaKo le pregunta su oferta y lo arma con esa idea, que ya demostró que engancha. ¿Y si esa pieza es de otro rubro? Lo que se toma es el ángulo y el gancho, no el tema. Con que le traiga un solo cliente, esa idea prestada ya vale dos mil quinientos dólares. Primero, toca aquí, en Ímich, y replica un carrusel que ya funcionó, con tu oferta. Después, toca aquí, en Copywriting, y escribe tu guion replicando a tu referente. Hoy te llevas tu carrusel y tu guion de la semana, con ideas que la gente ya eligió. Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
    "frases": [
     {
      "id": "reto-dia-5-1",
      "rol": "gancho",
-     "texto": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco.",
+     "texto": "¿Te pasa que se te van horas pensando qué publicar, y después casi nadie lo ve?",
      "t_inicio": 0.06,
-     "t_fin": 5.86
+     "t_fin": 4.78
     },
     {
      "id": "reto-dia-5-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida al día cinco: hoy armas una semana de contenido, sin hoja en blanco.",
+     "t_inicio": 5.38,
+     "t_fin": 11.38
+    },
+    {
+     "id": "reto-dia-5-3",
+     "rol": "porque",
+     "texto": "Lo que más rinde casi nunca sale de cero: parte de una idea que ya enganchó.",
+     "t_inicio": 11.86,
+     "t_fin": 16.6
+    },
+    {
+     "id": "reto-dia-5-4",
+     "rol": "porque",
+     "texto": "Por eso MaKo te muestra las piezas que rindieron varias veces lo usual de quien las publicó.",
+     "t_inicio": 17.14,
+     "t_fin": 21.7
+    },
+    {
+     "id": "reto-dia-5-5",
+     "rol": "porque",
+     "texto": "Pongamos una coach de liderazgo que cobra dos mil quinientos dólares.",
+     "t_inicio": 22.18,
+     "t_fin": 25.66
+    },
+    {
+     "id": "reto-dia-5-6",
+     "rol": "porque",
+     "texto": "Ella elige un carrusel que tuvo cuatro veces las reacciones que suele tener esa cuenta.",
+     "t_inicio": 26.04,
+     "t_fin": 30.54
+    },
+    {
+     "id": "reto-dia-5-7",
+     "rol": "porque",
+     "texto": "MaKo le pregunta su oferta y lo arma con esa idea, que ya demostró que engancha.",
+     "t_inicio": 30.92,
+     "t_fin": 35.3
+    },
+    {
+     "id": "reto-dia-5-8",
+     "rol": "porque",
+     "texto": "¿Y si esa pieza es de otro rubro? Lo que se toma es el ángulo y el gancho, no el tema.",
+     "t_inicio": 35.7,
+     "t_fin": 40.74
+    },
+    {
+     "id": "reto-dia-5-9",
+     "rol": "porque",
+     "texto": "Con que le traiga un solo cliente, esa idea prestada ya vale dos mil quinientos dólares.",
+     "t_inicio": 41.06,
+     "t_fin": 46.16
+    },
+    {
+     "id": "reto-dia-5-10",
      "rol": "accion",
      "texto": "Primero, toca aquí, en Image, y replica un carrusel que ya funcionó, con tu oferta.",
-     "t_inicio": 6.34,
-     "t_fin": 11.74,
+     "t_inicio": 46.56,
+     "t_fin": 51.68,
      "sel": "aside[data-sidebar] a[href^=\"/image-editor\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-5-3",
+     "id": "reto-dia-5-11",
      "rol": "accion",
      "texto": "Después, toca aquí, en Copywriting, y escribe tu guion replicando a tu referente.",
-     "t_inicio": 12.26,
-     "t_fin": 17.2,
+     "t_inicio": 52.02,
+     "t_fin": 56.86,
      "sel": "aside[data-sidebar] a[href^=\"/copywriter\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-5-4",
+     "id": "reto-dia-5-12",
+     "rol": "cierre",
+     "texto": "Hoy te llevas tu carrusel y tu guion de la semana, con ideas que la gente ya eligió.",
+     "t_inicio": 57.22,
+     "t_fin": 61.8,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-5-13",
      "rol": "cierre",
      "texto": "Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
-     "t_inicio": 17.62,
-     "t_fin": 21.64,
+     "t_inicio": 62.1,
+     "t_fin": 66.14,
      "espera_clic": false
     }
    ],
@@ -1656,8 +1720,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "5 → cinco · imich → image (ortografía del transcriptor)",
-   "hecho": "2026-11-18T15:29:36.410Z"
+   "chequeo": "mako → maco · mako → maco · imich → image · mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-19T02:57:23.090Z"
   },
   {
    "key": "reto-dia-6",
