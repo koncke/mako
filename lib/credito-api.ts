@@ -136,7 +136,7 @@ export type TotalCredito = { gastadoUsd: number | null; vinculadas: number; rind
 export type AsignadoCredito = { ws: number; quien: string; cuenta: string; prendido: boolean | null; gastadoUsd: number | null; llamadas: number };
 /** Lo que recibe la pantalla: las filas y el total ya armados en el servidor (la pantalla importa sólo los tipos). */
 export type LecturaCredito =
-  | { ok: true; filas: FilaCredito[]; total: TotalCredito; negociosSinLeer: boolean; asignados?: AsignadoCredito[]; nombres?: Record<number, string> }
+  | { ok: true; filas: FilaCredito[]; total: TotalCredito; negociosSinLeer: boolean; asignados?: AsignadoCredito[] }
   | { ok: false; error: string };
 
 const AR_MS = 3 * 3_600_000;
@@ -338,7 +338,7 @@ function queHacer(otras: readonly string[], sinVincular: readonly string[], noCu
  */
 export function avisosDelCredito(
   filas: readonly FilaCredito[], yaAvisados: ReadonlySet<string>, ahora: number, cuentas: readonly CuentaDelCredito[] = CUENTAS_DEL_CREDITO,
-  /** El nombre de cada negocio, para decir quiénes se quedan sin Claude (`leerCreditoApi` → `nombres`). */
+  /** El nombre de cada negocio, para decir quiénes se quedan sin Claude (los lee el vigía, `nombresDeLosClientes`). */
   nombres: Readonly<Record<number, string>> = {},
 ): { avisos: AvisoDelCredito[]; uso: Record<string, number>; completo: boolean } {
   const avisos: AvisoDelCredito[] = [];

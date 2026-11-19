@@ -14,7 +14,7 @@
 // =============================================================================
 
 import 'server-only';
-import { CLAVE_USO_DEL_CREDITO, PREFIJO_AVISO_DEL_CREDITO, avisosDelCredito, type AvisoDelCredito } from './credito-api';
+import { CLAVE_USO_DEL_CREDITO, PREFIJO_AVISO_DEL_CREDITO, avisosDelCredito, type AvisoDelCredito, type FilaCredito } from './credito-api';
 import { leerCreditoApi } from './credito-api-db';
 import { borrarSettingSi, cambiarSettingSi, getSettingsConPrefijo, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
@@ -41,6 +41,25 @@ async function mandar(a: AvisoDelCredito, ws: number): Promise<boolean> {
   return grupo || campanita;
 }
 
+/**
+ * El nombre de los negocios que usaron el crédito, para el aviso de «se quedan sin Claude» (19/11/2026). Va acá y no en la lectura del
+ * Uso (lib/credito-api-db.ts), que le devuelve a la pantalla sólo números (tests/credito-api.test.ts, el 6). Si no se puede leer, sin
+ * nombres: el aviso dice «el negocio N».
+ */
+async function nombresDeLosClientes(filas: readonly FilaCredito[]): Promise<Record<number, string>> {
+  const ids = [...new Set(filas.flatMap((f) => f.clientes ?? []))];
+  const nombres: Record<number, string> = {};
+  if (!ids.length) return nombres;
+  try {
+    const { getSupabaseServer } = await import('./supabase');
+    const { data } = await getSupabaseServer().from('workspaces').select('id, nombre').in('id', ids);
+    for (const w of (data ?? []) as Array<{ id: number; nombre: string | null }>) if (w.nombre) nombres[Number(w.id)] = w.nombre;
+  } catch (e) {
+    console.warn(`[credito-vigia] no pude leer los nombres de los clientes: ${msg(e)}`);
+  }
+  return nombres;
+}
+
 export async function vigilarCreditoClaude(ahora = Date.now()): Promise<CorridaDelVigia> {
   try {
     const lectura = await leerCreditoApi(ahora);
@@ -48,7 +67,7 @@ export async function vigilarCreditoClaude(ahora = Date.now()): Promise<CorridaD
     const ws = await wsSuperAdmin();
     return await runWithWorkspace(ws, async () => {
       const ya = new Set((await getSettingsConPrefijo(PREFIJO_AVISO_DEL_CREDITO)).keys());
-      const { avisos, uso, completo } = avisosDelCredito(lectura.filas, ya, ahora, undefined, lectura.nombres ?? {});
+      const { avisos, uso, completo } = avisosDelCredito(lectura.filas, ya, ahora, undefined, await nombresDeLosClientes(lectura.filas));
       // Con el % de alguna cuenta sin saber, NO se guarda: queda el último completo, que vence solo a las 2 h (`leerUsoDelCredito`).
       // Guardarlo con huecos y la hora de ahora borraba el % de la cuenta que iba al 95%, y la plataforma volvía a usarla.
       if (completo) await setSetting(CLAVE_USO_DEL_CREDITO, JSON.stringify({ at: new Date(ahora).toISOString(), cuentas: uso }));

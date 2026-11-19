@@ -60,17 +60,8 @@ export async function leerCreditoApi(ahora = Date.now()): Promise<LecturaCredito
     gastos = null;
   }
 
+  // `wsPlataforma`: lo suyo no cuenta como un cliente que usó el crédito (`clientes`, 19/11/2026; sólo números, los nombres los lee el vigía).
   const filas = resumenCredito({ vinculadas, gastos, wsConClave, ahora, wsPlataforma: ws });
-  // El nombre de los clientes que usaron el crédito, para el aviso de «se quedan sin Claude» (19/11/2026). Si no se puede leer, sin
-  // nombres: el aviso dice «el negocio N».
-  const ids = [...new Set(filas.flatMap((f) => f.clientes ?? []))];
-  const nombres: Record<number, string> = {};
-  if (ids.length) {
-    try {
-      const { data } = await db.from('workspaces').select('id, nombre').in('id', ids);
-      for (const w of (data ?? []) as Array<{ id: number; nombre: string | null }>) if (w.nombre) nombres[Number(w.id)] = w.nombre;
-    } catch { /* sin nombres: el aviso dice «el negocio N» */ }
-  }
   // Los negocios con un crédito asignado (el ws1): su interruptor y lo que llevan gastado de él en el ciclo de la cuenta.
   const asignados: AsignadoCredito[] = [];
   for (const a of CREDITO_DE_UN_NEGOCIO) {
@@ -80,5 +71,5 @@ export async function leerCreditoApi(ahora = Date.now()): Promise<LecturaCredito
     const g = gastoDelAsignado(gastos, a.ws, cicloDelCredito(c.diaDeCobro, ahora).desde);
     asignados.push({ ws: a.ws, quien: a.quien, cuenta: c.cuenta, prendido, gastadoUsd: g?.usd ?? null, llamadas: g?.llamadas ?? 0 });
   }
-  return { ok: true, filas, total: totalCredito(filas), negociosSinLeer, asignados, nombres };
+  return { ok: true, filas, total: totalCredito(filas), negociosSinLeer, asignados };
 }
