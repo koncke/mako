@@ -548,3 +548,33 @@ test('21. el panel en producción: el rol de cada agente se lee y el pie no tapa
 //   · cada pedazo con la suya (el volumen vuelve a saltar en los cortes)  → rojo el 18
 //   · sin recordar que leer lo que se dice falló                         → rojo el 17
 //   · «no se reconoció la voz» sin contar como subtítulos que no salieron → rojo el 17
+
+// ── Ticket 99 (Leila, 14/11/2026): la edición automática con un video SIN VOZ ─────────────────────
+// Un recorrido de una casa, sin voz. Con el video sin audio, los diez agentes se salteaban y el panel sólo decía «no
+// tenían nada que hacer» («me dice que no tiene nada que editar»). Con el audio de los pasos, «Quitar las pausas» lo
+// cortó en 23 astillas y «Limpiar la voz» le sacó los pasos (su copia en la base, 14/11 22:07).
+import { SONIDO_SIN_VOZ } from '../app/video-editor/_opencut/enjambre/plan';
+import { NO_ES_VOZ } from '../app/video-editor/_opencut/audio/silencios-aviso';
+
+test('22. ticket 99: sin voz no arranca y dice qué hacer; con pasos y sin voz, ni corta ni «limpia la voz»', () => {
+  const correr = leer('app/video-editor/_opencut/enjambre/correr.ts');
+  // No arranca sin un clip con sonido en la pista principal, y lo deja escrito en el panel (no un toast rojo).
+  assert.match(correr, /"sin-voz":\s*"Tu video no tiene sonido en la pista principal[^"]*pídele al chat lo que quieres/);
+  assert.match(correr, /if \(!leer\(editor\)\?\.estado\.conVoz\.length\) \{\s*useEnjambre\.setState\(\{ resumen: NO_ARRANCA\["sin-voz"\], error: false \}\);\s*return \{ ok: false, motivo: "sin-voz"/);
+  assert.ok(correr.indexOf('motivo: "sin-voz"') < correr.indexOf('empezarCorrida({ desdeElChat })'), 'se mira ANTES de arrancar la corrida');
+  assert.match(leer('app/video-editor/_opencut/enjambre/components/enjambre-view.tsx'), /r\.motivo !== "solo-pro" && r\.motivo !== "sin-voz"\) toast\.error/);
+  // Si subs-01 no reconoció una voz, «Limpiar la voz» se saltea: le sacaría los pasos.
+  assert.match(correr, /paso\.id === "subtitulos" && [^\n]*l\.texto === MOTIVO_SUBTITULOS\["sin-voz"\]\)\) vozNoReconocida = true;/);
+  assert.match(correr, /decidirPaso\(paso\.id, antes\.estado, ctx\.receta, \{ vozNoReconocida: ctx\.vozNoReconocida \}\)/);
+  const conSonido = estadoDe(escena());
+  assert.ok(conSonido.conVoz.length > 0);
+  assert.equal(decidirPaso('ruido', conSonido).hace, true, 'con voz se limpia como siempre');
+  assert.deepEqual(decidirPaso('ruido', conSonido, null, { vozNoReconocida: true }), { hace: false, porque: SONIDO_SIN_VOZ });
+  // «Quitar las pausas» de un video sin voz se saltea: no es una falla con «Reportar a Soporte».
+  assert.equal(esNadaQueHacer(`No se aplica: ${NO_ES_VOZ}`), true);
+  // Y el chat no la elige para un video sin voz: hace lo pedido con las demás operaciones.
+  const auto = OPERACIONES_CHAT.find((o) => o.op === 'edicion_automatica');
+  assert.match(auto?.para ?? '', /en un video sin voz \(sin audio, o sólo música, pasos o ambiente\) no hace nada, así que ahí no la uses/);
+});
+//   Ticket 99 (18/11/2026): sin el aviso de «sin-voz» antes de empezarCorrida, sin `vozNoReconocida` o sin NO_ES_VOZ en
+//   esNadaQueHacer → rojo el 22.

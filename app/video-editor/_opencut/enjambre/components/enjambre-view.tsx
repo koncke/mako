@@ -183,7 +183,8 @@ export function EnjambreView() {
 	const editar = async () => {
 		const r = await correrEnjambre(editor);
 		// «solo-pro»: el candado ya se dibuja en lugar del botón (la misma lectura del plan); no hace falta otro aviso.
-		if (!r.ok && r.motivo !== "solo-pro") toast.error(r.texto);
+		// «sin-voz» no es una falla: el porqué y qué hacer quedan escritos en el panel, en el resumen (ticket 99).
+		if (!r.ok && r.motivo !== "solo-pro" && r.motivo !== "sin-voz") toast.error(r.texto);
 	};
 	const deshacerTodo = () => {
 		if (!deshacerEnjambre(editor)) toast.error("Cambiaste la línea de tiempo después: usa Ctrl+Z para volver atrás.");

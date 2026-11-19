@@ -34,8 +34,8 @@ import { recorrerFuente, type ClipConAudio } from "./decodificar";
 import { tramosQueQuedan } from "./dsp/silencios";
 import { JuntadorDeTrozos, silenciosSinRuido } from "./dsp/silencios-sin-ruido";
 import { reducirRuidoEnSegundoPlano } from "./ruido-hilo/cliente";
-import { quedaAlgo, quedaAlgoEnLaLinea, silenciosEnLaLinea } from "./silencios-plan";
-import { PAUSA_MIN_S, avisoBotonSinSilencios, clipsConSonido } from "./silencios-aviso";
+import { quedaAlgo, quedaAlgoEnLaLinea, quedanPedacitos, silenciosEnLaLinea } from "./silencios-plan";
+import { NO_ES_VOZ, PAUSA_MIN_S, avisoBotonSinSilencios, clipsConSonido } from "./silencios-aviso";
 
 /**
  * Sobre qué clips actúa «Borrar silencios»: los ELEGIDOS que tienen audio; sin
@@ -82,7 +82,8 @@ export type PasoSilencios =
 
 export type ResultadoSilencios =
 	| { ok: true; segundos: number; silencios: number }
-	| { ok: false; motivo: "sin-clip" | "ocupado" | "sin-audio" | "todo-silencio" | "error" }
+	// «no-es-voz»: lo que quedaría son pedacitos sueltos (pasos, música, ambiente), no frases (ticket 99).
+	| { ok: false; motivo: "sin-clip" | "ocupado" | "sin-audio" | "todo-silencio" | "no-es-voz" | "error" }
 	// Sin pausas: DÓNDE se buscó, para que el aviso lo diga (ticket 31: el chat había buscado en un clip de 0,9 s).
 	| { ok: false; motivo: "sin-silencios"; clips: number; titulo?: string; segundos: number; minimoS: number };
 
@@ -110,6 +111,7 @@ export async function quitarSilencios(
 		const reducir = reducirRuidoEnSegundoPlano;
 		const planes: PlanDeSilencios[] = [];
 		let todoSilencio = 0;
+		let noEsVoz = 0;
 		let sinAudio = 0;
 		let cuantos = 0;
 		// Lo que se escuchó (los clips con audio), para decir dónde no hubo pausas.
@@ -147,6 +149,11 @@ export async function quitarSilencios(
 				todoSilencio++;
 				continue;
 			}
+			// Un clip sin voz (pasos, música, ambiente) se rompería en astillas: no se toca (ticket 99).
+			if (quedanPedacitos(tramosQueQuedan({ desde, hasta, silencios }))) {
+				noEsVoz++;
+				continue;
+			}
 			// Lo que va a cortar el comando, en la línea de tiempo (las mismas cuentas que él).
 			const clip = { inicio: element.startTime / TICKS_PER_SECOND, duracion, trimStart: desde, retime: element.retime };
 			const enLaLinea = silenciosEnLaLinea(clip, silencios);
@@ -162,6 +169,7 @@ export async function quitarSilencios(
 
 		if (planes.length === 0) {
 			if (todoSilencio > 0) return { ok: false, motivo: "todo-silencio" };
+			if (noEsVoz > 0) return { ok: false, motivo: "no-es-voz" };
 			if (sinAudio === objetivos.length) return { ok: false, motivo: "sin-audio" };
 			const unico = objetivos.length === 1 ? objetivos[0].element.name : undefined;
 			return { ok: false, motivo: "sin-silencios", clips: escuchados, ...(unico ? { titulo: unico } : {}), segundos: segundosEscuchados, minimoS };
@@ -194,6 +202,7 @@ export async function borrarSilencios(editor: EditorCore): Promise<void> {
 	}
 	toast.dismiss(idAviso);
 	if (r.motivo === "todo-silencio") toast.error("El clip es todo silencio");
+	else if (r.motivo === "no-es-voz") toast(NO_ES_VOZ[0].toUpperCase() + NO_ES_VOZ.slice(1), { duration: 6000 });
 	else if (r.motivo === "sin-audio") toast.error("El clip no tiene audio");
 	else if (r.motivo === "sin-silencios") {
 		// Dice DÓNDE buscó (sin nada elegido, sólo el clip bajo el cabezal), y si hay más video donde buscar (ticket 31).

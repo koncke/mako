@@ -40,6 +40,26 @@ export function quedaAlgo(tramosQueQuedan: readonly Tramo[]): boolean {
 	return tramosQueQuedan.reduce((s, [a, b]) => s + Math.max(0, b - a), 0) > QUEDA_MINIMA_S;
 }
 
+/**
+ * Lo que queda de una VOZ son frases: con las pausas de 0,4 s afuera, cada pedazo dura medio segundo o más. Lo que
+ * queda de unos pasos, una música o un ambiente son golpes sueltos (ticket 99, Leila, 14/11/2026: la edición
+ * automática le dejó un recorrido de 25,5 s, sin voz y con los pasos, en 23 astillas de 0,18 s). Con al menos
+ * PEDACITOS_MIN pedazos y la mitad de ellos más cortos que PEDACITO_S, lo que suena no es una voz y no se corta.
+ * Medido con la misma cuenta (18/11/2026): unos pasos dejan pedazos de 0,22 s (el golpe y los 80 ms de margen a cada
+ * lado); la voz más entrecortada, palabras sueltas de 0,25 s con pausas de medio segundo, 0,34-0,54 s (mediana 0,40).
+ */
+export const PEDACITO_S = 0.3;
+export const PEDACITOS_MIN = 5;
+
+/** ¿Lo que quedaría, sacando los silencios, son pedacitos sueltos y no frases? (ver PEDACITO_S) */
+export function quedanPedacitos(tramosQueQuedan: readonly Tramo[]): boolean {
+	const largos = tramosQueQuedan.map(([a, b]) => b - a).filter((s) => s > EPS).sort((x, y) => x - y);
+	if (largos.length < PEDACITOS_MIN) return false;
+	const medio = largos.length / 2;
+	const mediana = largos.length % 2 ? largos[Math.floor(medio)] : (largos[medio - 1] + largos[medio]) / 2;
+	return mediana < PEDACITO_S - EPS;
+}
+
 /** Lo mismo, con los silencios ya llevados a la línea. */
 export function quedaAlgoEnLaLinea(clip: ClipEnLaLinea, silenciosLinea: readonly Tramo[]): boolean {
 	const cubierto = silenciosLinea.reduce((s, [a, b]) => s + Math.max(0, b - a), 0);
