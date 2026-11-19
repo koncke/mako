@@ -27,7 +27,11 @@ for n, p in enumerate(prop['propuestas'], 1):
     s = f['seg_ia']
     usd = round(s * USD_S + (2 * USD_IMG if s else 0), 2)
     refs = []
-    for cuenta, vid, nota in p.get('refs', []):
+    for ref in p.get('refs', []):
+        cuenta, vid, nota = ref[:3]
+        if cuenta == 'inspiracion':  # piezas que guardó Martín (chat Inspiración); la miniatura ya está en img/
+            refs.append({'cuenta': cuenta, 'id': vid, 'url': ref[3], 'reproducciones': None, 'nota': nota})
+            continue
         refs.append({'cuenta': cuenta, 'id': vid, 'url': f'https://www.instagram.com/reel/{vid}/', 'reproducciones': repro(cuenta, vid), 'nota': nota})
         miniaturas.add(f'{cuenta}:{vid}')
     salida.append({
@@ -47,7 +51,15 @@ formatos = [{'id': k, 'nombre': f['nombre'], 'seg_ia': f['seg_ia'], 'rinde': f.g
              'usd': round(f['seg_ia'] * USD_S + (2 * USD_IMG if f['seg_ia'] else 0), 2)} for k, f in prop['formatos'].items()]
 for f in formatos:
     f['mt'] = round(f['usd'] * 1000); f['usd_con_reintento'] = round(f['usd'] + f['seg_ia'] * USD_S, 2)
-datos = {'actualizado': '19/11/2026', 'formatos': formatos, 'contra_el_pedido': rel.get('contra_el_pedido', ''), 'costo': {'usd_por_s': USD_S, 'mt_por_s': 24, 'imagen_usd': USD_IMG},
+inspiracion = json.load(open(A / 'inspiracion.json', encoding='utf-8')) if (A / 'inspiracion.json').exists() else []
+publicaciones = json.load(open(A / 'publicaciones.json', encoding='utf-8')) if (A / 'publicaciones.json').exists() else []
+for grupo in publicaciones:  # la portada de cada carrusel (lámina 1) como miniatura propia
+    for x in grupo.get('items', []):
+        portada = BASE / grupo['cuenta'] / 'pub' / x['id'] / 'lamina_01.jpg'
+        destino = A / 'img' / f"{x['id']}.jpg"
+        if portada.exists() and not destino.exists():
+            subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', str(portada), '-vf', 'scale=160:-2', '-q:v', '6', str(destino)])
+datos = {'actualizado': '19/11/2026', 'formatos': formatos, 'inspiracion': inspiracion, 'publicaciones': publicaciones, 'contra_el_pedido': rel.get('contra_el_pedido', ''), 'costo': {'usd_por_s': USD_S, 'mt_por_s': 24, 'imagen_usd': USD_IMG},
          'propuestas': salida, 'referentes': rel.get('referentes', []),
          'receta_comun': rel.get('receta_comun', []), 'diferencias': rel.get('diferencias', [])}
 (A / 'datos.js').write_text('window.DATOS = ' + json.dumps(datos, ensure_ascii=False, indent=1) + ';\n', encoding='utf-8')

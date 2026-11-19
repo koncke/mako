@@ -318,6 +318,65 @@ segundo de fin; el CTA con su palabra y el segundo en que empieza («escrito» s
 | 47 | [DfH_ca6oRk3](https://www.instagram.com/reel/DfH_ca6oRk3/) | 30/10 | 197.000 | 0,53 | 32 s | Foco | estudio oscuro | persona-a-camara, 0–6,3 s | — |
 | 48 | [DfGKrspoo_L](https://www.instagram.com/reel/DfGKrspoo_L/) | 29/10 | 376.000 | 1,01 | 93 s | Foco | taller en vivo | otro, 0–2,6 s | — |
 
+## Carruseles y posts
+
+Todo lo que no es reel en su grilla el 19/11/2026: **20 publicaciones, 17 carruseles y 3 imágenes sueltas**, del 23/10/2026 al
+19/11/2026. 2 son publicaciones de Leila Hormozi en colaboración (el embarazo y el nacimiento de su hijo). Las hojas se
+miraron una por una (`C:/dev/referentes-videos/hormozi/pub/<id>/hoja.jpg`); los números salen de un script sobre
+`hormozi/publicaciones.json`.
+
+- **Tipo:** de 1 a 13 láminas (mediana 7,5); todas imágenes salvo 1 lámina de video.
+- **Temas:** Foco 6 · otros 4 · Más plata por cliente 3 · Cerrar la venta 3 · Conseguir clientes 2 · Gente que rinda 2. En los reels manda «Cerrar la venta» (15 de 48); acá, «Foco» (los tuits de
+  disciplina). «Armar el equipo de ventas», el tema del lanzamiento en sus reels (7 de 48), no aparece: el lanzamiento va
+  como «otros» (2 anuncios).
+- **Moldes de portada:** Tuit en captura (foto, nombre, verificado) 9 · Pregunta del público en el taller: cuánto factura + su problema 3 · Fotos de familia sin texto (colaboración de Leila Hormozi) 2 · Anuncio de su lanzamiento 2 · Título-tutorial con dibujos de palitos («Mozi Minute») 2 · Página de su libro 1 · Escena de su programa con la promesa de N pasos 1.
+- **Estructura típica:** en los tuits no hay portada aparte: la portada es el primer tuit y sigue uno por lámina (foto, nombre,
+  tilde azul, fondo negro o blanco). Desde el 08/11/2026, 7 de sus 8 publicaciones propias terminan en una lámina de CTA: «comenta "PALABRA"»
+  (en inglés), la palabra gigante entre comillas sobre el producto borroso. Los talleres son sus reels cortados en láminas (dos cuadros apilados con el subtítulo); los
+  «Mozi Minute», un dibujo de palitos y una idea por lámina.
+- **CTA:** 13 de 20 piden una palabra: TEAM 4 · MAP 3 · WIN 3 · TEAMS 1 · 100LEADS 1 · SCALE 1. En la lámina, 10
+  (en 3, quemada al pie de un taller); sólo en el pie, 3. Lo que regala: la lista de espera o el curso «$100M Sales Teams»
+  (TEAM, TEAMS), la hoja de ruta (MAP, WIN, 100LEADS) y un episodio (SCALE).
+- **Me gusta medianos: 15.047** (de 3.443 a 308.792); sin las 2 de Leila, 13.108,5.
+  Comentarios medianos 425,5. Sus reels: mediana de 8.585 me gusta (48 reels).
+  Con más de 48 h y sin las colaboraciones: con CTA en la lámina, 12.601 (8); sin CTA en la lámina, 24.349,5 (8).
+  Como en los reels, va mezclado con la fecha: los que no piden nada son los más viejos.
+  El anuncio del lanzamiento ([Df0AD3MlLaU](https://www.instagram.com/p/Df0AD3MlLaU/)) tiene 20.564 comentarios, el récord de las tres cuentas.
+- **De venta:** 13: enseñanza + regalo por comentar en la última lámina 5 · taller + palabra quemada al pie de la última lámina 3 · sólo el pie pide la palabra 3 · lanzamiento de su producto 2.
+
+**Qué le sirve a Martín para sus carruseles:**
+
+1. **El tuit en captura**: 9 de 20, lo más barato (texto y una foto) y sin portada aparte. Con frases de Martín
+   sobre vender high ticket y una última lámina de CTA.
+2. **El «Mozi Minute»**: problema → la frase para decir → ejemplo con números (forma vieja contra nueva) → resultado → CTA,
+   con dibujos simples. Se puede hacer con el personaje en cubos.
+3. **La lámina final de CTA**: la palabra gigante entre comillas sobre el regalo borroso, y la palabra repetida en el pie.
+4. **La línea de tiempo «cada año…»** para anunciar algo: cada lámina, un logro con su prueba, y el anuncio al final.
+5. **No:** las fotos de familia (las de más me gusta, pero no se copian), el inglés ni la cifra «$250M/year» del cartel.
+
+| Publicación | Fecha | Tipo | Tema | Portada | Láminas | Me gusta | CTA |
+|---|---|---|---|---|---|---|---|
+| [Df59TgLCEej](https://www.instagram.com/p/Df59TgLCEej/) | 19/11/2026 | carrusel | Conseguir clientes | «El secreto de la publicidad de respuesta directa: hacer afirmaciones locas» | 8 | 5.170 | MAP |
+| [Df3izljCP0e](https://www.instagram.com/p/Df3izljCP0e/) | 18/11/2026 | carrusel | Más plata por cliente | «Mi empresa pasó de 0 a 500.000 dólares en 4 meses» | 8 | 3.443 | MAP |
+| [Df2R33MGymo](https://www.instagram.com/p/Df2R33MGymo/) | 17/11/2026 | carrusel · con @leilahormozi | otros | «Pie: Te damos la bienvenida al mundo, Cyrus Alexander Hormozi» | 4 | 308.792 | — |
+| [Df0AD3MlLaU](https://www.instagram.com/p/Df0AD3MlLaU/) | 16/11/2026 | carrusel | otros | «GRAN ANUNCIO» | 6 | 14.002 | TEAMS |
+| [Dfyl114CP0z](https://www.instagram.com/p/Dfyl114CP0z/) | 16/11/2026 | carrusel | Cerrar la venta | «Mata la pregunta del precio» | 9 | 6.739 | TEAM |
+| [Dfv2Z-HiA00](https://www.instagram.com/p/Dfv2Z-HiA00/) | 15/11/2026 | carrusel | Más plata por cliente | «Cómo hacerte asquerosamente rico:» | 8 | 39.171 | MAP |
+| [Dfn2YKdCDqL](https://www.instagram.com/p/Dfn2YKdCDqL/) | 12/11/2026 | carrusel | Cerrar la venta | «Cómo abrir una llamada de venta» | 12 | 9.301 | TEAM |
+| [DfiopoZiGHc](https://www.instagram.com/p/DfiopoZiGHc/) | 10/11/2026 | carrusel | Cerrar la venta | «Si pudiera decirle una sola cosa sobre ventas a mi yo de 22 años…» | 9 | 39.595 | TEAM |
+| [DffbP3wiALk](https://www.instagram.com/p/DffbP3wiALk/) | 08/11/2026 | carrusel | otros | «Cada año dedico de 200 a 2.000 horas a un solo gran proyecto…» | 6 | 11.200 | TEAM |
+| [DfREpNnCGJd](https://www.instagram.com/p/DfREpNnCGJd/) | 03/11/2026 | carrusel | Gente que rinda | «Facturamos 2,2 millones con un solo local» | 9 | 8.992 | WIN |
+| [DfN5ZVRCC_S](https://www.instagram.com/p/DfN5ZVRCC_S/) | 01/11/2026 | carrusel | Foco | «Todo es difícil. Nada funciona a la primera. Todo parece no tener sentido.» | 7 | 39.291 | — |
+| [DfKcvPXm7cr](https://www.instagram.com/p/DfKcvPXm7cr/) | 31/10/2026 | carrusel · con @leilahormozi | otros | «Pie: En cualquier momento…» | 5 | 120.192 | — |
+| [DfGWvCrjCES](https://www.instagram.com/p/DfGWvCrjCES/) | 30/10/2026 | imagen | Foco | «Si sientes que estás por detrás de donde deberías estar a esta altura…» | 1 | 12.215 | — |
+| [DfI7YLLiOmB](https://www.instagram.com/p/DfI7YLLiOmB/) | 30/10/2026 | carrusel | Gente que rinda | «Gano 4,3 millones como youtuber de viajes y comida» | 13 | 16.092 | WIN |
+| [DfD_mFulLdm](https://www.instagram.com/p/DfD_mFulLdm/) | 29/10/2026 | imagen | Foco | «Las razones más comunes para fracasar, en orden: 1) no empezar…» | 1 | 20.874 | — |
+| [DfBatfzl4sF](https://www.instagram.com/p/DfBatfzl4sF/) | 28/10/2026 | carrusel | Conseguir clientes | «Por qué nadie hace clic en tus enlaces…» | 5 | 4.945 | 100LEADS |
+| [DfBNIjulzx4](https://www.instagram.com/p/DfBNIjulzx4/) | 28/10/2026 | imagen | Foco | «Todo es difícil. Nada funciona a la primera. Todo parece no tener sentido.» | 1 | 27.825 | — |
+| [De8RSEmF4HW](https://www.instagram.com/p/De8RSEmF4HW/) | 26/10/2026 | carrusel | Foco | «Lo más promedio del mundo es creer que estás por encima del promedio» | 10 | 29.371 | — |
+| [De586IuF_fb](https://www.instagram.com/p/De586IuF_fb/) | 25/10/2026 | carrusel | Más plata por cliente | «Este proceso de venta de 4 pasos arrasa…» | 8 | 6.733 | SCALE |
+| [De0VDB-l6Ru](https://www.instagram.com/p/De0VDB-l6Ru/) | 23/10/2026 | carrusel | Foco | «Mucha gente quiere verte fracasar para justificar los riesgos que eligió no tomar» | 6 | 52.925 | WIN |
+
 ## Verificación
 
 Revisión crítica del 19/11/2026 sobre `reels.json`, `temas.json`, las transcripciones y las hojas de cuadros. Los números

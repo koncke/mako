@@ -251,6 +251,53 @@ y su segundo de fin; el CTA con su palabra y el segundo en que empieza.
 | 49 | [DfcYYsoCiYP](https://www.instagram.com/reel/DfcYYsoCiYP/) | 07/11 | 20.500 | 59 s | Ballenas | otro, 0–6,2 s | — |
 | 50 | [DfbMdVPTRu8](https://www.instagram.com/reel/DfbMdVPTRu8/) | 07/11 | 30.000 | 99 s | Rentabilidad | sketch-ia-entero, 0–19,0 s | CURSO (86,8 s) |
 
+## Carruseles y posts
+
+Todo lo que no es reel en su grilla el 19/11/2026: **10 carruseles** (ninguna imagen ni video suelto), 4 de
+julio y agosto (los casos de cliente, arriba de todo) y 6 del 02/11/2026 al 16/11/2026. Las hojas de las 10 se
+miraron una por una (`C:/dev/referentes-videos/ramiro/pub/<id>/hoja.jpg`); los números salen de un script sobre
+`ramiro/publicaciones.json`.
+
+- **Tipo:** de 5 a 8 láminas (mediana 7); 34 de sus 66 láminas son video: se mueven.
+- **Temas:** Sistema de adquisición 5 · La IA hace el trabajo 4 · otros 1. Son 2 de los 6 temas de sus reels; no hay carruseles de Ballenas (el tema que más repite en
+  reels, 14 de 50), Follow me ads, Rentabilidad ni Trazabilidad. El «otros» es su mejor carrusel: 5 ideas de carruseles.
+- **Moldes de portada:** Caso de éxito: «Cómo escalamos [negocio] a [cifra]» + foto con el cliente + tarjeta de su perfil 4 · Etiqueta NUEVO o URGENTE + lo que Claude ahora hace por ti 2 · «Dejá de hacer [lo de siempre]» + la alternativa o N ideas 2 · Cifra propia + «esta es la estructura que uso» 1 · «Cómo armar un equipo de contenido con Claude»: la IA como empleados 1.
+- **Estructura típica:** portada con la promesa → una pieza del caso, un paso o una idea por lámina, siempre con una captura
+  real (chats, campañas, flujos, sus métricas) → última lámina de CTA: un libro 3D con el nombre del regalo (o el video del
+  perfil del cliente) y «Comentá "PALABRA"» en grande.
+- **CTA:** los 10 piden comentar una palabra, en la última lámina y en el pie: PDF 2 · INFO 2 · SOP 1 · AGENTE 1 · IA 1 · CLAUDE 1 · FIDEL 1 · BRYAN 1. En los casos, la palabra
+  es el nombre del cliente o INFO, y regala una clase gratuita; en los demás, el PDF, el ebook o el archivo de lo que enseña.
+- **Me gusta medianos: 188** (de 76 a 7.789); comentarios medianos 139,5. Sus reels: mediana de 145 me gusta (50 reels).
+  Las 5 ideas de carruseles ([DfQb-eqnJ3Q](https://www.instagram.com/p/DfQb-eqnJ3Q/)) tienen 7.789 me gusta y 16.680 comentarios: 41,4 veces la mediana. Los 4 de IA:
+  1.341, 949, 162, 93 comentarios.
+- **De venta: los 10** (todos regalan algo a cambio de comentar). Los 4 casos de cliente son la venta directa de su servicio:
+  la cifra del cliente → quién es y cómo estaba → la clave → el sistema con capturas → «Comentá NOMBRE y te mando la clase».
+- **Fijados:** los 4 casos aparecen arriba de la grilla, antes que los de noviembre, aunque son de julio y agosto
+  (orden de `urls-pub.txt`). Lo marqué como fijado por ese orden; conviene confirmarlo en el perfil.
+
+**Qué le sirve a Martín para sus carruseles:**
+
+1. **El caso de cliente en 6 o 7 láminas**, igual de armado: cifra + foto con el cliente + tarjeta de su perfil → quién es y
+   cómo estaba → la clave (oferta, ángulos, anuncios) → el sistema con capturas → CTA con la palabra. En MaKo, el caso de
+   un cliente con sus agendas y cierres, y las capturas de la app.
+2. **El tutorial «PASO 1…N» con una captura por lámina y el libro 3D del regalo al final**: lo usa para todo lo de IA y se
+   hace con código.
+3. **«Dejá de hacer [lo de siempre]» + N ideas**: su carrusel más comentado, por lejos.
+4. **No:** el voseo, el insulto en la portada («pedorros», «de mier*») ni la cara de una persona famosa.
+
+| Publicación | Fecha | Tipo | Tema | Portada | Láminas | Me gusta | CTA |
+|---|---|---|---|---|---|---|---|
+| [Df0KjTdHM_w](https://www.instagram.com/p/Df0KjTdHM_w/) | 16/11/2026 | carrusel | Sistema de adquisición | «Hice +$9.000.000 con mi marca personal. Esta es la estructura de setting que uso.» | 7 | 76 | SOP |
+| [DfxNwgHHEv4](https://www.instagram.com/p/DfxNwgHHEv4/) | 15/11/2026 | carrusel | La IA hace el trabajo | «NUEVO · Cómo reemplazar a tus setters con Claude» | 8 | 163 | AGENTE |
+| [Dfh9gs-nJ4i](https://www.instagram.com/p/Dfh9gs-nJ4i/) | 09/11/2026 | carrusel | La IA hace el trabajo | «URGENTE · Claude se conecta con Meta para correr todos tus anuncios» | 7 | 205 | IA |
+| [Dffx80AmQZW](https://www.instagram.com/p/Dffx80AmQZW/) | 08/11/2026 | carrusel | La IA hace el trabajo | «Dejá de hacer carruseles estáticos · Creá carruseles animados en solo 5 minutos con Claude» | 5 | 598 | PDF |
+| [DfdJuzvGUlK](https://www.instagram.com/p/DfdJuzvGUlK/) | 07/11/2026 | carrusel | La IA hace el trabajo | «Cómo armar un equipo de contenido con Claude» | 7 | 551 | CLAUDE |
+| [DfQb-eqnJ3Q](https://www.instagram.com/p/DfQb-eqnJ3Q/) | 02/11/2026 | carrusel | otros | «Dejá de hacer carruseles PEDORROS · Te dejo 5 ideas de carruseles…» | 7 | 7.789 | PDF |
+| [Db_4IxGnAt8](https://www.instagram.com/p/Db_4IxGnAt8/) | 13/08/2026 (fijado) | carrusel | Sistema de adquisición | «Cómo escalamos a 100K/mes su coaching para negocios inmobiliarios con solo 7000 seguidores» | 6 | 171 | FIDEL |
+| [DbrlMwznPqu](https://www.instagram.com/p/DbrlMwznPqu/) | 06/08/2026 (fijado) | carrusel | Sistema de adquisición | «Cómo escalamos su bizop para latinos en EE.UU. a +400K/mes» | 7 | 161 | BRYAN |
+| [DbmJbjNHPCE](https://www.instagram.com/p/DbmJbjNHPCE/) | 03/08/2026 (fijado) | carrusel | Sistema de adquisición | «Cómo escalamos su coaching de mentalidad a 140k/mes» | 6 | 919 | INFO |
+| [DbWuwwMHDKR](https://www.instagram.com/p/DbWuwwMHDKR/) | 28/07/2026 (fijado) | carrusel | Sistema de adquisición | «Cómo metimos 125K en los últimos 26 días con su consultoría fitness» | 6 | 164 | INFO |
+
 ## Verificación
 
 Revisión crítica del 19/11/2026 sobre `reels.json`, `temas.json`, las transcripciones y las hojas de cuadros. Los números
