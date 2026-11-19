@@ -169,8 +169,8 @@ Lo que de entrada NO va a salir igual, y es lo que hay que iterar (o decidir que
   para un mensaje con adjuntos) y la tarjeta toma esa proporción.
 - **La caja de terminal en mono no se parte bien:** 38 px de IBM Plex Mono en 620 px de ancho cortaba cada renglón en dos y la
   caja se comía el pie. Mono a 34 px, `white-space: nowrap`, y renglones de ≤ 30 letras.
-- **Un ejemplo de la app puede venir roto: se elige la lámina, no el ejemplo entero.** En «Ver ejemplo» de «Mito vs. realidad» y
-  «Antes y después» (dibujados con `documentoDeCarrusel` + `PaginaCarrusel` y las fuentes del catálogo) hay títulos largos que se
+- **Un ejemplo de la app puede venir roto: se elige la lámina, no el ejemplo entero.** En «Ver ejemplo», 6 de 54 láminas (en «Mito vs.
+  realidad», «Antes y después», «Paso a paso» y «Opinión») (dibujados con `documentoDeCarrusel` + `PaginaCarrusel` y las fuentes del catálogo) hay títulos largos que se
   montan sobre el texto de abajo. Para el carrusel 7 se eligieron las 4 láminas limpias de cada estructura; la falla queda anotada
   en `docs/hallazgos-contenido.md` para Image.
 - **La palabra del CTA cambia el largo:** «Comment “GIFT”» entra en una línea; «Comenta “HORMOZI”» no, y empujó el resto fuera de

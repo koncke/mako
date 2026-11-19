@@ -31,6 +31,13 @@ El ranking de temas, con cómo lo explica cada mentor, está en [serie-2-temas.m
 - **Edición:** la duración la dan las palabras (≈ 3,2 por segundo); sin silencios muertos (el script los recorta a 0,3 s);
   un efecto por momento; subtítulos bajo el mentón; cámara cerca de lo que pasa; nada que suene fuera del guion.
 - **Idioma:** español neutro con «tú», neutro en género, frases cortas que se lean en el teléfono.
+- **Nada de relleno en pantalla (Cerebro, 19/11, al ver el video 1):** las rayitas grises «de texto» y los recuadros
+  vacíos se leen como un boceto sin terminar. Cada tarjeta muestra desde que aparece lo que la hace distinta (su frase,
+  su número); para marcar el momento en que la voz lo dice, un golpe de escala o de color, no aparecer de la nada. Y un
+  título que no alcanza a leerse entero (menos de 1 s, o cortado) se saca.
+- **Voseo que el chequeo no ve:** con el clon rioplatense, los verbos de «tú» que en voseo sólo cambian el acento
+  («dejas» → «dejás», «completes», «quédate») pueden salir agudos. Se lee la transcripción buscando esas tildes; si una
+  sale aguda, se cambia por un verbo de raíz distinta («le pierdes el miedo», no «dejas de tenerle miedo»).
 
 ## El gancho: la regla de Martín (19/11/2026, para todas las series)
 
@@ -79,6 +86,11 @@ ganchos que más venden high ticket» pasó a ser «cinco primeras frases que fu
 6. MP4: `node tools/turno.mjs node tools/render-mp4.mjs reels/<id>.html mp4/<id>.mp4 <dur> reels/voz-<id>.mp3 30`.
 7. Ficha `reels/fichas/<id>.json` y aviso a «Galería y series 1 y 4», que la publica en la sección de la serie 2.
 
+**Cuánto lleva (video 1, 19/11):** guion 3 min · voz 5 min (2 tomas) · animación 5 min · cada captura 10-25 min, casi
+todo esperando la cola del navegador · cada ronda de arreglos 5 min · render de 55 s ≈ 14 min de máquina. Lo que más
+cuesta es la cola: la captura se pide apenas el HTML compila y mientras tanto se hace otra cosa (el siguiente guion,
+el commit, la cosecha).
+
 ## Videos
 
 ### 1. «El mismo video, tres veces» (`edu-mismo-video`) — temas 1 y 10 (el gancho y los trial reels)
@@ -112,6 +124,54 @@ ganchos que más venden high ticket» pasó a ser «cinco primeras frases que fu
   la línea de tiempo con la tijera para Hormozi, «así no / así sí» para el coach, el celular con el interruptor
   «Reel de prueba» y las cinco versiones con una que gana. Martín en cubos abajo, como quien explica; los subtítulos,
   bajo el mentón.
+- **Versión 3 (19/11, por el Cerebro):** las tres tarjetas mostraban rayitas grises hasta que la voz llegaba a cada una,
+  y «TRES VECES» salía apenas visible y cortado. Ahora cada tarjeta muestra desde el principio su primera frase y sus
+  vistas (el número final, con un golpe de escala cuando la voz lo dice), y el título se sacó. El HTML anterior quedó
+  en `reels/edu-mismo-video.v2.html`.
+
+### 2. «Cinco primeras frases» (`edu-cinco-frases`) — tema 1 (el gancho), lo que promete el cierre del video 1
+
+- **Qué enseña:** cinco formas de arrancar un video, cada una con su hueco para completar (la forma la da la pieza #27
+  que guardó Martín, @startrunningads) y un ejemplo para coaches.
+- **Gancho:** «Si tu video arranca con «Hola, soy…», ya lo pasaron de largo.» Es una advertencia sobre algo que casi
+  todos hacen; se entiende sin saber de marketing.
+- **Las cinco, cada una con el Short de donde sale (vistas al 19/11/2026, yt-dlp):**
+
+| # | Primera frase | Short | Vistas |
+|---|---|---|---|
+| 1 | Dos números que chocan | Hormozi, «She Only Has 5,000 Followers?»: https://www.youtube.com/watch?v=vQlUvyDpJF4 | 388.048 |
+| 2 | La frase de tu cliente, tal cual | Hormozi, «Sales Objections»: https://www.youtube.com/watch?v=VQBH4XvZGvs | 1.480.002 |
+| 3 | Algo que te pasó, con un número | Dan Martell, «Never charge for your time»: https://www.youtube.com/watch?v=g13FnSgICA8 | 3.974.284 |
+| 4 | Dame un minuto y te quito un miedo | Dan Martell, «Give me 58 sec..i'll DELETE your fear of rejection»: https://www.youtube.com/watch?v=UwMS0J2eTXE | 12.770.196 |
+| 5 | Una pregunta con dos respuestas | Hormozi, «Which Ads Did Better?»: https://www.youtube.com/watch?v=6XAfOAhUx1E | 317.473 |
+
+  - La suma es 18.930.003: el guion dice «casi diecinueve millones» y la pantalla muestra el número exacto con la fecha.
+  - Los ejemplos de la ficha son inventados para un coach («Tengo novecientos seguidores… y vendo mentorías de tres mil
+    dólares»); el número de cada ficha es el del Short real.
+- **Guion:** `voz/guion-edu-cinco-frases.json`, 52,96 s. «Hormozi» se escribe «Jormosi» (con «Jormozi» el chequeo oyó
+  «George Mozi»). «Dame un minuto y dejas de…» salió con voseo («dejás»): quedó «le pierdes el miedo».
+- **Formato:** el reel de «Hola, soy Carla…» que se pasa de largo → la lista de cinco → una ficha por frase (nombre,
+  hueco, ejemplo y de qué Short sale; la ficha crece cuando llega cada cosa, nunca hay espacio vacío ni rayitas) → el
+  aro que se abre y se cierra («abren una pregunta que sólo se cierra si sigues mirando») → la suma.
+
+## Piezas que guardó Martín para esta serie (19/11/2026)
+
+Las juntó el chat «Inspiración». El detalle de cada una (gancho, estructura, CTA, transcripción y cuadros) está en
+`C:/dev/inspiracion/relevo.json` y en `C:/dev/inspiracion/piezas/NN/`. Las que llevan (?) las tiene que confirmar Martín.
+
+| # | Cuenta | Qué tiene | Dónde se usa |
+|---|---|---|---|
+| 27 | @startrunningads | plantillas de primera frase con huecos entre corchetes, que se completan mientras habla | video 3 («cinco primeras frases que funcionan»: lo que promete el cierre del video 1) |
+| 68 (?) | @thenet.lab | barra del 1 al 10 que se llena con íconos; probablemente es un anuncio | video 2 (el cierre del 1 al 10 de «lo tengo que pensar») |
+| 24 (?) | @hormozi | cada consejo dicho dos veces, mal y bien, con un gráfico simple | el «así no / así sí» del video 1; temas de ventas |
+| 29 (?) | @luca4business | ranking con nota X/10 y un ejemplo chiquito de cada uno | tema 11 (cada cuánto publicar) o un ranking de formatos |
+| 30 (?) | @wallsframeacademy | escalera de porcentajes (80 % → 1 %) con una pirámide que se enciende | tema 3 (viral contra nicho: de cada 100 que te ven, cuántos compran) |
+| 7 (?) | @wallsframeacademy | debate de dos posturas extremas y alguien que da la respuesta | las «comparativas listas» de serie-2-temas.md |
+| 33 (?) | @viewcci | «Para esto: / Usa esto:» por categorías; la persona casi no habla | tema 29 (anuncio contra orgánico) o herramientas |
+| 48 (?) | @ramiro.cubria | pantalla partida: arriba notas que se escriben solas, abajo la persona | formato base para cualquier tema de pasos |
+| 50 (?) | @ramiro.cubria | un caso de cliente como clase: «$25K → $123K», con el ANTES en 3 cajas rojas | tema 4 (la oferta que se vende sola) |
+| 65 (?) | @cherrystudio.app | tablero de detective: «desarmé 12 videos de un mentor» | un video sobre la propia investigación (los 27.700 Shorts) |
+| 67 (?) | @dakota.hermes | un costo que sube en 3 saltos, y ponerle nombre al problema | tema 6 (cobrar más) o 14 (el seguimiento) |
 
 ## Investigación de afuera (los 10 primeros temas)
 

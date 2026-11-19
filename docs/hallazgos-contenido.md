@@ -82,7 +82,49 @@ ocultar.
 y≈500 y 1000: cualquier tarjeta en la franja 150-700 la tapa. Si el video abre con una tarjeta arriba, arranca ya en el plano
 medio; el plano cerca sólo cuando arriba no hay nada (el visor de CUBOS).
 
+**El diagnóstico obvio del ticket era el equivocado: no era el diseño del papel, era quién ocupa la pantalla.** El primer
+ticket tenía a Martín en cubos grande en el centro y el ticket arriba, chico; la referencia tiene lo que se cuenta (los
+bloques de precios) en el centro y el personaje chico. Martín: «el ticket tiene que ser mucho más protagonista… no
+necesariamente siempre tiene que salir el muñequito». Regla: antes de diseñar, mirar en la referencia QUÉ ocupa la
+pantalla, cuánto tiempo y dónde está el foco, y copiar eso. Con el personaje chico y abajo, los subtítulos van arriba.
+
+**Las apps del ticket tienen que ser de una misma familia.** Mezclar GoHighLevel, Skool, Zapier y CapCut en un ticket no
+tenía sentido para Martín («no mezcles tanto»). Cada ticket, una familia (vender, contenido, cursos) y termina en lo que
+hace MaKo de esa familia. Y Skool con Kajabi no van juntas: son alternativas, nadie paga las dos.
+
+**Cortar un trabajo propio que tiene el navegador: por PID y con su árbol.** `turno.mjs` lanza bash → node → Chromium; si
+se mata sólo el `turno`, el render sigue corriendo huérfano y pisa al siguiente de la fila. `taskkill /PID <turno> /T /F`
+corta todo lo que cuelga de él (y sólo eso). Después, borrar su carpeta `mp4/_cuadros_*`.
+
+**Una lluvia que arranca en T=0 deja el primer cuadro vacío.** El gancho del ticket nuevo eran suscripciones que caen; con
+demoras de 0 a 1,6 s el cuadro 0,2 s quedaba casi negro. La mitad de los papelitos arranca con demora negativa (ya
+están a mitad de camino). Y una capa con `z-index` alto por elemento tapa los subtítulos si no tiene su propio apilado:
+`z-index` en el contenedor.
+
+**Antes de arreglar un cuadro raro, mirar a qué palabra va.** En la hoja del ticket de contenido el renglón rojo salía
+«VEN» y en el de cursos «MaKo Pro» no estaba marcado: parecían errores y no lo eran. La captura caía 0,06 s después de que
+el renglón empezaba a imprimirse, y la otra 0,3 s antes de «Máko» (23,72 s en `t-s3-ticket-cursos.js`). Regla: buscar el
+tiempo de la palabra en `reels/t-<id>.js` y compararlo con el del cuadro; si cae en el medio de la animación, no hay nada
+que arreglar.
+
+**Un comentario agregado con `sed` en una línea con dos instrucciones apaga la segunda.** Para anotar por qué el ticket de
+MaKo bajó a `top:1070px`, el `// …` quedó en el medio de la línea y comentó `$('mk').style.opacity = …`: el ticket de MaKo
+no iba a aparecer nunca, sin ningún error. Se vio de casualidad en el `grep` de control. Regla: el comentario va al FINAL de
+la línea entera (con un script que reemplaza la línea completa), y después se busca la línea para leerla.
+
+**El tamaño de la letra se calcula por el ancho, no por la cantidad de letras.** El generador de tickets achicaba la
+palabra del CTA desde 8 letras: ALUMNOS (7, con M y W anchas) se salía a 230 px y TICKET (6) entraba. El encabezado «SÓLO
+PARA HACER CONTENIDO» (25 caracteres) no entraba a 60 px en monoespaciada: cada carácter mide 0,6 de la letra más el
+espaciado, y el papel deja 928 px. Al armar una variante desde otro HTML, medir el texto más largo de cada variante.
+
 ## Lo que quedó sin hacer (serie 3)
+
+- La respuesta automática a cada palabra (CUBOS, TICKET, ALUMNOS, CONTENIDO, COPIAR, GRUPO, …) no está en producción. Los
+  textos están en `docs/series/serie-3-ventas.md` → «El mensaje que le llega a quien comenta»; el Cerebro se los lleva a
+  Martín.
+- Ticket de cursos con Kajabi: no se hizo (Skool o Kajabi, nunca las dos; se eligió Skool). OpusClip quedó afuera del de
+  contenido: MaKo no corta un video largo en clips. Canva no se usó: su página muestra el precio sólo en pesos.
+
 ## Carruseles de ventas (réplicas de outliers, «encontré una app») — 19/11/2026
 
 El proceso entero, en [series/carruseles-ventas.md](series/carruseles-ventas.md). Acá, lo que no se deduce del código.
@@ -116,29 +158,6 @@ corre en segundo plano apenas está el guion, no al final.
 **La fila del navegador: encolar TODAS las capturas apenas cada HTML existe.** Con 5 carruseles y renders de 60 s de otros
 chats adelante, cada vuelta esperaba 30-40 min. Encolarlas juntas (piezas, personaje en cubos, criaturas, láminas de cada
 carrusel) hace que salgan seguidas; la que necesita lo que hace otra va detrás en la fila.
-**El diagnóstico obvio del ticket era el equivocado: no era el diseño del papel, era quién ocupa la pantalla.** El primer
-ticket tenía a Martín en cubos grande en el centro y el ticket arriba, chico; la referencia tiene lo que se cuenta (los
-bloques de precios) en el centro y el personaje chico. Martín: «el ticket tiene que ser mucho más protagonista… no
-necesariamente siempre tiene que salir el muñequito». Regla: antes de diseñar, mirar en la referencia QUÉ ocupa la
-pantalla, cuánto tiempo y dónde está el foco, y copiar eso. Con el personaje chico y abajo, los subtítulos van arriba.
-
-**Las apps del ticket tienen que ser de una misma familia.** Mezclar GoHighLevel, Skool, Zapier y CapCut en un ticket no
-tenía sentido para Martín («no mezcles tanto»). Cada ticket, una familia (vender, contenido, cursos) y termina en lo que
-hace MaKo de esa familia. Y Skool con Kajabi no van juntas: son alternativas, nadie paga las dos.
-
-**Cortar un trabajo propio que tiene el navegador: por PID y con su árbol.** `turno.mjs` lanza bash → node → Chromium; si
-se mata sólo el `turno`, el render sigue corriendo huérfano y pisa al siguiente de la fila. `taskkill /PID <turno> /T /F`
-corta todo lo que cuelga de él (y sólo eso). Después, borrar su carpeta `mp4/_cuadros_*`.
-
-**Una lluvia que arranca en T=0 deja el primer cuadro vacío.** El gancho del ticket nuevo eran suscripciones que caen; con
-demoras de 0 a 1,6 s el cuadro 0,2 s quedaba casi negro. La mitad de los papelitos arranca con demora negativa (ya
-están a mitad de camino). Y una capa con `z-index` alto por elemento tapa los subtítulos si no tiene su propio apilado:
-`z-index` en el contenedor.
-
-## Lo que quedó sin hacer
-
-- La respuesta automática a CUBOS (qué se manda: la guía del método) no existe todavía. Está en
-  `docs/series/serie-3-ventas.md` → «Palabras de CTA».
 
 ## Serie 2 (educación: temas de los cursos e investigación de afuera) — 19/11/2026
 
@@ -246,6 +265,39 @@ portal (cursos duplicados, transcripciones que «faltan») está también en [ha
     `{modelo, texto}`), y eso ya estaba escrito en [hallazgos-conocimiento.md](hallazgos-conocimiento.md) desde el
     11/11. **Regla:** antes de dar por vacío un curso, se mira `C:/cursos/<slug>/`.
 
+12. **«Nada de relleno»: lo que parecía una animación prolija se leyó como un boceto (video 1, 19/11).** Las tarjetas
+    tenían rayitas grises «de texto» que se llenaban recién cuando la voz llegaba a cada una, y el título «TRES VECES»
+    entraba y salía en menos de un segundo. En la hoja de contacto se veía «en movimiento»; el Cerebro, mirando el
+    video, vio tarjetas vacías y un título cortado. Lo mismo pasaba en el video 2 con «vistas» sin su número y fichas
+    con la mitad de abajo vacía hasta que llegaba el ejemplo.
+    - **Regla:** cada elemento muestra contenido real desde su primer cuadro. Para marcar el momento en que la voz lo
+      dice, un golpe de escala o de color. Si una tarjeta espera su contenido, crece cuando el contenido llega
+      (`reels/edu-cinco-frases.html`, las `.crece` de cada ficha), no antes. Un texto que no se alcanza a leer entero, se saca.
+
+13. **Renumerar escenas dejó segundos vacíos que la sintaxis no ve.** Al agregar una escena al principio del guion
+    (s1 nueva), las referencias `A.sN` se corrieron con reemplazos de texto desde el panel de Hormozi para abajo. La
+    salida del panel 1 estaba más arriba y quedó atada a la escena vieja: el pizarrón se iba 7 s antes y los segundos
+    19-24 (el momento de los cuatro millones) salieron vacíos. **Regla:** después de renumerar escenas, capturar al
+    menos un cuadro por escena.
+
+14. **Voseo que `chequear-guion.mjs` no marca.** Con el clon rioplatense, «dejas» salió «dejás». El chequeo compara sin
+    tildes y lo da por bueno. Son riesgosos los verbos de «tú» que en voseo cambian sólo el acento (dejas, completes,
+    arranques, quédate); los que cambian la raíz (pierdes, sigues, eres) no. **Regla:** leer la transcripción buscando
+    esas tildes y, si una sale aguda, cambiar el verbo.
+
+15. **El mismo nombre escrito igual no suena igual en cada toma.** «Jormozi» salió «Hormozi» en el video 1 y «George
+    Mozi» en el video 2; «Jormosi» anduvo. No hay una escritura que sirva siempre: si el chequeo oye otro nombre, se
+    prueba otra escritura u otra toma.
+
+16. **«docs/branding-mako.md quedó viejo» no era el motivo del push bloqueado.** Un worktree nuevo no tiene
+    `node_modules`; el hook de la punta no encontró `tsx` (`ERR_MODULE_NOT_FOUND`, más arriba en la salida) y el
+    mensaje final culpaba al doc. **Arreglo:** `cmd /c mklink /J <worktree>\node_modules <clon principal>\node_modules`
+    al crear el worktree (una unión, no una copia). Con eso el filtro pasó en verde en 87 s.
+
+17. **Dos chats crearon el mismo doc de hallazgos.** La serie 3 creó `hallazgos-contenido.md` primero, y el rebase dejó
+    dos títulos «# Hallazgos — Contenido». **Regla:** antes de crear un doc de hallazgos, mirar `origin/main`; si ya
+    existe, se entra como sección.
+
 ### Lo que quedó sin hacer (serie 2)
 
 - THE NET LAB (Meta Ads 2026: «Andrómeda», «Diversidad creativa», estructura de cuenta 2026): no se leyó, y es lo más
@@ -304,6 +356,52 @@ galería de formatos (el motor, el kit, la voz) está en `docs/editor-video/anim
 - **La fila del navegador** (`tools/turno.mjs`) fue de 4-15 minutos por captura con 1-4 trabajos adelante (seis chats
   comparten la PC): se capturan 30-40 segundos de una vez y se mira la hoja, en vez de muchas vueltas chicas.
 
+- **Un comentario `//` agregado con un reemplazo de texto se comió la línea siguiente** (la trampa ya estaba en
+  `docs/editor-video/animaciones-por-codigo.md` y volvió a pasar): al insertar `// hijo del cuarto…` con Python, el
+  reemplazo no llevaba el salto de línea y `ram.pose(…)` quedó comentado: Ramiro aparecía de pie y nadie lo notó en la
+  primera hoja. Regla: un comentario se inserta con su `\n`; después de reemplazos en masa, `grep` de líneas con `//` y
+  código detrás.
+  Volvió a pasar el mismo día con otro reemplazo (`// afuera hasta el golpe…` se comió `guar.pose(…)`): el chequeo de
+  sintaxis (`node --check`) no lo ve. Un scan que busca `objeto.metodo(…);` después de `//` en la misma línea sí.
+- **Un personaje que espera detrás de una puerta cerrada la atraviesa con los brazos** (la pose «cruzados» saca las manos
+  ~0,6 adelante): en la parte 2B se veían dos manos flotando delante de la puerta un segundo antes del golpe. Que espere a
+  más de un metro y entre recién cuando la puerta se abre.
+- **El encuadre vertical es angosto: dos cosas a 8 m no entran.** Con fov 50 a 16 m se ven ~8 m de ancho. Para que
+  Martín y la salida entren en el mismo plano hubo que acercar la salida a la tarima; y un plano que pasa al lado de
+  personajes sentados queda tapado por la cabeza del primero (Ramiro, el que contesta mensajes): subir la cámara por
+  encima de las cabezas.
+- **Cámaras fuera de la habitación:** en el cuarto de la parte 2B, dos planos quedaron detrás de la pared de adelante
+  (z > 6,4) y se veía la pared o la puerta. Antes de capturar, comparar cada `o.pos` con las paredes del set.
+
+## El piloto de la Serie 4, hecho por un agente constructor (19/11/2026)
+Lo completo está en `C:/dev/artefactos-animaciones/investigacion/trampas-constructores.md` («Serie 4»). Lo que vale para
+cualquier reel 3D con el Martín en cubos:
+- **Medir sin navegador (lo que más tiempo ahorra con la fila llena).** La escena 3D en un módulo sin DOM
+  (`reels/serie4/comentarios-1.js` exporta `armar()`), three@0.160 en node y `kit.js` evaluado con stubs de `window`/
+  `document`: se recorre el reel a 15 cps en 2 s y se mide dónde cae cada cara contra subtítulos y tarjetas, y si manos y
+  objetos quedan adentro del cuadro. Encontró cinco problemas antes de la primera captura (que esperó 68 min en la fila).
+  Plantilla: `series/tools/nodethree/` (`chequeo.mjs` cara vs. subtítulos/tarjetas, `props.mjs` manos y objetos,
+  `pose.mjs` buscador de ángulos; `npm install` adentro trae three). **Proyectar los vértices**, no las 8 esquinas de
+  `Box3.setFromObject`: la caja sale ~30 % inflada.
+- **Poses a ojo: el diagnóstico obvio («el ángulo está mal») era el equivocado.** El rig rota los hombros en orden ZXY:
+  el giro z se aplica al final, alrededor del brazo cuando ya apunta adelante, así que su signo cambia según la mano esté
+  arriba o abajo del hombro (y la perspectiva agranda 15-20 % lo que está cerca). Regla: buscar los ángulos por
+  cuadrícula contra un punto del mundo (`persona()` en node + `getWorldPosition` de la mano). Un barrido horizontal del
+  brazo no sale en ZXY: después de `pose()`, slerp del cuaternión del hombro hacia un Euler `'YZX'` y, al empezar cada
+  cuadro, volver a `rotation.order = 'ZXY'`.
+- **Pupilas grises en un primer plano:** no era el párpado ni la luz; con contrapicado y la cabeza mirando arriba, los ojos
+  (roughness 0,2) reflejan el RoomEnvironment en ángulo rasante. Con este rig, sin contrapicado en los cerrados.
+- Un objeto que se achica hasta 0,1 desaparece **dentro** de la mano (que mide 0,23): el tamaño final ≥ la mano y apoyado
+  encima. Lo que lleva texto va delante de todo (la cinta de la caja tapaba la «R» de CURSO). Piezas finas (una vincha)
+  con segmentos que se solapan, no cubitos sueltos.
+- **Subtítulo que pisa la tarjeta 2 cuadros:** `K.trozos` arranca cada trozo 0,06 s antes de su palabra; cuando las escenas
+  alternan tarjeta y subtítulo, `t0 = Math.max(t0, K.ini(escena))`.
+- Pixelado barato y con los subtítulos nítidos: `drawImage` del canvas WebGL a un canvas de 90×160 con
+  `image-rendering: pixelated`.
+- **Un agente que termina su turno esperando un trabajo de fondo puede no despertarse:** perdió 43 min. Esperar con un
+  Monitor que se re-arma al vencer (la fila llegó a tardar 68 min, más que los 30 de un Monitor) o encadenar todo en un
+  solo comando de fondo. El brief del constructor (`series/BRIEF-serie4.md`) ya sirve para la parte 2.
+
 ## Renderizar un reel 3D de 60 s (19/11/2026)
 - **Un MP4 de 60 s en 3D no entra en un turno.** Medido: 2,4 s por cuadro capturando (escena con ~13 luces, 96 personas
   instanciadas y sombras), o sea ~45 min para 1.835 cuadros; y `turno.mjs` le saca el lock a quien lleva más de 40 min
@@ -323,8 +421,9 @@ galería de formatos (el motor, el kit, la voz) está en `docs/editor-video/anim
 
 **«Ver ejemplo» de algunas estructuras de carrusel monta el título sobre el texto (19/11, sin confirmar en la app).** Dibujando
 los ejemplos de `lib/carruseles/tipos.ts` con el mismo código que «Ver ejemplo» (`documentoDeCarrusel` → `PaginaCarrusel`, con las
-fuentes del catálogo del editor cargadas), la portada de «Mito vs. realidad» («4 mitos que te hacen cobrar de menos») y una lámina
-de «Antes y después» («5 preguntas antes de la cita») tienen el título de varias líneas encima del texto de abajo. El alto de cada
+fuentes del catálogo del editor cargadas), 6 de las 54 láminas de los 8 ejemplos tienen el título de varias líneas
+encima del texto de abajo: la portada de «Mito vs. realidad», la 4 de «Antes y después», la 5 de «Paso a paso» y la 1, la 3 y la 5
+de «Opinión» (la que peor está: «Comprar en preventa no es para todos» tapa su bajada). El alto de cada
 caja sale de una estimación (`altoEstimado` / `tamanoQueLlena`, lib/carruseles/documento.ts), no de medir la fuente: con Archivo
 Black y Space Grotesk la estimación se queda corta. Falta mirarlo en Image con la pantalla real antes de tocarlo.
 

@@ -83,11 +83,17 @@ sN     «Deja tu pregunta en los comentarios y la respondo en la parte N+1. Síg
 - Parte 2: los mejores comentarios reales de la parte 1 (+ seguir el gag del pijama si la gente lo pide).
 - Parte 3: alternar con la premisa 2 («lo que digan los comentarios»).
 
-## 6. Piloto — parte 1
-Guion: `C:/dev/artefactos-animaciones/voz/guion-serie4-comentarios-1.json` (19 escenas, 129 palabras); voz
-`reels/voz-serie4-comentarios-1.mp3` (44,78 s, chequeada: dice exactamente el guion); página
-`reels/serie4-comentarios-1.html`; MP4 `mp4/serie4-comentarios-1.mp4`. Brief del constructor: `series/BRIEF-serie4.md`.
-(El estado final se anota al terminar.)
+## 6. Piloto — parte 1 (terminado, 19/11)
+- Guion: `C:/dev/artefactos-animaciones/voz/guion-serie4-comentarios-1.json` (19 escenas, 129 palabras); voz
+  `reels/voz-serie4-comentarios-1.mp3` (44,78 s, chequeada: dice exactamente el guion).
+- Página `reels/serie4-comentarios-1.html` + `reels/serie4/comentarios-1.js` (el cuarto azul, las tarjetas, los gags);
+  la construyó un agente con `series/BRIEF-serie4.md` (el brief sirve para la parte 2: cambiar guion, tiempos y gags).
+- MP4 `mp4/serie4-comentarios-1.mp4` (calidad completa) y `mp4/para-ig/…` (el liviano de la galería). Portada:
+  `series/portadas/serie4-comentarios-1.png` = el cuadro del segundo 2,6 (el título ya está en el video).
+- En la galería: https://claude.ai/artifact/Xn37U48gr5sKx4zyDsEzUm#serie4-comentarios-1
+- **Texto del post:** «Respondo sus preguntas (parte 1). ¿La tuya? Déjala en los comentarios y la respondo en la parte 2.»
+- Revisado cuadro por cuadro: dos instantes de 0,2 s (11,5 y 33 s) en que el subtítulo roza la tarjeta que se va; no
+  justificaba otro render.
 
 ## 7. Decisiones
 - 19/11: cuarto azul noche (no violeta) y título dorado: se copia la estructura, no la marca de Zapater.
