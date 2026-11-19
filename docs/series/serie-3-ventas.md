@@ -29,6 +29,28 @@ Contenido para las redes de Martín con su personaje en cubos y su voz clonada, 
 - **Personaje:** Martín en cubos (`reels/kit/toma.js`, `KIT.martin`). Subtítulos bajo el mentón, nunca sobre la cara.
 - **Idioma:** español neutro con «tú», neutro en género, frases cortas.
 
+## ⛔ Regla de Martín (19/11, para todas las series): simple, y el protagonista es lo que muestra la referencia
+
+Martín, al ver el piloto de la serie 1: «no se entiende, sobre todo el hook… copiar los hooks de las estructuras… no
+utilizar palabras técnicas… ser más simple». Y sobre el primer ticket: «utilizar el lenguaje más simple, sobre todo en el
+hook… "Es una locura la cantidad de dinero que se nos va en suscripciones. Yo en su momento pagaba…"… que tenga sentido la
+relación de las apps que salen ahí. No mezcles tanto… el ticket tiene que ser mucho más protagonista… No necesariamente
+siempre tiene que salir el muñequito de Martín, y no necesariamente siempre tiene que ser el protagonista».
+
+- **El gancho** sigue la fórmula de la primera frase de la referencia, y se entiende en el primer segundo sin saber nada
+  de marketing.
+- **Palabras de todos los días.** Nunca «CRM» (→ «tu lista de clientes»), «landing» (→ «tu página de ventas»), «ángulos»,
+  «hito», «certeza», «automatizar» si hay una forma común de decirlo («que todo se conecte solo»). En pantalla puede verse
+  el nombre real de la función (es la app); en la voz, lo común.
+- **Referentes por el nombre corto** (Hormozi, no Alex Hormozi).
+- **El muñeco no siempre; el protagonista es lo que muestra la referencia.** En el ticket, el papel ocupa la pantalla y
+  Martín va chico en un costado (o no va). Los subtítulos arriba, como la referencia, cuando Martín es chico y está abajo.
+- **Series de tickets por familia.** Cada ticket con apps de la MISMA familia (las que se usan juntas), con precios
+  verificados ese día, y termina en lo que hace MaKo de esa familia:
+  - **Vender** (hecho, `s3-ticket-vender`): GoHighLevel 97 + Zapier 29,99 + respond.io 99 = US$225,99, contra MaKo Pro 97.
+  - **Cursos y comunidad:** Skool 99, Kajabi 179 (Circle, sin precio mes a mes). Ojo: Skool y Kajabi se usan uno U otro.
+  - **Contenido:** CapCut 17,99 y lo que se pueda verificar (Canva muestra pesos; Notion no dice si sus 10 son anuales).
+
 ## La plantilla de guion (≈ 60-75 palabras, 20-26 s)
 
 | Tramo | Qué dice | Qué se ve |
@@ -65,7 +87,7 @@ El video 1 (CUBOS) es la excepción: no nombra ninguna app, vende el método.
 |---|---|---|
 | CUBOS | Cómo hago estos videos | La guía del método (falta armarla y cargar la respuesta automática) |
 | TICKET | El ticket de lo que ya pagas | El link de MaKo (pendiente) |
-| LANDING | Cómo armar una landing que vende | El link de MaKo al Web Generator (pendiente) |
+| COPIAR | Copia la página de ventas que ya vende (era LANDING) | El link de MaKo al Web Generator (pendiente) |
 
 ## Precios de otras apps (verificados el 19/11/2026, en dólares, pagando mes a mes, en su página oficial)
 
@@ -104,11 +126,11 @@ son las landings de cada función (`app/vsl/<slug>`).
 - **TICKET**:
   > ¡Hola! La app se llama MaKo. Acá está la cuenta completa de las apps que reemplaza: hola-mako.com/vsl/comparaciones
   > Si me cuentas qué estás pagando hoy, te digo con cuáles te quedarías.
-- **LANDING**:
-  > ¡Hola! La app es MaKo. Pegas el link de la landing que quieres copiar, la lee y eliges qué replicar: el diseño, la
+- **COPIAR** (el video de la página de ventas; antes LANDING):
+  > ¡Hola! La app es MaKo. Pegas el link de la página de ventas que quieres copiar, la lee y eliges qué replicar: el diseño, la
   > estructura o los ángulos. Replicar está en el plan Pro. Mírala aquí: hola-mako.com/vsl/web-generator
 - **GRUPO**:
-  > ¡Hola! La app es MaKo. En el CRM tocas «Extraer de un grupo de WhatsApp», eliges el grupo y entran todos a tu CRM con la
+  > ¡Hola! La app es MaKo. En tu lista de clientes tocas «Extraer de un grupo de WhatsApp», eliges el grupo y entran todos con la
   > etiqueta del grupo, sin duplicados. Está en el plan Pro. Mírala aquí: hola-mako.com/vsl/crm
 - **CARRUSEL**:
   > ¡Hola! La app es MaKo. En Image eliges la estructura (lista, paso a paso, antes y después…), sale con tu marca y le
@@ -132,7 +154,7 @@ son las landings de cada función (`app/vsl/<slug>`).
 |---|---|---|---|
 | `s3-estos-videos` | «Este video no lo grabé. Y tampoco lo edité.» | CUBOS | Ninguna (el método: Claude + voz clonada + código) |
 | `s3-ticket` | «¿Te parece caro pagar 97 dólares al mes por una app?» | TICKET | Lo que reemplaza: GoHighLevel 97, Skool 99, Zapier 29,99, CapCut 17,99 = US$243,98 contra MaKo Pro 97 |
-| `s3-landing` | «Si vas a hacer una landing, no empieces de cero.» | LANDING | Web Generator › Replicar landing (Diseño · Estructura · Ángulos) |
+| `s3-landing` | «Si vas a hacer tu página de ventas, no empieces de cero.» | COPIAR | Web Generator › Replicar landing (Diseño · Estructura · Ángulos) |
 | `s3-grupo` | «En tus grupos de WhatsApp hay gente que nunca recibió un mensaje tuyo.» | GRUPO | CRM › Extraer de un grupo de WhatsApp |
 | `s3-carrusel` | «El carrusel que más se guarda no es el más lindo.» | CARRUSEL | Image › Carruseles: las estructuras, con tu marca, y el chat que las escribe |
 | `s3-guion` | «Un reel que trae mensajes tiene tres partes.» | GUION | Copywriting › plantilla «Reel que trae mensajes» (Gancho · Historia · Moraleja) |
