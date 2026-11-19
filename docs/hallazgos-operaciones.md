@@ -4219,3 +4219,14 @@ guardia apagada del 6/11). Desde el 12/11 se instala la del repo. Antes de tocar
 **Sin hacer:** las cuentas claude2, claude3 y claude4 no tienen su `runner-guardia-<cuenta>`, y sólo se crea en un turno de
 Martín dentro de esa cuenta (`guardia-runner.md`, «Crear la guardia»). El aviso de cada turno cubre la apertura, pero no la
 red de 20 minutos.
+
+## El vigía de GitHub quedaba ciego con la PC cargada: la credencial tardaba más de 20 s (19/11/2026)
+
+- **Síntoma:** con 12 chats abiertos y menos de 1 GB libre, `vigia-ci.mjs esperar` terminaba una y otra vez con «no pudo leer
+  (spawnSync git ETIMEDOUT)». El hook lo repetía en cada turno («NO SÉ CÓMO ESTÁ GITHUB»).
+- **Diagnóstico obvio y equivocado:** que GitHub o la red no respondían. `git ls-remote` contestaba en 3,5 s.
+- **Causa real:** el vigía saca el token con `git credential fill`, que abre el Git Credential Manager (.NET), y le daba 20 s.
+  Con la PC paginando, ese arranque pasaba los 20 s. Con la PC más liviana, el mismo llamado tarda de 2,6 a 4,3 s.
+- **Arreglo:** el tope pasó a 60 s en `scripts/claude-hooks/guardia/vigia-ci.mjs` (y en la copia de `~/.claude/guardia/`).
+- **Regla:** un «no pude leer» del vigía no es un rojo ni un verde. Antes de tocar nada, medir el paso que se cortó a mano, con el
+  mismo entorno.

@@ -334,7 +334,7 @@ test('13. quien armó la oferta en una conversación de oferta no vuelve a empez
   assert.match(r, /Promise\.all\(\[leerReferente\(\), laOfertaDelCoach\(\)\]\)/);
   // Y la pantalla espera a saber antes de saludar: abría diciendo que no había y medio segundo después que sí.
   const motor = leer('app/second-brain/useChatDelCoach.ts');
-  assert.match(motor, /const vacio = elegido != null && oferta != null && k\.cargado/);
+  assert.match(motor, /const vacio = !motorOffer && elegido != null && oferta != null && k\.cargado/);
   // Y el contexto: primero la oferta, mirando lo guardado y lo armado, y después el funnel.
   const c = contextoDelFunnelCoach('hormozi');
   assert.ok(c.indexOf('1. LA OFERTA') >= 0 && c.indexOf('1. LA OFERTA') < c.indexOf('2. ELEGIR EL FUNNEL'), 'la oferta va primero');
@@ -414,7 +414,9 @@ test('15. en el teléfono, el mismo coach que en la computadora (o los dos, con 
 
 test('16. las conversaciones de oferta aconsejan con el MISMO referente que el coach del que cuelgan', () => {
   const o = leer('app/api/offer/route.ts');
-  assert.match(o, /const id = await leerReferente\(\);/);
+  // Con el onboarding V2 (19/11/2026), el del OFFER COACH (el de oferta, o Hormozi): la misma cara que su chat.
+  assert.match(o, /const elegido = await leerReferente\(\);/);
+  assert.match(o, /const id = wsV2 != null && \(await conDosCoaches\(wsV2\)\) \? referenteDelOfferCoachV2\(elegido\) : elegido;/);
   assert.doesNotMatch(o, /leerReferentes\(\)\)\.offer/);
   const sb = leer('app/second-brain/ChatSecondBrain.tsx');
   assert.match(sb, /aspectoOffer: delCoach \? aspectoDeReferente\(delCoach\.id\) : null/, 'su cara en la lista y en el hilo');

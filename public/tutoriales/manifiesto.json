@@ -1835,41 +1835,105 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-7.mp4",
    "poster": "/tutoriales/reto-dia-7.jpg",
-   "duracion_s": 19.57,
-   "peso_kb": 1069,
-   "guion": "Te doy la bienvenida al día 7, el último del reto. Primero, toca aquí, en Marketing CoPilot: revisa tu oferta, tu página y tu contenido. Después, toca aquí, en Plan: ahí te deja las tareas de cada semana. Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
+   "duracion_s": 71.1,
+   "peso_kb": 3715,
+   "guion": "¿Cuántas veces empezaste algo con todas las ganas, y al mes ya lo habías dejado? Te doy la bienvenida al día siete, el último: tu Marketing CoPilot lee lo que armaste y ordena tus próximos pasos. A casi nadie le falta motivación. Le falta saber qué sigue. Si al despertar te preguntas por dónde empezar, gastas la energía antes de trabajar. Mira una consultora que cobra dos mil dólares por proyecto: le alcanzan cuatro clientes al mes. No necesita hacerse viral: necesita constancia. El lunes abre su Plan y ya tiene la lista: los reels por grabar, sus correos y el arreglo de su web. Así no afloja aunque los resultados todavía no se vean. En ese tramo abandona la mayoría. Las ventas no salen de un día inspirado. Salen de cumplir, con o sin aplausos. Primero, toca aquí, en Marketing CoPilot: revisa tu oferta, tu página y tu contenido. Después, toca aquí, en Plan: ahí te deja las tareas de cada semana. Hoy terminas con algo que vale más que las ganas: un sistema para cada lunes. Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
    "frases": [
     {
      "id": "reto-dia-7-1",
      "rol": "gancho",
-     "texto": "Te doy la bienvenida al día 7, el último del reto.",
-     "t_inicio": 0.04,
-     "t_fin": 3.68
+     "texto": "¿Cuántas veces empezaste algo con todas las ganas, y al mes ya lo habías dejado?",
+     "t_inicio": 0,
+     "t_fin": 4.78
     },
     {
      "id": "reto-dia-7-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida al día siete, el último: tu Marketing CoPilot lee lo que armaste y ordena tus próximos pasos.",
+     "t_inicio": 5.38,
+     "t_fin": 12.84
+    },
+    {
+     "id": "reto-dia-7-3",
+     "rol": "porque",
+     "texto": "A casi nadie le falta motivación. Le falta saber qué sigue.",
+     "t_inicio": 13.4,
+     "t_fin": 17.16
+    },
+    {
+     "id": "reto-dia-7-4",
+     "rol": "porque",
+     "texto": "Si al despertar te preguntas por dónde empezar, gastas la energía antes de trabajar.",
+     "t_inicio": 17.72,
+     "t_fin": 22.42
+    },
+    {
+     "id": "reto-dia-7-5",
+     "rol": "porque",
+     "texto": "Mira una consultora que cobra dos mil dólares por proyecto: le alcanzan cuatro clientes al mes.",
+     "t_inicio": 22.98,
+     "t_fin": 28.4
+    },
+    {
+     "id": "reto-dia-7-6",
+     "rol": "porque",
+     "texto": "No necesita hacerse viral: necesita constancia.",
+     "t_inicio": 28.96,
+     "t_fin": 31.98
+    },
+    {
+     "id": "reto-dia-7-7",
+     "rol": "porque",
+     "texto": "El lunes abre su Plan y ya tiene la lista: los reels por grabar, sus correos y el arreglo de su web.",
+     "t_inicio": 32.6,
+     "t_fin": 38.56
+    },
+    {
+     "id": "reto-dia-7-8",
+     "rol": "porque",
+     "texto": "Así no afloja aunque los resultados todavía no se vean. En ese tramo abandona la mayoría.",
+     "t_inicio": 39.16,
+     "t_fin": 44.76
+    },
+    {
+     "id": "reto-dia-7-9",
+     "rol": "porque",
+     "texto": "Las ventas no salen de un día inspirado. Salen de cumplir, con o sin aplausos.",
+     "t_inicio": 45.36,
+     "t_fin": 50.66
+    },
+    {
+     "id": "reto-dia-7-10",
      "rol": "accion",
      "texto": "Primero, toca aquí, en Marketing CoPilot: revisa tu oferta, tu página y tu contenido.",
-     "t_inicio": 4.18,
-     "t_fin": 10.06,
+     "t_inicio": 51.12,
+     "t_fin": 57,
      "sel": "aside[data-sidebar] a[href^=\"/ads-manager/copiloto\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-7-3",
+     "id": "reto-dia-7-11",
      "rol": "accion",
      "texto": "Después, toca aquí, en Plan: ahí te deja las tareas de cada semana.",
-     "t_inicio": 10.58,
-     "t_fin": 15.22,
+     "t_inicio": 57.56,
+     "t_fin": 62.04,
      "sel": "aside[data-sidebar] a[href^=\"/plan\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-7-4",
+     "id": "reto-dia-7-12",
+     "rol": "cierre",
+     "texto": "Hoy terminas con algo que vale más que las ganas: un sistema para cada lunes.",
+     "t_inicio": 62.52,
+     "t_fin": 67.04,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-7-13",
      "rol": "cierre",
      "texto": "Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
-     "t_inicio": 15.7,
-     "t_fin": 18.88,
+     "t_inicio": 67.52,
+     "t_fin": 70.42,
      "espera_clic": false
     }
    ],
@@ -1877,8 +1941,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "7 → siete · mako → maco (ortografía del transcriptor)",
-   "hecho": "2026-11-18T15:31:19.671Z"
+   "chequeo": "mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-19T04:12:01.800Z"
   },
   {
    "key": "ops-center",
