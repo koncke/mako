@@ -19,19 +19,25 @@ La fuente de los reels NO está en el repo: `C:/dev/artefactos-animaciones/` (le
 - Hallazgos: `docs/hallazgos-contenido.md` (índice: `docs/hallazgos.md`).
 
 ## Lo que sigue
-0. **19/11 12:15 (hora de la PC) — FRENADO por el Cerebro:** el onboarding tiene prioridad máxima y necesita la RAM y el
-   turno del navegador. El render de «El avión» se cortó en el tramo 1 (cuadro 150 de 1450): procesos cerrados por PID,
-   turno suelto y cuadros a medias borrados. NO se renderiza nada (ni el avión ni la Serie 4) hasta que el Cerebro
-   escriba que el onboarding está desplegado; entonces, relanzar desde cero lo de abajo.
-   **Lo que estaba en curso, después del reinicio de la app por RAM:** las 6 correcciones de «El avión»
-   están hechas en la página (las dejó el agente, que murió en el reinicio; ver docs/series/serie-1-elige-a-o-b.md §5).
-   Render entero lanzado desde un script del scratchpad (espera 3 GB libres antes de cada tramo, un render por vez, por
-   `turno.mjs`): `render-gl.mjs reels/serie1-avion-1.html mp4/serie1-avion-1.mp4 48.32 reels/voz-serie1-avion-1.mp3 30 1/2`
-   y `2/2`. Si se cortó: borrar `mp4/_cuadros_reels_serie1_avion_1_html` y relanzar. Después, la Serie 4 (abajo; su
-   hoja `cap/s4v2-hoja.jpg` ya se revisó: ninguna tarjeta tapa la cara). Con los dos MP4: mirarlos con `mirar-mp4.sh`,
-   rehacer `mp4/para-ig/` (crf 27), armar, publicar (los archivos del avión y de la Serie 4 se sacaron del manifiesto
-   a propósito: van en esa publicación) y mandarle el link al Cerebro.
-   `edu-lo-pienso` (Serie 2, video 3) ya está publicado (versión 11).
+0. **AL REABRIR (el Cerebro archivó este chat el 19/11 por la tarde: Martín necesitaba la RAM, con 1 GB libre):**
+   - **No hay nada renderizado.** Ni «El avión» ni la Serie 4 llegaron a empezar: los dos scripts esperaban 3 GB libres.
+     Se cortaron por PID, la fila de `turno.mjs` quedó vacía y no quedan carpetas `mp4/_cuadros_*` mías.
+   - **El servidor 8765 quedó APAGADO** (lo había levantado este chat). Antes de capturar o renderizar:
+     `cd C:/dev/artefactos-animaciones && python -I -m http.server 8765` en segundo plano, y `curl` a `reels/kit/kit.js` → 200.
+   - **Regla del Cerebro, sigue vigente:** un render por vez, siempre por `turno.mjs`, con 3 GB libres o más antes de
+     cada tramo; al terminar, cerrar el navegador y los ffmpeg propios, por PID. Nada de agentes en paralelo.
+   - **4 tramos por video, no 2:** con Martín usando la PC fue a ~5 s por cuadro, y `turno.mjs` le saca el lock a quien
+     pasa de 40 min (con 2 tramos, cada uno dura ~60 min). Orden:
+     1. «El avión» (las 6 correcciones ya están en la página; ver docs/series/serie-1-elige-a-o-b.md §5):
+        `node tools/turno.mjs node series/tools/render-gl.mjs reels/serie1-avion-1.html mp4/serie1-avion-1.mp4 48.32
+        reels/voz-serie1-avion-1.mp3 30 1/4` y lo mismo con `2/4`, `3/4`, `4/4` (el último arma el MP4).
+     2. La Serie 4, igual: `reels/serie4-comentarios-1.html mp4/serie4-comentarios-1.mp4 43.62
+        reels/voz-serie4-comentarios-1.mp3 30 1/4` … `4/4` (su hoja `cap/s4v2-hoja.jpg` ya se revisó).
+   - Con cada MP4: mirarlo entero con `bash series/tools/mirar-mp4.sh mp4/<id>.mp4 cap/<id>-mp4`, rehacer
+     `mp4/para-ig/<id>.mp4` (crf 27), `python -I tools/armar_galeria.py <scratchpad>/pub` y publicar sólo los archivos de
+     esos dos (los del avión y la Serie 4 están fuera del manifiesto a propósito: el armado los vuelve a listar). Después,
+     mandarle el link al Cerebro: él los revisa antes de pasárselos a Martín.
+   - La Serie 2 está al día en la galería (versión 12: edu-mismo-video, edu-cinco-frases, edu-lo-pienso).
 0. **Pendientes concretos (19/11 ~10:00 UTC, el chat llegó al tope de contexto):**
    - Serie 1 «El avión»: ver el punto de arriba (render entero; el retoque por rango de la mañana quedó superado).
    - Serie 4: voz nueva (43,62 s) y tarjetas grandes hechas en la página; `cap/s4v2-hoja.jpg` revisada (ninguna tarjeta tapa
