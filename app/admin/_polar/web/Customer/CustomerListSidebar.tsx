@@ -311,6 +311,7 @@ export const CustomerListSidebar: React.FC<CustomerListSidebarProps> = ({
                         deAgencia: customer.deAgencia,
                         agencia: customer.agencia,
                         prueba: customer.esPrueba,
+                        sinCobro: customer.sinCobro,
                       })}
                     </div>
                   </div>

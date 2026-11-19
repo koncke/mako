@@ -95,6 +95,8 @@ export const EXCEPCIONES: Readonly<Record<string, string>> = {
   'app/api-mako/actions.ts#openApiApi': 'devuelve el OpenAPI de la API, que sale del registro',
   // A dónde le paga el PÚBLICO (alias, CVU, Binance Pay ID y links del checkout, setting `planes.pago_directo`): si el chat o la API pudieran editarlo,
   // un texto malicioso metido en una conversación cambiaría el alias de cobro de MaKo (fraude directo). Sólo lo cambia el super admin en Settings › Payments.
+  // Si un negocio se cobra o no: lo decide Martín al tocar el interruptor, en pantalla; por el chat o la API un texto malicioso podría dejar de cobrarle a un negocio.
+  'app/admin/cobros/actions.ts#ponerSinCobroAction': 'decide si un negocio se cobra (habilitado sin cobro): sólo el super admin, en pantalla; el código no cambia ninguna cuenta solo',
   'app/admin/cobros/actions.ts#guardarPagoDirectoAction': 'cambia a dónde le paga el público (alias, CVU, Binance): por el chat o la API sería un vector de fraude; sólo el super admin, en pantalla',
 };
 

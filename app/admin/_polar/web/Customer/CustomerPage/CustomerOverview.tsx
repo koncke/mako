@@ -21,6 +21,8 @@ import { rutaDeEventosDelNegocio } from '@/app/admin/_polar/datos/cliente'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { CustomerTimeline } from '../CustomerTimeline'
 import { CustomerDetailsSection } from './CustomerDetailsSection'
+import { CustomerSinCobro, type PonerSinCobro } from './CustomerSinCobro'
+import type { SinCobro } from '@/lib/cuenta-sin-cobro-reglas'
 import { CustomerMetricsOverview } from './CustomerMetricsOverview'
 import { CustomerOrdersTable } from './CustomerOrdersTable'
 import { CustomerSubscriptionsTable } from './CustomerSubscriptionsTable'
@@ -39,6 +41,9 @@ export interface CustomerOverviewProps {
   eventos: EventoDeTimeline[]
   /** «Desconectar» una computadora: la server action que pasa la página (la ficha no la importa). */
   desconectar?: DesconectarComputadora
+  /** «Habilitado sin cobro»: lo guardado (`null` = nunca se tocó) y la acción que prende o apaga (la pasa la página). Sin la acción no se dibuja. */
+  sinCobro?: SinCobro | null
+  ponerSinCobro?: PonerSinCobro
 }
 
 export const CustomerOverview = ({
@@ -53,6 +58,8 @@ export const CustomerOverview = ({
   computadoras,
   eventos,
   desconectar,
+  sinCobro = null,
+  ponerSinCobro,
 }: CustomerOverviewProps) => {
   return (
     <Box flexDirection="column" rowGap="5xl">
@@ -65,6 +72,7 @@ export const CustomerOverview = ({
         computadoras={computadoras}
         desconectar={desconectar}
       />
+      {ponerSinCobro && <CustomerSinCobro ws={negocio.ws} inicial={sinCobro} poner={ponerSinCobro} />}
       <CustomerSubscriptionsTable suscripciones={suscripciones} hoy={hoy} />
       <CustomerOrdersTable pedidos={pedidos} />
     </Box>

@@ -32,6 +32,8 @@ import { guardarPrecioClienteDeAgencia, precioClienteDeAgencia } from '@/lib/age
 import type { PrecioClienteAgencia } from '@/lib/agencia-cobro-reglas';
 import { guardarPrecioLocal, monedaDeMercadoPagoDeMako, planesMako } from '@/lib/compra-plan';
 import { guardarDatosDePagoDirecto } from '@/lib/pago-directo';
+import { ponerSinCobro } from '@/lib/cuenta-sin-cobro';
+import type { SinCobro } from '@/lib/cuenta-sin-cobro-reglas';
 import type { DatosDePagoDirecto } from '@/lib/pago-directo-reglas';
 
 const NO_ADMIN = 'Sólo el super admin vende planes de MaKo.';
@@ -268,6 +270,15 @@ export async function preciosLocalesAction(): Promise<{ ok: true; moneda: string
   } catch (e) {
     return { ok: false, error: mensaje(e, 'No pude leer los planes.') };
   }
+}
+
+/** «Habilitado sin cobro» (Admin › Customers › ficha): lo prende o apaga SÓLO el super admin, al tocar el interruptor. Ningún código lo cambia solo. */
+export async function ponerSinCobroAction(ws: number, activo: boolean): Promise<{ ok: true; sinCobro: SinCobro } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!admin) return { ok: false, error: NO_ADMIN };
+  const r = await ponerSinCobro(Number(ws), activo === true, String((admin as { email?: string }).email ?? 'super admin'));
+  if (r.ok) revalidatePath('/admin/customers', 'layout');
+  return r;
 }
 
 /** Guarda los datos de MaKo para «Transferencia o Binance» (Settings › Payments). Sólo el super admin; lo que no se entiende queda vacío. */

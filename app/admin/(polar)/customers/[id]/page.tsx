@@ -10,6 +10,8 @@ import { CustomerPageShell } from '@/app/admin/_polar/web/Customer/CustomerPage/
 // «Desconectar» una computadora: la server action del Centro (pide `puedeOperar` otra vez) viaja como prop a la ficha, que no la
 // importa (así se puede dibujar en node: tests/ia-pc-varias.test.ts).
 import { desconectarComputadoraAction } from '@/app/admin/operaciones/acciones'
+import { ponerSinCobroAction } from '@/app/admin/cobros/actions'
+import { leerSinCobro } from '@/lib/cuenta-sin-cobro'
 import { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -29,7 +31,7 @@ export default async function Page(props: {
   await exigirSuperAdmin()
   const params = await props.params
   const { ws, cabecera, alta, avisos } = await negocioONotFound(params.id)
-  const [resumen, inicio] = await Promise.all([leerResumen(ws), leerInicio(ws, alta.creado)])
+  const [resumen, inicio, sinCobro] = await Promise.all([leerResumen(ws), leerInicio(ws, alta.creado), leerSinCobro(ws).catch(() => null)])
 
   return (
     <CustomerPageShell key={ws} negocio={cabecera} avisos={[...avisos, ...resumen.avisos]}>
@@ -45,6 +47,8 @@ export default async function Page(props: {
         computadoras={resumen.computadoras}
         eventos={resumen.eventos}
         desconectar={desconectarComputadoraAction}
+        sinCobro={sinCobro}
+        ponerSinCobro={ponerSinCobroAction}
       />
     </CustomerPageShell>
   )
