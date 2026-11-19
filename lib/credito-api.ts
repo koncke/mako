@@ -123,6 +123,8 @@ export type FilaCredito = {
   sinCreditoAt: string | null;
   /** Si todavía no se puede vincular: desde cuándo (los 7 días de suscripta). */
   vinculableDesde: string | null;
+  /** Los negocios (no la plataforma) que usaron este crédito en el ciclo: quedan sin Claude si no queda ninguna cuenta (19/11/2026). */
+  clientes?: number[];
 };
 /** Lo de arriba de la sección (`totalCredito`). */
 export type TotalCredito = { gastadoUsd: number | null; vinculadas: number; rindeUsd: number; totalUsd: number };
@@ -134,7 +136,7 @@ export type TotalCredito = { gastadoUsd: number | null; vinculadas: number; rind
 export type AsignadoCredito = { ws: number; quien: string; cuenta: string; prendido: boolean | null; gastadoUsd: number | null; llamadas: number };
 /** Lo que recibe la pantalla: las filas y el total ya armados en el servidor (la pantalla importa sólo los tipos). */
 export type LecturaCredito =
-  | { ok: true; filas: FilaCredito[]; total: TotalCredito; negociosSinLeer: boolean; asignados?: AsignadoCredito[] }
+  | { ok: true; filas: FilaCredito[]; total: TotalCredito; negociosSinLeer: boolean; asignados?: AsignadoCredito[]; nombres?: Record<number, string> }
   | { ok: false; error: string };
 
 const AR_MS = 3 * 3_600_000;
@@ -214,6 +216,8 @@ export function resumenCredito(p: {
   wsConClave: ReadonlyMap<number, string>;
   ahora: number;
   cuentas?: readonly CuentaDelCredito[];
+  /** El ws de la plataforma: lo suyo no cuenta como un cliente que usó el crédito (`clientes`). */
+  wsPlataforma?: number;
 }): FilaCredito[] {
   const cuentas = p.cuentas ?? CUENTAS_DEL_CREDITO;
   return cuentas.map((c) => {
@@ -228,6 +232,7 @@ export function resumenCredito(p: {
     if (!p.gastos) return fila;
     let usd = 0;
     const negocios = new Map<number, number>();
+    const clientes = new Set<number>();
     for (const f of p.gastos) {
       const t = Date.parse(f.created_at);
       if (!Number.isFinite(t) || t < ciclo.desde || t > p.ahora) continue;
@@ -243,7 +248,10 @@ export function resumenCredito(p: {
       usd += costo;
       fila.llamadas++;
       if (pago.negocio != null) negocios.set(pago.negocio, (negocios.get(pago.negocio) ?? 0) + costo);
+      const w = Number(f.workspace_id);
+      if (Number.isInteger(w) && w > 0 && w !== p.wsPlataforma) clientes.add(w);
     }
+    fila.clientes = [...clientes].sort((a, b) => a - b);
     fila.gastadoUsd = redondear(usd);
     fila.delNegocio = [...negocios].sort((a, b) => a[0] - b[0]).map(([ws, u]) => ({ ws, usd: redondear(u) }));
     return fila;
@@ -290,11 +298,23 @@ const CUADRA_DESDE = 0.9;
 // si cuadra con lo que gastó MaKo, con qué sigue MaKo (otra cuenta, o Gemini y los grupos sin IA), cuándo vuelve y qué hacer.
 // Lo de «con qué sigue» sale de TODAS las filas, no de la cuenta sola. docs/hallazgos-ia.md, «El crédito de Claude se terminó…».
 
-/** Con qué sigue MaKo sin esta cuenta: las otras vinculadas con crédito, o ninguna. */
-function conQueSigue(otras: readonly string[]): string {
-  return otras.length
-    ? `MaKo sigue con ${lista(otras)}.`
-    : 'No queda otra cuenta con crédito: lo interno de MaKo sigue con Gemini, y los grupos de WhatsApp de los clientes sin IA propia se quedan sin poder contestar.';
+/** Hasta cuántos clientes se nombran; el resto, «y N más». */
+const CLIENTES_NOMBRADOS = 8;
+/**
+ * Con qué sigue MaKo sin esta cuenta: las otras vinculadas con crédito, o NINGUNA. Sin ninguna, quiénes se quedan sin Claude: los
+ * clientes que usaron el crédito en el ciclo (cualquier cuenta), con su nombre (o «el negocio N» si no se pudo leer).
+ */
+function conQueSigue(otras: readonly string[], clientes: readonly number[], nombres: Readonly<Record<number, string>>): string[] {
+  if (otras.length) return [`MaKo sigue con ${lista(otras)}.`];
+  const lineas = ['No queda NINGUNA cuenta con crédito de Claude: lo interno de MaKo sigue con Gemini.'];
+  if (clientes.length) {
+    const quienes = clientes.map((w) => nombres[w]?.trim() || `el negocio ${w}`);
+    const dichos = quienes.length > CLIENTES_NOMBRADOS ? [...quienes.slice(0, CLIENTES_NOMBRADOS), `${quienes.length - CLIENTES_NOMBRADOS} más`] : quienes;
+    lineas.push(`Se quedan sin Claude: ${lista(dichos)}. En WhatsApp, a los que no tienen IA propia MaKo no les puede contestar.`);
+  } else {
+    lineas.push('En WhatsApp, a los clientes sin IA propia MaKo no les puede contestar.');
+  }
+  return lineas;
 }
 /** Cuándo llega el crédito nuevo: con el cobro del plan. Sin el día de cobro cargado, se dice que no se sabe. */
 const cuandoVuelve = (f: FilaCredito) => (f.renueva ? `Vuelve el ${diaMes(f.renueva)}, con el cobro del plan.` : 'Vuelve con el próximo cobro del plan de esa cuenta (MaKo no sabe qué día es).');
@@ -318,6 +338,8 @@ function queHacer(otras: readonly string[], sinVincular: readonly string[], noCu
  */
 export function avisosDelCredito(
   filas: readonly FilaCredito[], yaAvisados: ReadonlySet<string>, ahora: number, cuentas: readonly CuentaDelCredito[] = CUENTAS_DEL_CREDITO,
+  /** El nombre de cada negocio, para decir quiénes se quedan sin Claude (`leerCreditoApi` → `nombres`). */
+  nombres: Readonly<Record<number, string>> = {},
 ): { avisos: AvisoDelCredito[]; uso: Record<string, number>; completo: boolean } {
   const avisos: AvisoDelCredito[] = [];
   const uso: Record<string, number> = {};
@@ -329,6 +351,8 @@ export function avisosDelCredito(
   const agotada = (f: FilaCredito) => f.sinCreditoAt != null || (f.gastadoUsd != null && f.gastadoUsd >= CREDITO_MENSUAL_USD);
   const conCredito = filas.filter((f) => f.vinculada === true && f.gastadoUsd != null && !agotada(f)).map((f) => f.cuenta);
   const sinVincular = filas.filter((f) => f.vinculada === false).map((f) => f.cuenta);
+  // Sin ninguna cuenta, se quedan sin Claude TODOS los que usaron el crédito en el ciclo, de cualquier cuenta (el reparto los rota).
+  const clientes = [...new Set(filas.filter((f) => f.vinculada === true).flatMap((f) => f.clientes ?? []))].sort((a, b) => a - b);
   for (const f of filas) {
     if (f.vinculada == null) completo = false;
     if (f.vinculada !== true) continue;
@@ -356,7 +380,7 @@ export function avisosDelCredito(
               : `· Cuadra con lo que gastó MaKo: ${usd(f.gastadoUsd)} de los US$${CREDITO_MENSUAL_USD} de este mes.`,
           ]
           : [`Se terminó el crédito de Claude de la cuenta ${f.cuenta}: MaKo ya gastó ${usd(f.gastadoUsd)} de los US$${CREDITO_MENSUAL_USD} de este mes.`];
-        lineas.push(`· ${conQueSigue(otras)}`, `· ${cuandoVuelve(f)}`, `· ${queHacer(otras, sinVincular, noCuadra)}`);
+        lineas.push(...conQueSigue(otras, clientes, nombres).map((l) => `· ${l}`), `· ${cuandoVuelve(f)}`, `· ${queHacer(otras, sinVincular, noCuadra)}`);
         avisos.push({ clave: c100, cuenta: f.cuenta, nivel: '100', texto: lineas.join('\n') });
       }
     } else if (pct >= AVISO_DEL_CREDITO_PCT && !yaAvisados.has(c80)) {

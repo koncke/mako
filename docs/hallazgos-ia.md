@@ -8239,7 +8239,8 @@ reparto) · `lib/mako-doer-in.ts` (`claudeDelGrupo`, el turno del grupo)
   aviso dice, en líneas:
   - qué pasó;
   - si cuadra con lo que gastó MaKo (desde el 90 %);
-  - con qué sigue MaKo: otra cuenta, o Gemini y los grupos sin IA;
+  - con qué sigue MaKo: otra cuenta, o, si no queda NINGUNA, Gemini y la lista de clientes que se quedan sin Claude (los que
+    usaron cualquier cuenta en el ciclo, sin la plataforma: `clientes` de `resumenCredito`, con su nombre);
   - cuándo vuelve (sin `diaDeCobro`, «MaKo no sabe qué día es»);
   - qué hacer: vincular las que faltan, o mirar Billing cuando no cuadra.
 

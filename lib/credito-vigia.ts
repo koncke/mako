@@ -48,7 +48,7 @@ export async function vigilarCreditoClaude(ahora = Date.now()): Promise<CorridaD
     const ws = await wsSuperAdmin();
     return await runWithWorkspace(ws, async () => {
       const ya = new Set((await getSettingsConPrefijo(PREFIJO_AVISO_DEL_CREDITO)).keys());
-      const { avisos, uso, completo } = avisosDelCredito(lectura.filas, ya, ahora);
+      const { avisos, uso, completo } = avisosDelCredito(lectura.filas, ya, ahora, undefined, lectura.nombres ?? {});
       // Con el % de alguna cuenta sin saber, NO se guarda: queda el último completo, que vence solo a las 2 h (`leerUsoDelCredito`).
       // Guardarlo con huecos y la hora de ahora borraba el % de la cuenta que iba al 95%, y la plataforma volvía a usarla.
       if (completo) await setSetting(CLAVE_USO_DEL_CREDITO, JSON.stringify({ at: new Date(ahora).toISOString(), cuentas: uso }));
