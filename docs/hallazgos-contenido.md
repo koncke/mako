@@ -116,6 +116,24 @@ corre en segundo plano apenas está el guion, no al final.
 **La fila del navegador: encolar TODAS las capturas apenas cada HTML existe.** Con 5 carruseles y renders de 60 s de otros
 chats adelante, cada vuelta esperaba 30-40 min. Encolarlas juntas (piezas, personaje en cubos, criaturas, láminas de cada
 carrusel) hace que salgan seguidas; la que necesita lo que hace otra va detrás en la fila.
+**El diagnóstico obvio del ticket era el equivocado: no era el diseño del papel, era quién ocupa la pantalla.** El primer
+ticket tenía a Martín en cubos grande en el centro y el ticket arriba, chico; la referencia tiene lo que se cuenta (los
+bloques de precios) en el centro y el personaje chico. Martín: «el ticket tiene que ser mucho más protagonista… no
+necesariamente siempre tiene que salir el muñequito». Regla: antes de diseñar, mirar en la referencia QUÉ ocupa la
+pantalla, cuánto tiempo y dónde está el foco, y copiar eso. Con el personaje chico y abajo, los subtítulos van arriba.
+
+**Las apps del ticket tienen que ser de una misma familia.** Mezclar GoHighLevel, Skool, Zapier y CapCut en un ticket no
+tenía sentido para Martín («no mezcles tanto»). Cada ticket, una familia (vender, contenido, cursos) y termina en lo que
+hace MaKo de esa familia. Y Skool con Kajabi no van juntas: son alternativas, nadie paga las dos.
+
+**Cortar un trabajo propio que tiene el navegador: por PID y con su árbol.** `turno.mjs` lanza bash → node → Chromium; si
+se mata sólo el `turno`, el render sigue corriendo huérfano y pisa al siguiente de la fila. `taskkill /PID <turno> /T /F`
+corta todo lo que cuelga de él (y sólo eso). Después, borrar su carpeta `mp4/_cuadros_*`.
+
+**Una lluvia que arranca en T=0 deja el primer cuadro vacío.** El gancho del ticket nuevo eran suscripciones que caen; con
+demoras de 0 a 1,6 s el cuadro 0,2 s quedaba casi negro. La mitad de los papelitos arranca con demora negativa (ya
+están a mitad de camino). Y una capa con `z-index` alto por elemento tapa los subtítulos si no tiene su propio apilado:
+`z-index` en el contenedor.
 
 ## Lo que quedó sin hacer
 
@@ -303,5 +321,123 @@ galería de formatos (el motor, el kit, la voz) está en `docs/editor-video/anim
 - `drawtext` de ffmpeg en Windows se cae (no hay fontconfig) y la «C:» de `fontfile` rompe el filtro: para mirar un MP4
   entero, `series/tools/mirar-mp4.sh` saca un cuadro cada 0,5 s y arma las hojas con `tools/hoja.py`.
 
+**«Ver ejemplo» de algunas estructuras de carrusel monta el título sobre el texto (19/11, sin confirmar en la app).** Dibujando
+los ejemplos de `lib/carruseles/tipos.ts` con el mismo código que «Ver ejemplo» (`documentoDeCarrusel` → `PaginaCarrusel`, con las
+fuentes del catálogo del editor cargadas), la portada de «Mito vs. realidad» («4 mitos que te hacen cobrar de menos») y una lámina
+de «Antes y después» («5 preguntas antes de la cita») tienen el título de varias líneas encima del texto de abajo. El alto de cada
+caja sale de una estimación (`altoEstimado` / `tamanoQueLlena`, lib/carruseles/documento.ts), no de medir la fuente: con Archivo
+Black y Space Grotesk la estimación se queda corta. Falta mirarlo en Image con la pantalla real antes de tocarlo.
+
+**Las filas tildadas de «Extraer de un grupo de WhatsApp» se ven gris oscuro en el tema claro.** El fondo es `var(--primary-weak)`
+(app/crm/TraerDeGrupoWA.tsx), y en el claro vale `#a3a39e`: una tabla de 11 tildados queda casi toda gris medio. Se mostró así en el
+carrusel GRUPO porque es la pantalla real.
+
 ## Lo que quedó sin hacer
 - Ver `docs/series/serie-1-elige-a-o-b.md` y `docs/series/serie-4-reacciona-comentarios.md`, §5 «Por hacer».
+## Relevo de referentes: Ramiro Cubría, Víctor Heras y Alex Hormozi — 19/11/2026
+
+Las herramientas del relevo viven en `C:/dev/referentes-videos/tools/` (fuera del repo; copia en `docs/series/herramientas/`).
+El método completo está en `docs/series/desarmar-video-referente.md`; el relevo, en
+`docs/series/referentes/`.
+
+## Relevar una cuenta de Instagram sin Apify (19/11/2026)
+
+- **Sin sesión, Instagram muestra 12 publicaciones por perfil y ninguna más** (el resto queda detrás del cartel «Log in»). Con
+  sesión, la pestaña «Reels» carga de a 6 al bajar la página y cada tarjeta trae sus reproducciones en el texto del enlace
+  (`a[href*="/reel/"]`). Bastó con la sesión de Martín en el navegador de la app y la rueda del ratón. Ir a
+  `/web/search/topsearch/` (la API interna) lo frena el clasificador de permisos: la lista se junta mirando la página.
+- **Con el panel del navegador escondido, la grilla no carga** (sin `requestAnimationFrame`): el `find` y el JS se cuelgan a los
+  30–45 s. Se arregla con una pestaña nueva (`preview_start` con la URL), `resize_window` a 1280×2400 y una captura antes de la
+  primera `scroll` (la rueda necesita una captura previa para tener coordenadas).
+- **Un reel suelto baja sin sesión** con `yt-dlp` (`/reel/<código>/`). La sesión sólo hace falta para la LISTA.
+- **El @ obvio casi nunca es el de la persona**: `@ramirocubria` es una cuenta vacía (el real es `@ramiro.cubria`);
+  `@victorheras` es un director de arte, `@victorherass` otra persona, `@victorherasmedia` una cuenta chica. El de Víctor Heras es
+  `@victorherasemprendedor` (494 mil): salió buscando en la web «Víctor Heras instagram reels», no adivinando. Antes de bajar nada,
+  se mira la bio y los seguidores.
+- Los reels FIJADOS de una cuenta salen primero y son viejos (los de Víctor, de 2024, con 7,2 M y 1,9 M). Se cuentan aparte para el
+  múltiplo contra la mediana de la cuenta.
+
+## Las herramientas compartidas de la PC
+
+- ⛔ **`pip install -U yt-dlp` sobre el Python global dejó `yt-dlp` SIN MÓDULO para todos los chats** (`ModuleNotFoundError:
+  No module named 'yt_dlp'`): pip desinstaló la versión vieja y se colgó al instalar la nueva (otros chats tenían `yt-dlp`
+  abierto). Durante ese rato, otros dos chats se pusieron a instalar copias en carpetas propias. Se arregló instalando con
+  `pip install --target <carpeta>` (anduvo en segundos) y copiando `yt_dlp/` y `yt_dlp-<versión>.dist-info` a site-packages.
+  **Regla: una herramienta que usan otros chats no se actualiza en el lugar; se instala aparte con `--target`.**
+- Bajar el `.exe` de `yt-dlp` desde GitHub lo frena el clasificador de permisos; `pip --target` no.
+- `faster-whisper` 1.2.1 con el PyAV instalado rompe al abrir un archivo (`open() got an unexpected keyword argument
+  'metadata_errors'`): se le pasa el audio ya leído (wav 16 kHz → numpy float32).
+- `ctranslate2` en la GPU pide `cublas64_12.dll`, que no está en el PATH pero sí en `torch/lib` (torch 2.6 cu124): se agrega con
+  `os.add_dll_directory`. Con la GPU, un reel de 90 s se transcribe en 5 a 15 s (el primero, ~40 s por la carga del modelo).
+- **Sacar cuadros con un `-ss` por cuadro tardó 331 s para 24 cuadros** con la PC cargada. Una sola pasada con `fps=2` y el
+  filtro de escenas en el mismo `filter_complex` lo hace en 2 a 10 s.
+- YouTube estaba lentísimo (60–70 s por Short) porque había ~15 `yt-dlp` de otros chats contra YouTube a la vez. Instagram, en
+  7 a 15 s por reel. Para Hormozi se usaron sus reels de Instagram.
+
+## ¿Hay música debajo de la voz?
+
+- **El diagnóstico obvio era el equivocado:** medir el nivel en los «huecos» entre los segmentos de whisper decía «música
+  probable» en un reel que es sólo una persona hablando: los segmentos de whisper no cubren las colas de las palabras, y el
+  «hueco» medía voz. Lo que sirve es el **piso** del clip entero (percentil 5 del nivel en tramos de 50 ms): sin nada debajo, la
+  voz deja silencios a -50 dB o menos; con música o ambiente, el piso queda arriba de -40 dB. Medido en Ramiro: -30 a -38 dB en
+  casi todos, -50 en uno. Distinguir música de ambiente (afuera, viento) no se puede con este número: se cruza con la hoja de
+  cuadros (¿graba adentro o afuera?).
+
+## Lo que dicen los números de los referentes (el diagnóstico obvio era el equivocado)
+
+- **El molde que Martín describió de Ramiro («gancho de 10–15 s con su avatar de IA y después él en serio») es su forma MENOS
+  probada**: 3 reels de 50, uno solo con más de 48 h, a 0,6× su mediana, y con ganchos de 23 a 31 s, no de 10 a 15. Y en esos
+  tres Ramiro está FILMADO desde el segundo 0: la IA es un elemento encima (una ballena en la pileta), no su avatar. Lo que le
+  rinde son los **sketches enteros con su avatar** (8 reels, mediana 35 mil, 1,9×; 7 de ellos sin una sola toma filmada) y los
+  **tutoriales animados** de Claude (5 reels, mediana 38,7 mil, 2,1×; el top de la tanda, 118 mil). El animado se hace por código
+  y no gasta IA de video; el sketch es el más caro (75–90 s de IA por toma).
+- **Víctor Heras no usa IA ni animación en ninguno de sus 35 reels.** El «gancho exagerado» lo hace con actores y su lujo real; su
+  mejor reel reciente (un noticiero falso del robo de su Ferrari, después la explicación en serio y «comenta CLASE»: 1,9 M,
+  22× su mediana) es el molde que pidió Martín, pero filmado.
+- **Una mediana cruda por forma o por tema confunde la forma con la EDAD del reel.** En Víctor, el sketch le gana a la cámara
+  ×5,2 en crudo, pero a igual edad sólo ×1,2 (contra los reels vecinos en fecha) a ×2,4 (ajustando por edad): los reels viejos
+  juntaron más, y desde agosto publica casi sólo a cámara. Toda comparación se hace a igual edad (las tablas están en
+  `docs/series/referentes/victor.md`). En Ramiro no pesa tanto porque los 50 son de 12 días, pero los de las últimas 48 h se
+  dejan afuera del múltiplo.
+- Si un reel habla de dinero y de seguidores, el tema lo decide lo que regala el CTA (regla escrita en `victor/temas.json`).
+- «Cuándo aparece la persona» no dice si la persona es REAL: en los sketches el avatar «habla en serio» y nunca aparece Ramiro.
+  Para el costo se mira `persona_real_desde_s` (en `C:/dev/referentes-videos/ramiro/reels.json`).
+- «Siempre hablo de los mismos 6 o 7 temas» lo dice Ramiro en reels de temas distintos: es una muletilla, no un tema. La
+  definición de cada tema tiene que nombrar de QUÉ habla (p. ej. «Trazabilidad» sólo si el reel nombra o muestra la medición).
+  Con esa regla, dos lectores coincidieron a ciegas en 47 de 48 reels.
+
+- **«A igual edad» quiere decir contra la mediana de los reels maduros de ±3 días, sin el propio reel** (el método del crítico de
+  Hormozi; el script que lo reproduce está en `docs/series/herramientas/verificar-datos-referentes.py`). El ajuste por edad del
+  relevo de Víctor (sketch ×2,4) no se pudo repetir: una regresión simple da ×2,3. Un método de comparación se escribe con
+  detalle suficiente para que otro lo repita, o no sirve para elegir.
+- **Un video resubido con otro cartel termina con OTRO tema** si se clasifica de a uno: antes de contar, se buscan transcripciones
+  (o `cortes_s`) repetidas por script.
+
+## Trampas de las herramientas del relevo
+
+- **Con `python -I`, el orden de un `set` cambia entre corridas** (hash aleatorio): los empates de temas o de ganchos se
+  desempatan siempre por la misma regla (por ejemplo, la mediana de reproducciones y después el nombre), o los documentos
+  cambian solos de una corrida a otra.
+
+- **`python -I` ignora `PYTHONIOENCODING`** (`-I` implica `-E`): un `print` con acentos o «→» rompe en la consola cp1252. Cada
+  script hace `sys.stdout.reconfigure(encoding='utf-8')`.
+- El `drawtext` de ffmpeg falla en esta PC (no hay fontconfig): los números sobre los cuadros se dibujan con PIL.
+- **Un tramo MUDO en el archivo no es silencio en el reel**: las canciones de la biblioteca de Instagram no vienen en el mp4 que
+  baja `yt-dlp`. `audio.py` marca «sin fondo» y whisper inventa texto («Thanks for watching», letras de canciones) en esos
+  tramos. Un reel de «montaje con texto y canción» se lee por la hoja, no por la transcripción.
+- **En Hormozi, la palabra del CTA vive más en el texto de la publicación que en el video** (43 contra 30 de 48), y en dos casos
+  no coinciden (TEAM y TEAMS). El CTA se lee de los dos lados: transcripción y `caption`.
+- **Las resubidas se detectan comparando `cortes_s`**: el reel #34 de Hormozi es su fijado #1 resubido con otro título (32 de 32
+  cortes al mismo segundo); el fijado tiene 1,9 M y la copia 373 mil, justo su mediana.
+- Los cortes de escena con `gt(scene,0.30)` son un piso, no un conteo exacto: en horizontales metidos en vertical las franjas
+  negras diluyen el puntaje (0 a 1,4 cortes por minuto donde había 4 a 26).
+
+## La guardia de RAM y el Workflow
+
+- Con ~20 chats abiertos la PC quedó entre 0,4 y 1,7 GB libres; la guardia (`~/.claude/guardia/memoria.mjs`) niega un Workflow
+  por debajo de 3 GB y el vigía mató procesos en zona roja. Un relevo que necesita agentes se corre igual con ellos de a uno
+  (la herramienta Agent), que la guardia admite con 1 GB.
+
+## Sin hacer
+
+- Generar los ganchos con IA: espera a que Martín elija los temas en el artefacto (los votos quedan en la colección `votos`).

@@ -29,6 +29,28 @@ Contenido para las redes de Martín con su personaje en cubos y su voz clonada, 
 - **Personaje:** Martín en cubos (`reels/kit/toma.js`, `KIT.martin`). Subtítulos bajo el mentón, nunca sobre la cara.
 - **Idioma:** español neutro con «tú», neutro en género, frases cortas.
 
+## ⛔ Regla de Martín (19/11, para todas las series): simple, y el protagonista es lo que muestra la referencia
+
+Martín, al ver el piloto de la serie 1: «no se entiende, sobre todo el hook… copiar los hooks de las estructuras… no
+utilizar palabras técnicas… ser más simple». Y sobre el primer ticket: «utilizar el lenguaje más simple, sobre todo en el
+hook… "Es una locura la cantidad de dinero que se nos va en suscripciones. Yo en su momento pagaba…"… que tenga sentido la
+relación de las apps que salen ahí. No mezcles tanto… el ticket tiene que ser mucho más protagonista… No necesariamente
+siempre tiene que salir el muñequito de Martín, y no necesariamente siempre tiene que ser el protagonista».
+
+- **El gancho** sigue la fórmula de la primera frase de la referencia, y se entiende en el primer segundo sin saber nada
+  de marketing.
+- **Palabras de todos los días.** Nunca «CRM» (→ «tu lista de clientes»), «landing» (→ «tu página de ventas»), «ángulos»,
+  «hito», «certeza», «automatizar» si hay una forma común de decirlo («que todo se conecte solo»). En pantalla puede verse
+  el nombre real de la función (es la app); en la voz, lo común.
+- **Referentes por el nombre corto** (Hormozi, no Alex Hormozi).
+- **El muñeco no siempre; el protagonista es lo que muestra la referencia.** En el ticket, el papel ocupa la pantalla y
+  Martín va chico en un costado (o no va). Los subtítulos arriba, como la referencia, cuando Martín es chico y está abajo.
+- **Series de tickets por familia.** Cada ticket con apps de la MISMA familia (las que se usan juntas), con precios
+  verificados ese día, y termina en lo que hace MaKo de esa familia:
+  - **Vender** (hecho, `s3-ticket-vender`): GoHighLevel 97 + Zapier 29,99 + respond.io 99 = US$225,99, contra MaKo Pro 97.
+  - **Cursos y comunidad:** Skool 99, Kajabi 179 (Circle, sin precio mes a mes). Ojo: Skool y Kajabi se usan uno U otro.
+  - **Contenido:** CapCut 17,99 y lo que se pueda verificar (Canva muestra pesos; Notion no dice si sus 10 son anuales).
+
 ## La plantilla de guion (≈ 60-75 palabras, 20-26 s)
 
 | Tramo | Qué dice | Qué se ve |
@@ -52,6 +74,27 @@ El video 1 (CUBOS) es la excepción: no nombra ninguna app, vende el método.
   frase en una etiqueta abajo. Lo que sirve: el número con giro en el gancho, «el más loco» para la función estrella y los
   3 pasos de «es fácil».
 
+## Referencias que Martín guardó para esta serie (19/11, chat «Inspiración»)
+
+El detalle de cada una (gancho, estructura, CTA, transcripción y cuadros): `C:/dev/inspiracion/relevo.json` y
+`C:/dev/inspiracion/piezas/NN/`; el documento, en `C:/dev/wt-inspiracion/docs/inspiracion/relevo-19-11.md`. (?) = Martín
+todavía no la confirmó.
+
+| # | Cuenta | Qué tiene | Cómo la usamos |
+|---|---|---|---|
+| 12 | @ericgorriz_ | El ticket «¿Te parece caro pagar 200 al mes de IA?», personaje en cubos | La serie de tickets (hecho: vender) |
+| 70 / 73 | @samuauren / @artem.novitckii | «Así se ve cuando le das a [herramienta] la cuenta entera de [referente]» | Second Brain: chatear con referentes (`chat-referentes`, Pro). Antes, verificar qué hace hoy |
+| 45 (?) | @cosmosai.app | Abre con la cuenta de lo que ya pagas | Otro gancho para los tickets |
+| 31 (?) | @fabricanteschinos | «Todo este video lo editó Claude»: el video es la prueba | La línea de CUBOS |
+| 46 (?) | @curiosfer | «Mientras duermo, mi Claude…», números reales, CTA «comenta AUTOMÁTICO» | Automations (cuando haya una dibujada) |
+| 49 (?) | @wetracked.io | Sketch «persona tonta contra persona lista»: el listo nombra la app | Formato para cualquier «cómo se hace» |
+| 63 (?) | @santaia.lab | «Los CRM han muerto» con lápida; un CRM que carga ventas desde WhatsApp | Gancho para GRUPO / la lista de clientes |
+| 28 / 52 (?) | @santi.siciliano / @agiwithali | «La IA hizo esto por mí», «POV: hace X por ti» | Gancho corto para Copywriting o Web Generator |
+| 21 (?) | @wallsframeacademy | Pantalla partida desde el segundo 0; CTA de una palabra que regala algo | Formato del regalo (CUBOS) |
+| 64 (?) | @seyva.studio | Personaje en cubos que dialoga con la IA hecha personaje | Martín en cubos con MaKo como personaje |
+| 71 (?) | @sahni.ai | POV corto en bucle con un contador que sube | Sólo con números reales |
+| 2, 54, 60 (?) | @proyecto_atom, @saleads.ai, @espiad.app | Competencia directa: número propio en pantalla, «NO COMPRES…», testimonio casero | Mirar, no copiar |
+
 ## Ganchos que se usaron o se pueden usar
 
 - «Este video no lo grabé. Y tampoco lo edité.» (CUBOS)
@@ -65,7 +108,7 @@ El video 1 (CUBOS) es la excepción: no nombra ninguna app, vende el método.
 |---|---|---|
 | CUBOS | Cómo hago estos videos | La guía del método (falta armarla y cargar la respuesta automática) |
 | TICKET | El ticket de lo que ya pagas | El link de MaKo (pendiente) |
-| LANDING | Cómo armar una landing que vende | El link de MaKo al Web Generator (pendiente) |
+| COPIAR | Copia la página de ventas que ya vende (era LANDING) | El link de MaKo al Web Generator (pendiente) |
 
 ## Precios de otras apps (verificados el 19/11/2026, en dólares, pagando mes a mes, en su página oficial)
 
@@ -84,19 +127,76 @@ El video 1 (CUBOS) es la excepción: no nombra ninguna app, vende el método.
 Un precio que no se leyó en la página oficial no entra en un video.
 
 ⚠️ Antes de publicar cada video, la respuesta al comentario tiene que existir: MaKo contesta comentarios de Instagram
-(`lib/api-mako/areas/chatbot.def.ts`), pero está sin probar en producción con estas palabras.
+(`lib/api-mako/areas/chatbot.def.ts`), pero está sin probar en producción con estas palabras. Se configura en Automations de
+la cuenta de Instagram de Martín (comentario con palabra clave → mensaje directo). Es una escritura en producción: el texto
+pasa por el Cerebro a Martín.
+
+### El mensaje que le llega a quien comenta (19/11, para cargar)
+
+Mismo tono que el video: de partner, sin sonar a publicidad, en «tú». Las funciones con candado de Pro lo dicen
+(`FUNCIONES_SOLO_PRO` en `lib/topes-plan.ts`: el scraper, replicar landing, la IA de los editores y la comunidad). Los links
+son las landings de cada función (`app/vsl/<slug>`).
+
+- **CUBOS** (el método, sin MaKo):
+  > ¡Hola! Te paso cómo hago estos videos 👇
+  > 1. Le paso a Claude (la IA) la idea en una frase y me escribe el guion por escenas.
+  > 2. Pongo la voz con mi voz clonada en ElevenLabs.
+  > 3. Claude programa cada escena en HTML con Three.js: el personaje en cubos, las tarjetas y los subtítulos.
+  > 4. Un navegador saca una foto de cada cuadro y se arma el video vertical con la voz.
+  > ¿Qué parte te interesa más? Te cuento.
+- **TICKET**:
+  > ¡Hola! La app se llama MaKo. Acá está la cuenta completa de las apps que reemplaza: hola-mako.com/vsl/comparaciones
+  > Si me cuentas qué estás pagando hoy, te digo con cuáles te quedarías.
+- **COPIAR** (el video de la página de ventas; antes LANDING):
+  > ¡Hola! La app es MaKo. Pegas el link de la página de ventas que quieres copiar, la lee y eliges qué replicar: el diseño, la
+  > estructura o los ángulos. Replicar está en el plan Pro. Mírala aquí: hola-mako.com/vsl/web-generator
+- **GRUPO**:
+  > ¡Hola! La app es MaKo. En tu lista de clientes tocas «Extraer de un grupo de WhatsApp», eliges el grupo y entran todos con la
+  > etiqueta del grupo, sin duplicados. Está en el plan Pro. Mírala aquí: hola-mako.com/vsl/crm
+- **CARRUSEL**:
+  > ¡Hola! La app es MaKo. En Image eliges la estructura (lista, paso a paso, antes y después…), sale con tu marca y le
+  > pides a su chat que la escriba para tu negocio (el chat de los editores está en el plan Pro). Mírala aquí: hola-mako.com/vsl/image
+- **GUION**:
+  > ¡Hola! La app es MaKo. En Copywriting eliges la plantilla «Reel que trae mensajes» y su chat te escribe el guion para tu
+  > negocio, en la misma página. Mírala aquí: hola-mako.com/vsl/copywriting
+- **GANCHO**:
+  > ¡Hola! La app es MaKo. En Copywriting eliges la plantilla «10 ganchos para un anuncio» y su chat te los escribe para tu
+  > negocio. Mírala aquí: hola-mako.com/vsl/copywriting
+- **OFERTA**:
+  > ¡Hola! La app es MaKo. Su Offer Coach te hace las preguntas de un mentor, arma tu oferta en una página y te dice qué le
+  > falta para vender más. Mírala aquí: hola-mako.com/vsl/offer
+- **CURSO**:
+  > ¡Hola! La app es MaKo, tipo Skool: el curso por módulos y lecciones con candados, y la comunidad de tus alumnos (la
+  > comunidad está en el plan Pro), en la misma app con la que vendes. Mírala aquí: hola-mako.com/vsl/classroom
+
+## Los videos, uno por renglón (para el chat de Carruseles y para reusar)
+
+| Video | Gancho | Palabra | La función de MaKo que muestra |
+|---|---|---|---|
+| `s3-estos-videos` | «Este video no lo grabé. Y tampoco lo edité.» | CUBOS | Ninguna (el método: Claude + voz clonada + código) |
+| `s3-ticket` | «¿Te parece caro pagar 97 dólares al mes por una app?» | TICKET | Lo que reemplaza: GoHighLevel 97, Skool 99, Zapier 29,99, CapCut 17,99 = US$243,98 contra MaKo Pro 97 |
+| `s3-landing` | «Si vas a hacer tu página de ventas, no empieces de cero.» | COPIAR | Web Generator › Replicar landing (Diseño · Estructura · Ángulos) |
+| `s3-grupo` | «En tus grupos de WhatsApp hay gente que nunca recibió un mensaje tuyo.» | GRUPO | CRM › Extraer de un grupo de WhatsApp |
+| `s3-carrusel` | «El carrusel que más se guarda no es el más lindo.» | CARRUSEL | Image › Carruseles: las estructuras, con tu marca, y el chat que las escribe |
+| `s3-guion` | «Un reel que trae mensajes tiene tres partes.» | GUION | Copywriting › plantilla «Reel que trae mensajes» (Gancho · Historia · Moraleja) |
+| `s3-curso` | «Un curso que nadie termina no vende el siguiente.» | CURSO | Classroom: módulos con candados y la comunidad |
+| `s3-gancho` | «Tienes dos segundos antes de que muevan el dedo.» (tema #1 de la Serie 2) | GANCHO | Copywriting › plantilla «10 ganchos para un anuncio» |
+| `s3-oferta` | «Mentoría de doce semanas no es una oferta.» (tema #4 de la Serie 2) | OFERTA | Offer Coach: las preguntas de un mentor, la oferta en una página y qué le falta |
 
 ## Videos
 
 | id | Estado | Duración | MP4 | Palabra |
 |---|---|---|---|---|
 | `s3-estos-videos` | Hecho (19/11) | 22,6 s | `C:/dev/artefactos-animaciones/mp4/s3-estos-videos.mp4` | CUBOS |
-| `s3-ticket` | Hecho (19/11) | 30,5 s | `C:/dev/artefactos-animaciones/mp4/s3-ticket.mp4` | TICKET |
+| `s3-ticket` | Reemplazado (mezclaba familias; Martín, protagonista) | 30,5 s | `mp4/s3-ticket.mp4` | TICKET |
+| `s3-ticket-vender` | Hecho (19/11), espera el OK de Martín | 27,8 s | `C:/dev/artefactos-animaciones/mp4/s3-ticket-vender.mp4` | TICKET |
 | `s3-landing` | En curso (voz y reel hechos) | 26,8 s | — | LANDING |
 | `s3-grupo` | En curso (voz y reel hechos) | 26,8 s | — | GRUPO |
 | `s3-carrusel` | En curso (voz y reel hechos) | 24,6 s | — | CARRUSEL |
 | `s3-guion` | En curso (voz y reel hechos) | 22,8 s | — | GUION |
 | `s3-curso` | En curso (voz y reel hechos) | 25,5 s | — | CURSO |
+| `s3-gancho` | En curso (voz y reel hechos) | 24,7 s | — | GANCHO |
+| `s3-oferta` | En curso (voz y reel hechos) | 24,3 s | — | OFERTA |
 
 ### Por hacer (la tanda «cómo se hace X», verificada en `lib/funciones-mako.ts`)
 

@@ -1,0 +1,727 @@
+{
+ "formatos": {
+  "ia-persona": {
+   "nombre": "Gancho con avatar de IA + Martín a cámara (lo que describiste)",
+   "seg_ia": 12,
+   "persona": "Martín a cámara, en serio, 45 a 60 s",
+   "estructura": [
+    {
+     "de": 0,
+     "a": 12,
+     "que": "Gancho IA exagerado",
+     "tipo": "ia"
+    },
+    {
+     "de": 12,
+     "a": 62,
+     "que": "Martín explica",
+     "tipo": "persona"
+    },
+    {
+     "de": 62,
+     "a": 72,
+     "que": "CTA",
+     "tipo": "cta"
+    }
+   ],
+   "rinde": "Ramiro: 3 de 50 y uno solo con más de 48 h, a 0,6×. Ahí Ramiro está filmado y la IA es un elemento encima (una ballena), con ganchos de 23 a 31 s. Es el molde que pediste: casi no está probado."
+  },
+  "sketch-ia": {
+   "nombre": "Sketch entero con el avatar de IA (lo que más le rinde a Ramiro)",
+   "seg_ia": 75,
+   "persona": "No aparece: el avatar actúa la escena y da el consejo adentro",
+   "estructura": [
+    {
+     "de": 0,
+     "a": 10,
+     "que": "Situación absurda",
+     "tipo": "ia"
+    },
+    {
+     "de": 10,
+     "a": 65,
+     "que": "El consejo dentro de la escena",
+     "tipo": "ia"
+    },
+    {
+     "de": 65,
+     "a": 75,
+     "que": "CTA",
+     "tipo": "cta"
+    }
+   ],
+   "rinde": "Ramiro: 8 de 50, mediana 35 mil (1,9× su cuenta), 7 sin una sola toma filmada. Víctor lo hace con actores reales: 10 de 35, ×1,2 a ×2,4 contra su cámara a igual edad."
+  },
+  "animado-codigo": {
+   "nombre": "Tutorial animado por código (el top de Ramiro: 118 mil)",
+   "seg_ia": 0,
+   "persona": "Voz de Martín sobre pantallas y pasos animados",
+   "estructura": [
+    {
+     "de": 0,
+     "a": 5,
+     "que": "Pregunta + número",
+     "tipo": "otro"
+    },
+    {
+     "de": 5,
+     "a": 60,
+     "que": "Paso a paso animado",
+     "tipo": "otro"
+    },
+    {
+     "de": 60,
+     "a": 70,
+     "que": "CTA",
+     "tipo": "cta"
+    }
+   ],
+   "rinde": "Ramiro: 5 de 50, mediana 38,7 mil (2,1×), y el más visto de la tanda (118 mil). No gasta IA de video."
+  },
+  "pizarra": {
+   "nombre": "Martín + pizarra en pantalla dividida",
+   "seg_ia": 0,
+   "persona": "Martín a cámara con la pizarra o la pantalla al lado",
+   "estructura": [
+    {
+     "de": 0,
+     "a": 5,
+     "que": "Promesa con número",
+     "tipo": "persona"
+    },
+    {
+     "de": 5,
+     "a": 80,
+     "que": "Explica sobre la pizarra",
+     "tipo": "persona"
+    },
+    {
+     "de": 80,
+     "a": 92,
+     "que": "CTA",
+     "tipo": "cta"
+    }
+   ],
+   "rinde": "Ramiro: 12 de 50, mediana 13,3 mil (0,7×). Barato y constante, no explota."
+  },
+  "camara": {
+   "nombre": "A cámara, directo",
+   "seg_ia": 0,
+   "persona": "Martín a cámara de principio a fin",
+   "estructura": [
+    {
+     "de": 0,
+     "a": 4,
+     "que": "Frase fuerte",
+     "tipo": "persona"
+    },
+    {
+     "de": 4,
+     "a": 50,
+     "que": "Explica",
+     "tipo": "persona"
+    },
+    {
+     "de": 50,
+     "a": 58,
+     "que": "CTA",
+     "tipo": "cta"
+    }
+   ],
+   "rinde": "Víctor: 19 de 35 a cámara (59,8 mil). Hormozi: 2 selfies de una toma (2,8×) y 3 recortes de podcast (×2,3 a ×3,3 a igual edad)."
+  },
+  "llamada": {
+   "nombre": "Recorte de una llamada o pregunta de un cliente (Hormozi y Ramiro)",
+   "seg_ia": 0,
+   "persona": "Un cliente cuenta su problema y Martín responde (con permiso del cliente para publicarlo)",
+   "estructura": [
+    {
+     "de": 0,
+     "a": 5,
+     "que": "La pregunta del cliente, en cartel",
+     "tipo": "persona"
+    },
+    {
+     "de": 5,
+     "a": 55,
+     "que": "Martín responde",
+     "tipo": "persona"
+    },
+    {
+     "de": 55,
+     "a": 62,
+     "que": "CTA",
+     "tipo": "cta"
+    }
+   ],
+   "rinde": "Ramiro: 12 recortes de llamada (14,2 mil, 0,8×). Hormozi: 13 preguntas del público en vivo (×1,0 a ×1,2 a igual edad)."
+  }
+ },
+ "propuestas": [
+  {
+   "id": "trazabilidad",
+   "grupo": "Contenido que vende",
+   "inspirado": [
+    "ramiro"
+   ],
+   "formato": "sketch-ia",
+   "tema": "¿Qué video te trajo al cliente que te pagó?",
+   "porque": "Es el tema que mejor le rinde a Ramiro: sus sketches con IA sobre «qué contenido trae plata» sacan 87,6 y 73,5 mil, siempre con «comenta CRM». Y es exactamente lo que hace el CRM de MaKo: saber de qué video vino cada venta.",
+   "ganchos": [
+    "Publicas todos los días y no sabes cuál video te trajo al que pagó.",
+    "Tu mejor reel no es el de más vistas: es el que trajo al cliente de 3.000 dólares.",
+    "Me siguió, me escribió, me pagó… y nunca supe de qué video vino."
+   ],
+   "gancho_que": "Un detective con lupa siguiendo el rastro de un cliente por cinco reels",
+   "cta": "COMENTA CRM",
+   "refs": [
+    [
+     "ramiro",
+     "Dfi5E4sioYt",
+     "Sketch entero con IA; termina en «comenta CRM»."
+    ],
+    [
+     "ramiro",
+     "DflavpUisyG",
+     "Sketch con IA sobre el contenido que trae curiosos."
+    ]
+   ]
+  },
+  {
+   "id": "curiosos",
+   "grupo": "Clientes que pagan",
+   "inspirado": [
+    "ramiro"
+   ],
+   "formato": "ia-persona",
+   "tema": "La agenda llena de gente que no puede pagar",
+   "porque": "Es el tema que más repite Ramiro (14 de 50 reels, su metáfora de ballenas y peces chicos) y el dolor número uno del high ticket: llamadas con curiosos que queman horas.",
+   "ganchos": [
+    "Hiciste 20 llamadas esta semana y cerraste una: el problema no es tu cierre.",
+    "Si te preguntan el precio por mensaje, esa venta ya estaba perdida.",
+    "Tu calendario está lleno. Tu cuenta del banco, no."
+   ],
+   "gancho_que": "El avatar de patovica en la puerta de una oficina, frenando a una fila de curiosos",
+   "cta": "COMENTA FILTRO",
+   "refs": [
+    [
+     "ramiro",
+     "Df6GECpzVY8",
+     "Gancho con IA (una ballena en la pileta) y después a cámara."
+    ],
+    [
+     "ramiro",
+     "DfoDa85EyA6",
+     "Sketch con IA: un prospecto «de mala calidad» bajo la lupa."
+    ]
+   ]
+  },
+  {
+   "id": "contenido-ia",
+   "grupo": "Producir sin equipo",
+   "inspirado": [
+    "ramiro"
+   ],
+   "formato": "animado-codigo",
+   "tema": "Un mes de contenido con IA sin grabarte todos los días",
+   "porque": "Los reels más vistos de Ramiro son tutoriales animados de cómo hacer contenido con Claude (118 y 65 mil, más de mil comentarios). Se hacen por código: cero gasto de IA de video.",
+   "ganchos": [
+    "Grabé un solo video y salieron 30 reels.",
+    "Cómo hacer un mes de contenido en una tarde, en 7 pasos.",
+    "Despedí a mi editor y no por lo que crees."
+   ],
+   "gancho_que": "Sin IA de video: pantallas y pasos animados",
+   "cta": "COMENTA IA",
+   "refs": [
+    [
+     "ramiro",
+     "Dfk06zNGQZo",
+     "Tutorial animado en 7 pasos; su reel más visto de la tanda."
+    ],
+    [
+     "ramiro",
+     "Df3h8q8ztGF",
+     "Animado: 30 reels de prueba por día."
+    ]
+   ]
+  },
+  {
+   "id": "seguimiento",
+   "grupo": "Clientes que pagan",
+   "inspirado": [
+    "ramiro"
+   ],
+   "formato": "ia-persona",
+   "tema": "El lead que se enfría",
+   "porque": "La mayoría de las ventas high ticket se pierden en el seguimiento, no en la llamada. Es lo que resuelve MaKo con el CRM y WhatsApp, y nadie de los tres lo tiene como tema propio: lugar libre.",
+   "ganchos": [
+    "Ese «lo hablo con mi socio» ya le compró a otro.",
+    "No te falta tráfico: te falta contestar en 5 minutos.",
+    "Tengo 300 leads que dijeron «lo pienso». Esto les mandé."
+   ],
+   "gancho_que": "El avatar congelado dentro de un bloque de hielo, con el celular en la mano",
+   "cta": "COMENTA SEGUIMIENTO",
+   "refs": [
+    [
+     "ramiro",
+     "DfhuBAPFHzF",
+     "A cámara: por qué te llegan leads malos."
+    ]
+   ]
+  },
+  {
+   "id": "setter-ia",
+   "grupo": "Producir sin equipo",
+   "inspirado": [
+    "ramiro",
+    "hormozi"
+   ],
+   "formato": "sketch-ia",
+   "tema": "¿Reemplazar al setter con IA?",
+   "porque": "Tema caliente de 2026 en el nicho: setters caros, rotación, mensajes de las 3 de la mañana sin contestar. Ramiro lo toca dos veces en la semana (palabra AGENTE).",
+   "ganchos": [
+    "Mi setter contesta a las 3 de la mañana y no cobra comisión.",
+    "Probé reemplazar a mi setter con IA durante 30 días.",
+    "La IA no va a reemplazar a tu setter. Al setter lento, sí."
+   ],
+   "gancho_que": "Una oficina de call center de noche donde el único despierto es un robot",
+   "cta": "COMENTA SETTER",
+   "refs": [
+    [
+     "ramiro",
+     "Df4kgp-Trlk",
+     "Gancho con IA y después a cámara: setters o IA."
+    ],
+    [
+     "ramiro",
+     "Df5UMnTT-1C",
+     "Pizarra: ¿vale la pena reemplazarlos?"
+    ],
+    [
+     "hormozi",
+     "DfVRSAYoFPf",
+     "Estudio blanco: de cero a vender en 14 días."
+    ]
+   ]
+  },
+  {
+   "id": "seguidores",
+   "grupo": "Contenido que vende",
+   "inspirado": [
+    "ramiro",
+    "victor"
+   ],
+   "formato": "ia-persona",
+   "tema": "Muchos seguidores, poca plata",
+   "porque": "El miedo de quien crece y no factura. Víctor vende crecer en seguidores; Ramiro dice lo contrario. Martín puede tomar partido con números.",
+   "ganchos": [
+    "Hay cuentas de 3 mil seguidores que facturan más que la tuya.",
+    "El reel con más vistas de tu cuenta no te trajo ni un cliente.",
+    "Dejé de buscar vistas y empecé a buscar compradores."
+   ],
+   "gancho_que": "El avatar sentado en una montaña de corazones que se desinfla",
+   "cta": "COMENTA CLIENTES",
+   "refs": [
+    [
+     "ramiro",
+     "Df0jEFZIRTI",
+     "A cámara: más seguidores no es más plata."
+    ],
+    [
+     "victor",
+     "DW4OVoLkUH5",
+     "El contador de seguidores sube y el coche cambia."
+    ]
+   ]
+  },
+  {
+   "id": "viral-nicho",
+   "grupo": "Contenido que vende",
+   "inspirado": [
+    "victor",
+    "ramiro"
+   ],
+   "formato": "ia-persona",
+   "tema": "Viral, pero sólo para tu nicho",
+   "porque": "Une a los dos: la viralidad de Víctor con el filtro de Ramiro. Y el molde del mejor reel reciente de Víctor (1,9 millones): una situación exagerada y después la explicación en serio, con «comenta CLASE».",
+   "ganchos": [
+    "Un millón de vistas de la gente equivocada vale cero.",
+    "Haz el video más viral… para 5.000 personas.",
+    "Copié un formato viral y le cambié el público. Esto pasó."
+   ],
+   "gancho_que": "Un noticiero falso: «la cuenta de un coach se hizo viral… y no vendió nada»",
+   "cta": "COMENTA NICHO",
+   "refs": [
+    [
+     "victor",
+     "DXzUw8jthB3",
+     "Noticiero falso de un robo y después la explicación: 1,9 M."
+    ],
+    [
+     "ramiro",
+     "Df2vaYCHFoQ",
+     "Recorte de llamada: viral, pero dentro de tu nicho."
+    ]
+   ]
+  },
+  {
+   "id": "espiar",
+   "grupo": "Contenido que vende",
+   "inspirado": [
+    "ramiro"
+   ],
+   "formato": "ia-persona",
+   "tema": "Copia lo que ya le funcionó a tu competencia",
+   "porque": "Pensar qué publicar es el freno de todos. Mirar los videos que superaron a su propia cuenta ahorra semanas, y es lo que hace Competitor Spy. Ramiro corrige ganchos ajenos en sus llamadas.",
+   "ganchos": [
+    "Tu competencia ya probó 500 reels por ti. Mira cuáles ganaron.",
+    "No inventes contenido: busca el video que hizo 10 veces más que su cuenta.",
+    "Encontré una app que me dice qué video copiarle a mi competencia."
+   ],
+   "gancho_que": "El avatar de espía con una lupa gigante sobre el teléfono de un competidor",
+   "cta": "COMENTA ESPÍA",
+   "refs": [
+    [
+     "ramiro",
+     "DfzylOtE57v",
+     "Recorte de llamada: cómo debió ser el gancho."
+    ]
+   ]
+  },
+  {
+   "id": "anuncios",
+   "grupo": "Escalar",
+   "inspirado": [
+    "ramiro"
+   ],
+   "formato": "pizarra",
+   "tema": "Anuncios que terminan en una conversación",
+   "porque": "Ramiro le dedica 8 de 50 reels a sus anuncios que llevan al mensaje directo. El high ticket paga anuncios que traen likes y no llamadas.",
+   "ganchos": [
+    "Gasté mil dólares en anuncios y gané 14 llamadas. Esto cambié.",
+    "Tu anuncio no falla: falla lo que pasa después del clic.",
+    "El anuncio que más me vende no vende nada."
+   ],
+   "gancho_que": "Sin IA de video: Martín con la pizarra del anuncio al lado",
+   "cta": "COMENTA ANUNCIO",
+   "refs": [
+    [
+     "ramiro",
+     "DflOHziDDVV",
+     "Pizarra: los anuncios a DM ya no se corren igual."
+    ],
+    [
+     "ramiro",
+     "DfnSkt_iI_M",
+     "Gancho actuado sin IA y después a cámara."
+    ]
+   ]
+  },
+  {
+   "id": "embudo",
+   "grupo": "Escalar",
+   "inspirado": [
+    "ramiro"
+   ],
+   "formato": "animado-codigo",
+   "tema": "Dónde se te escapa la plata en el embudo",
+   "porque": "Te siguen, te escriben, agendan… y desaparecen. Medir cada paso del seguidor al cierre muestra dónde se pierde. Ramiro lo explica con su embudo de tres etapas y con el sketch de Nvidia (33 mil).",
+   "ganchos": [
+    "Te sigue, te escribe, agenda… y desaparece. Aquí se rompe.",
+    "Tu problema no es el contenido. Es el paso dos.",
+    "Medí mi embudo: perdía el 70 % en un solo paso."
+   ],
+   "gancho_que": "Sin IA de video: un embudo animado que gotea billetes",
+   "cta": "COMENTA EMBUDO",
+   "refs": [
+    [
+     "ramiro",
+     "Dfx9y6jD7bs",
+     "Pizarra: su embudo de tres etapas."
+    ],
+    [
+     "ramiro",
+     "DfvwqMQDDyi",
+     "Sketch con IA: Nvidia necesita un CEO."
+    ]
+   ]
+  },
+  {
+   "id": "margen",
+   "grupo": "Escalar",
+   "inspirado": [
+    "ramiro"
+   ],
+   "formato": "sketch-ia",
+   "tema": "Facturas mucho y te queda poco",
+   "porque": "Ramiro tiene un tema entero de rentabilidad (margen, backend, plata perdida). Para un coach que factura 20 mil y no ahorra, duele más que cualquier táctica.",
+   "ganchos": [
+    "Facturé 30 mil este mes y me quedaron 6. Así se fue el resto.",
+    "Si a tu programa le queda menos de la mitad, trabajas gratis medio mes.",
+    "Tu venta más fácil es al cliente que ya te pagó."
+   ],
+   "gancho_que": "El avatar en un reality show: lo nominan para salir de la casa por quedarse sin plata",
+   "cta": "COMENTA MARGEN",
+   "refs": [
+    [
+     "ramiro",
+     "DfbMdVPTRu8",
+     "Sketch con IA tipo reality: «¡sos el siguiente!»."
+    ],
+    [
+     "ramiro",
+     "Dfcz8mriaBU",
+     "A cámara: el margen de una mentoría."
+    ]
+   ]
+  },
+  {
+   "id": "herramientas",
+   "grupo": "Producir sin equipo",
+   "inspirado": [
+    "ramiro"
+   ],
+   "formato": "ia-persona",
+   "tema": "Pagas siete herramientas que no se hablan entre sí",
+   "porque": "Es el ticket de MaKo contra lo que ya pagan (la sección «Lo que probablemente ya pagas» de la landing): ataca el costo y el desorden. Ramiro toca el «contrato una agencia que me haga todo» con un gancho actuado (29,6 mil).",
+   "ganchos": [
+    "Sumé lo que pagas en herramientas: es un sueldo.",
+    "CRM, agenda, ManyChat, Canva, editor… y igual se te pierden leads.",
+    "¿Te parece caro pagar 200 dólares de IA? Mira lo que ya pagas."
+   ],
+   "gancho_que": "El avatar haciendo malabares con siete logos que se le caen",
+   "cta": "COMENTA TICKET",
+   "refs": [
+    [
+     "ramiro",
+     "DfuQ4RLjYc9",
+     "Gancho actuado: «necesito una agencia que me haga todo»."
+    ]
+   ]
+  },
+  {
+   "id": "sistemas",
+   "grupo": "Escalar",
+   "inspirado": [
+    "ramiro",
+    "hormozi"
+   ],
+   "formato": "pizarra",
+   "tema": "Tu negocio no puede depender de ti",
+   "porque": "El techo de todo coach: si no está, no factura. Ramiro lo vende con sus procesos escritos (SOP), que regala con «comenta SOP» en 10 de sus 50 reels.",
+   "ganchos": [
+    "Si te vas una semana de vacaciones, ¿tu negocio factura?",
+    "No te faltan clientes: tú eres el cuello de botella.",
+    "Escribí un proceso y recuperé 10 horas por semana."
+   ],
+   "gancho_que": "Sin IA de video: Martín con el proceso dibujado en la pizarra",
+   "cta": "COMENTA SISTEMA",
+   "refs": [
+    [
+     "ramiro",
+     "DfvY9_NJcdn",
+     "Pizarra: qué hacer si te restringen los mensajes."
+    ],
+    [
+     "hormozi",
+     "Ddii_P4BHns",
+     "Pregunta del público: ¿por qué se van mis empleados? (4,7 M)."
+    ]
+   ]
+  },
+  {
+   "id": "miedo",
+   "grupo": "Mentalidad",
+   "inspirado": [
+    "victor"
+   ],
+   "formato": "camara",
+   "tema": "Lo que no publicas por miedo te cuesta clientes",
+   "porque": "Víctor dedica 10 de 35 reels al miedo y la constancia. Para un coach, el miedo a mostrarse y a cobrar caro frena más que la falta de técnica.",
+   "ganchos": [
+    "Grabas, lo miras y lo borras. Ese video valía tres clientes.",
+    "¿Y si te sale mal? Ya te está saliendo mal: no publicas.",
+    "El coach que menos sabe de tu tema factura más que tú. Se muestra."
+   ],
+   "gancho_que": "Sin IA de video: Martín a cámara desde el primer segundo",
+   "cta": "COMENTA EMPEZAR",
+   "refs": [
+    [
+     "victor",
+     "DfnEGEfPcDq",
+     "A cámara: «¿y si me sale mal?»."
+    ],
+    [
+     "victor",
+     "Dd9pHdwPaC9",
+     "A cámara con antes y después: 93,6 mil."
+    ]
+   ]
+  },
+  {
+   "id": "mentorias",
+   "grupo": "Oferta y cierre",
+   "inspirado": [
+    "ramiro"
+   ],
+   "formato": "camara",
+   "tema": "La mentoría que no te dio resultados",
+   "porque": "Ramiro lo usa para traer clientes de otras mentorías. A Martín le sirve con cuidado, porque también vende el Accelerator: hablar del sistema que faltó, no de otros mentores.",
+   "ganchos": [
+    "Pagaste una mentoría y sigues igual: esto es lo que faltó.",
+    "Lo caro no es la mentoría: es seguir seis meses en la equivocada.",
+    "Tres señales de que tu mentor no tiene sistema."
+   ],
+   "gancho_que": "Sin IA de video: Martín a cámara desde el primer segundo",
+   "cta": "COMENTA MENTOR",
+   "refs": [
+    [
+     "ramiro",
+     "Dfm3xDWiV0Z",
+     "Gancho actuado: «quiero terminar la mentoría donde estoy»."
+    ],
+    [
+     "ramiro",
+     "Df5uuJAJxFr",
+     "A cámara, selfie."
+    ]
+   ]
+  },
+  {
+   "id": "precio",
+   "grupo": "Oferta y cierre",
+   "inspirado": [
+    "hormozi"
+   ],
+   "formato": "camara",
+   "tema": "Sube el precio",
+   "porque": "El miedo a cobrar caro frena a casi todos. Hormozi lo dice tajante («nunca bajes el precio», 683 mil) y es parte de su tema más repetido, cerrar la venta.",
+   "ganchos": [
+    "Tripliqué el precio y me compraron más.",
+    "Tu precio no es caro. Tu oferta es aburrida.",
+    "Si nadie se queja de tu precio, cobras poco."
+   ],
+   "gancho_que": "Sin IA de video: la frase tajante en un cartel, Martín a cámara",
+   "cta": "COMENTA PRECIO",
+   "refs": [
+    [
+     "hormozi",
+     "Dfpk7PcTfsK",
+     "Estudio blanco: «nunca bajes el precio para ganar un cliente»."
+    ]
+   ]
+  },
+  {
+   "id": "oferta",
+   "grupo": "Oferta y cierre",
+   "inspirado": [
+    "hormozi"
+   ],
+   "formato": "ia-persona",
+   "tema": "Una oferta que da vergüenza rechazar",
+   "porque": "Hormozi construyó su marca sobre la oferta. En high ticket es lo que más mueve el cierre, más que el guion de venta.",
+   "ganchos": [
+    "Nadie quiere tu mentoría. Quieren lo que pasa después.",
+    "Agregué una garantía y vendí el doble.",
+    "Tu competencia cobra menos y vende más: mira lo que ofrece."
+   ],
+   "gancho_que": "El avatar abriendo una caja fuerte que desborda de bonos",
+   "cta": "COMENTA OFERTA",
+   "refs": [
+    [
+     "hormozi",
+     "DfXyDVPopFX",
+     "Lista con número: dos razones por las que nadie compra."
+    ]
+   ]
+  },
+  {
+   "id": "cierre",
+   "grupo": "Oferta y cierre",
+   "inspirado": [
+    "hormozi"
+   ],
+   "formato": "sketch-ia",
+   "tema": "«Lo tengo que pensar»",
+   "porque": "Cerrar la venta es el tema que más repite Hormozi (17 de 48), y la objeción entre comillas en el cartel es uno de sus moldes. La vive todo el que vende por llamada y se explica en un minuto.",
+   "ganchos": [
+    "«Lo tengo que pensar» no es una objeción. Es un aviso.",
+    "Dejé de convencer y empecé a cerrar más.",
+    "La pregunta que hago antes de decir el precio."
+   ],
+   "gancho_que": "Un tribunal: el avatar de juez golpea el martillo ante «lo tengo que pensar»",
+   "cta": "COMENTA CIERRE",
+   "refs": [
+    [
+     "hormozi",
+     "DfaawJpoCve",
+     "La objeción entre comillas en el cartel rojo."
+    ],
+    [
+     "hormozi",
+     "DfS9tS4IcP6",
+     "15 años de ventas en 60 s, contra reloj: 1,7 M."
+    ]
+   ]
+  },
+  {
+   "id": "foco",
+   "grupo": "Escalar",
+   "inspirado": [
+    "hormozi"
+   ],
+   "formato": "camara",
+   "tema": "Haces diez cosas y ninguna vende",
+   "porque": "Es el tema que más le rinde a Hormozi (mediana de 879 mil): foco en una sola cosa, el cuello de botella de hoy. Su reel más visto de la tanda son 10 reglas en una selfie de 31 s, sin cortes ni IA.",
+   "ganchos": [
+    "Estás en cinco redes, con tres ofertas y cero ventas.",
+    "Diez reglas para vender high ticket en 30 segundos.",
+    "Deja de hacer todo. Haz esta sola cosa durante 90 días."
+   ],
+   "gancho_que": "Sin IA de video: selfie de una toma, cada regla escrita en pantalla",
+   "cta": "COMENTA FOCO",
+   "refs": [
+    [
+     "hormozi",
+     "DfLtZLvo7Cc",
+     "Selfie de una toma: 10 reglas (1,8 M)."
+    ],
+    [
+     "hormozi",
+     "DfTSZcnovSg",
+     "Pregunta del público: «¿cómo hacen tan poco?» (1,2 M)."
+    ]
+   ]
+  },
+  {
+   "id": "pregunta-cliente",
+   "grupo": "Clientes que pagan",
+   "inspirado": [
+    "hormozi",
+    "ramiro"
+   ],
+   "formato": "llamada",
+   "tema": "«No me alcanzan los clientes»: el caso real de la semana",
+   "porque": "La forma que Hormozi y Ramiro repiten más que ninguna: alguien cuenta su problema y se resuelve en vivo (13 talleres de Hormozi, 12 recortes de llamada de Ramiro). Martín tiene las llamadas del Accelerator: cero gasto de IA, con permiso del cliente.",
+   "ganchos": [
+    "«Vendo mentorías de 2.000 dólares y nadie agenda.» Esto le respondí.",
+    "Una coach me dijo que su contenido no vende. Miramos sus números.",
+    "«Tengo 20 mil seguidores y 3 clientes.» El problema estaba en otro lado."
+   ],
+   "gancho_que": "Sin IA de video: la frase del cliente en un cartel y la llamada real",
+   "cta": "COMENTA CASO",
+   "refs": [
+    [
+     "hormozi",
+     "DfLELOsIJHF",
+     "Pregunta del público: «no consigo suficientes clientes» (1,4 M)."
+    ],
+    [
+     "ramiro",
+     "DfcYYsoCiYP",
+     "Recorte de una llamada con un cliente."
+    ]
+   ]
+  }
+ ]
+}

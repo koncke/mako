@@ -265,6 +265,8 @@ beats.forEach((b) => {
   // the classic «letters behind the person» (the Cerebro, 18/11): on the hook and on «Eso es el…», the text is BIG and its last
   // line passes behind his head; on the close, it sits above him
   if (b.modo === 'heroe' && (rol === 'gancho' || rol === 'que-es')) b.detras = true;
+  // the hook: NOTHING of it is covered, in any frame (the Cerebro, 19/11: «la cabeza tapa el final del gancho», day 3)
+  if (b.detras && rol === 'gancho') b.gancho = true;
   // an object in his hand when the sentence is about it: a microphone for a voice note, a phone for the phone
   if (/nota de voz|grábale|audio/i.test(b.text)) { b.objeto = 'mic'; b.pose = 'sostiene'; }
   else if (/celular|teléfono/i.test(b.text) && b.modo !== 'titulo') { b.objeto = 'tel'; b.pose = 'sostiene'; }

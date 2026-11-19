@@ -1192,7 +1192,7 @@
    "archivo": "/tutoriales/reto-dia-2.mp4",
    "poster": "/tutoriales/reto-dia-2.jpg",
    "duracion_s": 93.8,
-   "peso_kb": 4963,
+   "peso_kb": 4946,
    "guion": "¿Sabías que quien te pide información empieza a perder las ganas de comprar a los ocho minutos? Te doy la bienvenida al día dos: hoy conectamos todo, para que ningún lead se te enfríe. Imagina que vendes un programa de coaching de tres mil dólares. Alguien llena tu formulario de Meta a las nueve de la noche. Si lo ves al día siguiente, esa persona ya habló con otro coach. En cambio, con Meta conectado en tus integraciones, ese lead entra solo a tu CRM. Y con la app de MaKo en tu teléfono, tienes tu CRM y tus avisos en el bolsillo. Lo ves esa misma noche, y le contestas en minutos. En algo de tres mil dólares, esos minutos son la diferencia entre una venta y un no. ¿Crees que igual contestas rápido? Un lead que no ves, no lo puedes contestar. La app no es lo mismo que escribirle a MaKo por WhatsApp: es la aplicación de MaKo en tu teléfono. Toca aquí, en tu foto. Ahora toca aquí, en Settings. Y aquí, en Instalar la app. Mira aquí, el QR: escanéalo con tu teléfono, y cuando tengas la app, toca Siguiente. Mira aquí, la extensión para Chrome: con ella tienes a MaKo a mano mientras navegas. Después, toca aquí, en Integraciones, y conecta sólo lo que necesita tu funnel. Y al final, toca aquí, en tu perfil, y sube tu foto: lo que contaste ya está guardado. Hoy ganas velocidad: lo que pasa en tu negocio, lo ves en tu teléfono. Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto. Le escribes tú primero, y así WhatsApp no frena sus mensajes.",
    "frases": [
     {
@@ -1365,7 +1365,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-19T02:30:39.355Z"
+   "hecho": "2026-11-19T05:24:10.763Z"
   },
   {
    "key": "reto-dia-3",
@@ -1374,7 +1374,7 @@
    "archivo": "/tutoriales/reto-dia-3.mp4",
    "poster": "/tutoriales/reto-dia-3.jpg",
    "duracion_s": 76.03,
-   "peso_kb": 4057,
+   "peso_kb": 4047,
    "guion": "¿Cuántas personas te preguntaron el precio y nunca más supiste de ellas? Te doy la bienvenida al día tres: hoy ordenas tus contactos y dejas a MaKo atendiendo tus mensajes. Esa gente ya te conoce: recuperarla cuesta mucho menos que salir a buscar a alguien nuevo. Pero si pasa un mes sin noticias tuyas, le compra a otro. Piensa en una mentoría de dos mil dólares con ciento cincuenta contactos olvidados en tu WhatsApp. Si los cargas en el CRM, les escribes de nuevo y regresan tres, son seis mil dólares que ya tenías. Y mientras estás en una llamada, los mensajes nuevos se quedan esperando. Con una automatización, MaKo les contesta o te deja la respuesta lista. Primero, toca aquí, en CRM, y carga tus clientes con un CSV, aunque vengan de otro sistema. Después, toca aquí, en Automations, para armar tu primera automatización. Mira aquí, Nueva automatización: pídele a MaKo que conteste a tus clientes por donde te escriben, WhatsApp, Instagram o email. Y toca aquí, en Calendar, y conecta tu calendario: las llamadas que agenden caen en tu agenda. Con esto, tus clientes quedan en un solo lugar y vuelves a hablarles a tiempo. Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
    "frases": [
     {
@@ -1491,7 +1491,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-19T02:48:45.718Z"
+   "hecho": "2026-11-19T05:26:57.739Z"
   },
   {
    "key": "reto-dia-4",
@@ -1500,7 +1500,7 @@
    "archivo": "/tutoriales/reto-dia-4.mp4",
    "poster": "/tutoriales/reto-dia-4.jpg",
    "duracion_s": 69.77,
-   "peso_kb": 3725,
+   "peso_kb": 3696,
    "guion": "¿Por qué hay anuncios que duran meses al aire, y otros se apagan en una semana? Te doy la bienvenida al día cuatro: hoy copias lo que ya le funciona a tu competencia. Si un anuncio lleva meses activo, es porque a su dueño le sigue dejando más dinero del que cuesta. Otros de tu mercado ya pagaron para descubrir qué atrae clientes. Toma una agencia que hace los anuncios de clínicas dentales, por mil quinientos dólares al mes. En Competitor Spy, la agencia ve que un rival tiene un anuncio corriendo hace noventa días. Ahí mismo descubre a dónde manda a quien hace clic, y mira su web por dentro. ¿Y copiar no está mal? No, si tomas cómo está armado, y no su texto ni sus videos. Con esa estructura y su propia oferta, su página no arranca de cero. Primero, toca aquí, en Competitor Spy, y agrega a tres competidores: mira lo que más tiempo llevan activo, porque si sigue activo, vende. Después, toca aquí, en Web Generator: pegas una página que ya vende, y la arma con tu oferta. Hoy partes de algo probado, no de una corazonada. Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
    "frases": [
     {
@@ -1606,7 +1606,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "spy → competitorspy · spy → competitorspy · mako → maco · falta competitor · falta competitor (ortografía del transcriptor)",
-   "hecho": "2026-11-19T02:54:22.794Z"
+   "hecho": "2026-11-19T05:29:33.519Z"
   },
   {
    "key": "reto-dia-5",
@@ -1615,7 +1615,7 @@
    "archivo": "/tutoriales/reto-dia-5.mp4",
    "poster": "/tutoriales/reto-dia-5.jpg",
    "duracion_s": 66.83,
-   "peso_kb": 3549,
+   "peso_kb": 3535,
    "guion": "¿Te pasa que se te van horas pensando qué publicar, y después casi nadie lo ve? Te doy la bienvenida al día cinco: hoy armas una semana de contenido, sin hoja en blanco. Lo que más rinde casi nunca sale de cero: parte de una idea que ya enganchó. Por eso MaKo te muestra las piezas que rindieron varias veces lo usual de quien las publicó. Pongamos una coach de liderazgo que cobra dos mil quinientos dólares. Ella elige un carrusel que tuvo cuatro veces las reacciones que suele tener esa cuenta. MaKo le pregunta su oferta y lo arma con esa idea, que ya demostró que engancha. ¿Y si esa pieza es de otro rubro? Lo que se toma es el ángulo y el gancho, no el tema. Con que le traiga un solo cliente, esa idea prestada ya vale dos mil quinientos dólares. Primero, toca aquí, en Ímich, y replica un carrusel que ya funcionó, con tu oferta. Después, toca aquí, en Copywriting, y escribe tu guion replicando a tu referente. Hoy te llevas tu carrusel y tu guion de la semana, con ideas que la gente ya eligió. Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
    "frases": [
     {
@@ -1721,7 +1721,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "mako → maco · mako → maco · imich → image · mako → maco (ortografía del transcriptor)",
-   "hecho": "2026-11-19T02:57:23.090Z"
+   "hecho": "2026-11-19T05:47:05.317Z"
   },
   {
    "key": "reto-dia-6",
@@ -1730,7 +1730,7 @@
    "archivo": "/tutoriales/reto-dia-6.mp4",
    "poster": "/tutoriales/reto-dia-6.jpg",
    "duracion_s": 66.17,
-   "peso_kb": 3462,
+   "peso_kb": 3433,
    "guion": "¿Tienes videos que se quedaron en una idea, porque nunca encontraste el momento de ponerte frente a la cámara? Te doy la bienvenida al día seis: hoy haces tu video con IA, sin grabarte. Lo que frena tus videos casi nunca son las ideas: es el tiempo que se va en tomas, luces y edición. Con tu personaje, escribes lo que quieres decir y MaKo hace el video por ti. ¿Te preocupa que no diga lo tuyo? Lo escribes tú, y lo dice tal cual. Y en un video corto, todo se decide al principio: si el gancho no detiene a la persona, pasa de largo. Piensa en un agente inmobiliario que gana cinco mil dólares por cada venta. Si mil personas ven su clip de diez segundos y el gancho le trae una sola venta, ese clip vale cinco mil dólares. Toca aquí, en Video: en Crear desde cero, abre «Tu personaje con IA» y sube una foto tuya. Con tu personaje haces tu primer clip, con el gancho del guion que escribiste ayer. Hoy te llevas tu personaje y tu primer clip, listos para publicar. Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
    "frases": [
     {
@@ -1827,7 +1827,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-19T03:03:15.042Z"
+   "hecho": "2026-11-19T05:49:17.185Z"
   },
   {
    "key": "reto-dia-7",
@@ -1836,7 +1836,7 @@
    "archivo": "/tutoriales/reto-dia-7.mp4",
    "poster": "/tutoriales/reto-dia-7.jpg",
    "duracion_s": 71.1,
-   "peso_kb": 3715,
+   "peso_kb": 3689,
    "guion": "¿Cuántas veces empezaste algo con todas las ganas, y al mes ya lo habías dejado? Te doy la bienvenida al día siete, el último: tu Marketing CoPilot lee lo que armaste y ordena tus próximos pasos. A casi nadie le falta motivación. Le falta saber qué sigue. Si al despertar te preguntas por dónde empezar, gastas la energía antes de trabajar. Mira una consultora que cobra dos mil dólares por proyecto: le alcanzan cuatro clientes al mes. No necesita hacerse viral: necesita constancia. El lunes abre su Plan y ya tiene la lista: los reels por grabar, sus correos y el arreglo de su web. Así no afloja aunque los resultados todavía no se vean. En ese tramo abandona la mayoría. Las ventas no salen de un día inspirado. Salen de cumplir, con o sin aplausos. Primero, toca aquí, en Marketing CoPilot: revisa tu oferta, tu página y tu contenido. Después, toca aquí, en Plan: ahí te deja las tareas de cada semana. Hoy terminas con algo que vale más que las ganas: un sistema para cada lunes. Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
    "frases": [
     {
@@ -1942,7 +1942,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "mako → maco (ortografía del transcriptor)",
-   "hecho": "2026-11-19T04:12:01.800Z"
+   "hecho": "2026-11-19T05:51:31.902Z"
   },
   {
    "key": "ops-center",
