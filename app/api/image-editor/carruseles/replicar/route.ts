@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   const que = body?.que === 'thumbnail' ? 'thumbnail' : 'carrusel';
   if (!vertical && (!Number.isSafeInteger(id) || id === 0 || (que === 'thumbnail' && id < 0))) return fallo(que === 'thumbnail' ? 'Falta la miniatura.' : 'Falta el carrusel.', 400);
   const ejemplo: EjemploAReplicar = vertical ? { que: 'vertical', id: String(body?.id) } : { que, id };
-  const pedido = typeof body?.pedido === 'string' ? body.pedido.slice(0, 400) : null;
+  const pedido = typeof body?.pedido === 'string' ? body.pedido.slice(0, 600) : null;
   // Lo que contestó el dueño en el guiado (lib/carruseles/guiado.ts): se lee sin creerle; la oferta se vuelve a buscar en SU base.
   // Sin oferta también se escribe (12/11/2026, «Replicar» sin preguntas): un negocio sin ofertas cargadas recibe su versión con lo
   // que se sabe de él, y la oferta se elige después. Antes: «Falta elegir la oferta.», 400.

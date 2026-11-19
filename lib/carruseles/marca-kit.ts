@@ -59,6 +59,20 @@ export function estiloConKit(e: EstiloCarrusel, kit: KitMarca | null, fuenteDelE
 }
 
 /** El logo del kit como lo pone la cabecera del carrusel (lib/carruseles/documento.ts), o null. */
+/**
+ * El @ de Instagram con que firma el negocio: el de la cuenta que conectó por Zernio (19/11/2026). La primera ACTIVA y sin pedir
+ * reconexión; un usuario que no parece un handle de Instagram no va. null = no conectó ninguna (el @ del marco del original se
+ * borra, como hasta ahora). Medido ese día: el ws 9 tiene conectada «martin.koncke», el mismo @ que Claude puso a mano en los
+ * carruseles de ventas, y la réplica dejaba el encabezado y el pie de las seis láminas sin él.
+ */
+export function usuarioDeLasCuentas(cuentas: ReadonlyArray<{ usuario: string | null; activa: boolean; vencida: boolean }>): string | null {
+  for (const c of cuentas) {
+    const u = (c.usuario ?? '').trim().replace(/^@+/, '');
+    if (c.activa && !c.vencida && /^[A-Za-z0-9._]{1,30}$/.test(u)) return u.toLowerCase();
+  }
+  return null;
+}
+
 export function logoDeKit(kit: KitMarca | null): Marca['logo'] {
   const l = kit?.logo;
   return l ? { id: l.subidoId, url: l.url, nombre: l.nombre, ancho: l.ancho, alto: l.alto } : null;

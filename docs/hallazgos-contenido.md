@@ -265,6 +265,39 @@ portal (cursos duplicados, transcripciones que «faltan») está también en [ha
     `{modelo, texto}`), y eso ya estaba escrito en [hallazgos-conocimiento.md](hallazgos-conocimiento.md) desde el
     11/11. **Regla:** antes de dar por vacío un curso, se mira `C:/cursos/<slug>/`.
 
+12. **«Nada de relleno»: lo que parecía una animación prolija se leyó como un boceto (video 1, 19/11).** Las tarjetas
+    tenían rayitas grises «de texto» que se llenaban recién cuando la voz llegaba a cada una, y el título «TRES VECES»
+    entraba y salía en menos de un segundo. En la hoja de contacto se veía «en movimiento»; el Cerebro, mirando el
+    video, vio tarjetas vacías y un título cortado. Lo mismo pasaba en el video 2 con «vistas» sin su número y fichas
+    con la mitad de abajo vacía hasta que llegaba el ejemplo.
+    - **Regla:** cada elemento muestra contenido real desde su primer cuadro. Para marcar el momento en que la voz lo
+      dice, un golpe de escala o de color. Si una tarjeta espera su contenido, crece cuando el contenido llega
+      (`reels/edu-cinco-frases.html`, las `.crece` de cada ficha), no antes. Un texto que no se alcanza a leer entero, se saca.
+
+13. **Renumerar escenas dejó segundos vacíos que la sintaxis no ve.** Al agregar una escena al principio del guion
+    (s1 nueva), las referencias `A.sN` se corrieron con reemplazos de texto desde el panel de Hormozi para abajo. La
+    salida del panel 1 estaba más arriba y quedó atada a la escena vieja: el pizarrón se iba 7 s antes y los segundos
+    19-24 (el momento de los cuatro millones) salieron vacíos. **Regla:** después de renumerar escenas, capturar al
+    menos un cuadro por escena.
+
+14. **Voseo que `chequear-guion.mjs` no marca.** Con el clon rioplatense, «dejas» salió «dejás». El chequeo compara sin
+    tildes y lo da por bueno. Son riesgosos los verbos de «tú» que en voseo cambian sólo el acento (dejas, completes,
+    arranques, quédate); los que cambian la raíz (pierdes, sigues, eres) no. **Regla:** leer la transcripción buscando
+    esas tildes y, si una sale aguda, cambiar el verbo.
+
+15. **El mismo nombre escrito igual no suena igual en cada toma.** «Jormozi» salió «Hormozi» en el video 1 y «George
+    Mozi» en el video 2; «Jormosi» anduvo. No hay una escritura que sirva siempre: si el chequeo oye otro nombre, se
+    prueba otra escritura u otra toma.
+
+16. **«docs/branding-mako.md quedó viejo» no era el motivo del push bloqueado.** Un worktree nuevo no tiene
+    `node_modules`; el hook de la punta no encontró `tsx` (`ERR_MODULE_NOT_FOUND`, más arriba en la salida) y el
+    mensaje final culpaba al doc. **Arreglo:** `cmd /c mklink /J <worktree>\node_modules <clon principal>\node_modules`
+    al crear el worktree (una unión, no una copia). Con eso el filtro pasó en verde en 87 s.
+
+17. **Dos chats crearon el mismo doc de hallazgos.** La serie 3 creó `hallazgos-contenido.md` primero, y el rebase dejó
+    dos títulos «# Hallazgos — Contenido». **Regla:** antes de crear un doc de hallazgos, mirar `origin/main`; si ya
+    existe, se entra como sección.
+
 ### Lo que quedó sin hacer (serie 2)
 
 - THE NET LAB (Meta Ads 2026: «Andrómeda», «Diversidad creativa», estructura de cuenta 2026): no se leyó, y es lo más
