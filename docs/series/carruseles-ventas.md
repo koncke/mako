@@ -70,6 +70,16 @@ Lámina por lámina, con la referencia al lado:
 | Resultado | Lo que hace la app, con una respuesta real | «Ahora audita todo tu negocio.» |
 | CTA | La pregunta de la referencia + «Comenta “PALABRA” y te la paso.» | «¿Quieres la guía paso a paso?» / «Comenta “HORMOZI” y te la paso.» |
 
+⛔ **Regla de Martín del 19/11 para todas las series** («no se entiende, sobre todo el hook… copiar los hooks de las
+estructuras… no utilizar palabras técnicas… ser más simple»): el gancho sigue la fórmula de la primera frase de la referencia y se
+entiende en un segundo sin saber de marketing. Nunca «CRM» (→ «tu lista de clientes»), «landing» (→ «tu página de ventas»),
+«lead», «setter», «prompt», «funnel», «SPIN», «B-roll», «CTA», «downsell»; en una PANTALLA de la app sí se ve el nombre real.
+Los referentes, por su nombre corto (Hormozi). El personaje en cubos no tiene que salir siempre: el protagonista es lo que muestra
+la referencia. Los 5 primeros se repasaron con esta regla (`tools/arreglo-simple.py`).
+
+**El ticket va por familias** (pedido de Martín a la serie 3): cada cuenta con apps que se usan juntas. El cierre del carrusel
+AHORRO suma sólo la sala de ventas: HighLevel 97 + respond.io 99 + Zapier 29,99 = US$ 225,99 (verificados el 19/11).
+
 Reglas de la voz (las de la serie 3):
 - Partner, nunca vendedor: «encontré una app que…»; nunca «dentro de MaKo vas a poder». El nombre «MaKo» aparece una vez (en la
   portada, en el lugar del logo de la herramienta de la referencia).
@@ -79,6 +89,11 @@ Reglas de la voz (las de la serie 3):
 
 ## 4. Los carruseles
 
+Los temas salen de la serie 3 (`docs/series/serie-3-ventas.md` en `punta/serie-ventas`, «Los videos, uno por renglón»): CUBOS
+(el método, sin MaKo), TICKET, COPIAR, GRUPO, CARRUSEL, GUION, CURSO, GANCHO y OFERTA, cada uno con su palabra. Las referencias
+que guardó Martín para esta serie las clasificó el chat «Inspiración»: las láminas están en `C:/dev/inspiracion/piezas/NN/`
+(#01, #13, #36, #69 y #76 seguras; #55, #57, #58 y #62 en duda: son de tipografías y fondos).
+
 | # | Tema | Referencia | Palabra | Estado |
 |---|---|---|---|---|
 | 1 | Chatear con referentes (Hormozi como coach) | `DaZFc_kkttt` @lifeofarjav, 6 láminas, x455 | HORMOZI | Hecho (19/11) |
@@ -86,6 +101,9 @@ Reglas de la voz (las de la serie 3):
 | 3 | El equipo de agentes: setter, analista de llamadas, cobrador | `DcnHxFDgv2y` @albert.olgaard, 7 láminas, x169 | EQUIPO | Hecho (19/11) |
 | 4 | Siete cosas que hago con una sola app (Spy, Copywriting, Automations, Video, Image, Classroom, Second Brain) | `Del4gFkmTyW` @tinnaloaizaofficial, 12 láminas, x2,2 | SIETE | Hecho (19/11) |
 | 5 | Nueve referentes que te enseñan más que la facultad | `DTA2kpHCLOW` @awakpenn, 11 láminas, x225 | REFERENTES | Hecho (19/11) |
+| 6 | Páginas que venden: cópialas (Web Generator › Replicar) | `DfHzvg_mTiU` @textura.us, 9 láminas (la guardó Martín) | COPIAR | Hecho (19/11) |
+| 7 | Deja de hacer carruseles aburridos (las estructuras de Image) | `De2Durokr-D` @adarshxdesign, 7 láminas (la guardó Martín) | CARRUSEL | Hecho (19/11) |
+| 8 | WhatsApp + IA = tu lista (sacar la gente de un grupo) | `DaZFc_kkttt` otra vez (la del 1) | GRUPO | Hecho (19/11) |
 
 Los archivos: `C:/dev/carruseles-ventas/<slug>/` (`carrusel.html`, `laminas/NN.png`, `piezas/` con las pantallas dibujadas) y los
 scripts en `C:/dev/carruseles-ventas/tools/` (`dibujar-*.tsx`, `escribir-*.py`, `arreglo-*.py`, `capturar.cjs`). Las referencias, en
@@ -151,5 +169,9 @@ Lo que de entrada NO va a salir igual, y es lo que hay que iterar (o decidir que
   para un mensaje con adjuntos) y la tarjeta toma esa proporción.
 - **La caja de terminal en mono no se parte bien:** 38 px de IBM Plex Mono en 620 px de ancho cortaba cada renglón en dos y la
   caja se comía el pie. Mono a 34 px, `white-space: nowrap`, y renglones de ≤ 30 letras.
+- **Un ejemplo de la app puede venir roto: se elige la lámina, no el ejemplo entero.** En «Ver ejemplo» de «Mito vs. realidad» y
+  «Antes y después» (dibujados con `documentoDeCarrusel` + `PaginaCarrusel` y las fuentes del catálogo) hay títulos largos que se
+  montan sobre el texto de abajo. Para el carrusel 7 se eligieron las 4 láminas limpias de cada estructura; la falla queda anotada
+  en `docs/hallazgos-contenido.md` para Image.
 - **La palabra del CTA cambia el largo:** «Comment “GIFT”» entra en una línea; «Comenta “HORMOZI”» no, y empujó el resto fuera de
   la caja. Se mide con la palabra real.
