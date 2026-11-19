@@ -73,7 +73,7 @@ US$197, US$109,60 (56 %) con 30 minutos. Los MT van a precio de lista, sin IVA: 
   dólar nunca compre más MT de los que cuesta.
 
 **SIN HACER, con dónde vive:**
-- **Aplicar la 0416 en producción** (`supabase/migrations/0416_mako_tokens_caja.sql`). Sin ella el medidor no cobra nada.
+- ~~Aplicar la 0416 en producción~~ → **APLICADA el 19/11/2026 ~03:20 UTC** con el sí de Martín («Sí, prende el contador de MaKo Tokens»). Ver la entrada «La caja, prendida» al final.
   Es escribir en producción: pide el sí de Martín. ⚠️ **El día que se aplique, Mauricio Bustos se queda corto:** gasta ~8.700
   MT por mes en texto y su cupo de Essential es 7.000, sin excepción (decisión de Martín, 17/11). Va a ver «te quedaste sin
   MaKo Tokens» antes de fin de mes, y los caminos automáticos de su negocio se saltean en silencio (`fallaBlanda`).
@@ -776,3 +776,18 @@ PostgREST de mentira), una rotura por vez, restaurada:
 
 `tests/fallo-ia-texto.test.ts`: 20 casos (uno nuevo, el de los tickets).
 
+## La caja, prendida: la 0416 en producción y lo que cambia para los clientes de hoy (19/11/2026)
+
+- **Aplicada y probada en producción** dentro de una transacción que se deshizo sola (ws 3): el primer gasto del mes acredita el cupo UNA vez (7.000), dos gastos
+  descuentan 100 cada uno, uno de 999.999 devuelve `ok: false` sin tocar nada, la devolución suma. Después: 0 filas en las dos tablas. No hizo falta desplegar: el
+  código ya estaba y toleraba la caja ausente (`laCajaNoEsta`).
+- **Medido antes (30 días, `anthropic_usage`, sólo lo que paga MaKo: el crédito de Claude de la plataforma):** Mauricio (ws 1) US$ 4,35 ≈ **4.350 MT de 7.000 (62 %)**;
+  Código (ws 13) ≈ 1.010 de 14.400; los demás, menos de 500. Lo que va por la red gratis de Gemini cuesta 0 y no descuenta. **Nadie llega al tope con el uso de hoy.**
+  (La medición del 17/11 decía 8.680 para Mauricio porque le ponía precio de Gemini pago a lo gratis.)
+- ⚠️ **Lo que el número no muestra:** ~US$ 0,53/mes de ese gasto de Mauricio son «Medición en seco» (pruebas de los chats de Claude que corren con el contexto del
+  ws 1): desde hoy le comen cupo a un cliente. ⚠️ **Leila paga Pro (US$ 97) y recibe el cupo de Essential (7.000)**: `cupoDeCapa` sale de la CAPA (`completo` →
+  Essential), y su plan Pro vive en la config de su mensualidad (`cicloPropio.plan`). Hoy usa su propia IA (no le descuenta), pero el número está mal.
+- ⚠️ **Lo que lee el saldo para MOSTRARLO no suma el cupo del mes todavía no acreditado:** `saldoDeWorkspace` lee la fila tal cual; el cupo se acredita recién con el
+  primer gasto del mes. Hoy nadie la llama (el AI Avatar pide `saldoMt` y nadie se lo pasa), pero quien la use para decir «te quedan X» antes del primer gasto
+  del mes va a decir 0 o lo del mes pasado.
+- **Sin hacer:** `scripts/probar-concurrencia-saldo.mjs` no se corrió (escribe en el ws 9 y prueba el `update` de la 0412, no las funciones nuevas).

@@ -1951,7 +1951,7 @@ Medido por el Cerebro con la clave de Martín (`BINANCE_API_KEY` / `BINANCE_API_
 (HMAC), sin restricción de IP porque Vercel no tiene IP fija. `/sapi/v1/account/apiRestrictions`: `enableReading` true; trading, futures y retiros false;
 **`permitsUniversalTransfer` true**.
 - ⚠️ **Usar SÓLO endpoints de lectura.** Aunque `permitsUniversalTransfer` esté prendido, el código que lea Binance no debe llamar a nada que mueva fondos.
-- **`GET /sapi/v1/pay/transactions` es la fuente:** trae los pagos que MaKo recibe por Binance Pay (`orderType` C2C) con monto, moneda, fecha y `payerInfo.name` +
+- ⚠️ **(Corregido el 19/11: el número del comprobante es `orderId`, NO `transactionId`; ver la sección «Un comprobante solo ya no aplica nada».)** **`GET /sapi/v1/pay/transactions` es la fuente:** trae los pagos que MaKo recibe por Binance Pay (`orderType` C2C) con monto, moneda, fecha y `payerInfo.name` +
   `payerInfo.binanceId` de quien paga. `receiverInfo.name` viene vacío (el dato de MaKo está en `receiverInfo.binanceId`: **68725667**, su Binance Pay ID). Ahí están
   los pagos de Código (JZ_, 206956446: 59,54 / 15,67 / 40 / 144 / 94 USDT) y el de Leila (BTC).
 - **Los depósitos en cadena (`capital/deposit/hisrec`) y el P2P dan 0:** hoy TODO entra por Binance Pay. Se calza cada comprobante por monto, fecha y el Binance ID de
@@ -1992,3 +1992,32 @@ Martín: «para no complicarnos… volvamos al sistema simple que ya teníamos d
 redondeo al millar— y salió de las pantallas todo texto del 5 % («Incluye el costo de la pasarela»). **Partners no cambia: el 30 % del precio de lista, siempre.** «Transferencia o Binance» queda como
 está: oculta mientras el setting `planes.pago_directo` esté vacío. ⚠️ **Trampa:** con el recargo en 0 `conRecargoDePasarela` devuelve el monto sin redondear a propósito: un precio en pesos que no es múltiplo
 de mil (73.555) subiría de golpe al millar si se aplicara el redondeo con 0 %. Los textos de las secciones anteriores describen el modelo de la tarde, hoy apagado.
+
+## Un comprobante solo ya no aplica nada: el pago se busca en la cuenta de Binance (19/11/2026)
+
+Martín (18/11): «te fijas si realmente impactó y listo… no me tienes que estar preguntando». Desde el 19/11 el comprobante que una agencia (Código) o una cuenta
+con ciclo propio (Leila) manda al grupo de MaKo se aplica SÓLO si el pago está en la cuenta de Binance de MaKo, leída con la clave de sólo lectura.
+
+- ⚠️ **El diagnóstico obvio era el equivocado: el número de 18 cifras NO es `transactionId`.** El brief del 18/11 (docs/pendientes-partners-pagos-1811.md) decía
+  «se busca en `transactionId`». Medido contra los 6 recibos de Código y Leila: todos sus números están en **`orderId`**; `transactionId` es otra cosa
+  («P_A25PQJVAD2171114»). Con `transactionId` no calzaba NINGÚN pago y todo habría ido a Martín (o, peor, a esperar 48 h).
+- ⚠️ **Un número mal copiado ya está en la base.** El pago de Código del 16/11 quedó anotado (libro y recibo N.º 0005) como `4660001999873228880`: 19 cifras, un 0 de
+  más; en Binance es `466000199987322880`. Consecuencias: (1) ese número nunca calza, por eso existe el calce por **monto exacto + ventana de tiempo + quién paga**
+  (`calzarConBinance`); (2) el número REAL figuraba «sin usar»: reenviado el mismo comprobante, calzaba por monto y **se contaba dos veces**. Lo frena
+  `numerosUsados`: un número anotado que no existe en la cuenta pero difiere en UN dígito de uno que sí, es ése mal copiado. Un número anotado que SÍ existe no
+  arrastra a sus vecinos (dos órdenes reales pueden diferir en un dígito). El dato de la base NO se corrigió (escribir en producción pide el sí de Martín).
+- **El calce** (lib/binance-pay-reglas.ts, puro; tests/binance-pay-calce.test.ts, 15 casos, probado rompiéndolo 5 veces): el número exacto con el mismo monto →
+  calza; número con otro monto → a Martín; sin número (o mal leído) → los movimientos sin usar, en dólares, del mismo monto al centavo, entre 72 h antes y 24 h
+  después de la hora del comprobante: uno → calza; varios → el de quien ya le pagó a MaKo por esa cuenta, si es uno solo; si no, a Martín. Ninguno → «todavía no
+  entró». Se aplica con el número y el monto REALES de la cuenta, no con lo leído. Otra moneda (Leila pagó en BTC en octubre) no se convierte: a Martín.
+- **Cuando todavía no entró:** a la agencia «Recibí tu comprobante. Todavía no veo el pago… lo reviso solo»; queda la espera `binance.espera.<agencia>.<mensaje>` en
+  los ajustes de la plataforma y el cron de cobros (`cobros-reconciliar`, cada media hora, AL PRINCIPIO de la corrida) la vuelve a mirar (`revisarPagosEnEspera`); a
+  las 48 h, a Martín. Una lectura con dudas pero en dólares también se busca: si calza se aplica; si no, a Martín como antes. Sin la clave → a Martín en el acto.
+- ⚠️ **Claude no mueve plata:** lib/binance-pay.ts llama a UN endpoint (`GET /sapi/v1/pay/transactions`) y un test lo exige leyendo el archivo (sin comentarios: la
+  cabecera nombra `permitsUniversalTransfer`, que la clave TIENE y no se usa).
+- **Medido el 19/11 contra la cuenta real (sólo lectura):** el 16/11 reenviado → «no entró» (no se cuenta dos veces); el 11/11 ya anotado → a Martín; un pago de 426
+  que no se hizo → «no entró». **No probado de punta a punta con un comprobante real** (el próximo es el de Leila, el 26/11).
+- **Sin hacer:** la verificación contra Mercado Pago (transferencias al CVU) y el checkout de «Transferencia o Binance» con el calce (sigue oculto, el setting
+  `planes.pago_directo` vacío); el pago de Leila en BTC.
+**Vive en:** lib/binance-pay-reglas.ts · lib/binance-pay.ts · lib/agencia-mes-comprobante.ts (`verificarEnBinance`, `aplicarPagoVerificado`, `esperarElPago`,
+`revisarPagosEnEspera`) · app/api/cron/cobros-reconciliar/route.ts · tests/binance-pay-calce.test.ts.
