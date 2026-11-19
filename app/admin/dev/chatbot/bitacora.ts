@@ -3591,4 +3591,24 @@ FEEDBACK PROBAR:
     tickets: [113],
     revisar: '/automations',
   },
+  {
+    fecha: '19 nov', hora: '00:40', chat: 'Automations', sesion: 'local_a66389ee-c8c2-4e93-a5bd-211c85b41d49', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo recupera los comentarios de Instagram que no entraron a tus automatizaciones',
+    puntos: [
+      'Si tu cuenta de Instagram estuvo desconectada y la gente comentó la palabra clave sin recibir su recurso, pídele a MaKo «recupera los comentarios que se perdieron entre tal y tal fecha».',
+      'MaKo te muestra la lista: quién comentó, qué dijo, a qué automatización entraría y hasta cuándo se le puede contestar (Instagram da 7 días). Los comentarios que dicen algo más que la palabra van marcados para que decidas.',
+      'Al confirmar, cada persona entra a su automatización y le llega el mensaje privado como respuesta a su comentario. Nadie recibe dos veces el mismo recurso, y a quien ya le había llegado no le llega otra vez.',
+      '**Cómo se prueba:** en el grupo de MaKo, «muéstrame los comentarios de Instagram perdidos entre el 14/11 13:42 y el 18/11 16:46».',
+    ],
+    archivos: [
+      'lib/recuperar-comentarios-reglas.ts — qué se recupera, sin duplicar, los 7 días y los dudosos (puro)',
+      'lib/recuperar-comentarios.ts — lee la bandeja de Zernio y vuelve a pasar cada comentario por el camino del webhook',
+      'lib/api-mako/areas/chatbot.def.ts y .run.ts — `comentarios_perdidos_instagram` y `recuperar_comentarios_instagram`',
+      'tests/recuperar-comentarios-114.test.ts — probado rompiéndolo, tres roturas',
+      'docs/hallazgos-integraciones.md — la entrada del 18/11',
+    ],
+    tickets: [114],
+    revisar: '/automations',
+  },
 ];

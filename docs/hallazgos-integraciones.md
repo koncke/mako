@@ -2817,3 +2817,19 @@ activa y escuchando `comment.received`, re-registra. El de la clave 2 del ws10 l
 - @fiestamusic está conectada en **las dos** claves (dos equipos de Zernio). No está medido por cuál de los dos entrega Zernio cada
   comentario.
 - Los comentarios del 14 al 18/11 no se recuperan: Zernio recibió un 200 por cada uno.
+
+## Recuperar los comentarios perdidos: la bandeja de Zernio, no el historial del webhook (19/11/2026, ticket #114)
+
+**Para armar la lista, el historial de entregas del webhook no sirve.** `GET /webhooks/logs` ignora los filtros de fecha (se probó
+con `startDate`, `from`, `dateFrom` y `since`), va del más nuevo al más viejo, corta con 429 y, con 46.377 entregas leídas, no llegó
+al 14/11. Lo que sí sirve es la **bandeja**: `/inbox/comments?accountId=…` (las publicaciones) y después
+`/inbox/comments/{postId}?accountId=…` (cada comentario, con `id`, `message`, `createdTime` y `from{id,username,isOwner}`).
+
+**Reprocesar es volver a pasar cada comentario por el camino del webhook** (`eventoSocialDe` → `procesarEventoSocial` →
+`dispararEventoSocial`, lib/recuperar-comentarios.ts): el motor manda el privado como respuesta a ESE comentario y aplica solo los
+7 días de Meta, porque la fecha del evento es la del comentario. Meta deja UNA respuesta privada por comentario: el que pidió dos
+recursos recibe uno por cada comentario suyo. La operación es de la API de MaKo (`recuperar_comentarios_instagram`) y la confirma
+el cliente. Martín no quiere que salga por un script.
+
+**Lo que quedó SIN hacer:** no se probó contra producción con un envío real. La lectura (`comentarios_perdidos_instagram`) es la
+prueba en seco. La operación no sale por HTTP (tarda más que el minuto de /api/v1).
