@@ -1,5 +1,11 @@
 # Guiones de VSL para vender MaKo
 
+> **19/11/2026: el VSL principal nuevo es [guion-vsl-principal.md](guion-vsl-principal.md)** (el Martín en cubos + 3 tomas de
+> Martín, CTA «PRUÉBALO GRATIS AHORA»). `principal.md`, más abajo, quedó viejo: cerraba con «Agenda tu diagnóstico
+> gratis». Lo que hay en el sitio y lo que se puede prometer: [relevo-landings.md](relevo-landings.md). Cómo venden con
+> video los demás: [competencia.md](competencia.md). Los guiones de esta tabla son de octubre: antes de usar uno, cruzarlo
+> con el relevo (el CTA, AI Avatar y lo que es sólo de Pro cambiaron).
+
 Pedido de Martín (audios del 15/10 y del 22/10/2026), textual: «no creo que me llegue a grabar o hacerlos con IA
 sino que al menos los guiones». Son para la ventana de anuncios del 1/11 al 15/12 (US$2.000 de pauta, objetivo
 US$15.000). Cada guion se lee en 2 minutos y se graba en unos 2.
