@@ -32,10 +32,11 @@ export type CorridaDelVigia = {
 async function mandar(a: AvisoDelCredito, ws: number): Promise<boolean> {
   const { enviarAlGrupoSuperAdmin } = await import('./mako-grupo');
   const { crearNotificacion } = await import('./notificaciones');
-  const grupo = await enviarAlGrupoSuperAdmin(`Crédito de Claude · ${a.texto}`).then((r) => r.ok, (e) => { console.error(`[credito-vigia] no salió al grupo: ${msg(e)}`); return false; });
+  // El texto ya dice de qué se trata («Se terminó el crédito de Claude de la cuenta…», 19/11/2026): sin el prefijo de antes.
+  const grupo = await enviarAlGrupoSuperAdmin(a.texto).then((r) => r.ok, (e) => { console.error(`[credito-vigia] no salió al grupo: ${msg(e)}`); return false; });
   const campanita = await crearNotificacion({
     ws, tipo: 'credito-claude', severidad: a.nivel === '80' ? 'warn' : 'urgente', titulo: a.nivel === '80' ? 'El crédito de Claude se está acabando' : a.nivel === '100' ? 'Se acabó el crédito de Claude de una cuenta' : 'No pude leer el gasto del crédito de Claude',
-    descripcion: a.texto.slice(0, 280), link: '/admin/operaciones', entityType: 'credito-claude', entityId: a.cuenta, payload: { nivel: a.nivel }, origen: 'sistema:credito-claude',
+    descripcion: a.texto.replace(/\n· /g, ' ').slice(0, 280), link: '/admin/operaciones', entityType: 'credito-claude', entityId: a.cuenta, payload: { nivel: a.nivel }, origen: 'sistema:credito-claude',
   }).then((id) => id != null, () => false);
   return grupo || campanita;
 }
