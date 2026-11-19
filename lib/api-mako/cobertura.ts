@@ -98,6 +98,15 @@ export const EXCEPCIONES: Readonly<Record<string, string>> = {
   // Si un negocio se cobra o no: lo decide Martín al tocar el interruptor, en pantalla; por el chat o la API un texto malicioso podría dejar de cobrarle a un negocio.
   'app/admin/_polar/datos/sin-cobro-actions.ts#ponerSinCobroAction': 'decide si un negocio se cobra (habilitado sin cobro): sólo el super admin, en pantalla; el código no cambia ninguna cuenta solo',
   'app/admin/cobros/actions.ts#guardarPagoDirectoAction': 'cambia a dónde le paga el público (alias, CVU, Binance): por el chat o la API sería un vector de fraude; sólo el super admin, en pantalla',
+  // El personaje en cubos de AI Avatar (19/11/2026, docs/editor-video/ai-avatar-por-codigo.md): detrás del interruptor de la revisión de
+  // Martín (lib/ai-avatar/cubos-interruptor.ts) y con el MP4 armado en el NAVEGADOR, que la API no tiene. Cuando se prenda para todos y
+  // se decida qué hace la API (el guion y la voz sí podrían), pasan a CUBIERTAS.
+  'app/ai-avatar/cubos/actions.ts#inicioCubosAction': 'el personaje en cubos todavía es sólo de la revisión de Martín (interruptor); su video se arma en el navegador',
+  'app/ai-avatar/cubos/actions.ts#guionCubosAction': 'el personaje en cubos todavía es sólo de la revisión de Martín (interruptor); su video se arma en el navegador',
+  'app/ai-avatar/cubos/actions.ts#personajeDesdeFotoAction': 'el personaje en cubos todavía es sólo de la revisión de Martín (interruptor); su video se arma en el navegador',
+  'app/ai-avatar/cubos/actions.ts#crearVideoCubosAction': 'el personaje en cubos todavía es sólo de la revisión de Martín (interruptor); su video se arma en el navegador',
+  'app/ai-avatar/cubos/actions.ts#cambiarCubosAction': 'el personaje en cubos todavía es sólo de la revisión de Martín (interruptor); su video se arma en el navegador',
+  'app/ai-avatar/cubos/actions.ts#borrarCubosAction': 'el personaje en cubos todavía es sólo de la revisión de Martín (interruptor); su video se arma en el navegador',
 };
 
 /**

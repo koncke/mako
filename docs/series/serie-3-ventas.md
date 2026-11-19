@@ -95,17 +95,20 @@ Un precio que no se leyó en la página oficial no entra en un video.
 | `s3-landing` | En curso (voz y reel hechos) | 26,8 s | — | LANDING |
 | `s3-grupo` | En curso (voz y reel hechos) | 26,8 s | — | GRUPO |
 | `s3-carrusel` | En curso (voz y reel hechos) | 24,6 s | — | CARRUSEL |
+| `s3-guion` | En curso (voz y reel hechos) | 22,8 s | — | GUION |
+| `s3-curso` | En curso (voz y reel hechos) | 25,5 s | — | CURSO |
 
 ### Por hacer (la tanda «cómo se hace X», verificada en `lib/funciones-mako.ts`)
 
 | Palabra | Cómo se hace… | La app (lo que hace HOY) |
 |---|---|---|
-| GRUPO | sacar los contactos de un grupo de WhatsApp | CRM › «Traer de un grupo de WhatsApp» (sólo Pro; `app/crm/grupo-wa-actions.ts`) |
-| CARRUSEL | un carrusel que se guarde | Image: «Carruseles que funcionan» de las cuentas que sigues, con su outlier y el filtro CTA, y «Editar» para tu versión con tu marca |
-| ESPÍA | ver qué le funciona a tu competencia | Competitor Spy: lee su sitio, su Instagram y su YouTube (los anuncios de Meta todavía hay que pegarlos) |
-| GUION | un guion de reel | Copywriting: plantilla «Guion de Reel» y MaKo escribe en la página |
-| OUTLIER | encontrar un video para replicar | Video: «Encuentra tu siguiente OUTLIER» y «Replicar» |
-| CRM | el seguimiento que no se te escape | CRM con etapas y ficha + Automations (el agente que contesta y recuerda la reunión) |
+| ESPÍA | ver qué le funciona a tu competencia | Competitor Spy. ⛔ Bloqueado: la pestaña dibujada (`app-spy.html`) muestra a un competidor REAL (sus miniaturas con su cara). Hace falta dibujarla con un competidor de mentira en `C:/dev/artefactos-pestanas/pestanas/spy.tsx` |
+| SETTER | que nadie se quede sin respuesta | Automations. ⛔ Bloqueado: en la maqueta la pestaña está vacía (sólo «Nueva automatización»); hace falta una automatización de ejemplo dibujada |
+| OUTLIER | encontrar un video para replicar | Video: «Encuentra tu siguiente OUTLIER» y «Replicar» (mirar antes si la pestaña dibujada tiene personas reales) |
+| CARRUSEL (outliers) | encontrar el carrusel que mejor le funcionó a tu nicho | Image › «Carruseles que funcionan». ⛔ No está dibujado con datos de mentira |
+
+Hechos de esta lista: GRUPO, CARRUSEL (con las estructuras, no con los outliers), GUION (la plantilla «Reel que trae
+mensajes») y CURSO (Classroom).
 
 Los temas se ordenan con el ranking de «Serie 2: educación» cuando llegue (pedido el 19/11).
 
@@ -121,7 +124,29 @@ Los temas se ordenan con el ranking de «Serie 2: educación» cuando llegue (pe
 5. MP4: `node tools/turno.mjs node tools/render-mp4.mjs reels/<id>.html mp4/<id>.mp4 <dur> reels/voz-<id>.mp3 30`.
 6. Ficha `reels/fichas/<id>.json` y aviso a «Galería y series 1 y 4» (ella publica).
 
+### Tiempos medidos (19/11, 7 videos) y cómo ir más rápido
+
+| Paso | Cuánto | Nota |
+|---|---|---|
+| Guion | 5-10 min | Con la función ya verificada en `lib/funciones-mako.ts` |
+| Voz (`voz_formato.sh`) | 15 s a 2,5 min | El chequeo a veces reintenta por un 429 |
+| Reel (HTML) | 20-30 min | Copiando la escena 3D de un reel anterior de la serie |
+| Capturas de prueba | ~40 s por 18 cuadros | MÁS 10-40 min de fila del navegador |
+| MP4 | 0,7-1,3 s por cuadro (un video de 25 s ≈ 10-15 min) | MÁS la fila |
+
+Lo que más tiempo se lleva es la FILA del navegador (otros chats renderizan videos de 30-60 s). Lo que funcionó:
+- escribir varios reels mientras se espera y capturarlos todos en UN turno (`C:/dev/serie-ventas/tools/tanda-capturas.sh`);
+- los renders, también juntos en un turno (`renders-tanda.sh`), recién cuando las capturas pasaron la crítica;
+- las capturas de la app, nítidas (×2 o ×3) y recortadas a lo que se cuenta, con `captura-app.mjs` (tema oscuro).
+
 ## Decisiones
 
 - 19/11: el video 1 no nombra a MaKo: el gancho es el método y la palabra es CUBOS.
 - 19/11: la voz dice «Ei-Ai» (regla de la voz) y el subtítulo muestra «IA».
+- 19/11: el ticket usa sólo 4 apps con precio verificado (GoHighLevel, Skool, Zapier, CapCut): US$243,98 contra MaKo Pro
+  US$97, «te ahorras US$146,98». La landing usa 11 apps (US$388,98); con Canva, ManyChat y las demás sin verificar, el video
+  no las nombra.
+- 19/11: cada video «cómo se hace» cierra igual: «Se llama Máko. Comenta PALABRA y te la paso», con la chispa y «MaKo» UNA vez.
+- 19/11: CARRUSEL se hizo con las estructuras (lo dibujado) y no con los outliers (no dibujado, con cuentas reales en producción).
+- Las escenas: cada video con su color (azul CUBOS, ciruela TICKET, verde azulado LANDING, verde GRUPO, naranja CARRUSEL,
+  índigo GUION, oliva CURSO), el mismo cuarto voxel y el mismo Martín.

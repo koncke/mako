@@ -136,7 +136,9 @@ Un A/B del tutorial del Second Brain de 13,7 s, con la misma voz y el mismo guio
 
 ## La galería de formatos (18/11/2026): lo que se aprendió haciendo 86 formatos
 
-**Qué quedó.** La galería https://claude.ai/artifact/CXe1Ana7MvnJ44gzaXc7hF (cuenta claude2) tiene, con la voz de Martín y su
+**Qué quedó.** (19/11: la galería vigente es https://claude.ai/artifact/Xn37U48gr5sKx4zyDsEzUm, cuenta claude5, publicada
+por el chat `galeria-series`; la de claude2 no se abre desde otra cuenta. Ver `docs/hallazgos-contenido.md`.) La galería
+https://claude.ai/artifact/CXe1Ana7MvnJ44gzaXc7hF (cuenta claude2) tenía, con la voz de Martín y su
 MP4 1080×1920 cada uno, las réplicas de los 54 formatos del paquete de un competidor (mdmukeem__001, Instagram, #07-#60) y 32
 formatos de la investigación de afuera (`investigacion/formatos-por-codigo.md`: HyperFrames, Remotion, YouTube). Martín los
 marca con ★ Elegir: quedan en la base del artefacto, colección `elegidos` (se leen con ArtifactData). La fuente vive en
