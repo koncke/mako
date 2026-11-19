@@ -7577,6 +7577,14 @@ Martín: «Me gusta la misma… solamente calculado a esto». Era la misma landi
   pasó a US$386,98 y el ahorro a US$289,98; el VSL dice «casi cuatrocientos» y muestra la cifra exacta, así que un precio
   que cambia obliga a rehacer la tarjeta del gancho y la del precio. Canva (sólo pesos) y ManyChat (antibots) no se
   pudieron verificar ese día. El test `tests/vsl-sitio-reemplaza.test.ts` sólo pide precio y fuente, no la fecha.
-- **Lo que quedó sin hacer:** las 4 tomas de Martín (el texto, en `docs/vsl/guion-vsl-principal.md`); subir el VSL a Panda y
+- **El diagnóstico obvio fue el equivocado dos veces.** La v1 parecía un problema de frases (se corrigió la voz) y la v2,
+  de largo (se acortó todo): Martín rechazó las dos. Lo que faltaba era el HILO: que cada bloque conteste la pregunta que
+  dejó el anterior, con su conector (su VSL de junio desarmado: `docs/vsl/estructura-vsl.md`), y que él salga humano y
+  nada vendedor (`docs/vsl/voz-de-martin.md`). Lo que funcionó: tres guiones COMPLETOS con ángulos distintos, dos jueces
+  (hilo · voz y verdad), uno armado sobre el mejor y una lectura en voz alta (reglas en `estructura-vsl.md`, al final).
+- **La guardia de RAM frena el Workflow** cuando quedan menos de 3 GB (con los renders de las series en la fila del
+  navegador, la PC estuvo en 0,85-1,4 GB toda la noche). La misma orquestación con agentes sueltos (3 en paralelo y
+  después de a uno) sí pasa, y cada agente deja su trabajo en un archivo para no inflar el contexto.
+- **Lo que quedó sin hacer:** el visto bueno de Martín al guion v3 y sus 5 tomas (el texto, en `docs/vsl/guion-vsl-principal.md`); el video con el guion v3 (el motor ya dibuja al personaje, las pantallas y los lugares de las tomas; falta el «camino» del cliente con sus estaciones); subir el VSL a Panda y
   cambiar `VSL_PORTADA` y las 3 landings de industria; el VSL de cada landing de función con el mismo motor
   (`scripts/vsl-animado/LEEME.md`, «El VSL de una landing»).
