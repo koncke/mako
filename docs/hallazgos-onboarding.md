@@ -27,7 +27,14 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
   - un `import 'server-only'` en la cadena corta node: se cambia por un módulo vacío con un `resolve` de `registerHooks`;
   - `useRouter` de Next necesita su `AppRouterContext.Provider`;
   - en el Chromium sin ventana de esta PC, las animaciones CSS quedan en `currentTime 0`, así que algo que entra con `opacity: 0 → 1`
-    (el velo oscuro) sale invisible en la captura. Se captura con `screenshot({ animations: 'disabled' })`.
+    (el velo oscuro) sale invisible en la captura. Se captura con `screenshot({ animations: 'disabled' })`;
+  - el video sólo aparece con el manifiesto, que se lee en el navegador (`useVideoTutorial`). Para dibujarlo en node, el hook se
+    cambia en la caché de `require` (`Module._cache[ruta]`): un `load` de `registerHooks` no lo ve, porque tsx lo carga por require.
+- **«Se ve mal el recuadro del video» (Martín, 19/11): un `<video>` con ancho en porcentaje adentro de un globo del chat.** El globo
+  mide lo que mide su contenido, y para eso el `<video>` aporta su ancho NATURAL (1920): el globo quedaba enorme, con el video a la
+  izquierda y un hueco. Además, al terminar quedaba el último cuadro con los controles del navegador encima. Ahora `VideoDelMomento`
+  tiene un ancho FIJO (400 px) y es el reproductor de la maqueta: la portada con su play, su barra y, al terminar, otra vez la
+  portada. Es el de todos los videos del chat, también los de los coaches.
 - **La foto de perfil de la línea (la criatura) NO se cambia por Evolution.** Se cambió con `POST /chat/updateProfilePicture`: dio 200
   y la foto quedó bien, pero a los 4 minutos la voz de MaKo se cayó. La trampa, en docs/hallazgos-comunicacion.md. La foto, el nombre
   y la privacidad de una línea se cambian desde el teléfono. El script de las notas compartidas (`foto-linea-mako.mjs`) quedó cortado.
