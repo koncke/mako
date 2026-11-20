@@ -3580,3 +3580,24 @@ filas de los coaches tachaban el día 1 entero.
 - **Un día se cierra en el Plan cuando MaKo leyó todas sus tareas**, no cuando las dejó para después; y nunca se reabre una tarea que
   alguien movió a mano.
 - **Sin mirar en la app**: el Plan con las 7 tareas no se puede dibujar sin la base; lo cubren el test de las reglas y el de la ruta.
+
+## La verificación de la auditoría: lo que quedaba a medias (20/11/2026, chat «onboarding-v2», claude5)
+
+- **El comentario decía que la ruta usaba `codigoDeLoEscrito`, y no lo usaba** (OA-06). La tarjeta sí; la caja del chat sólo leía 6
+  números seguidos, y MaKo manda el código en dos grupos («482 913»). Ahora `codigoEnLaCaja` (lib/onboarding-arranque.ts) toma 6
+  seguidos, o 3 y 3, o los números si son 6 o menos. Un teléfono o un texto sin números no son un código. El grupo de 3 y 3 hace
+  falta porque lo pegado de WhatsApp trae la hora («[10:30]»), y sin él esos números se mezclan con el código.
+- **La caja vacía o sin números va a la verificación igual** (lo hizo el chat de WhatsApp, wa-12: `decidirCodigoV2` mira
+  `respondido`). Si MaKo no contestó, «Todavía no tienes el código…»; si ya contestó, que lo escriba. Sólo un teléfono queda afuera.
+- **El WhatsApp se dibuja como lo escribió** (OA-F1). `telefonoVisto` se guarda y se borra junto con `telefonoNumero`. Reagrupar de a
+  4 desde el final convertía «9 11» en «911», y la burbuja cambiaba de forma cuando volvía la respuesta del servidor.
+- **«Sigamos en tu computadora» también desde cualquier pantalla del teléfono** (OA-10, OD-12): ahora lo mira `requireMovil`, y la
+  cookie «Versión completa» ya no lo saltea (`esTelefono` lee el user-agent; `prefiereMovil` respeta la cookie). **Decisión: hasta que
+  vea el recorrido en la PC, no para siempre**: el día 2 del reto instala la app en el teléfono, y una pantalla fija la dejaría inútil.
+- **La pregunta del nombre, a su tiempo también para quien vuelve** (OA-02). Un video que no arranca solo no puede retenerla para
+  siempre: pausarlo la suelta, y si nadie le da play, sale a los 12 s (`MS_SIN_PLAY`).
+- **El video del WhatsApp sigue sin «dale play»**, aunque la verificación lo anotó como detalle. Llega junto a la tarjeta del código, y
+  las tapas de la marca no dejarían escribirlo (tests/tutorial-entrada.test.ts, 4).
+- **Sin hacer todavía**: la voz de calendar-4, classroom-4 e image-3 todavía dice «Toca aquí» en frases que ya no esperan el clic. La
+  regrabación espera el OK del Cerebro al guion. Mientras tanto, el motor se recupera si alguien toca (lib/tutoriales/calendar.ts y
+  classroom.ts, `antes`).

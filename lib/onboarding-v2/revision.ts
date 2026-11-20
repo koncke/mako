@@ -29,5 +29,8 @@ export function veOnboardingV2(q: { email?: string | null; ws?: number | null })
 /**
  * ¿Lo está viendo como REVISIÓN (todavía no está para todos)? Lo que sólo sirve para revisar —el lugar marcado «tu video de
  * esta pestaña» donde todavía no hay video grabado— se muestra sólo así: a un cliente nunca le aparece un hueco.
+ * Sólo en las cuentas de Martín (20/11, la verificación de V10): el Cliente de Prueba (ws 3) ve el V2 como lo vería un cliente, sin
+ * la placa «Todavía no está grabado». El navegador lo sabe por el motor (`useEsRevision`, app/_ui/tutorial/store.ts).
  */
-export const esRevision = (ve: boolean): boolean => ve && !PARA_TODOS;
+export const esRevision = (ve: boolean, email?: string | null): boolean =>
+  ve && !PARA_TODOS && EMAILS_REVISION.includes((email ?? '').trim().toLowerCase());

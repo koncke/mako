@@ -219,6 +219,9 @@ export async function seguirEnPcPendiente(): Promise<boolean> {
     const email = s?.email?.trim().toLowerCase();
     if (!s || !email) return false;
     if (!veOnboardingV2({ email: s.email, ws: await getWorkspaceActual().catch(() => null) })) return false;
+    // Quien opera la plataforma (Martín en la suya), nunca (20/11): su email está en la revisión del V2 y, sin el recorrido visto,
+    // el guard de /m lo dejaba fuera de su teléfono. Importado al llamar: el Centro no se carga para los demás.
+    if (await import('./second-brain-opera').then((m) => m.quienOpera()).catch(() => false)) return false;
     const { data, error } = await getSupabaseServer().from('usuarios').select('perfil').eq('email', email).maybeSingle();
     if (error) return false;
     return !Object.prototype.hasOwnProperty.call(vistosDePerfil((data as { perfil?: unknown } | null)?.perfil), ID_RECORRIDO_PC);

@@ -88,7 +88,8 @@ import { useCoaches, useGurusConCharla } from './useCoaches';
 import { ChatDelCentro, FilaDeChat, GruposPorJefe, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, RenglonDeFila, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BienvenidaOpsCenter } from './BienvenidaOpsCenter';
-import { VideosDelChat } from '@/app/_ui/tutorial/VideosDelChat';
+import { VideosDelChat, type VideoDeUnChat } from '@/app/_ui/tutorial/VideosDelChat';
+import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { ChatNuevoCentro } from '@/app/admin/operaciones/ChatNuevo';
 import { TicketeraCentro } from '@/app/admin/operaciones/TicketeraCentro';
 import { esVistaTicketera, type VistaDeTicketera } from '@/app/tickets/decisiones/reglas';
@@ -188,11 +189,12 @@ type Props = {
 };
 
 /** Los videos del chat «Onboarding» (20/11, V9): para volver a verlos terminado el onboarding (el ícono de videos de su cabecera). */
-const VIDEOS_DEL_ONBOARDING = [
+// El recorrido, con sus marcas (20/11, la verificación de V9): el motor lo pasa como la primera vez.
+const VIDEOS_DEL_ONBOARDING: readonly VideoDeUnChat[] = [
   { clave: 'onboarding-bienvenida', titulo: 'Bienvenida a MaKo' },
   { clave: 'onboarding-bienvenida-whatsapp', titulo: 'Tu WhatsApp con MaKo' },
-  { clave: 'recorrido', titulo: 'Tu recorrido por MaKo' },
-] as const;
+  { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', tutorial: TUTORIAL_RECORRIDO },
+];
 
 export function ChatSecondBrain(props: Props) {
   // ⚠️ UNA VUELTA DEL SERVIDOR QUE FALLA NO DESARMA EL OPS CENTER (22/10/2026, el 503 de cada deploy, medido por el Cerebro):
@@ -630,7 +632,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           {listaSB && (<>
           {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude (y el del Ops Center del super admin). Con el V2, al final. */}
           {!retoV2 && <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!verMapa && !enOtroChat && enChatNuevo} />}
-          <FilasDelGrupo g={grupos} abierto={!verMapa && !ticketera ? grupo : null} onElegir={abrirGrupo} />
+          {/* Con el V2, NADA arriba del Ops Center (20/11, la verificación de OD-08): el grupo de WhatsApp del negocio (y su esqueleto
+              mientras carga) va después de los coaches. */}
+          {!retoV2 && <FilasDelGrupo g={grupos} abierto={!verMapa && !ticketera ? grupo : null} onElegir={abrirGrupo} />}
           {k.errorLista && <p className="co-lista__vacio">{k.errorLista}</p>}
           {/* UNA lista (21/10/2026): el Cerebro arriba y todos los demás por actividad, sin plegables; desde el 22/10, agrupados por
               su origen («Offer › …», «Dashboard › …») con el MISMO agrupado del super admin (`GruposPorJefe`). */}
@@ -647,6 +651,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
                 </div>
               )}
               {retoV2 && coaches}
+              {retoV2 && <FilasDelGrupo g={grupos} abierto={!verMapa && !ticketera ? grupo : null} onElegir={abrirGrupo} />}
               <div className="co-cuenta">
                 {/* Sin títulos de sección (22/10/2026, Martín): el grupo sin chat propio lleva su fila JEFE, con su criatura. */}
                 <GruposPorJefe chats={corte} fila={fila} jefe={(g) => { const j = jefeDelGrupo(g); return j ? { ...j, aspecto: aspectoDeChat(j.clave) } : null; }} />

@@ -49,6 +49,8 @@ import { cargarMotor, useProyectosVideo } from './proyectos';
 // La miniatura dibujada de cada plantilla de anuncio en «Nuevo video» (F160). Estática a propósito: no trae el motor (lo dice
 // su cabecera y lo fija tests/video-editor-miniatura-nuevo.test.ts).
 import { miniaturaDeNuevoVideo } from './miniatura-nuevo-video';
+import { useRecorrido } from '@/app/_ui/Recorrido';
+import { useEnsayo, vistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
 
 // ⚠️ Todo lo que se carga a pedido entra por UNA puerta (./editor-cargado.ts): un `import()` por cada pieza bajaba y
 // compilaba el núcleo del motor TRES veces (12/11/2026, «se me traba exageradamente todo»).
@@ -135,6 +137,9 @@ async function duplicar(id: string, nombre: string, nombres: readonly string[]):
   if (!nuevo) return;
   await editor.project.renameProject({ id: nuevo, name: nombreLibre(nombre.replace(/\s\(\d+\)$/, ''), nombres) });
 }
+
+/** Lo visto del tutorial de Video: el id con que lo anota el motor (`tutorial-<pestaña>`, app/_ui/tutorial/MotorTutorial.tsx). */
+const ID_TUTORIAL_VIDEO = 'tutorial-video';
 
 function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, senales = null, replicar = null, alEntrar = 'crear', receta = null, desarmado }: Props) {
   const router = useRouter();
@@ -255,14 +260,20 @@ function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, sen
   }, [receta]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const entrado = useRef(false);
+  // EL TUTORIAL DE VIDEO, PRIMERO (20/11, la verificación de video-3/4/5): sus marcas son las de «Nuevo video» (esta pantalla), y la
+  // tab saltaba al editor, donde no hay ninguna (y en /video-editor/<id> ni arranca). Mientras no se vio, se queda aquí; visto, al
+  // editor como siempre. Sin saberlo todavía (la lectura de lo visto), espera.
+  const tutoVideo = useRecorrido(ID_TUTORIAL_VIDEO, { autoabrir: false });
+  const ensayo = useEnsayo();
+  const tutorialVisto = ensayo.activo ? vistoEnEnsayo(ID_TUTORIAL_VIDEO) : tutoVideo.visto === true;
   useEffect(() => {
-    if (alEntrar !== 'editor' || editor || replicar || receta || entrado.current || !proyectos) return;
+    if (alEntrar !== 'editor' || !tutorialVisto || editor || replicar || receta || entrado.current || !proyectos) return;
     entrado.current = true;
     if (proyectos[0]) { router.replace(`/video-editor/${proyectos[0].id}`); return; }
     proyectoConLienzo(LIENZO_GUIADO, 'Mi video')
       .then((id) => { if (montado.current) router.replace(`/video-editor/${id}`); })
       .catch(() => { entrado.current = false; toast.error('No pude abrir el editor. Vuelve a intentar.'); });
-  }, [alEntrar, editor, replicar, proyectos]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [alEntrar, editor, replicar, proyectos, tutorialVisto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // «Abrir en el editor» de un video desarmado (`?desarme=`, la entrada de la tab): se arma su plantilla en un proyecto nuevo y se
   // abre ése (./plantilla/ArmarPlantilla.tsx), antes que cualquier otra pieza.

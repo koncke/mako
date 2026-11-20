@@ -118,6 +118,7 @@ import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre
 import { quienesViajan } from './LoteClientes';
 import { indiceEnColumna, antesDeQuien } from './orden-manual';
 import { Dropdown } from '@/app/components/Dropdown';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import type { CampoTarjetaCliente, FormaTarjetaCliente } from '@/lib/tarjeta-clientes';
 
@@ -637,7 +638,7 @@ export function KanbanEntrega({
                     sinFlecha
                     ariaLabel={`Opciones de la etapa ${e.label}`}
                     buttonStyle={{ width: 26, height: 26, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
-                    options={[{ value: 'nuevo', label: 'Nuevo cliente', icono: 'persona-mas' as const }]}
+                    options={[{ value: 'nuevo', label: 'Nuevo cliente', icono: 'persona-mas' as const, marca: MARCA.classroomClientsCargar }]}
                     onChange={(v) => { if (v === 'nuevo') onNuevoCliente(e.key); }}
                   />
                 </span>

@@ -242,7 +242,9 @@ export const RETO_MUESTRA = (m: MuestraReto) => `Te muestro dónde ${m.hacer}, e
 export const RETO_MUESTRA_FIN = (m: MuestraReto) => `Listo: ya sabes dónde ${m.hacer}. Cuando quieras, lo armamos; tu reto te espera.`;
 
 // ── Los videos del catálogo «Tutoriales de MaKo» que son del onboarding y del reto (20/11, V1): [key del manifiesto, título] ──
-export const VIDEOS_PARA_EMPEZAR: ReadonlyArray<[string, string]> = [['onboarding-bienvenida', 'Bienvenida a MaKo'], ['onboarding-whatsapp', 'Tu WhatsApp con MaKo'], ['recorrido', 'Tu recorrido por MaKo']];
+// El del WhatsApp es el del V2, `onboarding-bienvenida-whatsapp` (20/11, la verificación de V1 y V9): `onboarding-whatsapp` es el de la
+// pantalla vieja («tu número queda confirmado solo»), que no es lo que hace el V2 (el código que te contesta MaKo).
+export const VIDEOS_PARA_EMPEZAR: ReadonlyArray<[string, string]> = [['onboarding-bienvenida', 'Bienvenida a MaKo'], ['onboarding-bienvenida-whatsapp', 'Tu WhatsApp con MaKo'], ['recorrido', 'Tu recorrido por MaKo']];
 export const VIDEOS_DEL_RETO: ReadonlyArray<[string, string]> = [['offer-coach', 'Día 1 · Offer Coach'], ['funnel-coach', 'Día 1 · Funnel Coach'], ...[1, 2, 3, 4, 5, 6, 7].map((n): [string, string] => [`reto-dia-${n}`, `Día ${n} del reto`])];
 
 // ── Los días 4 a 6, según el funnel (20/11/2026, auditoría d24-14 y R57-01) ─────────────────────────────────────────────────

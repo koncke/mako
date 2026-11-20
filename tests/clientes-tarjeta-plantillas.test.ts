@@ -165,7 +165,8 @@ test('«Nuevo cliente» sale del carril y va al «⋯» de cada columna, por el 
   assert.match(cab, /<span data-nodrag style=\{\{ flex: 'none', display: 'inline-flex' \}\}>\s*<Dropdown/, 'abrir el menú no arrastra');
   assert.match(cab, /placeholder="⋯"/);
   assert.match(cab, /\n\s+sinFlecha\n/);
-  assert.match(cab, /options=\{\[\{ value: 'nuevo', label: 'Nuevo cliente', icono: 'persona-mas' as const \}\]\}/);
+  // Con la marca del tutorial de Clients (20/11, la verificación de classroom-clients-5: el motor abre este «⋯» en el kanban).
+  assert.match(cab, /options=\{\[\{ value: 'nuevo', label: 'Nuevo cliente', icono: 'persona-mas' as const, marca: MARCA\.classroomClientsCargar \}\]\}/);
   assert.match(cab, /onChange=\{\(v\) => \{ if \(v === 'nuevo'\) onNuevoCliente\(e\.key\); \}\}/, 'nace en ESTA etapa, como antes');
   const carril = tramo(k, '</header>', '{cards.map(');
   assert.doesNotMatch(carril, /<button|onNuevoCliente/, 'el carril volvió a tener el alta');

@@ -326,7 +326,7 @@ export default async function RootLayout({
               {sesion && <VeloGuia />}
               {/* El motor de los tutoriales de cada pestaña y de las marcas del onboarding (18/11/2026), sobre la página de verdad.
                   Sólo para quien ve el onboarding V2; para los demás no se monta (lib/onboarding-v2/revision.ts). */}
-              {sesion && veV2 && <MotorTutorial revision={esRevision(veV2)} />}
+              {sesion && veV2 && <MotorTutorial revision={esRevision(veV2, sesion.email)} />}
               {/* El pago de un cliente de agencia que paga su propia cuenta, al terminar su onboarding (Agency Dashboard,
                   25/10/2026). Encima de todo y también en el teléfono: el primer mes no se cierra. */}
               {sesion && <CartelPagoCliente />}

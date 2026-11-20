@@ -66,6 +66,8 @@ const MS_ESCRIBE = 1800;
 /** MaKo escribiendo antes de su primera pregunta, y cuánto se espera al video antes de soltarla sin él. */
 const MS_PRIMERO = 1400;
 const MS_SIN_VIDEO = 2500;
+/** Con el video quieto (nadie le dio play), cuánto se espera antes de soltar la primera pregunta igual. */
+const MS_SIN_PLAY = 12_000;
 /** Con los 6 números en el campo del código, cuánto se espera para confirmarlo solo (la maqueta, `programarCodigo`). */
 const MS_CODIGO_SOLO = 900;
 /** La clave del video de bienvenida (public/tutoriales, el chat de los videos). */
@@ -224,7 +226,10 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
   // mensaje de abajo… que salga cuando corresponda, con los tres puntitos»). Al empezar, el video va solo; la primera pregunta sale
   // cuando el video termina o la persona toca la caja, lo primero que pase (sin video, después de un momento), con MaKo escribiendo
   // antes. Quien vuelve a mitad del onboarding lo ve todo de una.
-  const [primero, setPrimero] = useState<'espera' | 'escribe' | 'listo'>(empieza ? 'espera' : 'listo');
+  // (20/11, la verificación de OA-02) Quien vuelve con el nombre TODAVÍA sin contestar, igual que la primera vez: el video solo y la
+  // pregunta a su tiempo. La suelta también pausar el video, y un video que nadie pone a correr (no arranca solo: el «dale play» lo
+  // invita) no la retiene para siempre: sale a los MS_SIN_PLAY.
+  const [primero, setPrimero] = useState<'espera' | 'escribe' | 'listo'>(inicial.etapa === 'nombre' ? 'espera' : 'listo');
   const soltarPrimero = useCallback(() => { setPrimero((p) => (p === 'espera' ? 'escribe' : p)); }, []);
   useEffect(() => {
     if (primero !== 'escribe') return;
@@ -233,10 +238,13 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
   }, [primero]);
   const hayVideo = useRef(false);
   hayVideo.current = !!videoBienvenida;
+  const arranco = useRef(false);
+  const empezoVideo = useCallback(() => { arranco.current = true; }, []);
   useEffect(() => {
     if (fase !== 'chat' || primero !== 'espera') return;
     const t = window.setTimeout(() => { if (!hayVideo.current) soltarPrimero(); }, MS_SIN_VIDEO);
-    return () => window.clearTimeout(t);
+    const sinPlay = window.setTimeout(() => { if (!arranco.current) soltarPrimero(); }, MS_SIN_PLAY);
+    return () => { window.clearTimeout(t); window.clearTimeout(sinPlay); };
   }, [fase, primero, soltarPrimero]);
   // Con todo contestado, se cierra el onboarding (por detrás, como siempre).
   const cerrando = useRef(false);
@@ -303,7 +311,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
   const tarjeta = (m: MensajeArranque): ReactNode => {
     if (m.id !== ultimoMako?.id) return null;
     if (m.tarjeta === 'telefono') return <TarjetaTelefono inicial={vista.telefonoDelPago} ocupado={ocupado}
-      onSeguir={(tel, visible) => void accion({ action: 'telefono', telefono: tel }, visible)} onIncompleto={() => setError(E_TELEFONO_INCOMPLETO)} />;
+      onSeguir={(tel, visible) => void accion({ action: 'telefono', telefono: tel, visible }, visible)} onIncompleto={() => setError(E_TELEFONO_INCOMPLETO)} />;
     if (m.tarjeta === 'codigo') {
       return <TarjetaCodigo vista={vista} ocupado={ocupado}
         onConfirmar={(c) => responder({ texto: c }, null)}
@@ -355,7 +363,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
               {fase === 'chat' && (
                 <>
                   {/* UN solo video, el de la bienvenida, como primer mensaje (Martín, 19/11). Al bajar, sigue chiquito abajo a la derecha. */}
-                  {videoBienvenida && filaMako('arr-video', <VideoDelMomento clave={VIDEO_BIENVENIDA} titulo="Bienvenida a MaKo" revision={false} onTermina={soltarPrimero} dalePlay />)}
+                  {videoBienvenida && filaMako('arr-video', <VideoDelMomento clave={VIDEO_BIENVENIDA} titulo="Bienvenida a MaKo" revision={false} onTermina={soltarPrimero} onPausa={soltarPrimero} onEmpieza={empezoVideo} dalePlay />)}
                   {primero === 'escribe' && escribiendo('arr-primero')}
                   {primero === 'listo' && mensajes.map((m) => {
                     if (m.de === 'yo') return filaYo(m.id, m.texto);
@@ -503,10 +511,12 @@ function Recuadro({ m, ocupado, onUna, onVarias, onOtra }: {
   const [otra, setOtra] = useState('');
   const [aviso, setAviso] = useState<string | null>(null);
   const varias = q.varias ?? 0;
+  // La pregunta del recuadro, sin el nombre, también plegado y en su aria-label (20/11, la verificación de OA-18).
+  const pregunta = q.pregunta ?? m.texto;
   if (plegado) {
     return (
       <button type="button" className="co-preg co-preg--arriba co-preg--plegada" onClick={() => setPlegado(false)} aria-expanded={false}>
-        <span>{m.texto}</span><span className="co-preg__flecha" aria-hidden="true">▴</span>
+        <span>{pregunta}</span><span className="co-preg__flecha" aria-hidden="true">▴</span>
       </button>
     );
   }
@@ -520,12 +530,12 @@ function Recuadro({ m, ocupado, onUna, onVarias, onOtra }: {
   };
   const filas = Math.ceil(ops.length / 2);
   return (
-    <div className={`co-preg co-preg--arriba arr-v2__preg${ops.length > 6 ? ' arr-v2__preg--larga' : ''}`} role="group" aria-label={`Pregunta: ${m.texto}`}>
+    <div className={`co-preg co-preg--arriba arr-v2__preg${ops.length > 6 ? ' arr-v2__preg--larga' : ''}`} role="group" aria-label={`Pregunta: ${pregunta}`}>
       <div className="co-preg__cab">
         <span className="arr-v2__tema">{q.tema}</span>
         <button type="button" className="co-preg__plegar" onClick={() => setPlegado(true)} aria-expanded aria-label="Ocultar las opciones" title="Ocultar"><span aria-hidden="true">▾</span></button>
       </div>
-      <p className="co-preg__texto">{q.pregunta ?? m.texto}</p>
+      <p className="co-preg__texto">{pregunta}</p>
       {q.ayuda && <p className="arr-v2__ayuda">{aviso ?? q.ayuda}</p>}
       <ol className="co-preg__ops arr-v2__lista" style={{ '--filas': filas } as CSSProperties}>
         {ops.map((o, i) => {

@@ -107,6 +107,12 @@ export async function requireMovil(opts: { navKey?: string | null; onboarding?: 
   // Desde el 20/10/2026 entra a SU Ops Center, el Centro (la tab principal del teléfono); hasta ese día, al Dashboard.
   if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect(conWs(RUTA_CENTRO_M, await wsSuperAdmin()));
   if (opts.onboarding !== false && (await onboardingPendiente())) redirect(await rutaConWs(RUTA_CONFIGURAR_MOVIL));
+  // «Sigamos en tu computadora» también aquí (20/11, la verificación de OA-10 y OD-12): un link directo a /m, un push, una pestaña
+  // guardada o una ruta de escritorio que el proxy desvía a /m entraban a MaKo Mobile. Con el V2, mientras no vio el recorrido en
+  // la PC, cualquier pantalla del teléfono va a /onboarding, que la muestra. Importado al llamar: el servidor del arranque es pesado.
+  if (opts.onboarding !== false && (await import('./onboarding-arranque-server').then((m) => m.seguirEnPcPendiente()).catch(() => false))) {
+    redirect(await rutaConWs('/onboarding'));
+  }
   if (opts.navKey && !puedeVerKey(opts.navKey, ctx.rol, ctx.capa)) redirect(await rutaConWs(HOME_MOVIL));
   // MaKo Essential (23/10/2026): la tab de Pro, como en la computadora (lib/tab-access.ts → requireCapa), a su cartel con «Pasar a Pro».
   if (opts.navKey && esNavSoloPro(opts.navKey) && (await esEsencialDeLaSesion())) redirect(await rutaConWs(`/no-esta-en-tu-plan?tab=${encodeURIComponent(opts.navKey)}&pro=1`));
@@ -135,6 +141,16 @@ export async function salidaDeVista(): Promise<{ salida: string; modoAgencia: bo
  * ¿Este request tiene que ir a /m? Teléfono (lib/movil-dispositivo.ts) y sin la
  * cookie de «Versión completa». La llama /inicio ANTES de repartir.
  */
+/**
+ * ¿Es un TELÉFONO, mire la versión que mire? (20/11, la verificación de OA-10: con la cookie «Versión completa», `prefiereMovil` da
+ * false y el teléfono entraba al Ops Center de escritorio sin «Sigamos en tu computadora»). Sólo para esa pantalla: el resto respeta
+ * la cookie.
+ */
+export async function esTelefono(): Promise<boolean> {
+  const h = await headers();
+  return tipoDeDispositivo(h.get('user-agent'), h.get('sec-ch-ua-mobile')) === 'telefono';
+}
+
 export async function prefiereMovil(): Promise<boolean> {
   const [h, c] = await Promise.all([headers(), cookies()]);
   // La ruta la pone SÓLO el proxy (`headersSeguros`): una cookie de UNA pantalla (20/10/2026) decide por ella.
