@@ -108,14 +108,23 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   la vez no se sabe de quién es: MaKo le contesta qué hacer igual, sin anotar nada. Contesta sólo la línea que recibe
   (`instanciaVoz`), porque con dos líneas de la misma cuenta el mensaje llega dos veces.
 - **Un `@lid` sin número no se puede contestar:** no se sabe de quién es, y mandarle el código a un `@lid` sería darle el código a
-  cualquiera. Queda en el log como `pedido del V2 por @lid sin número`; contarlo antes de decidir más.
+  cualquiera. **Se cuenta** en `mako.v2.lid_sin_numero` (app_settings del negocio de MaKo: `n`, `conUna`, desde, último; una vez
+  por id de mensaje). Con UNA verificación esperando, su tarjeta lo dice (`sinNumeroAt` → `aviso` de la vista).
+- **⚠️ La línea de MaKo no se espeja en `wa_mensajes`** (sólo las de los negocios, `mako_ws*`): un pedido a MaKo que no dejó estado
+  no existe en ninguna tabla, y el `console.warn` muere con el log de Vercel. El 20/11 «medir cuántos @lid llegan» dio 0 filas
+  porque no había dónde buscar, no porque no llegaran. **Regla:** lo que se quiere medir de esa línea se cuenta a propósito.
+- **Su mensaje llegó y la línea no mandó el código: la tarjeta seguía «esperando»** (`respondido` volvía a false y nada más). Ahora
+  se anota `sinLineaAt` y la vista trae `aviso` (`avisoDelPedidoV2`) sin cambiar el estado: la tarjeta sigue preguntando cada 4 s, y
+  el aviso se va solo cuando MaKo contesta (`respondido`). Un estado nuevo en la vista habría cortado esa pregunta.
+- **La caja vacía nunca llegaba a la verificación** (wa-12): la ruta pedía `texto &&`, y con '' caía en el «Escribe el código…» de
+  `leerRespuestaV2` aunque MaKo no hubiera mandado nada. `decidirCodigoV2` decide la caja vacía: sin `respondido`, «Todavía no
+  tienes el código…».
 - **El mensaje desde el otro número ya prueba ese número** («Usar el +54…», `escribioDesdeElOtro`): se anota CUÁNDO llegó
   (`otroNumeroAt`) y, dentro de las 24 horas, el pedido nuevo nace contestado y MaKo manda el código ahí, sin que lo escriba otra
   vez. **Trampa:** rehacer el pedido (`pedirConfirmacionV2`) pisa la verificación entera, con `otroNumero` y su hora: la ruta lo
   lee ANTES (`otroNumeroQueEscribioV2`). Si el código no sale, la verificación vuelve a «esperando» y que escriba ella.
-- **Lo que quedó para la tarjeta (es del chat del onboarding, app/onboarding/ChatArranqueV2.tsx):** la vista ya trae
-  `estado: 'otro-numero'` con `otroNumero`, y falta dibujarlo. Pasadas 24 horas, «Reenviar» devuelve `E_REESCRIBIR_V2`, y la
-  tarjeta debería abrir WhatsApp con el pedido escrito.
+- **Lo que quedó para la tarjeta (es del chat del onboarding, app/onboarding/ChatArranqueV2.tsx):** mostrar `vista.whatsapp.aviso`
+  cuando viene (el otro número y «Reenviar» pasadas las 24 h ya los dibujó, 5aacc73cf).
 
 ## «Hola, quiero confirmar mi WhatsApp» y MaKo no mandó el código: la regla 1 no veía a quien escribió bajo un `@lid` (19/11/2026, claude5)
 

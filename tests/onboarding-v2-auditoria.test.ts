@@ -40,7 +40,8 @@ test('1. OA-06: de lo pegado, el grupo de 6 números; «Confirmar» siempre acti
   assert.match(t, /<Button variant="primary" size="sm" disabled=\{ocupado\} loading=\{ocupado\} onClick=\{confirmar\}>Confirmar<\/Button>/, 'sin apagarse por el largo');
   const ruta = leer('app/api/onboarding/arranque/route.ts');
   assert.match(ruta, /const grupoDe6 = texto \? \/\(\?<!\\d\)\\d\{6\}\(\?!\\d\)\/\.exec\(texto\)\?\.\[0\] : undefined;/);
-  assert.match(ruta, /\(grupoDe6 \|\| \(digitosCodigo\.length > 0 && digitosCodigo\.length < 6\)\)/, 'un teléfono (más de 6 sin un grupo de 6) no entra');
+  // La caja vacía también entra desde el 20/11 (wa-12: «Todavía no tienes el código…»); un teléfono sigue sin entrar.
+  assert.match(ruta, /\(grupoDe6 \|\| digitosCodigo\.length < 6\)\) \{/, 'un teléfono (más de 6 sin un grupo de 6) no entra');
 });
 
 test('2. OA-07: con los 6 números, el código se confirma solo a los 0,9 s, una vez por código', () => {

@@ -134,7 +134,8 @@ export async function POST(req: NextRequest) {
         // con MÁS números y sin un grupo de 6 (un teléfono) no se trata como código: sigue como cualquier respuesta.
         const digitosCodigo = texto ? texto.replace(/\D/g, '') : '';
         const grupoDe6 = texto ? /(?<!\d)\d{6}(?!\d)/.exec(texto)?.[0] : undefined;
-        if (h.v2 && etapa === 'codigo' && texto && (grupoDe6 || (digitosCodigo.length > 0 && digitosCodigo.length < 6))) {
+        // La caja VACÍA también (20/11, wa-12): «Todavía no tienes el código…» si MaKo no se lo mandó (decidirCodigoV2).
+        if (h.v2 && etapa === 'codigo' && texto !== undefined && opcion === undefined && (grupoDe6 || digitosCodigo.length < 6)) {
           const r = await verificarCodigoV2(g.ws, grupoDe6 ?? digitosCodigo);
           if (!r.ok) return no(422, r.error);
           await guardarEstadoArranque({ telefono: 'verificado' });
