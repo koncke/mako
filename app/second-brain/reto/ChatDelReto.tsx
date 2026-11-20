@@ -134,7 +134,7 @@ export function useAparicion(claves: readonly string[]): { ver: (k: string) => b
 
 const YA_MARCADA = 'mako.reto.marcada.';
 /** La marca de Plan del final del día 3 (d24-22): sin clic, con «Entendido». */
-const MARCA_PLAN: MarcaReto = { sel: 'aside[data-sidebar] a[href^="/plan"]', titulo: 'Tu Plan', texto: 'Tu reto está acá, como proyecto: cada día se cierra solo.', haz: 'Entendido', lado: 'derecha', listo: 'Entendido' };
+const MARCA_PLAN: MarcaReto = { sel: 'aside[data-sidebar] a[href^="/plan"]', titulo: 'Tu Plan', texto: 'Tu reto está aquí, como proyecto: cada día se cierra solo.', haz: 'Entendido', lado: 'derecha', listo: 'Entendido' };
 /** Cada cuánto relee el chat mientras espera la app del QR del día 2. */
 const CADA_MS_QR = 10_000;
 // Exportadas para el paso de Offer Coach a Funnel Coach (./usePasoAlFunnel.ts): la misma tarea se marca una vez por visita, la
