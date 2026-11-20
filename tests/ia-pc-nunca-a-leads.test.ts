@@ -72,8 +72,9 @@ const cuerpo = (src: string, firma: string) => {
 
 const ENTRADAS_DE_PERSONA: Record<string, RegExp> = {
   // El chat de la app (Ops Center, Second Brain) y el del teléfono: la persona de la sesión.
-  'app/api/mako/chat/route.ts': /personaDelRequest\(\)/,
-  'app/api/m/mako/route.ts': /personaDelRequest\(\)/,
+  // La persona del NEGOCIO (20/11/2026, lib/chat-del-negocio.ts): adentro, `personaDelRequest` (la sesión).
+  'app/api/mako/chat/route.ts': /personaDelChatDelNegocio\(\)/,
+  'app/api/m/mako/route.ts': /personaDelChatDelNegocio\(\)/,
   // El chat de MaKo en el CRM y el de la ficha del lead: la sesión ADENTRO, con el permiso de ver el CRM.
   'app/crm/mako-crm/chat-server.ts': /getUsuarioActual\(\)/,
   'lib/mako-analyst-lead.ts': /getUsuarioActual\(\)/,

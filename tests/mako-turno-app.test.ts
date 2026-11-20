@@ -357,7 +357,9 @@ test('la ruta: maxDuration 420, multipart con el largo ANTES de parsear, y nada 
   const iForm = ruta.indexOf('await req.formData()');
   assert.ok(iLargo > 0 && iForm > iLargo, 'el content-length se mira antes del formData()');
   assert.match(ruta, /validarAdjuntos\(/);
-  assert.match(ruta, /personaDelRequest\(\)/);
+  // La persona del negocio (20/11/2026: mirando como administrador, la del dueño), que adentro pide la sesión (`personaDelRequest`).
+  assert.match(ruta, /personaDelChatDelNegocio\(\)/);
+  assert.match(leer('lib/mako-turno-app.ts'), /export async function personaDelChatDelNegocio\(\)[^{]*\{\r?\n\s*const p = await personaDelRequest\(\);/);
 });
 
 // Rotura: agregar `export const X = 1;` a app/m/mako/acciones.ts → 1 fallo (este).

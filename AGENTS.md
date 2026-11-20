@@ -2702,6 +2702,13 @@ onboarding y del reto, nunca los datos. Funciona porque sabe dónde vive cada co
 nueva en el navegador va en `CLAVES_DEL_NAVEGADOR` (lib/reinicio-en-el-navegador.ts). Si no, el reinicio la deja y la persona no ve el
 onboarding entero. **El navegador también es estado:** lo visto que guarda se lo devuelve a la base (`Recorrido.tsx`, `useVisto.ts`).
 
+# Mirando un negocio como administrador, lo del negocio es del DUEÑO
+
+Un chat, un tutorial visto o un correo que se muestra, mirando un negocio: los del DUEÑO, nunca los del administrador (la D7, 20/11/2026).
+Los chats con `personaDelChatDelNegocio` (lib/mako-turno-app.ts), no con `personaDelRequest`; el email con `emailDelOnboarding`
+(lib/seguir-en-pc.ts). Escribir, sólo con `escribeComoElCliente(ws)`; si no, en lectura. Sin dueño, nadie (o, en un negocio de prueba,
+quien mira hace de cliente).
+
 # Un script que respalda filas de un cliente escribe el respaldo FUERA de cualquier repo
 
 Con `escribirRespaldo` (lib/respaldo-fuera-del-repo.ts): C:/dev/respaldos, `--respaldo=<carpeta>` o MAKO_RESPALDOS, y se niega si la

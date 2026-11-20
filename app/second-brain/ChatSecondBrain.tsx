@@ -100,6 +100,7 @@ import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operacione
 import { esRespuestaDeMaKo } from '@/app/_chat/HiloMako';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { VolverDelGrafo } from './volver';
+import { AVISO_SOLO_LECTURA } from '@/lib/chat-del-negocio-reglas';
 import { useChatCliente } from './useChatCliente';
 import { CajaDelCliente, HiloDelCliente, UsoDelCliente, estadoDelCliente } from './PiezasCliente';
 import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
@@ -184,6 +185,8 @@ type Props = {
   retoInicial?: boolean;
   /** El id del chat «Onboarding» (onboarding V2): en la lista va enseguida del Ops Center (20/11, OD-08). */
   hiloOnboarding?: number | null;
+  /** Mirando el negocio de un cliente como administrador (lib/chat-del-negocio.ts): la caja queda en lectura, con su aviso. */
+  soloLectura?: boolean;
   /** El primer nombre de la persona, para el saludo del reto. */
   nombrePersona?: string;
 };
@@ -222,7 +225,7 @@ const urlPelada = (e: Elegido | null): boolean => !!e && ('id' in e || 'offer' i
 /** El chat de Claude Code de entrada: el Cerebro (va primero) o el primero que puede recibir. */
 const centroDeEntrada = (k: Centro): string | null => (k.chats.find((c) => c.sesion) ?? k.chats[0])?.clave ?? null;
 
-function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, coachInicial = null, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', retoV2 = false, dosCoaches = false, retoInicial = false, nombrePersona = '', hiloOnboarding = null }: Omit<Props, 'centro'> & { centro: Centro | null }) {
+function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, coachInicial = null, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', retoV2 = false, dosCoaches = false, retoInicial = false, nombrePersona = '', hiloOnboarding = null, soloLectura = false }: Omit<Props, 'centro'> & { centro: Centro | null }) {
   // `?coach=offer` sin los dos coaches es el coach único: un link de la revisión no abre un chat que esta persona no tiene.
   const coachDeEntrada: CoachDelOps | null = coachInicial === 'offer' && !dosCoaches ? 'funnel' : coachInicial;
   const router = useRouter();
@@ -755,7 +758,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           caja={<>
             {/* Lo que MaKo recomienda a todo el negocio (26/10/2026), sólo en el Cerebro: en el bloque de preguntas, plegado. */}
             {k.esJefe && <RecomendacionesDeMako superficie="ops-center" alPedir={k.setTexto} />}
-            <div className="co-caja"><CajaDelCliente k={k} campo={caja} seguir={seguirHilo} /></div>
+            {/* Mirando el negocio de un cliente como administrador: se lee, no se escribe (20/11/2026, lib/chat-del-negocio.ts). */}
+            {soloLectura
+              ? <p className="co-caja" role="note" data-solo-lectura="" style={{ margin: 0, padding: '12px 16px', fontSize: 13.5, color: 'var(--dim)', textAlign: 'center' }}>{AVISO_SOLO_LECTURA}</p>
+              : <div className="co-caja"><CajaDelCliente k={k} campo={caja} seguir={seguirHilo} /></div>}
           </>}
           estado={estadoDelCliente(k)}>
           <HiloDelCliente k={k} apertura={apertura} />

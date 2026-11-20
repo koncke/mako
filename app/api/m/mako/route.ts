@@ -23,7 +23,8 @@
 
 import type { NextRequest } from 'next/server';
 import { TEXTO_SIN_PERMISO_IA, esSinPermisoIa } from '@/lib/ia-permiso-reglas';
-import { personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, turnoApp, type PersonaChat } from '@/lib/mako-turno-app';
+import { personaDelChatDelNegocio, listarSesiones, abrirSesion, nuevaSesion, turnoApp, type PersonaChat } from '@/lib/mako-turno-app';
+import { AVISO_SOLO_LECTURA } from '@/lib/chat-del-negocio-reglas';
 import { validarAdjuntos, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES, type AdjuntoListo } from '@/lib/mako-adjuntos';
 
 export const dynamic = 'force-dynamic';
@@ -41,7 +42,8 @@ const sessionIdDe = (v: unknown): number | null => {
 };
 
 export async function GET(req: NextRequest) {
-  const persona = await personaDelRequest();
+  // Mirando un negocio como administrador, los chats del DUEÑO (lib/chat-del-negocio.ts).
+  const persona = await personaDelChatDelNegocio();
   if ('error' in persona) return json({ ok: false, error: persona.error }, persona.status);
   const sp = req.nextUrl.searchParams;
   try {
@@ -69,8 +71,10 @@ async function mandar(persona: PersonaChat, sessionId: number | null, mensaje: s
 }
 
 export async function POST(req: NextRequest) {
-  const persona = await personaDelRequest();
+  const persona = await personaDelChatDelNegocio();
   if ('error' in persona) return json({ ok: false, error: persona.error }, persona.status);
+  // Todo lo de aquí escribe: mirando el negocio de un cliente, nada (sólo se lee).
+  if (persona.soloLectura) return json({ ok: false, error: AVISO_SOLO_LECTURA }, 403);
   try {
     const tipo = req.headers.get('content-type') ?? '';
     if (tipo.toLowerCase().startsWith('multipart/form-data')) {

@@ -74,7 +74,9 @@ const enteroDe = (v: string | undefined): number | null => {
   return Number.isInteger(n) && n > 0 ? n : null;
 };
 
-export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio, retoV2 = false, dosCoaches = false, nombrePersona = '', hiloOnboarding = null }: {
+export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio, retoV2 = false, dosCoaches = false, nombrePersona = '', hiloOnboarding = null, soloLectura = false }: {
+  /** Mirando el negocio de un cliente como administrador: la caja en lectura (lib/chat-del-negocio.ts). */
+  soloLectura?: boolean;
   /** El id del chat «Onboarding» (onboarding V2): va enseguida del Ops Center en la lista (OD-08). */
   hiloOnboarding?: number | null;
   /** El chat «Reto de 7 días» (onboarding V2, lib/onboarding-v2/revision.ts): lo decide la página, en el server. */
@@ -100,7 +102,7 @@ export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio, retoV2 = 
       <ChatSecondBrain veMapa={veMapa} mapa={mapa} chatInicial={chat} offerInicial={enteroDe(q.offer)} antesInicial={enteroDe(q.antes)} coachInicial={esCoachDelOps(q.coach) ? q.coach : null}
         opcionArmar={OPCION_ARMAR} centro={centro}
         centroInicial={centro ? claveCentro : null} ticketeraInicial={ticketera} inicio={inicio}
-        retoV2={retoV2} dosCoaches={dosCoaches} retoInicial={q.reto === '1'} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} />
+        retoV2={retoV2} dosCoaches={dosCoaches} retoInicial={q.reto === '1'} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} soloLectura={soloLectura} />
     </Pagina>
   );
 }

@@ -11,7 +11,7 @@
 // =============================================================================
 
 import 'server-only';
-import { personaDelRequest, listarSesiones } from './mako-turno-app';
+import { personaDelChatDelNegocio, listarSesiones } from './mako-turno-app';
 import {
   chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeLosEditores, quienChateaDelRequest,
   type ChatDeAntes, type ChatDeAutomatizacion, type ChatDeEditor,
@@ -21,7 +21,8 @@ import type { ChatMakoVivo } from './cerebro-vivo';
 
 export async function chatsMakoDeQuienMira(): Promise<ChatMakoVivo[] | undefined> {
   try {
-    const p = await personaDelRequest();
+    // Mirando un negocio como administrador, los del DUEÑO (lib/chat-del-negocio.ts).
+    const p = await personaDelChatDelNegocio();
     if ('error' in p) return undefined;
     const [ss, deTabs] = await Promise.all([listarSesiones(p), chatsDeTabsDeQuienMira(p)]);
     const propios = [...ss].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map((s) => ({ id: s.id, titulo: s.titulo, updatedAt: s.updatedAt }));

@@ -65,6 +65,7 @@ import { hoyEnTz } from '@/lib/date-utils';
 import { pideSeguimiento } from '@/lib/seguimiento-lead';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
+import { elChatDelNegocio } from '@/lib/chat-del-negocio';
 import { NO_CAMBIA_LA_ESTRELLA, NO_RENOMBRA_EL_PRINCIPAL, arbolDelJefe, baseDeLaPersona, esTabConChatPropio, previaDeMensaje } from '@/lib/chat-mako-reglas';
 import { nombreValido } from '@/lib/centro-chats';
 import { sanearAspecto } from '@/lib/centro-munecos';
@@ -132,6 +133,8 @@ export type PersonaChat = {
   chartKey: string;
   /** la persona de la sesión (`usuarios.id`): «mi hoja» del Dashboard y de General es la suya (`Ctx.quien`) */
   quien?: { sub: string; email: string; nombre: string };
+  /** Mirando el negocio de un cliente como administrador (lib/chat-del-negocio.ts): se lee y no se escribe. */
+  soloLectura?: boolean;
 };
 
 export type FalloPersona = { error: string; status: 400 | 401 | 403 };
@@ -155,6 +158,18 @@ export async function personaDelRequest(): Promise<PersonaChat | FalloPersona> {
   // Sólo una persona de verdad (`usuarios.id`): una sesión 'dev' o 'password' no tiene un informe propio.
   const quien = /^\d+$/.test(String(sesion.sub)) ? { sub: String(sesion.sub), email: (sesion.email ?? '').toLowerCase(), nombre: sesion.nombre ?? '' } : undefined;
   return { ws, rol: rolWs === 'admin' ? 'admin' : 'miembro', actor: sesion.email || sesion.nombre || sesion.sub, chartKey, quien };
+}
+
+/**
+ * LA PERSONA DEL CHAT DEL NEGOCIO (20/11/2026, lib/chat-del-negocio.ts; decidido por el Cerebro con la D7: «mirando como administrador se
+ * ve lo mismo que ve el cliente»). Mirando un negocio como administrador, la del DUEÑO (su `chart_key`: sus chats y su lectura), y
+ * `soloLectura` fuera de los negocios de prueba. Las rutas de los chats del negocio la usan en vez de `personaDelRequest`.
+ */
+export async function personaDelChatDelNegocio(): Promise<PersonaChat | FalloPersona> {
+  const p = await personaDelRequest();
+  if ('error' in p) return p;
+  const n = await elChatDelNegocio();
+  return { ...p, ...(n.dueno ? { chartKey: n.dueno.chartKey, quien: n.dueno.quien } : {}), soloLectura: n.soloLectura };
 }
 
 // ── Las sesiones de la persona ───────────────────────────────────────────────

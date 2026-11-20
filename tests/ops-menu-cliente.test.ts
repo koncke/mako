@@ -144,6 +144,6 @@ test('la pantalla monta ESA pieza: la fila del cliente pasa onMenu y MenusCentro
   assert.match(motor, /postJson<\{ munecos: MunecosDeChats \}>\(\{ action: 'criatura', sessionId: e\.id, aspecto \}\)/);
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
   const post = ruta.slice(ruta.indexOf('export async function POST'));
-  assert.ok(post.indexOf('const persona = await personaDelRequest();') >= 0 && post.indexOf('const persona = await personaDelRequest();') < post.indexOf("body.action === 'renombrar'"),
+  assert.ok(post.indexOf('const persona = await personaDelChatDelNegocio();') >= 0 && post.indexOf('const persona = await personaDelChatDelNegocio();') < post.indexOf("body.action === 'renombrar'"),
     'la persona (su sesión y su negocio) se resuelve ANTES de las acciones del menú');
 });

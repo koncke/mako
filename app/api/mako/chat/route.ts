@@ -46,7 +46,7 @@
 import type { NextRequest } from 'next/server';
 import { TEXTO_SIN_PERMISO_IA, esSinPermisoIa } from '@/lib/ia-permiso-reglas';
 import {
-  personaDelRequest, listarSesiones, munecosDeLaPersona, renombrarSesion, ponerMunecoDeSesion, abrirSesion, nuevaSesion, sesionDeTab, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
+  personaDelChatDelNegocio, listarSesiones, munecosDeLaPersona, renombrarSesion, ponerMunecoDeSesion, abrirSesion, nuevaSesion, sesionDeTab, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
   urlDeVozDelChat, escucharNotaDelChat,
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
@@ -84,6 +84,7 @@ import { negocioConSuIA } from '@/lib/ia-del-negocio';
 import { claveDelCreditoAsignado } from '@/lib/credito-negocio';
 import { pcDe } from '@/lib/ia-pc';
 import { cuentasDeIA, eleccionDelPedido } from '@/lib/chat-ia';
+import { AVISO_SOLO_LECTURA } from '@/lib/chat-del-negocio-reglas';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 420;
@@ -218,7 +219,8 @@ async function laOfertaDelCoach(): Promise<OfertaDelCoach> {
 }
 
 export async function GET(req: NextRequest) {
-  const persona = await personaDelRequest();
+  // Mirando un negocio como administrador, los chats del DUEÑO (lib/chat-del-negocio.ts).
+  const persona = await personaDelChatDelNegocio();
   if ('error' in persona) return json({ ok: false, error: persona.error }, persona.status);
   const sp = req.nextUrl.searchParams;
   try {
@@ -371,8 +373,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const persona = await personaDelRequest();
+  const persona = await personaDelChatDelNegocio();
   if ('error' in persona) return json({ ok: false, error: persona.error }, persona.status);
+  // Todo lo de aquí escribe (mandar, crear, renombrar, marcar, confirmar): mirando el negocio de un cliente, nada (sólo se lee).
+  if (persona.soloLectura) return json({ ok: false, error: AVISO_SOLO_LECTURA }, 403);
   // Con archivos: lo mismo que /api/m/mako (el teléfono), con la voz de la computadora.
   if ((req.headers.get('content-type') ?? '').toLowerCase().startsWith('multipart/form-data')) {
     try {

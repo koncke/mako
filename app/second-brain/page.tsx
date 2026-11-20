@@ -38,6 +38,7 @@ import { RUTA_SEGUIR_EN_PC, seguirEnPcPendiente } from '@/lib/seguir-en-pc';
 import { esTelefono } from '@/lib/movil-guard';
 import { rutaDelHilo } from '@/lib/onboarding-arranque';
 import { nombreDelReto } from '@/lib/reto/nombre';
+import { elChatDelNegocio } from '@/lib/chat-del-negocio';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -92,7 +93,9 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   const hiloOnboarding = retoV2 ? await hiloOnboardingGuardado() : null;
   // La primera vez, el reto (`alReto`, arriba): ahí está «Hola de nuevo».
   const qPantalla: QuerySecondBrain = retoV2 && alReto ? { ...q, reto: '1' } : q;
+  // Mirando el negocio de un cliente como administrador, la caja en lectura (lib/chat-del-negocio.ts: la lista es la del dueño).
+  const { soloLectura } = await elChatDelNegocio().catch(() => ({ soloLectura: false }));
   // LA BARRA OCULTA AL RECARGAR (20/11, OD-03): la pone el layout raíz en el <html> del server (app/layout.tsx), no un <script> de
   // esta página: detrás de loading.tsx, el riel se veía hasta que llegaba la página.
-  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={qPantalla} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} />;
+  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={qPantalla} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} soloLectura={soloLectura} />;
 }

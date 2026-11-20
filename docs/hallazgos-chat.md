@@ -5,6 +5,22 @@ para todos los chats de MaKo. Lo que sabe cada pantalla de su chat (su motor, su
 es lo que muerde al montarlas. Qué caja ofrece qué, y la excepción con su porqué: `lib/cajas-de-chat.ts` (el barrido,
 `tests/cajas-de-chat-unificadas.test.ts`). Lo del Ops Center en particular: [hallazgos-operaciones.md](hallazgos-operaciones.md).
 
+## Mirando un negocio como administrador, los chats son los del DUEÑO; escribir, sólo en los de prueba (20/11/2026, chat «onboarding-v2», claude5)
+
+La llamada con Leila: «en los chats de acá no está el chat de onboarding» (Martín, mirando el ws 3). La lista del Ops Center se arma con
+el `chart_key` de quien está en la sesión (`personaDelRequest` → `chartKeyDePersona`): mirando un negocio, la lista era la del
+ADMINISTRADOR y ningún chat del dueño estaba, el «Onboarding» incluido. `getSession` sólo abre los chats propios.
+
+- Decidido por el Cerebro (la D7: «mirando como administrador se ve lo mismo que ve el cliente»): la lista y la lectura son las del
+  DUEÑO; escribir, `escribeComoElCliente(ws)` (ws 3 y 9, como el dueño); en el negocio de un cliente, la caja queda en lectura con
+  «Estás mirando como administrador: aquí sólo lees.». Nunca se escribe como el administrador dentro de la lista del cliente.
+- Dónde: `personaDelChatDelNegocio` (lib/mako-turno-app.ts), con la regla en lib/chat-del-negocio-reglas.ts y la lectura del pedido
+  en lib/chat-del-negocio.ts (liviano, sin mako-turno-app). La usan /api/mako/chat y /api/m/mako (su POST: todo escribe, y en
+  lectura contesta 403 antes de tocar nada), los chats del grafo (lib/cerebro-chats.ts) y la fila «Onboarding».
+- Sólo el ADMINISTRADOR de MaKo (`getSesionAdmin`): una agencia mirando a su cliente sigue como estaba.
+- Sin hacer: los coaches, el reto y los gurús tienen sus propias rutas y no pasan por esto. Tampoco las acciones del teléfono
+  (app/m/mako/acciones.ts, confirmar y cancelar). tests/chat-del-negocio.test.ts. Sin mirar en producción.
+
 ## Ningún chat pide la app de escritorio para escribir: se contesta con los MaKo Tokens (20/11/2026, la llamada con Leila)
 
 **Vive en:** app/api/mako/chat/route.ts (`?app=1` y `?suIA=1`) · app/_chat/app-de-escritorio.ts · app/_chat/useAppDeEscritorio.tsx ·

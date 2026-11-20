@@ -63,7 +63,7 @@ test('la ruta del chat: la persona adentro de cada handler, el plazo de un turno
     const i = src.indexOf(`export async function ${m}(`);
     assert.ok(i > 0, m);
     const dos = src.slice(src.indexOf('{', i) + 1).split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 2);
-    assert.deepEqual(dos, ['const persona = await personaDelRequest();', "if ('error' in persona) return json({ ok: false, error: persona.error }, persona.status);"], `${m}: la persona primero`);
+    assert.deepEqual(dos, ['const persona = await personaDelChatDelNegocio();', "if ('error' in persona) return json({ ok: false, error: persona.error }, persona.status);"], `${m}: la persona primero`);
   }
   assert.match(src, /^export const maxDuration = 420;/m);
   assert.ok(!/get\('ws'\)/.test(src), 'el workspace sale de la sesión, nunca del ?ws=');

@@ -33,6 +33,7 @@ import { integracionConectada } from './credenciales';
 import { leerSesion, leerFila, guardarComoOferta } from './offer-sesiones';
 import { createSession, deleteSession, listSessions, setArchived } from './chart-chats';
 import { chartKeyDePersona } from './mako-turno-app-reglas';
+import { elChatDelNegocio } from './chat-del-negocio';
 import { estadoDiagnostico } from './offer-reglas';
 import { crearFunnel, getFunnelDefault, idDelFunnelDefault, renombrarFunnel, saveFunnelDefault } from './funnels';
 import { FUNNEL_DEFAULT_NOMBRE } from './funnel-fila';
@@ -213,7 +214,9 @@ export async function anotarRespuesta(e: EstadoArranque, h: HechosServer, dicho:
 export async function hiloOnboardingGuardado(): Promise<number | null> {
   try {
     const persona = await getUsuarioActual();
-    const chartKey = persona ? chartKeyDePersona(persona) : null;
+    // Mirando un negocio como administrador, el del DUEÑO: la lista es la suya (lib/chat-del-negocio.ts, 20/11/2026).
+    const delNegocio = await elChatDelNegocio().catch(() => null);
+    const chartKey = delNegocio?.dueno?.chartKey ?? (persona ? chartKeyDePersona(persona) : null);
     if (!chartKey) return null;
     const e = parseEstado(await getSettingEstricto(CLAVE));
     if (e.hiloDe && e.hiloDe !== chartKey) return null;
