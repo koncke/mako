@@ -29,9 +29,11 @@ test('el panel único con la estrella de MaKo en la cabecera, la portada y el hi
   assert.match(panel, /<PanelDeChat hilo=\{hiloPanel\}/, 'el panel del Ops Center');
   assert.match(panel, /cabecera=\{\{ clave: 'editar-con-mako', titulo: onModo \? 'MaKo' : 'Editar con MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo,/, 'la cabecera, con la estrella');
   assert.match(panel, /<Muneco titulo="MaKo" aspecto=\{ASPECTO_MAKO\} animo=\{animo\} size=\{64\} \/>/, 'la portada vacía');
-  assert.match(panel, /<HiloMako items=\{nota\.conNotas\(items\)\} quien=\{\{ nombre: 'MaKo', aspecto: ASPECTO_MAKO \}\} ahora=\{ahora\} escribiendo=\{pensando \? \{ segs: segundos \} : null\}/,
+  // Desde el 20/11 (auditoría de chats, pestanas-7 y 8) el hilo sale por la cola de salida, sobre las notas.
+  assert.match(panel, /const cola = useColaDelHilo\(nota\.conNotas\(items\), \{ ocupado: pensando \}\);\n  const filasDelHilo = cola\.items;/);
+  assert.match(panel, /<HiloMako items=\{filasDelHilo\} quien=\{\{ nombre: 'MaKo', aspecto: ASPECTO_MAKO \}\} ahora=\{ahora\} escribiendo=\{pensando \|\| cola\.escribiendo \? \{ segs: segundos \} : null\}/,
     'el hilo del Ops Center, con la estrella y su «Trabajando…»');
-  assert.match(panel, /enMensaje=\{enMensaje\}/, 'lo que cambió y los pedidos, en el hueco del hilo');
+  assert.match(panel, /enMensaje=\{enMensajeConCola\}/, 'lo que cambió y los pedidos, en el hueco del hilo');
   assert.doesNotMatch(panel, /<LogoMako\b|<Muneco titulo=\{tab\}/, 'volvió el logo o el muñeco de la tab');
 });
 

@@ -24,7 +24,9 @@ const hueco = (src: string) => src.slice(src.indexOf('const enMensaje = ('), src
 
 test('el Image Editor: el hilo con su criatura, la propuesta en el hueco de MaKo y la caja única', () => {
   assert.match(imagen, /const QUIEN = \{ nombre: 'Image Editor' \};/);
-  assert.match(imagen, /<HiloMako items=\{nota\.conNotas\(items\)\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
+  // Desde el 20/11 (auditoría de chats, pestanas-7 y 8) el hilo sale por la cola de salida, sobre las notas.
+  assert.match(imagen, /const cola = useColaDelHilo\(nota\.conNotas\(items\), \{ ocupado: hilo\.corriendo \}\);\n  const filasDelHilo = cola\.items;/);
+  assert.match(imagen, /<HiloMako items=\{filasDelHilo\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensajeConCola\} \/>/);
   const h = hueco(imagen);
   assert.match(h, /if \(!m \|\| m\.de !== 'mako'\) return null;/, 'lo de la persona no lleva propuesta');
   assert.match(h, /<RevisionPropuesta[\s\S]*onAceptar=\{\(\) => void aceptarPropuesta\(editorRef\.current, m\)\}/);
@@ -38,7 +40,8 @@ test('el Video Editor: igual, con el foco del link en el hueco y los colores de 
   // Desde el 10/11/2026 el hilo lo firma MaKo con su estrella, como la cabecera de la tarjeta (Martín, 21/10/2026: «los
   // iconos de las criaturas siempre debe ser el icono de MaKo»; medido en producción: un triángulo rosa debajo de la estrella).
   assert.match(video, /const QUIEN = \{ nombre: "MaKo", aspecto: ASPECTO_MAKO \};/);
-  assert.match(video, /<HiloMako items=\{nota\.conNotas\(items\)\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
+  assert.match(video, /const cola = useColaDelHilo\(nota\.conNotas\(items\), \{ ocupado: hilo\.corriendo \}\);\n\tconst filasDelHilo = cola\.items;/);
+  assert.match(video, /<HiloMako items=\{filasDelHilo\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensajeConCola\} \/>/);
   const h = hueco(video);
   assert.match(h, /if \(!m \|\| m\.de !== "mako"\) return null;/);
   assert.match(h, /<div data-mensaje=\{m\.id\} [^>]*style=\{foco === m\.id \?/, 'el foco de `?propuesta=` busca el hueco');

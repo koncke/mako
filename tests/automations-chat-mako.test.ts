@@ -297,7 +297,9 @@ test('abierto al entrar: el chat está siempre; ?mako=1 y la fila que nace con u
   assert.match(tramo(APP, 'const escribirSec = useCallback(', '}, [params, router]);', 600), /q\.set\('sec', String\(id\)\);\s*q\.delete\('mako'\);/);
   // Al abrir, el hilo va al último mensaje (y lo sigue si se estaba mirando lo último): lo hace la vista del hilo único (AU4).
   assert.match(CHAT, /<ChatMakoVista\n/);
-  assert.match(sinComentarios(leer('app/automations/ChatMakoVista.tsx')), /useLayoutEffect\(\(\) => \{\n\s+const h = hiloRef\.current;\n\s+if \(h && abajo\.current\) h\.scrollTop = h\.scrollHeight;\n\s+\}, \[n\]\);/);
+  // Desde el 20/11 (auditoría de chats, pestanas-1): con el gancho común, por la clave de la ÚLTIMA fila (la cuenta `n` no cambiaba
+  // cuando la respuesta reemplazaba a los puntitos).
+  assert.match(sinComentarios(leer('app/automations/ChatMakoVista.tsx')), /const ultimo = cola\.items\[cola\.items\.length - 1\];\n  useBajarAlUltimo\(seguir, `\$\{ultimo \? ultimo\.id : ''\}\|\$\{p\.escribiendo \|\| cola\.escribiendo \? 'escribe' : ''\}`\);/);
   // Y lee el chat guardado: si falla, arranca vacío (nada lo bloquea).
   assert.match(CHAT, /const r = await fetch\(`\$\{RUTA_IA\}\?secuenciaId=\$\{secId\}`, \{ cache: 'no-store' \}\);/);
   assert.deepEqual(juntarHilo([yo('a', '1')], [yo('a', '1'), yo('b', '2')]).map((m) => m.id), ['a', 'b']);

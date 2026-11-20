@@ -311,6 +311,7 @@ export function ChatMako(p: ChatMakoProps) {
   // La nota de la pantalla (`nota`): una vez por id, como un turno de MaKo de esta pantalla.
   const notaDicha = useRef<string | null>(null);
   const nota = p.nota ?? null;
+  // Entra al hilo y sale por la cola de la vista, con sus puntitos (auditoría de chats, pestanas-9: entraba de golpe; ChatMakoVista).
   useEffect(() => {
     if (!nota || notaDicha.current === nota.id) return;
     notaDicha.current = nota.id;
@@ -335,6 +336,9 @@ export function ChatMako(p: ChatMakoProps) {
   const conPedido = !!p.pedidoInicial?.trim();
   /** Mientras MaKo la sigue armando en el servidor (ver `enServidor`, abajo): el GET que trae su respuesta la recarga. */
   const enServidorRef = useRef(false);
+  // ¿Ya se leyó el chat guardado? Hasta ahí la cola de la vista no saca nada; al llegar, lo que había sale de una (no de a uno).
+  // Con un pedido de afuera no se lee nada: arranca leído.
+  const [chatLeido, setChatLeido] = useState(conPedido);
   const traerChat = useCallback(async (sigue: () => boolean = () => vivo.current) => {
     try {
       const r = await fetch(`${RUTA_IA}?secuenciaId=${secId}`, { cache: 'no-store' });
@@ -347,7 +351,7 @@ export function ChatMako(p: ChatMakoProps) {
       if (!guardados.length) return;
       setMensajes((locales) => juntarHilo(guardados, locales));
       if (!turnos.current) setRonda(rondaAbierta(guardados));
-    } catch { /* sin chat guardado: arranca vacío */ }
+    } catch { /* sin chat guardado: arranca vacío */ } finally { if (sigue()) setChatLeido(true); }
   }, [secId]);
   useEffect(() => {
     // Volvió a esta automatización: lo que MaKo terminó mientras no estaba ya se ve (sale del globito de la estrella).
@@ -803,7 +807,9 @@ export function ChatMako(p: ChatMakoProps) {
         cabecera={cabecera}
         items={items}
         enMensaje={(m) => enGlobo.get(m.id) ?? null}
-        escribiendo={trabajando || interpretando ? { segs: segundos } : null}
+        // También mientras MaKo la sigue armando en el SERVIDOR (pestanas-9: al recargar, el hilo quedaba sin puntitos).
+        escribiendo={trabajando || interpretando || enServidor ? { segs: segundos } : null}
+        cargado={chatLeido}
         vacio={<div style={S.vacio}>{crea ? VACIO_CREAR : VACIO_EDITAR}</div>}
         onReintentar={(id) => { const e = extrasRef.current.find((y) => y.id === id); if (e?.yo !== undefined) reintentar(e.id, e.yo); }}
         encima={encima}

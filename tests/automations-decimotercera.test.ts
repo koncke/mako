@@ -179,7 +179,8 @@ test('punto 6 → AU4: el chat de MaKo es el hilo y la caja únicos, con la estr
   assert.doesNotMatch(CHAT, /<ChatHilo\b|import \{ ChatHilo/, 'volvió el hilo de WhatsApp');
   assert.match(CHAT, /const ChatMakoVista = dynamic\(\(\) => import\('\.\/ChatMakoVista'\), \{ ssr: false,/);
   const vista = fuente('app/automations/ChatMakoVista.tsx');
-  assert.match(vista, /<HiloMako items=\{p\.items\} quien=\{QUIEN_MAKO\}/);
+  // Desde el 20/11 (auditoría de chats, pestanas-8 y 9) lo que dibuja sale por la cola de salida.
+  assert.match(vista, /<HiloMako items=\{cola\.items\} quien=\{QUIEN_MAKO\}/);
   assert.match(vista, /export const QUIEN_MAKO: Quien = \{ nombre: 'MaKo', aspecto: ASPECTO_MAKO \};/, 'la criatura no es la estrella');
   assert.match(vista, /<CajaChat \{\.\.\.p\.caja\} \/>/);
   // La cabecera: la estrella de MaKo y «en línea». Desde el 23/10/2026 es la del panel único (PanelChat.tsx), que la vista

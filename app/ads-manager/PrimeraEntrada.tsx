@@ -21,6 +21,7 @@
 // =============================================================================
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useColaDelHilo, usePrimeraVisita } from '@/app/_chat/useColaDelHilo';
 // El router de la casa: «terminar» vuelve a la misma pantalla con su `?ws=` (el super admin mirando a un cliente no cae en la suya).
 import { useRouter } from '@/app/_ui/Link';
 import { CajaChat } from '@/app/_chat/CajaChat';
@@ -353,13 +354,21 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
     return { items: out, listaEn };
   }, [p, nombre, motor, notas, envios]);
 
+  // LA COLA DE SALIDA (auditoría de chats del 20/11, pestanas-6; app/_chat/useColaDelHilo.ts, sobre la cola compartida): la respuesta de
+  // la persona, la pregunta que sigue y sus pastillas (o la tarjeta de la nota, «Anotado en tu funnel», la propuesta) salían en el mismo
+  // cuadro, sin puntitos: el hilo es una función del perfil. Ahora lo suyo sale ya, lo de MaKo con sus puntitos, y las pastillas y las
+  // tarjetas después, con su pausa. Lo que ya estaba al volver, de una; la primera visita, con su primera pregunta escrita.
+  const primeraVez = usePrimeraVisita('copilot');
+  const cola = useColaDelHilo(items, { ocupado: terminando || !!motor?.enCurso, deUnaAlAbrir: !primeraVez });
   const ultimaNota = [...notas].reverse().find((n) => n.visible);
   const ultimoItem = items.at(-1);
+  // Las pastillas, recién con su mensaje a la vista y su pausa.
+  const piezaLista = !!ultimoItem && cola.items.at(-1)?.id === ultimoItem.id && cola.conPieza(ultimoItem.id);
   // Las pastillas del paso, salvo que lo último sea una nota con sus propias opciones (se contestan ésas).
   // Un «Deshacer» solo no contesta el paso (10/11/2026, producción: tras «Empezar de nuevo» quedaba ÉSE y ningún botón para empezar).
   const conOpcionesDeNota = !!ultimaNota?.opciones && ultimoItem?.id === ultimaNota.id && !ultimaNota.opciones.every((o) => o.deshacer);
   const ultimo = useMemo(() => mensajesDeCopiloto(p, nombre).at(-1), [p, nombre]);
-  const opciones = !conOpcionesDeNota && ultimo?.de === 'mako' ? ultimo.opciones ?? [] : [];
+  const opciones = piezaLista && !conOpcionesDeNota && ultimo?.de === 'mako' ? ultimo.opciones ?? [] : [];
   // Abajo de todo, salvo con los referentes a la vista: ahí se arranca por la pregunta y el buscador (la grilla es larga, y bajando
   // de una se veían los últimos de la lista).
   useLayoutEffect(() => {
@@ -368,7 +377,7 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
     const refs = paso === 'referente' ? h.querySelector<HTMLElement>('.aa-refs-caja') : null;
     if (refs) h.scrollTop = Math.max(0, refs.getBoundingClientRect().top - h.getBoundingClientRect().top + h.scrollTop - 140);
     else h.scrollTop = h.scrollHeight;
-  }, [items.length, terminando, motor?.enCurso, paso]);
+  }, [cola.items.at(-1)?.id, cola.escribiendo, opciones.length > 0, terminando, motor?.enCurso, paso]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const responderPastilla = (t: string) => {
     const r = interpretarEscrito(p, t);
@@ -377,7 +386,7 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
 
   const elegirReferente = (id: IdAsesor) => ir(aplicarCambio(p, { referente: id }));
 
-  const enMensaje = (m: { id: string }): EnMensaje | null => {
+  const enMensajeDelPaso = (m: { id: string }): EnMensaje | null => {
     if (m.id === listaEn && paso === 'referente') return { abajo: <Referentes busca={busca} onBusca={setBusca} apagado={terminando} onElegir={elegirReferente} onSinReferente={() => responderPastilla(SIN_REFERENTE)} /> };
     if (m.id === 'of-cp-competencia') {
       return { abajo: <p className="aa-nota"><a href={RUTAS_COPILOTO.competencia}>Ver Competitor Spy</a>: ahí quedan guardados los negocios que miramos.</p> };
@@ -423,6 +432,8 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
     }
     return null;
   };
+  // Lo de abajo de un mensaje (la grilla, la tarjeta de la nota, la propuesta), después de su texto: la pieza del mensaje en la cola.
+  const enMensaje = (m: { id: string }): EnMensaje | null => (cola.conPieza(m.id) ? enMensajeDelPaso(m) : null);
 
   const onMotor = useCallback((m: Motor) => setMotor(m), []);
   const enCurso = terminando || !!motor?.enCurso || envios.some((e) => !e.enviado && !e.fallo && e.visible);
@@ -446,7 +457,7 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
           cabecera={{ clave: 'marketing-copilot-entrada', titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: enCurso ? 'trabajando' : 'despierto' }}
           caja={
             <div className="co-caja">
-              <CajaChat texto={texto} onTexto={setTexto} placeholder="Responde o pregunta" enterManda ocupado={terminando} bloqueo={appEscritorio.bloqueo}
+              <CajaChat seguir={() => hilo.current} texto={texto} onTexto={setTexto} placeholder="Responde o pregunta" enterManda ocupado={terminando} bloqueo={appEscritorio.bloqueo}
                 onMandar={() => {
                   const t = texto.trim();
                   if (!t) return;
@@ -455,8 +466,8 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
                 }} />
             </div>
           }>
-          <HiloMako items={items} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={motor?.ahora ?? ahora}
-            escribiendo={terminando ? { segs: 1 } : motor?.enCurso ? { segs: motor.segs } : envios.some((e) => !e.enviado && !e.fallo && e.visible) ? { segs: 0 } : null}
+          <HiloMako items={cola.items} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={motor?.ahora ?? ahora}
+            escribiendo={terminando ? { segs: 1 } : motor?.enCurso ? { segs: motor.segs } : envios.some((e) => !e.enviado && !e.fallo && e.visible) || cola.escribiendo ? { segs: 0 } : null}
             tarjeta={motor?.tarjeta ?? null} onTarjeta={(x, a) => void motor?.correrTarjeta(x, a)} onReintentar={motor?.reintentar ?? nada} onRecargar={motor?.recargar ?? nada}
             marcas={motor?.marcas} enMensaje={enMensaje} />
           {opciones.length > 0 && paso !== 'referente' && (

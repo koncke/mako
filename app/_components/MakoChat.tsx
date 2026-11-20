@@ -15,7 +15,9 @@
 // ya y se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts); sale por `enviar`, como lo escrito.
 
 import '@/app/admin/operaciones/centro.css';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { CajaChat } from '@/app/_chat/CajaChat';
@@ -66,6 +68,10 @@ export function MakoChat({
   const [sessionId, setSessionId] = useState<number | null>(initialSessionId ?? null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [pensando, setPensando] = useState(false);
+  // LEER NO ES PENSAR (auditoría de chats del 20/11, pestanas-10): al recargar un gráfico con charla o al elegir otra sesión, salían los
+  // puntitos de MaKo («Trabajando…») y después la conversación entera. Mientras se LEE, el cargador de la casa; los puntitos, sólo
+  // cuando el servidor va a escribir (un chat nuevo, o el primer análisis de un gráfico sin conversación).
+  const [cargando, setCargando] = useState(false);
   const [input, setInput] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [verChats, setVerChats] = useState(false);
@@ -92,6 +98,12 @@ export function MakoChat({
   // Lo juntado es de SU sesión, como lo que lee la caja (`conversacion` abajo): la misma caja atiende todas (28/10/2026).
   const adj = useAdjuntosDelChat({ puede: !pensando && !!sessionId, onError: setErr, conversacion: sessionId ? String(sessionId) : '' });
   const nota = useNotaEnElActo({ clave: `mako-chat:${endpoint}:${chartKey}:${sessionId ?? 'nuevo'}`, puede: !pensando && !!sessionId && !adj.preparando && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
+  // EL HILO SIGUE AL ÚLTIMO (auditoría de chats del 20/11, pestanas-3 y 4; el gancho común app/_chat/useBajarAlUltimo.ts), por la
+  // clave de la ÚLTIMA fila que se dibuja: la de `nota.conNotas(items)`, con la nota de voz (antes quedaba al pie, fuera de la vista,
+  // porque el scroll miraba la lista propia). Lo que crece (la caja con varias líneas, una foto, un error), mientras está abajo.
+  const seguirHilo = useCallback(() => scrollRef.current, []);
+  const filasDelHilo = nota.conNotas(items);
+  useBajarAlUltimo(seguirHilo, `${filasDelHilo[filasDelHilo.length - 1]?.id ?? ''}|${pensando ? 'trabaja' : ''}`);
   // Sugerencias efectivas: las del gráfico, o el set por defecto si no trae.
   const sugs = sugerencias.length ? sugerencias : DEFAULT_SUGERENCIAS;
 
@@ -114,18 +126,20 @@ export function MakoChat({
           if (!alive) return;
           setMessages(mRes.messages ?? []); setSessions(sRes.sessions ?? []); setSessionId(initialSessionId);
         } else {
-          setPensando(true);
+          // Con conversación guardada, abrir es LEER; sin ninguna, MaKo escribe su primer análisis (la ruta lo genera).
+          const previas = await fetch(`${endpoint}?chartKey=${encodeURIComponent(chartKey)}`).then((r) => r.json()).catch(() => null);
+          if (!alive) return;
+          if ((previas?.sessions ?? []).length > 0) setCargando(true); else setPensando(true);
           const j = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'open', chartKey, titulo, contexto }) }).then((r) => r.json());
           if (!alive) return;
           if (j.error) setErr(j.error); else { setSessions(j.sessions ?? []); setSessionId(j.session?.id ?? null); setMessages(j.messages ?? []); }
         }
-      } catch (e) { if (alive) setErr(String(e)); } finally { if (alive) setPensando(false); }
+      } catch (e) { if (alive) setErr(String(e)); } finally { if (alive) { setPensando(false); setCargando(false); } }
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartKey, initialSessionId]);
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, pensando]);
 
   const nuevoChat = async () => {
     if (pensando) return;
@@ -139,11 +153,12 @@ export function MakoChat({
   const abrirSesion = async (id: number) => {
     setVerChats(false);
     if (id === sessionId) return;
-    setPensando(true); setCambiando(true); setErr(null);
+    // Otra sesión: se LEE (el cargador, no los puntitos debajo de la conversación anterior).
+    setCargando(true); setCambiando(true); setErr(null); setMessages([]);
     try {
       const j = await fetch(`${endpoint}?sessionId=${id}`).then((r) => r.json());
       if (j.error) setErr(j.error); else { setMessages(j.messages ?? []); setSessionId(id); }
-    } catch (e) { setErr(String(e)); } finally { setPensando(false); setCambiando(false); }
+    } catch (e) { setErr(String(e)); } finally { setCargando(false); setCambiando(false); }
   };
 
   const accion = async (a: 'pin' | 'archive' | 'delete' | 'rename', id: number, extra: { valor?: boolean; titulo?: string } = {}) => {
@@ -240,6 +255,7 @@ export function MakoChat({
         </div>
       </>}
       estado="">
+      {cargando && <CargandoMako que="la conversación" />}
       <HiloMako items={nota.conNotas(items)} quien={MAKO} ahora={ahora} escribiendo={pensando ? { segs: desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0 } : null}
         tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} />
       {err && <p className="co-nota co-nota--mal" role="alert">{err}<ReportarASoporte /></p>}

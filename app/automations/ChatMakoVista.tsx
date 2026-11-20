@@ -14,7 +14,9 @@
 
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
-import { useEffect, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
+import { useColaDelHilo } from '@/app/_chat/useColaDelHilo';
 import { PanelDeChat, type CabeceraChat } from '@/app/admin/operaciones/PanelChat';
 import { HiloMako, type EnMensaje, type Quien } from '@/app/_chat/HiloMako';
 import { CajaChat } from '@/app/_chat/CajaChat';
@@ -22,7 +24,6 @@ import type { PropsCajaChat } from '@/app/_chat/CajaChat';
 import type { MensajeWA } from '@/lib/centro-mensajes';
 import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
-import { estaAbajo } from '@/lib/centro-caja';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 
 /** La criatura de MaKo: la estrella, siempre (23/10/2026). */
@@ -41,6 +42,8 @@ export type PropsVistaChatMako = {
   enMensaje: (x: ItemMsg) => EnMensaje | null;
   /** MaKo trabajando (los segundos que lleva), o null. */
   escribiendo: { segs: number } | null;
+  /** Ya se leyó el chat guardado (la cola no saca de a uno lo que ya estaba). */
+  cargado?: boolean;
   /** Lo que se lee con el hilo vacío. */
   vacio: ReactNode;
   /** «Reintentar» de un mensaje que no salió. */
@@ -56,21 +59,18 @@ export type PropsVistaChatMako = {
 
 export default function ChatMakoVista(p: PropsVistaChatMako) {
   const hiloRef = useRef<HTMLDivElement | null>(null);
-  /** ¿Se estaba mirando lo último? Entonces lo nuevo lo sigue (si se subió a leer algo de antes, no se lo mueve). */
-  const abajo = useRef(true);
-  const n = p.items.length + (p.escribiendo ? 1 : 0);
-  useLayoutEffect(() => {
-    const h = hiloRef.current;
-    if (h && abajo.current) h.scrollTop = h.scrollHeight;
-  }, [n]);
-  // ¿Se está mirando lo último? Se escucha el scroll del hilo del panel (PanelDeChat no recibe `onScroll`).
-  useEffect(() => {
-    const h = hiloRef.current;
-    if (!h) return;
-    const alMover = () => { abajo.current = estaAbajo(h); };
-    h.addEventListener('scroll', alMover, { passive: true });
-    return () => h.removeEventListener('scroll', alMover);
-  }, []);
+  // EL HILO SIGUE AL ÚLTIMO (auditoría de chats del 20/11, pestanas-1, 2 y 4; el gancho común app/_chat/useBajarAlUltimo.ts), por la
+  // clave de la ÚLTIMA fila, nunca una cuenta: contaba `items + escribiendo`, y cuando la respuesta reemplazaba a los puntitos la cuenta
+  // no cambiaba y no bajaba. Un mensaje nuevo baja siempre (también el propio con la persona arriba); lo que crece (la caja con varias
+  // líneas, las fases o un error encima, una tarjeta), mientras está abajo.
+  const seguir = useCallback(() => hiloRef.current, []);
+  // LA COLA DE SALIDA (auditoría de chats del 20/11, pestanas-8 y 9; app/_chat/useColaDelHilo.ts, sobre la cola compartida): las
+  // burbujas de varios pedidos sueltos, la nota de la pantalla y la tarjeta de la pregunta (`enMensaje.abajo`) salen de a una, con sus
+  // puntitos, y la tarjeta después del texto. Antes un solo setState las dibujaba juntas.
+  const cola = useColaDelHilo(p.items, { ocupado: !!p.escribiendo, cargado: p.cargado ?? true });
+  const ultimo = cola.items[cola.items.length - 1];
+  useBajarAlUltimo(seguir, `${ultimo ? ultimo.id : ''}|${p.escribiendo || cola.escribiendo ? 'escribe' : ''}`);
+  const enMensaje = (x: ItemMsg): EnMensaje | null => { const e = p.enMensaje(x); return e && !cola.conPieza(x.id) ? { ...e, abajo: null } : e; };
   return (
     // EL CHAT DEL OPS CENTER (23/10/2026, Martín: «Tienes que UNIFICAR los chats con MaKo en toda la app»): el panel único
     // (PanelChat.tsx) con su cabecera y la estrella, su arrastrar y soltar (lo adjuntado de la caja), el hilo y la caja únicos.
@@ -87,9 +87,9 @@ export default function ChatMakoVista(p: PropsVistaChatMako) {
           </div>
         </>}
         estado="">
-        {p.items.length || p.escribiendo
-          ? <HiloMako items={p.items} quien={QUIEN_MAKO} ahora={Date.now()} escribiendo={p.escribiendo} tarjeta={null}
-              onTarjeta={() => {}} onReintentar={p.onReintentar} onRecargar={() => {}} enMensaje={p.enMensaje} onCitar={p.onCitar} />
+        {cola.items.length || p.escribiendo || cola.escribiendo
+          ? <HiloMako items={cola.items} quien={QUIEN_MAKO} ahora={Date.now()} escribiendo={p.escribiendo ?? (cola.escribiendo ? { segs: 0 } : null)} tarjeta={null}
+              onTarjeta={() => {}} onReintentar={p.onReintentar} onRecargar={() => {}} enMensaje={enMensaje} onCitar={p.onCitar} />
           : p.vacio}
       </PanelDeChat>
     </div>

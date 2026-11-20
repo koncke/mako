@@ -213,7 +213,13 @@ export type ConfigNewsletter = {
   tema: string | null;
   /** Ediciones seguidas sin abrir para pasar a «Dormido». */
   dormidoTras: number;
+  /** Lo que MaKo propuso para la primera edición, en orden (auditoría de chats del 20/11, pestanas-11): al recargar se redibuja, sin
+   *  pedir otra a la IA. Sólo si hay. */
+  propuestas?: PropuestaEdicion[];
 };
+export type PropuestaEdicion = { asunto: string; idea: string };
+/** Cuántas propuestas se guardan (las últimas). */
+export const MAX_PROPUESTAS = 6;
 
 export const CONFIG_VACIA: ConfigNewsletter = { funnelId: null, frecuencia: null, tema: null, dormidoTras: DORMIDO_TRAS_DEFAULT };
 export const MAX_TEMA = 200;
@@ -227,11 +233,16 @@ export function leerConfig(crudo: unknown): ConfigNewsletter {
   const funnelId = typeof o.funnelId === 'number' && Number.isSafeInteger(o.funnelId) && o.funnelId > 0 ? o.funnelId : null;
   const tema = typeof o.tema === 'string' && o.tema.trim() ? o.tema.trim().replace(/\s+/g, ' ').slice(0, MAX_TEMA) : null;
   const n = Number(o.dormidoTras);
+  const propuestas = (Array.isArray(o.propuestas) ? o.propuestas : [])
+    .filter((x): x is PropuestaEdicion => !!x && typeof x === 'object' && typeof (x as PropuestaEdicion).asunto === 'string' && typeof (x as PropuestaEdicion).idea === 'string')
+    .map((x) => ({ asunto: x.asunto.slice(0, 200), idea: x.idea.slice(0, 1000) }))
+    .slice(-MAX_PROPUESTAS);
   return {
     funnelId,
     frecuencia: esFrecuencia(o.frecuencia) ? o.frecuencia : null,
     tema,
     dormidoTras: Number.isInteger(n) && n >= 1 && n <= 12 ? n : DORMIDO_TRAS_DEFAULT,
+    ...(propuestas.length ? { propuestas } : {}),
   };
 }
 

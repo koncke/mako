@@ -34,7 +34,9 @@
 // =============================================================================
 
 import "@/app/admin/operaciones/centro.css";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useBajarAlUltimo } from "@/app/_chat/useBajarAlUltimo";
+import { useColaDelHilo } from "@/app/_chat/useColaDelHilo";
 import { CajaChat } from "@/app/_chat/CajaChat";
 import { HiloMako, type EnMensaje } from "@/app/_chat/HiloMako";
 import { useNotaEnElActo } from "@/app/_chat/useNotaEnElActo";
@@ -486,11 +488,6 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 		if (proyectoId) void cargarHilo(proyectoId, nombreProyecto);
 	}, [proyectoId, nombreProyecto]);
 
-	// El chat baja solo con cada mensaje nuevo.
-	useEffect(() => {
-		const el = hiloRef.current;
-		if (el) el.scrollTop = el.scrollHeight;
-	}, [hilo.mensajes.length, hilo.corriendo]);
 
 	// El foco no sobrevive al panel: cerrado antes de los 4 s, quedaba en el store y al reabrirse saltaba a la propuesta
 	// vieja en vez de quedarse abajo, donde está lo nuevo (revisión del 20/10).
@@ -641,6 +638,10 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 		k: "msg", id: m.id, role: m.de === "yo" ? "user" : "assistant", at: Number.isFinite(m.c) && m.c > 0 ? new Date(m.c).toISOString() : null,
 		texto: m.de === "mako" && m.error ? "" : m.texto,
 	})), [hilo.mensajes]);
+	// EL HILO SIGUE AL ÚLTIMO (auditoría de chats del 20/11, pestanas-3 y 4; el gancho común app/_chat/useBajarAlUltimo.ts), por la
+	// clave de la ÚLTIMA fila que se dibuja: la de `nota.conNotas(items)`, con la nota de voz (antes quedaba al pie, fuera de la vista,
+	// porque el scroll miraba la lista propia). Lo que crece (la caja con varias líneas, una foto, un error), mientras está abajo.
+	const seguirHilo = useCallback(() => hiloRef.current, []);
 	const enMensaje = (x: Extract<ItemHilo, { k: "msg" }>): EnMensaje | null => {
 		const m = hilo.mensajes.find((y) => y.id === x.id);
 		if (!m || m.de !== "mako") return null;
@@ -684,6 +685,13 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 			),
 		};
 	};
+	// LA COLA DE SALIDA (auditoría de chats del 20/11, pestanas-7 y 8; app/_chat/useColaDelHilo.ts, sobre la cola compartida): los mensajes
+	// nuevos de MaKo salen de a uno, con sus puntitos, y su tarjeta o sus botones (`enMensaje.abajo`) después del texto, con su pausa.
+	// Antes un solo setState los dibujaba juntos. Lo que ya estaba al abrir sale de una.
+	const cola = useColaDelHilo(nota.conNotas(items), { ocupado: hilo.corriendo });
+	const filasDelHilo = cola.items;
+	const enMensajeConCola = (x: Extract<ItemHilo, { k: "msg" }>): EnMensaje | null => { const e = enMensaje(x); return e && !cola.conPieza(x.id) ? { ...e, abajo: null } : e; };
+	useBajarAlUltimo(seguirHilo, `${filasDelHilo[filasDelHilo.length - 1]?.id ?? ""}|${cola.escribiendo ? "escribe" : ""}|${hilo.corriendo ? "trabaja" : ""}`);
 
 	return (
 		// Un <section> y no un <aside>: con la barra de la agencia, `[data-barra-agencia] aside` (app/globals.css) le fuerza a todo <aside> el alto de la ventana, y la caja quedaba fuera de la vista (medido el 22/10/2026).
@@ -713,8 +721,8 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 							</div>
 						</>
 					)}
-					<HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-						tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} onCitar={cita.citar} enMensaje={enMensaje} />
+					<HiloMako items={filasDelHilo} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo || cola.escribiendo ? { segs: 0 } : null}
+						tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} onCitar={cita.citar} enMensaje={enMensajeConCola} />
 					{hilo.corriendo && (
 						<button type="button" onClick={detener} className="cursor-pointer self-start text-[12px] text-(--faint) hover:text-(--ink)">
 							Detener generación

@@ -68,6 +68,8 @@
 // =============================================================================
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
+import { useColaDelHilo } from '@/app/_chat/useColaDelHilo';
 import type { Editor } from '@tiptap/react';
 import dynamic from 'next/dynamic';
 import Link, { useRouter, useWs } from '@/app/_ui/Link';
@@ -855,11 +857,6 @@ export function PanelAgente() {
   // (Acá estaba el alcance de los chips: lo elegido para una sección, o la sección tocada con la IA prendida. Desde el
   // 24/10/2026 «Editar» manda siempre la landing entera, con la sección del cursor como pista: `pedirEdicion`.)
 
-  // El chat baja solo con cada mensaje nuevo.
-  useEffect(() => {
-    const el = hiloRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [hilo.mensajes.length, hilo.corriendo]);
 
   const enviar = (instruccion: string, op: { interpretar?: boolean } = {}) => {
     if (hilo.corriendo || !instruccion.trim() || appEscritorio.bloqueada) return;
@@ -974,6 +971,10 @@ export function PanelAgente() {
   const items = useMemo((): ItemHilo[] => hilo.mensajes.map((m): ItemHilo => (m.de === 'yo'
     ? { k: 'msg', id: String(m.id), role: 'user', texto: m.texto, at: null, ...(m.seccion ? { desde: m.seccion } : {}), ...(m.adjuntos?.length ? { archivos: m.adjuntos.map(archivoDe) } : {}) }
     : { k: 'msg', id: String(m.id), role: 'assistant', texto: m.de === 'mako' && !m.error ? m.texto : '', at: null })), [hilo.mensajes]);
+  // EL HILO SIGUE AL ÚLTIMO (auditoría de chats del 20/11, pestanas-3 y 4; el gancho común app/_chat/useBajarAlUltimo.ts), por la
+  // clave de la ÚLTIMA fila que se dibuja: la de `nota.conNotas(items)`, con la nota de voz (antes quedaba al pie, fuera de la vista,
+  // porque el scroll miraba la lista propia). Lo que crece (la caja con varias líneas, una foto, un error), mientras está abajo.
+  const seguirHilo = useCallback(() => hiloRef.current, []);
   const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
     const m = hilo.mensajes.find((y) => String(y.id) === x.id);
     if (!m || m.de === 'yo') return null;
@@ -993,6 +994,13 @@ export function PanelAgente() {
       ) : null,
     };
   };
+  // LA COLA DE SALIDA (auditoría de chats del 20/11, pestanas-7 y 8; app/_chat/useColaDelHilo.ts, sobre la cola compartida): los mensajes
+  // nuevos de MaKo salen de a uno, con sus puntitos, y su tarjeta o sus botones (`enMensaje.abajo`) después del texto, con su pausa.
+  // Antes un solo setState los dibujaba juntos. Lo que ya estaba al abrir sale de una.
+  const cola = useColaDelHilo(nota.conNotas(items), { ocupado: hilo.corriendo });
+  const filasDelHilo = cola.items;
+  const enMensajeConCola = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => { const e = enMensaje(x); return e && !cola.conPieza(x.id) ? { ...e, abajo: null } : e; };
+  useBajarAlUltimo(seguirHilo, `${filasDelHilo[filasDelHilo.length - 1]?.id ?? ''}|${cola.escribiendo ? 'escribe' : ''}|${hilo.corriendo ? 'trabaja' : ''}`);
 
   // ── Los botones de las burbujas de pedidos (../pedidos-chat.ts) ──────────
 
@@ -1116,7 +1124,7 @@ export function PanelAgente() {
               </div>
             </>
           )}
-          <HiloAgente items={nota.conNotas(items)} corriendo={hilo.corriendo} enMensaje={enMensaje} onCitar={citar}
+          <HiloAgente items={filasDelHilo} corriendo={hilo.corriendo || cola.escribiendo} enMensaje={enMensajeConCola} onCitar={citar}
             onReintentar={nota.reintentar(() => {})} onDescartar={nota.descartar} />
           {hilo.corriendo && <button type="button" className="gma-pb-boton" data-v="fantasma" data-t="s" onClick={detener}>Detener generación</button>}
           {hilo.mensajes.length > 0 && !hilo.corriendo && (

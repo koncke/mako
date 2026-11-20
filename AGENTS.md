@@ -2673,6 +2673,8 @@ van dos marcas en el mismo render).
 - **Sus mensajes salen por la cola (`useColaDeSalida`, app/_chat/useColaDeSalida.ts):** de a uno, con puntitos según su largo, y la
   tarjeta, el recuadro o el botón después del texto. El historial, de una. Cuánto escribe MaKo sale de UNA función (`msEscribiendo`,
   lib/puntitos.ts): nunca un número fijo en una pantalla.
+  Un hilo de ítems (HiloMako, HiloAgente) pasa por `useColaDelHilo` (app/_chat/useColaDelHilo.ts), y un chat que lee su historial
+  DESPUÉS de montarse le pasa `cargado`.
 - **Lo que aparece porque cambió algo en el servidor (una tarea hecha, un paso que se abre) también es una fila de la cola**, no estado
   derivado que se dibuja de golpe. Qué sale lo dice UNA función que usan la cola y el dibujo (como lib/reto/en-el-dia.ts).
 - **Un chat con PERSONAS usa app/_chat/grupo/useSeguirElHilo.ts** (como WhatsApp: no arrastra a quien lee arriba, cuenta lo nuevo).
