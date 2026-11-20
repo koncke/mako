@@ -131,7 +131,8 @@ export const DIAS_RETO: readonly DiaReto[] = [
           // última, tocar Settings en el video cerraba «Tu perfil y tu foto» antes de llegar al perfil, y tocar Perfil no cerraba nada.
           { sel: conMarca(marcaSettings('info')), titulo: 'Perfil', texto: 'Tu nombre y tu foto: lo que contaste en el chat ya está guardado.', haz: 'Haz clic en Perfil', lado: 'derecha' },
           // 20/11 (d24-20, la maqueta): la última es el botón de la foto (app/perfil/InformacionPersonal.tsx, `MARCA.settingsFoto`), con «Entendido».
-          { sel: conMarca(MARCA.settingsFoto), titulo: 'Tu foto', texto: 'Tu foto: súbela aquí. Tu nombre, tu WhatsApp y tu negocio ya están guardados.', haz: 'Entendido', lado: 'derecha', listo: 'Entendido' },
+          // Con SU texto (`propia`): sin eso, `marcasDeLaTarea` le ponía el de la tarea (la maqueta, onboarding.html:20185-20198).
+          { sel: conMarca(MARCA.settingsFoto), titulo: 'Tu foto', texto: 'Súbela aquí. Tu nombre, tu WhatsApp y tu negocio ya están guardados.', haz: 'Entendido', lado: 'derecha', listo: 'Entendido', propia: true },
         ] },
     ],
     whatsapp: { texto: 'Dile a MaKo a qué hora te escribe sobre el reto: le escribes tú primero, así WhatsApp no frena sus mensajes.', ejemplo: '«Hola MaKo, prefiero que me escribas a las 9:00 sobre el reto.»', escrito: 'Hola MaKo, prefiero que me escribas a las {hora} sobre el reto.' },
@@ -265,6 +266,8 @@ const COLUMNA_DEL_FUNNEL: Readonly<Record<string, keyof typeof POR_FUNNEL>> = {
 // Lo acordado el 16/11: «sólo las de lo que eligió». Hasta 3, sin repetir, con su «para». Con las claves de lib/integraciones-catalogo.ts
 // (la tarjeta de cada una en Settings › Integraciones lleva `marcaIntegracion(clave)`). Google Calendar no va: es la tarea del día 3.
 export type IntegracionReto = { key: string; nombre: string; para: string };
+/** El mensaje de MaKo antes del perfil, el último paso del día 2 (la maqueta, D2_PERFIL). */
+export const RETO_D2_PERFIL = 'Último paso del día 2: tu perfil. Lo que me contaste ya quedó guardado en Settings; ahí subes tu foto.';
 /** El mensaje de MaKo antes de la extensión, en el día 2 en pasos (la maqueta, D2_EXT; d24-08). */
 export const RETO_D2_EXT = 'Ahora la extensión de MaKo para Chrome: te acompaña mientras navegas.';
 /** El mensaje de MaKo antes de la tarjeta «Te falta integrar esto» (la maqueta, D2_INT). */

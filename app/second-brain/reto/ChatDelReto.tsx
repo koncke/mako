@@ -37,7 +37,7 @@ import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutorial/desde-cero';
 import { claveTarea, diaAbierto, diasDelReto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
 import { RETO_EMPEZAR_DIA1, RETO_INTERES_YA, RETO_MUESTRA, RETO_MUESTRA_FIN, muestrasDe, type MuestraReto } from '@/lib/reto/dias';
-import { RETO_D2_EXT, RETO_PILOTO, diaTerminado, finDelDia, marcasDeLaTarea, rotuloDelDia, tareaDespues } from '@/lib/reto/dias';
+import { RETO_D2_EXT, RETO_D2_PERFIL, RETO_PILOTO, diaTerminado, finDelDia, marcasDeLaTarea, rotuloDelDia, tareaDespues } from '@/lib/reto/dias';
 import { NOTA_PRO_UNA_VEZ, TAREA_PRO } from '@/lib/reto/pro-del-reto';
 import { Burbuja } from './Burbuja';
 import { ClipDelReto } from './ClipDelReto';
@@ -416,13 +416,16 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
       {p && ((dia.n === 2 && llega2(3)) || (dia.n !== 2 && dia.n !== 7 && diaTerminado(e, dia))) && (dia.n === 2
         ? <TarjetaHora p={p} guardada={e.horaWa ?? null} linea={linea} hora={hora} onHora={onHora} onConfirmar={onConfirmarHora ?? (() => {})} />
         : <TarjetaPrueba p={p} linea={linea} hora={hora} />)}
+      {/* El perfil, último paso del día 2: el mensaje de MaKo (la maqueta, D2_PERFIL) y su tarjeta. */}
       {ultimo && llega2(3) && (
+        <>
+        <Burbuja><p>{RETO_D2_PERFIL}</p></Burbuja>
         <Burbuja ancho>
           <div className="rt-tarjeta" data-recorrido="sb-reto-dia-2-perfil">
-            <p className="rt-tarjeta__t">Último paso del día 2: tu perfil</p>
             <ol className="rt-tareas">{fila(ultimo, dia.n)}</ol>
           </div>
         </Burbuja>
+        </>
       )}
       {/* Lo que hizo durante el video ya cuenta (el Cerebro, 18/11): si hizo todo, la felicita (sólo el día 2, R57-F4). */}
       {todas && dia.n === 2 && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!</p></Burbuja>}
