@@ -86,6 +86,8 @@ export type EstadoVerificacion = {
   respondido?: boolean;
   /** Los códigos equivocados que pegó: al llegar al tope, pide uno nuevo. */
   intentos?: number;
+  /** V2: cuándo escribió ella pidiendo el código por última vez (ms). «Reenviar» escribe directo sólo dentro de las 24 horas. */
+  escribioAt?: number;
 };
 
 export type Llegada = {
@@ -181,9 +183,56 @@ export function codigoNumerico(azar: () => number = Math.random): string {
   return c;
 }
 
+/** El código en dos grupos de tres, como la maqueta («482 913»): se lee mejor, y el campo de la app saca todo lo que no es número. */
+export const codigoEnGrupos = (codigo: string): string => (/^\d{6}$/.test(codigo) ? `${codigo.slice(0, 3)} ${codigo.slice(3)}` : codigo);
+
 /** La respuesta de MaKo en su WhatsApp, con el código. */
 export const mensajeDelCodigoV2 = (nombre: string, codigo: string): string =>
-  `Hola${nombre.trim() ? ` ${nombre.trim()}` : ''}, soy MaKo.\nTu código para confirmar tu WhatsApp es ${codigo}.`;
+  `Hola${nombre.trim() ? ` ${nombre.trim()}` : ''}, soy MaKo.\nTu código para confirmar tu WhatsApp es ${codigoEnGrupos(codigo)}.`;
+
+/**
+ * El código y el pedido de guardar el contacto, en UN mensaje (20/11/2026, la auditoría wa-09). Iban separados, y el pedido es el mismo
+ * texto para todos: la regla de «el mismo texto a muchos» (lib/mako-salida-reglas.ts) no lo deja salir a más de 5 chats por hora, y el
+ * error se descartaba. Pegado al código, cada mensaje es distinto.
+ */
+export const mensajeDelCodigoYAgendarV2 = (nombre: string, codigo: string): string => `${mensajeDelCodigoV2(nombre, codigo)}\n\n${AGENDAR_V2}`;
+
+/** Con la línea de MaKo caída (20/11/2026, wa-05): en el V2 no hay «lo resuelves después» (el WhatsApp es obligatorio), y es de nuestro lado. */
+export const MAKO_SIN_LINEA_V2 = 'MaKo no puede recibir mensajes en este momento, es de nuestro lado. Prueba de nuevo en unos minutos.';
+
+/** Los errores del número (la maqueta, wa-14): cada uno dice qué hacer. */
+export const E_TEL_CORTO = 'A ese número le faltan dígitos. Revísalo y toca «Seguir».';
+export const E_TEL_NO_WA = 'Ese número no parece un WhatsApp. Escríbelo con el código de país, por ejemplo +54 9 11 5555 0101.';
+/** null: el número sirve. Un número de WhatsApp tiene de 8 a 15 dígitos con el código de país. */
+export function errorDelTelefono(digitos: string): string | null {
+  if (digitos.length < 8) return E_TEL_CORTO;
+  if (digitos.length > 15) return E_TEL_NO_WA;
+  return null;
+}
+
+/**
+ * «REENVIAR EL CÓDIGO» ESCRIBE DIRECTO SÓLO SI ELLA ESCRIBIÓ HACE POCO (20/11/2026, wa-f3). Martín: «ellos escriben primero, siempre».
+ * El 19/11 se pidió que «Reenviar» con el código vencido mande uno nuevo (Martín volvió una hora después): dentro de las 24 horas de su
+ * último mensaje, MaKo le contesta en la misma charla. Pasado eso, que vuelva a escribir ella (`E_REESCRIBIR_V2`). Sin la marca (una
+ * verificación de antes de esto), como antes: directo.
+ */
+export const VENTANA_REENVIAR_MS = 24 * 3_600_000;
+export const reenviarDirecto = (v: Pick<EstadoVerificacion, 'escribioAt'>, ahora: number): boolean =>
+  v.escribioAt == null || ahora - v.escribioAt <= VENTANA_REENVIAR_MS;
+
+/**
+ * EL PEDIDO DESDE OTRO NÚMERO (20/11/2026, wa-04): MaKo se callaba y la pantalla no decía nada. Ahora le contesta en ese chat qué hacer,
+ * y si hay UNA sola verificación del V2 esperando en esa línea, se le anota `otroNumero` (la vista pasa a `'otro-numero'`). Con más de una
+ * no se sabe de quién es: se le contesta igual, sin anotar nada en ninguna.
+ */
+export const respuestaOtroNumeroV2 = (telefono: string): string =>
+  `Me escribiste desde +${telefono}, pero en MaKo pusiste otro número. Escríbeme desde el WhatsApp del número que pusiste, o toca «Cambiar número» en MaKo y pon éste.`;
+
+/** La única verificación del V2 que espera en esa línea (sin confirmar y sin vencer), o null si no hay ninguna o hay más de una. */
+export function unicaEsperandoV2<T extends { v: EstadoVerificacion | null }>(filas: readonly T[], instancia: string, ahora: number): T | null {
+  const esperando = filas.filter((f) => f.v?.v2 && f.v.entrante && !f.v.verificado && ahora <= f.v.expira && (!f.v.linea || f.v.linea === instancia));
+  return esperando.length === 1 ? esperando[0] : null;
+}
 
 /**
  * ¿Hay que armar un código NUEVO? (19/11/2026) Con el código vencido o con el tope de intentos lleno, los dos carteles de la app le dicen

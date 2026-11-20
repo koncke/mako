@@ -24,6 +24,7 @@ import { getContactoReportes, getPerfil, setContactoReportes } from '@/lib/perfi
 import { setDiagnosticoFase } from '@/lib/fase-store';
 import { asegurarGrupoMaKo, estadoVerificacionEntrante, getGrupoJidMaKo, pedirMensajeDeVerificacion, verificarCodigoContacto } from '@/lib/mako-grupo';
 import { pedirConfirmacionV2, reenviarCodigoV2, verificarCodigoV2 } from '@/lib/mako-grupo';
+import { errorDelTelefono } from '@/lib/verificacion-entrante';
 import { leerSesion } from '@/lib/offer-sesiones';
 import { idDelFunnelDefault } from '@/lib/funnels';
 import { estaImpersonando } from '@/lib/workspace';
@@ -231,6 +232,9 @@ export async function POST(req: NextRequest) {
         const crudo = typeof body.telefono === 'string' ? body.telefono : '';
         const digitos = crudo.replace(/\D/g, '');
         if (digitos.length < 8) return no(422, h.v2 ? E_TELEFONO_INCOMPLETO : 'Escribe tu número completo, con el código de país.');
+        // Y el número largo de más (20/11/2026, wa-14): los errores de la maqueta dicen qué hacer.
+        const malo = errorDelTelefono(digitos);
+        if (malo) return no(422, malo);
         return await pedirCodigo(e, h, confirmado, digitos);
       }
 

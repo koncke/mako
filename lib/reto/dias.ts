@@ -280,7 +280,8 @@ export type EstadoReto = { v: 1; inicio: string; adelantado: number; hechas: Rec
   manana?: number;
   /** Lo de Pro que el reto le abrió una vez en la prueba (lib/reto/pro-del-reto.ts): cuándo, para sumar su gasto. */
   pro?: Partial<Record<string, { desde: string; hasta: string }>>;
-  /** El último día del que salió el correo «Día N del reto de MaKo» (lib/reto/correos.ts): uno por día, una vez. */
+  /** El último día del que salió el correo «Día N del reto de MaKo», de antes del 20/11. Ya no se escribe: lo que sale va en
+   *  `reto.avisos` (lib/reto/avisos.ts), que arranca desde éste. */
   avisado?: number };
 
 export const CLAVE_RETO = 'reto.estado';
@@ -427,10 +428,11 @@ export const mensajeEscrito = (p: PruebaWhatsApp, hora = '9:00') => (p.escrito ?
 
 /**
  * EL CORREO «DÍA N DEL RETO DE MaKo» (Martín, 18/11: «el asunto "Martín MaKo · Día 3 tu video de hoy" no tiene sentido. Va "Día 3 del
- * reto de MaKo", y lo mismo en todos los días»). Corto: qué toca hoy y el link al chat del reto. Lo manda lib/reto/correos.ts.
+ * reto de MaKo", y lo mismo en todos los días»). Corto: qué toca hoy y el link al chat del reto. Lo manda lib/reto/avisos-salida.ts.
  */
-export function correoDelDia(n: number, link: string): { asunto: string; preheader: string; cuerpo: string } {
-  const d = DIAS_RETO.find((x) => x.n === n) ?? DIAS_RETO[0];
+export function correoDelDia(n: number, link: string, dias: readonly DiaReto[] = DIAS_RETO): { asunto: string; preheader: string; cuerpo: string } {
+  // `dias`: los del negocio (`diasDelReto(funnel)`), así lo que toca los días 4 a 6 es lo de SU funnel (20/11/2026).
+  const d = dias.find((x) => x.n === n) ?? dias[0];
   return {
     asunto: `Día ${d.n} del reto de MaKo`,
     preheader: d.titulo,
