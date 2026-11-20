@@ -5735,3 +5735,14 @@ titular), no se tiñe.
     video). Lo midió una página de mentira con el motor de verdad: el menú cerrado, el menú ya abierto y sin la opción.
   - Un renglón del `Dropdown` lleva su lugar sólo si lo pide (`marca` → `data-recorrido`). El componente lo usan decenas de
     pantallas, y las demás no cambian de marcado.
+- **El tutorial de Chats no podía mostrar nunca sus tres marcas** (leído en el código, 20/11; tests/tutorial-chats-vacio.test.ts).
+  Sin canales, que es lo que ve toda cuenta nueva del onboarding, la pantalla es sólo «Conecta un canal…»: no hay bandeja ni
+  «Canal», y la voz decía «toca aquí, en Todos» sin marcar nada. Con canales, WhatsApp vive dentro del modal de conectar.
+  - Ahora un tutorial puede traer una `variante`: un selector que existe sólo en otro estado de la pantalla, y el tutorial de ese
+    estado. El motor la mira con la pantalla ya pintada (`useVariante`, con un MutationObserver: los datos de Chats llegan después
+    del primer pintado).
+  - Cada uno anota su «visto» aparte. Quien conecta su primer canal ve después el de siempre, una vez.
+  - Chats vacío lleva su video (`chats-vacio`), con la única marca que existe ahí, el botón WhatsApp.
+  - **Regla:** nunca prometer en un tutorial lo que la app no hace. Antes de grabar «MaKo te sugiere qué contestar» se miró en el
+    código que el botón MaKo de la caja de Chats sugiere en WhatsApp para todos los planes. Lo de Pro es otra cosa, el setter que
+    contesta solo.

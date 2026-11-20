@@ -192,8 +192,28 @@ function TutorialDeLaRuta() {
   // el video del Ops Center. tutorialDeRuta (lib/tutoriales) ya elige por la consulta cuando el tutorial la pide.
   const consulta = useSearchParams()?.toString() ?? '';
   const ruta = (usePathname() ?? '/') + (consulta ? `?${consulta}` : '');
-  const t = tutorialDeRuta(ruta);
+  const t = useVariante(tutorialDeRuta(ruta));
   return t ? <><PrimeraVez key={t.pestana} t={t} /><BotonDelVideo t={t} /></> : null;
+}
+
+/**
+ * EL TUTORIAL DEL ESTADO DE LA PANTALLA (20/11: Chats vacío). Si el de la ruta trae `variante` y su marca está en la pantalla (la
+ * pantalla ya pintó: se mira cuando cambia), corre ése, con su video y su «visto» propios. Sin variante, el de la ruta tal cual.
+ */
+function useVariante(t: TutorialPestana | null): TutorialPestana | null {
+  const si = t?.variante?.si ?? null;
+  const [esta, setEsta] = useState(false);
+  useEffect(() => {
+    if (!si) return;
+    let cuadro = 0;
+    const mirar = () => { cuadro = 0; setEsta(!!lugarDe(si)); };
+    const pedir = () => { if (!cuadro) cuadro = requestAnimationFrame(mirar); };
+    pedir();
+    const mo = new MutationObserver(pedir);
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => { mo.disconnect(); if (cuadro) cancelAnimationFrame(cuadro); setEsta(false); };
+  }, [si]);
+  return t?.variante && esta ? t.variante.tutorial : t;
 }
 
 /** El «?» de cada pestaña con tutorial (Martín, 18/11: «el botoncito de pregunta… si el usuario cerró el video, pueda volver a

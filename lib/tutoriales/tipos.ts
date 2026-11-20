@@ -65,6 +65,12 @@ export type TutorialPestana = {
    * el tutorial de la pestaña (el que devuelve `tutorialDeRuta`); con él, lo pide el motor cuando la pantalla llega a ese estado.
    */
   estado?: string;
+  /**
+   * OTRO tutorial para la misma ruta cuando la pantalla está en otro estado (20/11: Chats vacío, sin canales). `si`: un selector que
+   * existe SÓLO en ese estado. El motor lo mira con la pantalla ya pintada y, si está, corre `tutorial`, con su video y su «visto»
+   * propios: quien conecta su primer canal ve después el de siempre, una vez.
+   */
+  variante?: { si: string; tutorial: TutorialPestana };
   /** La primera frase de Martín, antes del primer paso (sin marcar nada). */
   intro: string;
   pasos: PasoTutorial[];
