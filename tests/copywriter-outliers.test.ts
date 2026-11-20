@@ -261,7 +261,7 @@ test('Replicar: MaKo escribe el guion ENTERO solo y sin «Aceptar», y deja camb
   assert.match(panel, /const t = await transcribirSiHaceFalta\(outlier, setLineaTranscripcion\)\.catch\(\(\) => null\);/);
   assert.match(panel, /const p = await pedirPreparacion\(outlier\)\.catch\(\(\) => null\);/);
   // Con todo contestado, escribe; sobre la página vacía y al rehacerla para otra oferta, SIN «Aceptar».
-  assert.match(panel, /if \(!replica \|\| !prep \|\| replicaHecha \|\| corriendo \|\| guardandoDato \|\| !editor \|\| !id \|\| appEscritorio\.bloqueada\) return;\n\s+if \(pasoDeReplica\(prep, respRep\)\) return;\n\s+escribirReplica\(respRep\);/);
+  assert.match(panel, /if \(!replica \|\| !prep \|\| replicaHecha \|\| corriendo \|\| guardandoDato \|\| !editor \|\| !id\) return;\n\s+if \(pasoDeReplica\(prep, respRep\)\) return;\n\s+escribirReplica\(respRep\);/);
   assert.match(panel, /aceptarAlTerminar\.current = true;/);
   assert.match(panel, /if \(aceptarAlTerminar\.current && ultimo\.estado === 'pendiente'\) aceptar\(ultimo\);/);
   assert.match(panel, /onClick=\{\(\) => rehacerPara\(o\.valor\)\}/);

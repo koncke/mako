@@ -60,7 +60,6 @@ import {
   type BotonHoja, type BurbujaHoja,
 } from './pedidos-hoja';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 import { separarCita } from '@/lib/centro-mensajes';
 
@@ -130,8 +129,6 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
 }) {
   const [texto, setTexto] = useState(textoInicial);
   const cita = useCitaDelChat(hoja.id);
-  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
-  const appEscritorio = useAppDeEscritorio();
   /** Desde cuándo piensa MaKo (null = no piensa). */
   const [desde, setDesde] = useState<number | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
@@ -176,7 +173,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
     const mensaje = (escrito ?? cita.con(texto.trim().slice(0, TOPE_PEDIDO_IA - cita.reserva), adj.hay)).trim().slice(0, TOPE_PEDIDO_IA);
     // Lo de la caja sale con sus archivos; una sugerencia o una nota, sin ellos.
     const conArchivos = escrito === undefined && adj.hay;
-    if ((!mensaje && !conArchivos) || pensando || adj.preparando || appEscritorio.bloqueada) return;
+    if ((!mensaje && !conArchivos) || pensando || adj.preparando) return;
     const archivos = conArchivos ? adj.tomar() : [];
     const visto = memoriaConArchivos(mensaje, archivos.map((f) => f.name));
     const enviada = hoja;
@@ -285,7 +282,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   const items = useMemo(() => itemsDeEdicion(hilo), [hilo]);
   // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale por
   // `enviar`, como lo escrito.
-  const nota = useNotaEnElActo({ clave: `editar-hoja:${informe}:${hoja.id}`, puede: !pensando && !adj.preparando && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
+  const nota = useNotaEnElActo({ clave: `editar-hoja:${informe}:${hoja.id}`, puede: !pensando && !adj.preparando, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
 
   // EL HILO SIGUE AL ÚLTIMO (auditoría de chats del 20/11, pestanas-3 y 4; el gancho común app/_chat/useBajarAlUltimo.ts), por la
   // clave de la ÚLTIMA fila que se dibuja: la de `nota.conNotas(items)`, con la nota de voz (antes quedaba al pie, fuera de la vista,
@@ -359,7 +356,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
           <div className="co-caja">
             <CajaChat campo={campo} texto={texto} onTexto={(t) => { setTexto(t); setErrorDictado(null); }} onMandar={() => { void enviar(); }} arriba={cita.arriba}
               ocupado={pensando || nota.pendientes} placeholder="Pídele un cambio a MaKo" tituloMandar="Mandar" enterManda onErrorMic={setErrorDictado}
-              bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada} adjuntos={adj.caja} />
+              onGrabada={nota.onGrabada} adjuntos={adj.caja} />
           </div>
           {errorDictado && <p className="em-err">{errorDictado}</p>}
         </>}

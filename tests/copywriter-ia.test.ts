@@ -111,7 +111,7 @@ test('la pantalla vuelve a sanear contra lo de AHORA, pausa antes de construir y
   assert.ok(iAhora > 0 && iSanear > iAhora, 'se sanea contra el documento de AHORA');
   assert.ok(iPausa > 0 && iConstruir > iPausa, 'la pausa va ANTES de construir (si no, el autoguardado escribe la propuesta)');
   assert.match(panel, /aceptarEnDoc\(ed, m\.propuesta\.antes, m\.propuesta\.final\)/);
-  assert.match(panel, /!appEscritorio\.bloqueada/);
+  assert.doesNotMatch(panel, /appEscritorio/, 'desde el 20/11/2026 ningún chat pide la app de escritorio');
   // Desde el 29/10/2026 el cuerpo es BlockNote (CuerpoNotion): lo que pone MaKo va fuera del historial y no se manda a
   // guardar como un cambio de la persona (`poniendo`); la propuesta habla con el documento vivo (DocVivo).
   const cuerpo = leer('app/copywriter/editor/CuerpoNotion.tsx');

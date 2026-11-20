@@ -84,8 +84,8 @@ export type PropsCajaPedido = {
   /** Cambiarlo vuelve a empezar el ejemplo (la landing: otra lista al pasar de Landing a Presentación). */
   reinicio?: string;
   deshabilitado?: boolean;
-  /** SIN LA APP DE ESCRITORIO (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»; app/_chat/useAppDeEscritorio.tsx): el
-   *  campo apagado dice `frase`, y EN EL LUGAR DEL MICRÓFONO va `boton` («Instalar MaKo»), como en CajaChat. Sin el ↑ ni el «+». */
+  /** La caja bloqueada: el campo apagado dice `frase`, y EN EL LUGAR DEL MICRÓFONO va `boton`, como en CajaChat. Sin el ↑ ni el «+».
+   *  La usó la app de escritorio («Instalar MaKo») del 25/10 al 20/11/2026; desde ese día ningún chat la pide. */
   bloqueo?: { frase: string; boton: ReactNode };
   /** El error del dictado (sin permiso de micrófono, no se entendió). */
   onError: (m: string | null) => void;
@@ -133,7 +133,7 @@ export function seMueveElEjemplo(animar: boolean, foco: boolean, valor: string):
 }
 
 export function CajaPedido(propias: PropsCajaPedido) {
-  // Sin la app de escritorio (25/10/2026): la misma caja, quieta y apagada, con la frase en el campo (`bloqueo`).
+  // Bloqueada: la misma caja, quieta y apagada, con la frase en el campo (`bloqueo`).
   const bloqueo = propias.bloqueo;
   const p: PropsCajaPedido = bloqueo ? { ...propias, animar: false, placeholderQuieto: bloqueo.frase, deshabilitado: true } : propias;
   const tope = p.tope ?? TOPE_PEDIDO;

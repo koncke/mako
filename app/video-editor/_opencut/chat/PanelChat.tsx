@@ -76,7 +76,6 @@ import { storageService } from "@/app/video-editor/_opencut/services/storage/ser
 import Link from "@/app/_ui/Link";
 import { PLAZO_PEDIDOS_MS, burbujasDe, cuerpoPedidos, interpretacionDe, objetosDeProyectos, textoActual } from "./pedidos";
 import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
-import { useAppDeEscritorio } from "@/app/_chat/useAppDeEscritorio";
 import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 import { separarCita } from '@/lib/centro-mensajes';
 import { SelectorIntencion, useIntencion, type IntencionChat } from '@/app/_chat/SelectorIntencion';
@@ -466,8 +465,6 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	const nombreProyecto = useEditor((e) => e.project.getActiveOrNull()?.metadata.name ?? null);
 	const hilo = useHilo(proyectoId);
 	const [texto, setTexto] = useState("");
-	// Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
-	const appEscritorio = useAppDeEscritorio();
 	const [alcance, setAlcance] = useState<"video" | "seleccion">("video");
 	// «Discutir | Editar», con la misma preferencia que los otros chats de MaKo (app/_chat/SelectorIntencion.tsx).
 	const [intencion, elegirIntencion] = useIntencion();
@@ -504,7 +501,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!proyectoId, onError: (m) => { if (m) toast.error(m); } });
 	const cita = useCitaDelChat(proyectoId);
 	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean; dejarCaja?: boolean; archivos?: readonly File[] } = {}) => {
-		if (hilo.corriendo || (!instruccion.trim() && !op.archivos?.length) || !proyectoId || appEscritorio.bloqueada) return;
+		if (hilo.corriendo || (!instruccion.trim() && !op.archivos?.length) || !proyectoId) return;
 		// Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
 		if (!op.dejarCaja) instruccion = cita.con(instruccion.slice(0, TOPES_CHAT.instruccion - cita.reserva), !!op.archivos?.length);
 		// «sí, hazlo» debajo de una propuesta que espera = su «Aceptar» (./confirmar.ts): la IA del chat no ve la charla y
@@ -522,7 +519,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 
 	// La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale
 	// por `enviar`, como lo escrito.
-	const nota = useNotaEnElActo({ clave: `video:${proyectoId ?? ""}`, puede: !hilo.corriendo && !!proyectoId && !appEscritorio.bloqueada, mandar: (t) => enviar(t, alcanceReal, { dejarCaja: true }) });
+	const nota = useNotaEnElActo({ clave: `video:${proyectoId ?? ""}`, puede: !hilo.corriendo && !!proyectoId, mandar: (t) => enviar(t, alcanceReal, { dejarCaja: true }) });
 
 	const sugerir = (s: Sugerencia) => {
 		if (s.instruccion) {
@@ -618,10 +615,9 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 			cambiarHilo(id, (h) => ({ ...h, mensajes: [...h.mensajes, yo, mako] }));
 		});
 	};
-	// Sin la app de escritorio el envío se corta adentro de `enviar` (useAppDeEscritorio): un atajo prendido no hacía NADA al
-	// tocarlo y no decía por qué (probado en producción el 11/11/2026). Apagado, con la misma frase que la caja.
-	const atajoApagado = hilo.corriendo || appEscritorio.bloqueada;
-	const porQueApagado = appEscritorio.bloqueada ? appEscritorio.bloqueo?.frase : undefined;
+	// Mientras MaKo trabaja, los atajos se apagan. Hasta el 20/11/2026 también sin la app de escritorio, con la frase de la caja;
+	// ningún chat la pide desde ese día (app/_chat/app-de-escritorio.ts).
+	const atajoApagado = hilo.corriendo;
 	const pildora = "cursor-pointer rounded-full border border-(--border) bg-(--surface) px-3 py-1.5 text-left text-[12px] text-(--ink) hover:bg-(--velo-hover) disabled:cursor-default disabled:opacity-50";
 	const chip = "flex h-[26px] min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-full border px-2.5 text-[11.5px] font-medium";
 
@@ -726,7 +722,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 							{/* Sin el texto que explicaba el chat («Pídeme que edite…», 12/11/2026, Martín: «un texto que es innecesario»). */}
 							<div className="flex flex-wrap gap-1.5">
 								{visibles.map((s) => (
-									<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={atajoApagado} title={porQueApagado}>{s.rotulo}</button>
+									<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={atajoApagado}>{s.rotulo}</button>
 								))}
 							</div>
 						</>
@@ -742,7 +738,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 					{hilo.mensajes.length > 0 && !hilo.corriendo && !guiaHablando && !soloPro && (
 						<div className="flex flex-wrap gap-1.5">
 							{visibles.slice(0, 4).map((s) => (
-								<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={atajoApagado} title={porQueApagado}>{s.rotulo}</button>
+								<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={atajoApagado}>{s.rotulo}</button>
 							))}
 						</div>
 					)}
@@ -780,7 +776,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 				{/* La caja única (app/_chat/CajaChat.tsx), con los tokens de MaKo tal cual. */}
 				<div className="co-caja">
 					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
-						apagado={!proyectoId} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+						apagado={!proyectoId} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda onGrabada={nota.onGrabada}
 						arriba={cita.arriba} adjuntos={adj.caja} topeTexto={TOPES_CHAT.instruccion - cita.reserva} />
 				</div>
 			</footer>}

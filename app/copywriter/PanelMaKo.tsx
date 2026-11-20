@@ -35,7 +35,6 @@ import { SelectorIntencion, useIntencion } from '@/app/_chat/SelectorIntencion';
 import { armarConCita, type Cita, type MensajeWA } from '@/lib/centro-mensajes';
 import { cuerpoConArchivos, useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDelChat';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { dichoDelGuion, laminasDelGuion } from '@/lib/copywriter/hacia-otras';
@@ -205,7 +204,6 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   const corte = useRef<AbortController | null>(null);
   const saltear = useRef(false);
   const pedidoInicial = useRef<string | null>(null);
-  const appEscritorio = useAppDeEscritorio();
   const adj = useAdjuntosDelChat({ puede: !corriendo && !!id, onError: setErrorCaja });
   const vivo = useRef({ mensajes, id, leerVivo, editor, paginas, leerApi, catalogos, plantilla });
   vivo.current = { mensajes, id, leerVivo, editor, paginas, leerApi, catalogos, plantilla };
@@ -411,7 +409,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     void pedirEdicion(instruccion, [], citadas, !!adaptar);
   };
 
-  const puede = !!id && !!editor && !corriendo && !conPropuestaAbierta && !appEscritorio.bloqueada;
+  const puede = !!id && !!editor && !corriendo && !conPropuestaAbierta;
   /** Las otras ofertas para rehacer la réplica. */
   const ofertasReplica = prep?.ofertas ?? ofertas;
   const otrasReplica = replicaHecha ? otrasOfertasDeReplica(replicaHecha.oferta, ofertasReplica) : [];
@@ -479,11 +477,11 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   // El pedido de la caja grande del inicio sale SOLO, en «Editar», apenas el editor está listo.
   useEffect(() => {
     const p = pedidoInicial.current;
-    if (!p || !editor || !id || corriendo || appEscritorio.bloqueada) return;
+    if (!p || !editor || !id || corriendo) return;
     pedidoInicial.current = null;
     elegirIntencion('editar');
     void pedirEdicion(`Escribe esta página: ${p}`);
-  }, [editor, id, corriendo, appEscritorio.bloqueada]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [editor, id, corriendo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Escribe la réplica ENTERA con lo contestado (la oferta, sus datos, cómo usar el tema) y la deja en la página sin «Aceptar»: sobre
@@ -533,10 +531,10 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   // La pregunta de la réplica que sigue; sin ninguna, escribe (cuando se puede: editor listo, sin otro pedido, con la app).
   const pasoRep = replica && prep && !replicaHecha ? pasoDeReplica(prep, respRep) : null;
   useEffect(() => {
-    if (!replica || !prep || replicaHecha || corriendo || guardandoDato || !editor || !id || appEscritorio.bloqueada) return;
+    if (!replica || !prep || replicaHecha || corriendo || guardandoDato || !editor || !id) return;
     if (pasoDeReplica(prep, respRep)) return;
     escribirReplica(respRep);
-  }, [replica, prep, respRep, replicaHecha, corriendo, guardandoDato, editor, id, appEscritorio.bloqueada]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [replica, prep, respRep, replicaHecha, corriendo, guardandoDato, editor, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Contestar una pregunta de la réplica (un botón, o lo escrito en un dato de la oferta). La pregunta y la respuesta quedan en la
@@ -826,7 +824,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
             <SelectorIntencion valor={intencion} onCambio={(v) => { setAdaptando(false); elegirIntencion(v); }} deshabilitado={corriendo || conPropuestaAbierta} />
             <CajaAgente campo={campo} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj.caja} hayAlgoMas={adj.hay || refs.length > 0}
               ocupado={corriendo || conPropuestaAbierta || nota.pendientes || adj.preparando || guardandoDato} apagado={!id || !editor} placeholder={pasoActual?.libre ? 'Escribe tu respuesta' : 'Escribe a MaKo'} tituloMandar="Enviar" enterManda
-              bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+              onGrabada={nota.onGrabada}
               arriba={(
                 <>
                   {consulta != null && <ListaReferencias opciones={opcionesRef} activa={activaRef} onElegir={elegirRef} />}
@@ -856,10 +854,6 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
                   disabled={llamaALaIA(o.valor) && !puede} onClick={() => responderIni(o.valor)}>{o.texto}</button>
               ))}
             </div>}
-            {/* Los botones grises dicen por qué (13/11/2026, en producción, un negocio sin la app: las ofertas apagadas y nada al lado). */}
-            {appEscritorio.bloqueada && pasoIni.opciones.some((o) => llamaALaIA(o.valor)) && (
-              <div className="nt-mako-estado">Para que MaKo lo escriba, instala su app: el botón está abajo.</div>
-            )}
           </>
         ) : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && hiloLeido && !pasosIni.length && !replica && (
           // Sin el texto que explicaba cómo usar el chat (12/11/2026, Martín: «arriba en MaKo dice un texto que es innecesario… eso es
@@ -888,9 +882,6 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
           </>
         )}
         {guardandoDato && <div className="nt-mako-estado" aria-live="polite">Guardando en tu oferta…</div>}
-        {replica && prep && !pasoRep && !replicaHecha && appEscritorio.bloqueada && (
-          <div className="nt-mako-estado">Para que MaKo lo escriba, instala su app: el botón está abajo.</div>
-        )}
         {lineaTranscripcion && <div className="nt-mako-estado" aria-live="polite">{lineaTranscripcion}</div>}
         {corriendo && !conPropuestaAbierta && (
           <button type="button" className="nt-mako-pildora" onClick={() => { corte.current?.abort(); avisar('Detenido'); }}>Detener</button>

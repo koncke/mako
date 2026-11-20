@@ -25,7 +25,6 @@ import { ERROR_ADJUNTO, memoriaConArchivos } from '@/lib/mako-adjuntos';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 
 const SANS = "'Geist', sans-serif";
@@ -84,8 +83,6 @@ export function WhatsAppAdvisor({
   // Chat
   const [chat, setChat] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
-  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
-  const appEscritorio = useAppDeEscritorio();
   const [pensando, setPensando] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   // Fotos y PDF con la pregunta (28/10/2026, las cajas unificadas): el servidor los lee y van con el pedido.
@@ -149,7 +146,7 @@ export function WhatsAppAdvisor({
     // Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo. Una sugerencia, como lo escrito.
     const txt = (dejarCaja ? (texto ?? '') : cita.con(texto ?? input, texto === undefined && adj.hay)).trim();
     const conArchivos = texto === undefined && adj.hay;
-    if ((!txt && !conArchivos) || pensando || adj.preparando || appEscritorio.bloqueada) return;
+    if ((!txt && !conArchivos) || pensando || adj.preparando) return;
     const archivos = conArchivos ? adj.tomar() : [];
     if (!dejarCaja) { setInput(''); cita.soltar(); }
     setChatError(null);
@@ -181,7 +178,7 @@ export function WhatsAppAdvisor({
 
   const ultimoEntrante = mensajes.length > 0 && !mensajes[mensajes.length - 1].saliente;
   // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás y sale por `enviarChat`.
-  const nota = useNotaEnElActo({ clave: `asesor-wa:${grupo.id}`, puede: !pensando && !adj.preparando && !appEscritorio.bloqueada, mandar: (t) => { void enviarChat(t, { dejarCaja: true }); } });
+  const nota = useNotaEnElActo({ clave: `asesor-wa:${grupo.id}`, puede: !pensando && !adj.preparando, mandar: (t) => { void enviarChat(t, { dejarCaja: true }); } });
 
   // El hilo del Ops Center: los mensajes por su posición (no traen id), y en cada respuesta de MaKo, «Usar →» y «Copiar».
   const items = useMemo((): ItemHilo[] => chat.map((m, i) => ({ k: 'msg', id: `a${i}`, role: m.role, texto: m.content, at: null })), [chat]);
@@ -309,7 +306,7 @@ export function WhatsAppAdvisor({
             {/* La caja única (app/_chat/CajaChat.tsx): el «+» (fotos y PDF), los emojis y el micrófono que graba una nota (sale en el acto). */}
             <div className="co-caja">
               <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviarChat(); }} ocupado={pensando || nota.pendientes}
-                placeholder="Pregúntale a MaKo…" tituloMandar="Preguntar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+                placeholder="Pregúntale a MaKo…" tituloMandar="Preguntar" enterManda onGrabada={nota.onGrabada}
                 arriba={cita.arriba} adjuntos={adj.caja} />
             </div>
           </div>

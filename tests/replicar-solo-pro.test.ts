@@ -143,7 +143,7 @@ test('LA PANTALLA: Replicar con el candado (y sin arrancar hasta saber el plan),
 
   const caja = fuente('app/web-generator/CajaCrear.tsx');
   assert.match(caja, /const soloPro = useSoloPro\('replicar-landing'\);\n\s*const candado = soloPro && estado\.modo === 'replicar';/);
-  assert.match(caja, /if \(appEscritorio\.bloqueada \|\| candado\) return;/, 'el ↑ no manda');
+  assert.match(caja, /if \(candado\) return;/, 'el ↑ no manda');
   assert.match(caja, /listo=\{!candado && listoParaEnviar\(estado, escritoLink\)\}/);
   assert.match(caja, /vista === 'link' \? \(candado \? <CandadoReplicar \/> : contenedorLink\) : null/);
   assert.match(caja, /bajoElCampo=\{candado && vista !== 'link' \? <CandadoReplicar \/> : bajo\}/);

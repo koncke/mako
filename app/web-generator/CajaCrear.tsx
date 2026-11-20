@@ -97,7 +97,6 @@ import { MODOS_TEXTO, paramsIniciales, type ModoGen } from './crear/ajustes';
 import { BotonComo, CSS_AJUSTES, PanelMasAjustes } from './crear/AjustesCaja';
 import { leerIndicaciones, type Indicacion } from './crear/recientes';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 /** Lo que se eligió en la caja. El Panel lo abre a su derecha (Inicio.tsx, con `derechaDeAccion`). Vive en panel-reglas.ts (puro). */
 export type { AccionCaja };
@@ -151,8 +150,6 @@ export default function CajaCrear({
   /** EL estado del cuadro: el modo, lo escrito, el link y el archivo (crear/caja-modos.ts, puro). */
   const [estado, setEstado] = useState<EstadoCaja>(() => cajaDeSemilla(modo, semilla));
   const [modoGen, setModoGen] = useState<ModoGen>(semilla?.modoGen ?? 'plan');
-  // Sin la app de escritorio, la caja de pedido tampoco escribe (25/10/2026, «En ningun chat»): app/_chat/useAppDeEscritorio.tsx.
-  const appEscritorio = useAppDeEscritorio();
   // REPLICAR ES DE MaKo PRO (14/11/2026, lib/editor-landing/replicar-candado.ts): un Essential ve «Replicar landing» con el
   // candado y, en ese modo, el candado en el cuadro (`CandadoReplicar`, con «Pasar a Pro») en vez del link; el ↑ no manda.
   // Mientras no se sabe el plan, sin candado (app/_components/solo-pro.ts): el servidor frena igual.
@@ -308,7 +305,7 @@ export default function CajaCrear({
   };
 
   const enviar = () => {
-    if (appEscritorio.bloqueada || candado) return;
+    if (candado) return;
     const r = alEnviar(estado, { tipo, modo: modoGen, params }, escritoLink);
     if (r.que === 'chips') { setEscritoLink(''); setEstado(r.estado); alCampo(); return; }
     if (r.que === 'accion') onAccion(r.accion);
@@ -474,7 +471,7 @@ export default function CajaCrear({
         onValor={(v) => { setError(null); setEstado((e) => alEscribir(e, v)); }}
         onEnviar={enviar}
         onError={setError}
-        bloqueo={appEscritorio.bloqueo}
+
         refCampo={campo}
         antesDelCampo={chips}
         onBorrarAlInicio={() => {

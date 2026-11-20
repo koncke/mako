@@ -38,7 +38,6 @@ import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { ConversacionCerebro } from '@/app/_chat/MakoEnLaTab';
 import { CajaPedido, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } from '@/app/web-generator/CajaPedido';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import type { EntidadChat } from '@/lib/chat-desde';
 import {
   SIN_NOMBRE, centroDe, haceCuanto, proyectosVisibles, seccionesDeCrear,
@@ -441,8 +440,6 @@ export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas'
   const [activa, setActiva] = useState<string | null>(null);
   const secciones = useMemo(() => seccionesDeCrear(plantillas), [plantillas]);
   const idGrilla = useId();
-  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): la caja, quieta.
-  const appEscritorio = useAppDeEscritorio();
   useEffect(() => { setError(null); }, [plantillas]);
   const usar = async (pl: PlantillaCrear) => {
     if (usando) return;
@@ -471,7 +468,7 @@ export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas'
               void onPedido(t).then((e) => { if (e) setError(e); else setValor(''); });
             }}
             ejemplos={ejemplos} animar placeholderQuieto="Pídeselo a MaKo" etiqueta={`Qué quieres crear en ${tab}`} onError={setError}
-            bloqueo={appEscritorio.bloqueo} />
+            />
         </div>
         {error && <p className="cr-error" role="alert">{error}<ReportarASoporte /></p>}
         {arriba ?? null}

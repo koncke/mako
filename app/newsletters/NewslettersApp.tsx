@@ -24,7 +24,6 @@ import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import '@/app/admin/operaciones/centro.css';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import { CajaChat } from '@/app/_chat/CajaChat';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { CSS_OFFER } from '@/app/offer/estilos';
 import { itemsDeOffer } from '@/app/m/mako/chat-ui';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
@@ -176,7 +175,6 @@ function Apertura({ estado, onEstado, onError, onEscribir, onListo }: {
   const [texto, setTexto] = useState('');
   // Sin la app de escritorio la caja se bloquea, como en todo chat con MaKo (tests/app-de-escritorio-todos-los-chats.test.ts);
   // las respuestas rápidas siguen andando, como en el arranque del Media Buyer.
-  const appEscritorio = useAppDeEscritorio();
   const [ocupado, start] = useTransition();
   // LAS PROPUESTAS, GUARDADAS (auditoría de chats del 20/11, pestanas-11): al recargar volvía «Dame un segundo…» y llegaba otra distinta;
   // «Otra idea» reescribía la propuesta en el mismo globo. Ahora viven en la config (`propuestas`): se redibujan sin pedirlas, y «Otra
@@ -258,7 +256,7 @@ function Apertura({ estado, onEstado, onError, onEscribir, onListo }: {
         cabecera={{ clave: 'newsletter-apertura', titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: ocupado ? 'trabajando' : 'despierto' }}
         caja={
           <div className="co-caja">
-            <CajaChat texto={texto} onTexto={setTexto} placeholder={pregunta?.id === 'tema' ? 'O escríbelo con tus palabras' : 'Escríbele a MaKo'} enterManda ocupado={ocupado} bloqueo={appEscritorio.bloqueo}
+            <CajaChat texto={texto} onTexto={setTexto} placeholder={pregunta?.id === 'tema' ? 'O escríbelo con tus palabras' : 'Escríbele a MaKo'} enterManda ocupado={ocupado}
               onMandar={() => { const t = texto.trim(); if (t) responder(t); }} />
           </div>
         }>

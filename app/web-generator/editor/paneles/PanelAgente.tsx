@@ -107,7 +107,6 @@ import { trQuitarYOrdenar } from '../insertar';
 import { comoSeVe, marcarRevelada, seRevela } from '../revelado-propuesta';
 import { useRevelado } from '@/app/_ui/ArmadoEnVivo';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
 
@@ -813,8 +812,6 @@ export function PanelAgente() {
   // Recién recargada (u otra computadora): la charla guardada de esta landing.
   useEffect(() => { traerHilo(docId); }, [docId]);
   const [texto, setTexto] = useState('');
-  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
-  const appEscritorio = useAppDeEscritorio();
   // «Discutir» o «Editar», recordado (el mismo de Automations: app/_chat/SelectorIntencion.tsx). Reemplaza a los chips
   // «Toda la landing / <la sección>» (24/10/2026, Martín: «Tampoco pongas los botones de "toda la landing, sin titulo"»):
   // «Editar» manda la landing entera con la sección del cursor como pista (`pedirEdicion`).
@@ -859,7 +856,7 @@ export function PanelAgente() {
 
 
   const enviar = (instruccion: string, op: { interpretar?: boolean } = {}) => {
-    if (hilo.corriendo || !instruccion.trim() || appEscritorio.bloqueada) return;
+    if (hilo.corriendo || !instruccion.trim()) return;
     void pedirEdicion(ctxRef.current, instruccion, 'landing', op);
     setTexto('');
   };
@@ -867,7 +864,7 @@ export function PanelAgente() {
   // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale
   // con la intención elegida, como lo escrito. Lo que la persona esté escribiendo mientras tanto (y sus archivos) queda en la caja.
   const nota = useNotaEnElActo({
-    clave: `agente:${docId}`, puede: !hilo.corriendo && !!editor && !appEscritorio.bloqueada,
+    clave: `agente:${docId}`, puede: !hilo.corriendo && !!editor,
     mandar: (t) => { if (intencion === 'discutir') void pedirDiscusion(ctxRef.current, t); else void pedirEdicion(ctxRef.current, t, 'landing'); },
   });
 
@@ -921,7 +918,7 @@ export function PanelAgente() {
   /** El ↑ (o Enter) de la caja: lo escrito y los archivos leídos. Lo que se ve en la caja es lo que viaja. */
   const mandar = () => {
     const items = caja.current.items;
-    if (hilo.corriendo || !editor || !puedeMandar(texto, items) || appEscritorio.bloqueada) return;
+    if (hilo.corriendo || !editor || !puedeMandar(texto, items)) return;
     const conCita = armarConCita(cita, texto);
     if (intencion === 'discutir') void pedirDiscusion(ctxRef.current, conCita, { adjuntos: paraEnviar(items) });
     else void pedirEdicion(ctxRef.current, conCita, 'landing', { adjuntos: paraEnviar(items) });
@@ -932,7 +929,7 @@ export function PanelAgente() {
 
   const sugerir = (s: Sugerencia) => {
     // En «Discutir», una sugerencia es una PREGUNTA nuestra: se manda tal cual, sin tocar la página.
-    if (intencion === 'discutir') { if (!hilo.corriendo && !appEscritorio.bloqueada) void pedirDiscusion(ctxRef.current, s.rotulo); return; }
+    if (intencion === 'discutir') { if (!hilo.corriendo) void pedirDiscusion(ctxRef.current, s.rotulo); return; }
     // Una sugerencia es una edición escrita por nosotros: va directo a «editar», sin interpretarla.
     if (s.instruccion) { enviar(s.instruccion, { interpretar: false }); return; }
     if (s.rellenar) setTexto(s.rellenar);
@@ -1106,7 +1103,7 @@ export function PanelAgente() {
         {/* Lo que MaKo recomienda sobre las páginas con sus visitas y lo que dice la gente (26/10/2026): el bloque, plegado. */}
         <RecomendacionesDeMako superficie="landing" alPedir={setTexto} />
         <CajaAgente campo={inputRef} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj} ocupado={hilo.corriendo || nota.pendientes}
-          apagado={!editor} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+          apagado={!editor} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda onGrabada={nota.onGrabada}
           arriba={cita ? <CitaAgente cita={cita} onQuitar={() => setCita(null)} /> : null} />
         {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}<ReportarASoporte /></p>}
         </div>}>
