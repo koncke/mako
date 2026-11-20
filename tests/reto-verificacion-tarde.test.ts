@@ -173,3 +173,17 @@ test('la entrada al reto (20/11, ~13:00): el nombre del onboarding del negocio, 
   assert.ok(chat.includes('localStorage.getItem(VISTO + ambito + k)'), 'lo visto, del reto');
   assert.ok(chat.includes('const fase = useEntrada(delReto(`reto-dia-${dia.n}`), hoy && nuevo);'), 'la entrada del día, del reto');
 });
+
+test('la carga del reto y su cabecera, como la maqueta (20/11, la captura de Martín): la burbuja a la izquierda, las acciones a la derecha', () => {
+  const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
+  // La columna del hilo, a todo el ancho: con margin-inline: auto adentro de la del panel, se achicaba y centraba la burbuja de carga.
+  assert.ok(chat.includes('<div className="co-hilo__col rt-hilo" data-recorrido="sb-reto-hilo">'));
+  assert.ok(chat.includes('.rt-hilo { width: 100%; margin-inline: 0; }'));
+  // A la derecha (la maqueta, .mq-arriba: margin-left: auto) y en su orden: el desplegable, el catálogo y los fijados.
+  assert.ok(fuente('../app/second-brain/reto/CatalogoTutoriales.tsx').includes('.rt-acciones { margin-left: auto; flex: none;'));
+  const acc = chat.slice(chat.indexOf('<span className="rt-acciones">'));
+  const i = (s: string) => acc.indexOf(s);
+  assert.ok(i('<DesplegableReto ') >= 0 && i('<DesplegableReto ') < i('<BotonTutoriales ') && i('<BotonTutoriales ') < i('<PinDelReto '), 'el orden de la maqueta');
+  assert.ok(chat.includes('.rt-menu { position: absolute; top: calc(100% + 8px); right: 0;'), 'el menú abre desde la derecha');
+  assert.ok(chat.includes('@media (max-width: 480px) { .rt-btn__txt { position: absolute; width: 1px;'), 'a 375 entra: «Día N de 7», el catálogo y los fijados');
+});

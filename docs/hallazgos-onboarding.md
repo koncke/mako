@@ -3763,5 +3763,12 @@ existía y el test pasaba, pero el camino de la persona se cortaba. El test comp
 - **El nombre:** salía de `getUsuarioActual()`, quien inició sesión. La vista como administrador muestra lo que ve el cliente, así
   que el nombre sale del onboarding del negocio (`onboarding.arranque` → `nombre`, lib/reto/nombre.ts). Si falta, se usa el de la
   sesión sólo si no se está mirando a un cliente; si no, ninguno. Lo usan el Ops Center (el reto y la llegada) y su página del teléfono.
+- **Los puntitos CENTRADOS arriba del chat:** no era la burbuja, que tenía su muñeco; era la columna. PanelDeChat ya envuelve el hilo
+  en `.co-hilo__col`, y el chat del reto metía OTRA `.co-hilo__col` adentro. Esa columna, con `margin-inline: auto` dentro de una
+  columna flex, le gana al estirado: se achica a su contenido y se centra. Con mensajes largos ocupa todo y no se nota; con la burbuja
+  corta de la carga se ve al medio. **La regla:** adentro de PanelDeChat no va otra `.co-hilo__col`, o va con `width: 100%`
+  (`.rt-hilo`). Lo encontró una página estática con el CSS real (globals.css, centro.css y las hojas del reto), mirada a 1440 y a 375.
+- **La cabecera (la maqueta, `.mq-arriba`):** las acciones del chat van a la derecha (`margin-left: auto`) y en su orden: el
+  desplegable, el catálogo y los fijados. A 375 no entraban con el título: el texto del botón se esconde a la vista.
 - **Lo que quedó sin hacer:** el «dale play» del día 1 (VideoDelMomento, con la clave del video) sigue siendo del navegador. Y el
   correo de «Sigamos en tu computadora» en el teléfono sigue siendo el de la sesión.

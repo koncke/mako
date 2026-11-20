@@ -390,7 +390,9 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     <PanelDeChat hilo={hilo}
       cabecera={{ clave: 'reto-7-dias', titulo: RETO_TITULO, aspecto: ASPECTO_MAKO, animo: 'despierto', onVolver,
         // Al lado del desplegable, los tutoriales y lo fijado del chat (D1-17 y d24-17; la maqueta, pinsHtml): sus videos y sus mensajes.
-        acciones: d && e ? <span className="rt-acciones"><BotonTutoriales activo={catalogo} onClick={() => setCatalogo((x) => !x)} /><PinDelReto dias={empezo1 ? abiertos : []} fijados={k.marcas.fijados.length} /><DesplegableReto d={d} abierto={menu} onAbrir={setMenu} /></span> : undefined }}
+        // A la DERECHA y en el orden de la maqueta (cuerpo.html, `pins`: retoArribaHtml, catalogoBotonHtml y pinsHtml en .mq-arriba,
+        // con margin-left: auto; la captura de Martín del 20/11 los mostraba pegados al título, con los videos primero).
+        acciones: d && e ? <span className="rt-acciones"><DesplegableReto d={d} abierto={menu} onAbrir={setMenu} /><BotonTutoriales activo={catalogo} onClick={() => setCatalogo((x) => !x)} /><PinDelReto dias={empezo1 ? abiertos : []} fijados={k.marcas.fijados.length} /></span> : undefined }}
       arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={RETO_TITULO} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
       caja={<>{sigue && ap.listo && !ap.escribiendo && (
         <button type="button" className="rt-sigue" onClick={irAlSiguiente}>
@@ -403,7 +405,10 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
         : null}<div className="co-caja"><CajaDelCliente k={k} campo={campo} seguir={() => hilo.current} /></div></>}
       estado="">
       <style>{CSS_RETO + CSS_CATALOGO}</style>
-      <div className="co-hilo__col" data-recorrido="sb-reto-hilo">
+      {/* LA COLUMNA, A TODO EL ANCHO (20/11, la captura de Martín: los puntitos de la carga salían CENTRADOS arriba del chat). El panel
+          ya envuelve el hilo en .co-hilo__col; ésta, adentro, con su margin-inline: auto, se achicaba a lo que tenía y quedaba al
+          medio: con mensajes largos no se notaba, con la burbuja corta de la carga sí. .rt-hilo la estira como una fila de mensaje. */}
+      <div className="co-hilo__col rt-hilo" data-recorrido="sb-reto-hilo">
         {/* Mientras llegan los datos (o arranca el reto la primera vez), MaKo escribiendo: los tres puntitos y no «Cargando tu reto…» ni
             «Empezando tu reto…» (20/11, la verificación de OD-09). */}
         {catalogo && d ? <CatalogoTutoriales diaAbierto={d.abierto} onVolver={() => setCatalogo(false)} /> : !d || !e ? <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo" data-reto-carga=""><span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></span></Burbuja> : (
@@ -912,6 +917,7 @@ export const CSS_RETO = `
 .rt-pin__msj { margin: 6px 0 0; font-size: 12px; color: var(--dim); }
 @media (max-width: 520px) { .rt-tarea > .rt-tarea__ops { margin-left: 28px; flex-direction: row; align-items: center; gap: 14px; } }
 .rt-md .rt-dia__msj { margin-top: 8px; }
+.rt-hilo { width: 100%; margin-inline: 0; }
 .rt-tarea__de { font-weight: 600; color: var(--dim); }
 /* En una pantalla angosta, «dónde» y «Listo» van abajo del texto (20/11): al lado, el texto quedaba en una columna de tres palabras. */
 @media (max-width: 520px) { .rt-tarea { flex-wrap: wrap; row-gap: 2px; } .rt-tarea__txt { flex-basis: calc(100% - 28px); } .rt-tarea > .rt-tarea__donde, .rt-tarea > .rt-tarea__ok, .rt-tarea > .rt-int__falta { margin-left: 28px; } }
@@ -940,8 +946,11 @@ export const CSS_RETO = `
 .rt-segs i[data-e="hecho"], .rt-menu__segs i[data-e="hecho"], .rt-menu__ley i[data-e="hecho"] { background: var(--good); box-shadow: none; }
 .rt-segs i[data-e="hoy"], .rt-menu__segs i[data-e="hoy"], .rt-menu__ley i[data-e="hoy"] { background: var(--mako, #F2B01E); box-shadow: none; }
 .rt-segs i[data-e="medias"], .rt-menu__segs i[data-e="medias"], .rt-menu__ley i[data-e="medias"] { background: var(--warn); box-shadow: none; }
-.rt-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 60; width: min(420px, calc(100vw - 24px)); max-height: min(620px, calc(100vh - 140px)); overflow: auto; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); box-shadow: 0 18px 44px rgba(23,21,17,.18); }
+.rt-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; width: min(420px, calc(100vw - 24px)); max-height: min(620px, calc(100vh - 140px)); overflow: auto; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); box-shadow: 0 18px 44px rgba(23,21,17,.18); }
 @media (max-width: 640px) { .rt-menu { position: fixed; top: 64px; left: 12px; right: 12px; width: auto; max-height: calc(100vh - 80px); } }
+/* Angosto (375): las acciones a la derecha no entraban con el título. El «Reto de 7 días» del botón se esconde a la vista (el lector lo
+   sigue leyendo) y quedan «Día N de 7», el catálogo y los fijados; el título del chat se corta con sus puntos. */
+@media (max-width: 480px) { .rt-btn__txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .rt-acciones { gap: 6px; } .rt-btn { padding: 0 10px; gap: 8px; } }
 .rt-menu__cab { display: flex; align-items: flex-start; gap: 12px; padding: 16px 16px 0; }
 .rt-menu__t { margin: 0; font-weight: 700; font-size: var(--fs-card, 15px); }
 .rt-menu__sub { margin: 4px 0 0; font-size: var(--fs-meta); line-height: 1.45; color: var(--dim); }
