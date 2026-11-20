@@ -600,6 +600,10 @@ adaptador fino para los hilos de ítems, app/_chat/useColaDelHilo.ts. Lo prueba 
   del historial, con `setPensando(true)`. Leer va con el cargador de la casa (CargandoMako).
 - **Newsletter perdía su propuesta al recargar** (vivía sólo en el estado, y llegaba otra distinta). Va en la config (`propuestas`, las
   últimas 6). `leerConfig` la agrega sólo si hay: tests/newsletter.test.ts compara la config sin propuestas con `deepEqual`.
+- **Una sola traducción de ítem a fila.** Mientras las pestañas esperaban en un parche, el chat del onboarding subió
+  `filaDeItem` (app/_chat/fila-del-hilo.ts), con una pieza suelta (`'pieza'`) que la cola suelta en la pausa. El adaptador traducía por
+  su cuenta, y una tarjeta que llegaba en el mismo set salía junto con el texto. Ahora `filasDeItems` usa `filaDeItem` y sólo le suma
+  la pieza de adentro del mensaje. Al traer main, busca si ya hay una pieza para lo que hace la tuya.
 - **Trampa: un nombre nuevo que tapa una prop.** La pregunta guionada del Copywriter se llamaba `guion`, igual que la prop
   `guion: GuionAbierto` del panel. Los tests de texto pasaban (leen el fuente, no lo compilan); sólo el tsc acotado la vio (TS2339), y
   el build la habría rechazado («ya declarada»). Ahora se llama `preguntaGuion`. Antes de nombrar algo en un componente grande, busca

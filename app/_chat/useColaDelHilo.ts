@@ -13,13 +13,19 @@
 // =============================================================================
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
+import { filaDeItem } from './fila-del-hilo';
 import { useColaDeSalida, type FilaDeCola } from './useColaDeSalida';
 
-/** Las filas de la cola para un hilo: lo de MaKo, con su texto (los puntitos) y su pieza; lo de la persona y las tarjetas sueltas, ya. */
+/**
+ * Las filas de la cola para un hilo, con la MISMA traducción que el chat general (`filaDeItem`, ./fila-del-hilo.ts): el texto de
+ * MaKo con sus puntitos; lo de la persona, ya; una tarjeta, un bloque o un aviso de la plataforma, como pieza en la pausa. Encima, el
+ * mensaje de MaKo trae su pieza adentro (`enMensaje.abajo`: se dibuja con `conPieza(id)`, después del texto). `deUna`: ya visto.
+ */
 export function filasDeItems(items: readonly ItemHilo[], deUna: (id: string) => boolean = () => false): FilaDeCola[] {
-  return items.map((x): FilaDeCola => (x.k === 'msg' && !deUna(x.id)
-    ? { id: x.id, de: x.role === 'assistant' ? 'mako' : 'yo', texto: x.texto ?? '', pieza: x.role === 'assistant' }
-    : { id: x.id, de: x.k === 'msg' ? 'ya-visto' : 'tarjeta', texto: '' }));
+  return items.map((x): FilaDeCola => {
+    const f = filaDeItem(x, !deUna(x.id));
+    return f.de === 'mako' && x.k === 'msg' ? { ...f, pieza: true } : f;
+  });
 }
 
 /**

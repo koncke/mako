@@ -27,17 +27,19 @@ const sinComentarios = (s: string) => s.replace(/\r\n/g, '\n').replace(/^[ \t]*\
 const leer = (f: string) => sinComentarios(readFileSync(f, 'utf8'));
 
 const msg = (id: string, role: 'user' | 'assistant', texto: string) => ({ k: 'msg', id, role, texto }) as unknown as ItemHilo;
-const tarjeta = (id: string) => ({ k: 'tarjeta', id }) as unknown as ItemHilo;
+const tarjeta = (id: string) => ({ k: 'bloque', id }) as unknown as ItemHilo;
 
-test('el adaptador: lo de MaKo con su texto y su pieza, lo de la persona y las tarjetas sueltas ya, lo ya visto de una', () => {
+// La traducción de un ítem a una fila es la del chat general (`filaDeItem`, app/_chat/fila-del-hilo.ts): no hay otra.
+test('el adaptador: lo de MaKo con su texto y su pieza, lo de la persona ya, una tarjeta suelta como pieza, lo ya visto de una', () => {
   const filas = filasDeItems([msg('y1', 'user', 'hola'), msg('m1', 'assistant', 'Te pregunto algo'), tarjeta('t1'), msg('m2', 'assistant', 'Ya')],
     (id) => id === 'm2');
   assert.deepEqual(filas, [
-    { id: 'y1', de: 'yo', texto: 'hola', pieza: false },
+    { id: 'y1', de: 'yo', texto: '' },
     { id: 'm1', de: 'mako', texto: 'Te pregunto algo', pieza: true },
-    { id: 't1', de: 'tarjeta', texto: '' },
-    { id: 'm2', de: 'ya-visto', texto: '' },
+    { id: 't1', de: 'pieza', texto: '' },
+    { id: 'm2', de: 'ya', texto: '' },
   ]);
+  assert.match(leer('app/_chat/useColaDelHilo.ts'), /const f = filaDeItem\(x, !deUna\(x\.id\)\);/);
 });
 
 test('sobre la cola común: la pregunta con sus puntitos, después el texto, y la pieza (las pastillas, la tarjeta) a su pausa', () => {
@@ -54,6 +56,11 @@ test('sobre la cola común: la pregunta con sus puntitos, después el texto, y l
   const e3: EstadoCola = { ...e1, mostrados: new Set(['y1', 'm1']), ultimo: { id: 'm1', en: 5000 }, desde: null };
   assert.deepEqual(pasoDeLaCola(filas, e3, () => false, 5000 + MS_PAUSA_PIEZA - 1), { tipo: 'esperar', ms: 1, escribiendo: false });
   assert.deepEqual(pasoDeLaCola(filas, e3, () => false, 5000 + MS_PAUSA_PIEZA), { tipo: 'pieza', id: 'm1' }, 'la pieza, después de la pausa');
+  // La tarjeta suelta que llegó en el mismo set: no se dibuja con el texto, sino en la pausa después de lo último que salió.
+  assert.deepEqual(filasVisibles(filas, e3.mostrados).map((f) => f.id), ['y1', 'm1']);
+  const e4: EstadoCola = { ...e3, piezas: new Set(['m1']), ultimo: { id: 'm1', en: 5500 } };
+  assert.deepEqual(pasoDeLaCola(filas, e4, () => false, 5500 + MS_PAUSA_PIEZA - 1), { tipo: 'esperar', ms: 1, escribiendo: false });
+  assert.deepEqual(pasoDeLaCola(filas, e4, () => false, 5500 + MS_PAUSA_PIEZA), { tipo: 'mostrar', id: 't1', conPieza: true });
 });
 
 // Offer (pestanas-2 y pestanas-12) lo cubre el chat del onboarding (coaches-7 y coaches-8, tests/chats-de-a-uno.test.ts).
@@ -177,7 +184,7 @@ test('pestanas-13: la charla de la apertura del Image Editor la sigue el gancho 
 });
 
 // ⚠️ PROBADO ROMPIÉNDOLO (20/11/2026, base 12/0; al restaurar, 12/0 otra vez). Cada rotura, de a una:
-//   - el adaptador sin la pieza de MaKo (`pieza: false`) → 10/2
+//   - el adaptador sin la pieza de MaKo (`pieza: false`) → 10/2; con la tarjeta suelta de una (`'ya'` en vez de `'pieza'`) → 10/2
 //   - pestanas-1: Automations por la cuenta de ítems (`${cola.items.length}`) → 11/1
 //   - pestanas-2: Analyst con una clave que no cambia (`ultimaFila.k`) → 11/1; con su `estaAbajo` de vuelta → 11/1
 //   - pestanas-3: MakoChat sin las notas en la clave (`filasDelHilo = items`) → 11/1
