@@ -86,6 +86,27 @@ export function marcarTarea(marcas: readonly MarcaReto[], alTerminar: () => void
     { alOmitir: alDejar, libre: m.libre });
 }
 
+// LOS TRES PUNTITOS (20/11, auditoría D1-10 y d24-11): lo acordado es que ningún mensaje del reto sale pegado a otro. La primera vez
+// que se ve, MaKo «escribe» y recién después llega, de a uno y en orden. Lo ya visto (en este navegador) sale de una.
+const VISTOS = 'mako.reto.vistos';
+export const MS_ESCRIBE = 1200;
+export function useAparicion(claves: readonly string[]): { ver: (k: string) => boolean; escribiendo: boolean; listo: boolean } {
+  const [vistos, setVistos] = useState<Set<string> | null>(null);
+  useEffect(() => { try { setVistos(new Set(JSON.parse(localStorage.getItem(VISTOS) ?? '[]') as string[])); } catch { setVistos(new Set()); } }, []);
+  const falta = vistos ? claves.find((k) => !vistos.has(k)) : undefined;
+  useEffect(() => {
+    if (!vistos || !falta) return;
+    const t = window.setTimeout(() => {
+      const n = new Set(vistos); n.add(falta);
+      try { localStorage.setItem(VISTOS, JSON.stringify([...n].slice(-300))); } catch { /* sin storage: igual se ve */ }
+      setVistos(n);
+    }, MS_ESCRIBE);
+    return () => window.clearTimeout(t);
+  }, [vistos, falta]);
+  const corte = !vistos ? 0 : falta ? claves.indexOf(falta) : claves.length;
+  return { ver: (k) => { const i = claves.indexOf(k); return i < 0 || i < corte; }, escribiendo: !!vistos && !!falta, listo: !!vistos };
+}
+
 const YA_MARCADA = 'mako.reto.marcada.';
 // Exportadas para el paso de Offer Coach a Funnel Coach (./usePasoAlFunnel.ts): la misma tarea se marca una vez por visita, la
 // marque este chat o el Offer Coach.
@@ -121,7 +142,6 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => {});
   }, [e, leer]);
 
-  useEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [d?.abierto, d?.hechos, manana]);
 
   // Los días 4 a 6, armados para su funnel (20/11, auditoría d24-14 y R57-01).
   const abiertos = d && e ? diasDelReto(d.funnel).filter((x) => x.n <= d.abierto) : [];
@@ -131,6 +151,14 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   const vistas = muestras.filter((m) => e?.muestras?.includes(m.pestana));
   const quedan = muestras.filter((m) => !e?.muestras?.includes(m.pestana));
   const empezo1 = !!d && !!e && (!!e.dia1Desde || !muestras.length || d.abierto > 1 || Object.keys(e.hechas).length > 0);
+  // El orden en que llegan los mensajes (las claves de useAparicion).
+  const claves = !d || !e ? [] : [
+    'hola', ...(muestras.length ? ['interes'] : []), ...vistas.flatMap((m) => [`muestra:${m.pestana}`, `muestrafin:${m.pestana}`]),
+    ...(empezo1 ? abiertos.map((x) => `dia:${x.n}`) : []),
+    ...(empezo1 && d.abierto < 7 ? [`adelantar:${d.abierto}`] : []),
+  ];
+  const ap = useAparicion(claves);
+  useEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [d?.abierto, d?.hechos, manana, ap.escribiendo]);
   const empezarDia1 = () => {
     const d1 = diasDelReto(d?.funnel)[0];
     // La marca de Offer Coach sale recién al elegir «Empezar mi día 1» (D1-03), no sola al abrir el chat.
@@ -146,7 +174,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     <PanelDeChat hilo={hilo}
       cabecera={{ clave: 'reto-7-dias', titulo: RETO_TITULO, aspecto: ASPECTO_MAKO, animo: 'despierto', onVolver,
         acciones: d && e ? <DesplegableReto d={d} abierto={menu} onAbrir={setMenu} /> : undefined }}
-      caja={d && e && !empezo1
+      caja={d && e && !empezo1 && ap.listo && !ap.escribiendo
         ? <QueHacemos titulo={vistas.length ? '¿Seguimos?' : '¿Qué hacemos ahora?'} quedan={quedan} onDia1={empezarDia1} onMostrar={mostrar} />
         : <p className="rt-caja">Cada día te escribo aquí, con su video. Para preguntarle algo a MaKo, el Ops Center.</p>}
       estado="">
@@ -154,19 +182,22 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
       <div className="co-hilo__col" data-recorrido="sb-reto-hilo">
         {!d ? <p className="co-vacio">Cargando tu reto…</p> : !e ? <p className="co-vacio">Empezando tu reto…</p> : (
           <>
-            <Burbuja><p>{RETO_HOLA(nombre)}</p></Burbuja>
-            {muestras.length > 0 && <Burbuja><p>{RETO_INTERES_YA(muestras)}</p></Burbuja>}
+            {ap.ver('hola') && <Burbuja><p>{RETO_HOLA(nombre)}</p></Burbuja>}
+            {muestras.length > 0 && ap.ver('interes') && <Burbuja><p>{RETO_INTERES_YA(muestras)}</p></Burbuja>}
             {vistas.map((m) => (
-              <Fragment key={m.pestana}><Burbuja><p>{RETO_MUESTRA(m)}</p></Burbuja><Burbuja><p>{RETO_MUESTRA_FIN(m)}</p></Burbuja></Fragment>
+              <Fragment key={m.pestana}>
+                {ap.ver(`muestra:${m.pestana}`) && <Burbuja><p>{RETO_MUESTRA(m)}</p></Burbuja>}
+                {ap.ver(`muestrafin:${m.pestana}`) && <Burbuja><p>{RETO_MUESTRA_FIN(m)}</p></Burbuja>}
+              </Fragment>
             ))}
-            {empezo1 && abiertos.map((dia) => (
+            {empezo1 && abiertos.filter((dia) => ap.ver(`dia:${dia.n}`)).map((dia) => (
               <Dia key={dia.n} dia={dia} e={e} linea={d.linea} hora={horaWa}
                 onHora={(h) => { setHora(h); void hacer({ accion: 'hora', hora: h }); }}
                 onMarcar={(t) => marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => {})}
                 onTocadoEnVideo={() => { void leer(); }}
                 onFinVideo={() => marcarLoQueFalta(dia)} />
             ))}
-            {empezo1 && d.abierto < 7 && (
+            {empezo1 && d.abierto < 7 && ap.ver(`adelantar:${d.abierto}`) && (
               <Burbuja>
                 {manana === d.abierto + 1
                   ? <p>Perfecto: mañana a las {horaWa} te escribo con el día {d.abierto + 1}.</p>
@@ -179,6 +210,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
                     </>}
               </Burbuja>
             )}
+            {ap.escribiendo && <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo"><span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></span></Burbuja>}
             {d.abierto === 7 && d.hechos === 7 && <Burbuja><p>¡Terminaste tu reto de 7 días, {nombre || 'genial'}! Tu negocio ya está armado en MaKo.</p></Burbuja>}
           </>
         )}

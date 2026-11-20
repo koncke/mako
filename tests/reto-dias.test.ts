@@ -224,7 +224,7 @@ test('«¿Qué hacemos ahora?»: lo elegido en el onboarding, con su «Muéstram
   for (const i of INTERESES_V2) assert.ok(muestrasDe([i.label]).length === 1, `«${i.label}» tiene su pestaña`);
   const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
   assert.ok(chat.includes("<QueHacemos titulo={vistas.length ? '¿Seguimos?' : '¿Qué hacemos ahora?'}"), 'el recuadro, arriba de la caja');
-  assert.ok(chat.includes('{empezo1 && abiertos.map('), 'los días, recién después de «Empezar mi día 1»');
+  assert.ok(chat.includes('{empezo1 && abiertos.filter('), 'los días, recién después de «Empezar mi día 1»');
   assert.ok(chat.includes("if (t) mostrarTutorial(t, { video: m.pestana });"), 'cada «Muéstrame…» corre su tutorial con su video');
   const ruta = readFileSync(new URL('../app/api/reto/route.ts', import.meta.url), 'utf8');
   assert.ok(ruta.includes("body.accion === 'dia1'") && ruta.includes("body.accion === 'muestra'"), 'la API guarda lo elegido');
@@ -236,6 +236,15 @@ test('el desplegable del reto: «El reto de 7 días de MaKo», el video de cada 
   assert.ok(chat.includes('{!futuro && <VideoEnElMenu dia={dia} />}'), 'cada día abierto o hecho, con su video');
   assert.ok(chat.includes('adelántalo al terminar el día de hoy'), 'el texto de la maqueta');
   assert.ok(chat.includes('className="rt-btn__ico"') && chat.includes('className="rt-btn__flecha"'), 'el ícono de la lista y la flecha');
+});
+
+test('los tres puntitos: cada mensaje del reto llega después de que MaKo escribe, de a uno (20/11, D1-10 y d24-11)', () => {
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.ok(chat.includes('const ap = useAparicion(claves);'), 'los mensajes pasan por la aparición');
+  assert.ok(chat.indexOf('const ap = useAparicion(claves);') < chat.indexOf('ap.escribiendo]'), 'ap se declara antes de usarlo en un efecto');
+  for (const k of ["ap.ver('hola')", "ap.ver('interes')", 'ap.ver(`dia:${dia.n}`)', 'ap.ver(`adelantar:${d.abierto}`)']) assert.ok(chat.includes(k), `${k} espera su turno`);
+  assert.ok(chat.includes('co-trabajando__puntos'), 'los puntitos del Ops Center');
+  assert.ok(chat.includes('!empezo1 && ap.listo && !ap.escribiendo'), 'las opciones, recién cuando MaKo terminó de escribir');
 });
 
 test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, sin clip de regalo, sin la tab AI Avatar', () => {
