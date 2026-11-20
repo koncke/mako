@@ -69,7 +69,7 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
   const seguirHoja = useCallback(() => hilo.current?.closest(CUERPO_CHAT) as HTMLElement | null, []);
   // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11): con cada mensaje y cuando lo último crece (un video, una imagen o una tarjeta que
   // cargan después); si subió a leer, lo que crece no la arrastra (app/_chat/useBajarAlUltimo.ts).
-  useBajarAlUltimo(seguirHoja, `${k.items.length}|${k.trabajo}|${vista}`);
+  useBajarAlUltimo(seguirHoja, `${hiloCoach.items[hiloCoach.items.length - 1]?.id ?? ''}|${k.trabajo ? 'trabaja' : ''}|${vista}`);
 
   const panel = k.conectando ? 'conectar' : k.infoWA ? 'info' : vista === 'cerebro' && r ? 'cerebro' : vista === 'plan' && plan ? 'plan' : vista === 'elegir' ? 'elegir' : null;
   const volverDelPanel = () => { if (k.conectando) { k.setConectando(false); k.mirarSuIA(); } k.setInfoWA(null); setVista(null); };

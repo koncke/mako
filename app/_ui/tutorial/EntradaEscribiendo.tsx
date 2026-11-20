@@ -12,16 +12,19 @@
 // =============================================================================
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { MS_ESCRIBE_ENTRADA, anotarEntrada, yaEntro } from './entrada';
+import { anotarEntrada, yaEntro } from './entrada';
+import { msEscribiendo } from '@/lib/puntitos';
 import { barrer } from './iris';
 
 const menosMovimiento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /**
- * 'escribe' la primera vez que `activa` se prende para esa clave (en esta página), durante MS_ESCRIBE_ENTRADA; si no, 'listo'.
- * `activa`: el chat está a la vista y abre con su video (la primera vez: el chat vacío).
+ * 'escribe' la primera vez que `activa` se prende para esa clave (en esta página); si no, 'listo'. `activa`: el chat está a la vista y
+ * abre con su video (la primera vez: el chat vacío). `texto`: lo que dice el mensaje que viene; los puntitos duran según su largo, con la
+ * función única de todos los chats (lib/puntitos.ts → msEscribiendo; 20/11, la auditoría de chats, videos-4: eran 1,8 s fijos). Sin
+ * texto, el tope (3,5 s), como la maqueta.
  */
-export function useEntrada(clave: string, activa: boolean): 'escribe' | 'listo' {
+export function useEntrada(clave: string, activa: boolean, texto?: string | null): 'escribe' | 'listo' {
   const [escribe, setEscribe] = useState(false);
   useLayoutEffect(() => {
     if (!activa || yaEntro(clave)) return;
@@ -29,10 +32,10 @@ export function useEntrada(clave: string, activa: boolean): 'escribe' | 'listo' 
     // En un efecto de layout: el mensaje con el video no llega a pintarse antes de los tres puntitos.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setEscribe(true);
-    const t = window.setTimeout(() => setEscribe(false), MS_ESCRIBE_ENTRADA);
+    const t = window.setTimeout(() => setEscribe(false), msEscribiendo(texto));
     // Si el chat se esconde a mitad, la entrada termina (ya cuenta como vista).
     return () => { window.clearTimeout(t); setEscribe(false); };
-  }, [activa, clave]);
+  }, [activa, clave]); // eslint-disable-line react-hooks/exhaustive-deps
   return escribe ? 'escribe' : 'listo';
 }
 
@@ -55,11 +58,16 @@ export function EntradaEscribiendo({ foto, quien = 'MaKo' }: { foto: ReactNode; 
       const x1 = Math.max(...rs.map((r) => r.right)), y1 = Math.max(...rs.map((r) => r.bottom));
       setCaja({ x: x0 - AIRE, y: y0 - AIRE, ancho: x1 - x0 + AIRE * 2, alto: y1 - y0 + AIRE * 2 });
     };
+    // LA FILA, A LA VISTA ANTES DE OSCURECER (20/11, la auditoría de chats, videos-2): con el hilo sin bajar, el hueco caía fuera de lo
+    // visible, sobre la caja o fuera de la pantalla, y eran segundos de pantalla oscura sin puntitos. Y se vuelve a medir con el scroll
+    // del hilo (en captura, como el motor), no sólo con el tamaño de la página.
+    try { el.scrollIntoView({ block: 'end' }); } catch { /* sin layout */ }
     medir();
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
     ro?.observe(document.documentElement);
     window.addEventListener('resize', medir);
-    return () => { ro?.disconnect(); window.removeEventListener('resize', medir); };
+    document.addEventListener('scroll', medir, { capture: true, passive: true });
+    return () => { ro?.disconnect(); window.removeEventListener('resize', medir); document.removeEventListener('scroll', medir, { capture: true }); };
   }, []);
   const hayCaja = caja != null;
   useLayoutEffect(() => {

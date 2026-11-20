@@ -17,7 +17,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { MS_ESCRIBE_ENTRADA, PARTE_A_LA_VISTA, anotarEntrada, cerrarDalePlay, dalePlayCerrado, sueltaDalePlay, tituloDalePlay, tocaDalePlay, yaEntro } from '../app/_ui/tutorial/entrada';
+import { PARTE_A_LA_VISTA, anotarEntrada, cerrarDalePlay, dalePlayCerrado, sueltaDalePlay, tituloDalePlay, tocaDalePlay, yaEntro } from '../app/_ui/tutorial/entrada';
 import { cerrarTutorial, senalAhora, senalarDondeTocar, soltarSenal } from '../app/_ui/tutorial/store';
 
 const RAIZ = new URL('..', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
@@ -36,7 +36,7 @@ test('1. el «dale play»: sólo con el video quieto, a la vista, el motor libre
   assert.equal(sueltaDalePlay({ activo: false, aLaVista: true }), true, 'el video arrancó');
   assert.equal(sueltaDalePlay({ activo: true, aLaVista: false }), true, 'bajó en el chat o se fue a otro');
   assert.ok(PARTE_A_LA_VISTA > 0.5, 'medio video asomado no se marca');
-  assert.equal(MS_ESCRIBE_ENTRADA, 1800, 'lo que dura MaKo escribiendo en la bienvenida y la llegada');
+  // (Lo que dura MaKo escribiendo, desde el 20/11 la función única de todos los chats: tests/piezas-video-chat.test.ts.)
   assert.equal(yaEntro('x-prueba'), false); anotarEntrada('x-prueba'); assert.equal(yaEntro('x-prueba'), true, 'la entrada sale UNA vez');
   assert.equal(dalePlayCerrado('y-prueba'), false); cerrarDalePlay('y-prueba'); assert.equal(dalePlayCerrado('y-prueba'), true);
 });
@@ -104,7 +104,7 @@ test('5. cada coach entra la primera vez como la bienvenida: oscuro, escribe, y 
   assert.match(lista, /<ChatDelCoach cual="offer".*visible=\{verOffer\} \/>/);
   const e = sinComentarios(leer('app/_ui/tutorial/EntradaEscribiendo.tsx'));
   assert.match(e, /if \(!activa \|\| yaEntro\(clave\)\) return;\s*anotarEntrada\(clave\);/);
-  assert.match(e, /window\.setTimeout\(\(\) => setEscribe\(false\), MS_ESCRIBE_ENTRADA\)/);
+  assert.match(e, /window\.setTimeout\(\(\) => setEscribe\(false\), msEscribiendo\(texto\)\)/);
   assert.match(e, /if \(!hayCaja \|\| !nodo \|\| menosMovimiento\(\)\) return;\s*return barrer\(nodo\);/, 'con el barrido, salvo con menos movimiento');
   assert.match(e, /createPortal\(/, 'el velo afuera de los contextos de apilado del panel');
 });

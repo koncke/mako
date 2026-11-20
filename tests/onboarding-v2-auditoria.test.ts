@@ -170,7 +170,8 @@ test('14. V10 y F1: el manifiesto de los videos, fresco en cada visita; y «Toda
   assert.doesNotMatch(h, /force-cache/, 'un navegador que ya lo tenía no veía los videos nuevos');
   assert.match(h, /fetch\(RUTA_MANIFIESTO, \{ cache: 'no-cache' \}\)/);
   assert.match(h, /export function useManifiestoListo\(\): boolean \{/);
-  assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /if \(!v\) \{\n\s*return revision && listo\n/);
+  // Sin el manifiesto leído, su lugar reservado (20/11, videos-3); la placa, sólo ya leído (F1).
+  assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /if \(!v\) \{\n\s*if \(!listo\) return <><style>\{CSS\}<\/style><div className="mk-vmom mk-vmom--reserva"[^\n]*\n\s*return revision\n/);
   assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /if \(cerrado \|\| \(!video && !\(revision && manifiestoListo\)\)\) return null;/);
 });
 

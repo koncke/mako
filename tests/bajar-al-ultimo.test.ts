@@ -107,13 +107,19 @@ test('5. lo usan el onboarding, los coaches (computadora y teléfono) y el chat 
   assert.match(v2, /const ultimaFila = cola\.visibles\[cola\.visibles\.length - 1\];/);
   assert.match(v2, /useBajarAlUltimo\(seguirHilo, `\$\{fase\}\|\$\{ultimaFila\?\.id \?\? ''\}\|\$\{ultimaFila && cola\.conPieza\(ultimaFila\.id\) \? 'pieza' : ''\}\|\$\{pendiente \?\? ''\}\|\$\{escribe \? 'escribe' : ''\}`\);/);
   assert.doesNotMatch(v2, /const cuantos =|scrollTo\(\{ top: h\.scrollHeight|suave: true/, 'sin la cuenta, sin el scroll de una vez, sin animación');
-  assert.match(sinComentarios(leer('app/second-brain/ChatDelCoach.tsx')), /useBajarAlUltimo\(seguirHilo, `\$\{k\.items\.length\}\|\$\{k\.trabajo\}`\);/);
+  // Los chats que dibujan su hilo en PanelDeChat le pasan la clave de su ÚLTIMA fila y el panel baja (PanelChat.tsx → `seguir`).
+  const coach = sinComentarios(leer('app/second-brain/ChatDelCoach.tsx'));
+  assert.match(coach, /const ultimaFila = `\$\{hiloCoach\.items\[hiloCoach\.items\.length - 1\]\?\.id \?\? ''\}\|/);
+  assert.match(coach, /<PanelDeChat hilo=\{hilo\} adjuntos=\{k\.adjuntosCaja\} seguir=\{\{ clave: ultimaFila \}\}/);
   const hoja = sinComentarios(leer('app/m/second-brain/HojaDelCoach.tsx'));
-  assert.match(hoja, /useBajarAlUltimo\(seguirHoja, `\$\{k\.items\.length\}\|\$\{k\.trabajo\}\|\$\{vista\}`\);/);
-  assert.doesNotMatch(hoja, /el\.scrollTop = el\.scrollHeight/);
+  assert.match(hoja, /useBajarAlUltimo\(seguirHoja, `\$\{hiloCoach\.items\[hiloCoach\.items\.length - 1\]\?\.id \?\? ''\}\|/);
+  assert.doesNotMatch(hoja, /el\.scrollTop = el\.scrollHeight|k\.items\.length\}\|/);
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  assert.match(sb, /useBajarAlUltimo\(seguirHilo, `[^`]*\$\{k\.items\.length\}[^`]*`, \{ arriba: enChatNuevo && !k\.items\.length \}\);/);
-  assert.doesNotMatch(sb, /el\.scrollTop = enChatNuevo/);
+  assert.match(sb, /const ultimaFila = `\$\{k\.items\[k\.items\.length - 1\]\?\.id \?\? ''\}\|/);
+  assert.match(sb, /seguir=\{\{ clave: ultimaFila, arriba: enChatNuevo && !k\.items\.length \}\}/);
+  assert.doesNotMatch(sb, /el\.scrollTop = enChatNuevo|useBajarAlUltimo\(/);
+  const panel = sinComentarios(leer('app/admin/operaciones/PanelChat.tsx'));
+  assert.match(panel, /const contenedor = useCallback\(\(\) => \(sigue \? hilo\.current : null\), \[hilo, sigue\]\);\n\s*useBajarAlUltimo\(contenedor, seguir\?\.clave \?\? '', \{ arriba: !!seguir\?\.arriba \}\);/);
   // La llegada (ops-center-1: sus filas viven fuera de la lista del chat) avisa cada fila nueva; desde el 20/11 vive en el chat del reto.
   const b = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
   assert.match(b, /useEffect\(\(\) => \{ if \(fase !== 'espera'\) avisarMensajeNuevo\(\); \}, \[fase\]\);/);

@@ -56,7 +56,7 @@ test('2. el video del costado mide lo que el video: no es un <aside> (la regla d
   // El flotante es el reproductor de la maqueta desde la verificación de F2 (app/_ui/tutorial/VideoEnLaEsquina.tsx): tampoco <aside>.
   const p = sinComentarios(leer('app/_ui/tutorial/VideoEnLaEsquina.tsx'));
   assert.doesNotMatch(p, /<aside/);
-  assert.match(p, /<div className="mk-pip"[^>]* role="complementary"/);
+  assert.match(p, /<div [^>]*className="mk-pip"[^>]* role="complementary"/);
 });
 
 test('3. la barra lateral, oculta desde «Entrar a MaKo» hasta el paso que la presenta', () => {

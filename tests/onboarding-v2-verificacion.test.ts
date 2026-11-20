@@ -50,7 +50,7 @@ test('2. OA-02: quien vuelve con el nombre sin contestar ve el video solo; pausa
   // con un video de mentira tests/onboarding-mensaje-del-video.test.ts).
   assert.match(v2, /lugar: filaBienvenida, activo: fase === 'chat', inicial: inicial\.etapa === 'nombre' \? 'espera' : 'listo',\n\s*clave: VIDEO_BIENVENIDA, dice: MOMENTO_NOMBRE\.dice, esperaPlay: MS_SIN_PLAY,/);
   const h = sinComentarios(leer('app/_ui/tutorial/useMensajeDelVideo.ts'));
-  assert.match(h, /oir\('pause', \(\) => \{ if \(!video\.ended\) listo\(\); \}\);/);
+  assert.match(h, /oir\('pause', \(\) => \{ if \(!video\.ended && !pausaPorFlotar\(video\)\) listo\(\); \}\);/, 'la pausa por pasar a la esquina no la suelta (videos-1)');
   assert.match(h, /sinPlay = reloj\.poner\(\(\) => listo\(\), o\.esperaPlay\);/);
 });
 
@@ -210,7 +210,7 @@ test('14. V5: la entrada de un día y su «dale play» se guardan en el navegado
     guardado.set('mk-dale-play:offer-coach', '1');
     assert.equal(dalePlayCerrado('offer-coach'), true);
   } finally { delete (globalThis as { localStorage?: unknown }).localStorage; }
-  assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /onPlay=\{\(\) => \{ setEstado\('reproduciendo'\); if \(dalePlay\) cerrarDalePlay\(clave\); onEmpieza\?\.\(\); \}\}/);
+  assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /onPlay=\{\(e\) => \{ delete e\.currentTarget\.dataset\[BANDERA_FLOTA\]; setEstado\('reproduciendo'\); if \(dalePlay\) cerrarDalePlay\(clave\); onEmpieza\?\.\(\); \}\}/);
   // Desde el 20/11, tarde (V4), el play del día corre por verVideoDelDia: lo anota visto y cierra el «dale play» antes del motor.
   // (Con la clave de ESTE reto, `delReto`, para el video con marcas: 20/11, ~13:00.)
   assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /anotarVisto\(`video:\$\{dia\.n\}`\);\n\s*cerrarDalePlay\(conMarcas \? delReto\(dia\.video\) : dia\.video\);\n\s*if \(conMarcas\) \{\n[^\n]*\n\s*mostrarTutorial\(tutorialDelDia\(dia\)/);

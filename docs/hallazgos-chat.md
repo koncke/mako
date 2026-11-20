@@ -497,7 +497,7 @@ bajaba por cuenta; la corrigió la tanda siguiente. VideoDelMomento sin tocar: l
   la caja. Si la persona subió a leer, lo que crece no la arrastra; el próximo mensaje nuevo, sí. Lo prueba tests/bajar-al-ultimo.test.ts
   con un hilo de mentira; en el navegador, el onboarding queda a 0 px del final en cada paso, y leyendo arriba no se mueve.
 - **La cola de salida (app/_chat/useColaDeSalida.ts), la otra pieza:** los mensajes de MaKo salen de a uno, con puntitos de
-  max(lo ya esperado, 600 ms + 20 ms por letra, tope 2.200 ms), y su tarjeta, recuadro o botón 500 ms después del texto. El
+  max(lo ya esperado, 600 ms + 20 ms por letra, tope 3,5 s), y su tarjeta, recuadro o botón 500 ms después del texto. El
   historial sale de una. Los puntitos cuentan desde que la persona mandó (`empezoLaEspera`): si el servidor tardó más, el mensaje sale
   ya. Un mensaje RETENIDO (espera el momento de su video) no tiene puntitos hasta que se suelta, y ahí trae los suyos. **Trampa:** sin
   limpiar `desde` mientras está retenido, el mensaje del código salía sin puntitos (`desde` era de cuando salió el video, 4 s antes).
@@ -505,6 +505,22 @@ bajaba por cuenta; la corrigió la tanda siguiente. VideoDelMomento sin tocar: l
   para los chats con PERSONAS (grupos y bandeja): lo nuevo de otros no baja a quien lee arriba, un botón cuenta cuántos llegaron, y al
   abrir va a «Sin leer». Es la excepción escrita (decisión del 3/11, «como WhatsApp»; el Cerebro, 20/11). Comparten `bajarAlCrecer`, y el
   de grupos baja con los puntitos de MaKo pensando si estaba abajo (ops-center-8a).
+- **UNA duración de los puntitos para todo (lib/puntitos.ts → `msEscribiendo`):** la cola, la entrada de los coaches y de cada día del
+  reto (`useEntrada(clave, activa, texto)`) y la llegada. El tope es el de la maqueta, 3,5 s («que tarde un poquito más», 16/11); la
+  primera versión de la cola tenía 2,2 s. Sin texto que medir, el tope.
+- **El scroll, enchufado en `PanelDeChat`** (app/admin/operaciones/PanelChat.tsx → `seguir={{ clave, arriba }}`): casi todas las pantallas
+  dibujan su hilo ahí. Cada una le pasa la clave de su última fila y el panel hace el resto. Ya lo usan ChatDelCoach y ChatSecondBrain.
+- **Las piezas de video (videos-1 a 6 de la auditoría):**
+  - pasar a la esquina pausa el video del chat, y eso contaba como una pausa de la persona (el onboarding soltaba su pregunta con el video
+    hablando): la pausa por flotar lleva una bandera en el `<video>` (`pausaPorFlotar`, app/_ui/tutorial/useVideoQueFlota.ts). El fin en la
+    esquina lo avisa `onTerminaFuera` (lo hizo el reto); **no se repite en `onTermina`:** el reto pasa el mismo manejador a los dos y
+    correría dos veces;
+  - VideoDelMomento avisa `onTiempo`, `onError` y `onFrase` (la frase que suena: `fraseEnElTiempo`, lib/tutoriales/videos.ts), y con
+    `marcarFrases` marca las que tienen lugar, sin tapas, hasta la frase siguiente;
+  - mientras llega el manifiesto, su lugar queda reservado (16:9 y la barra: 269 px, medido igual que el reproductor);
+  - la entrada trae su fila a la vista antes de oscurecer y se vuelve a medir con el scroll del hilo;
+  - mientras un video flota, el hilo suma su alto abajo (`--alto-esquina`; sólo < 640 px: a 1440 la auditoría lo dejó DUDOSO y no hace
+    falta, el video no tapa el hilo).
 - **Trampa:** el «subió a leer» se mide por el scroll que BAJA. Lo que baja el chat solo nunca la despega, y cuando el hilo se achica el
   navegador recorta el scroll y la deja cerca del final: por eso se mira primero la distancia al final y después la dirección.
 - **Trampa al medirlo:** con una marca del tutorial puesta, el motor vuelve a traer lo marcado a la vista cuando se scrollea. Una prueba

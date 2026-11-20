@@ -17,11 +17,12 @@
 // portada con su play. La portada de verdad ya trae su título: la maqueta le escribía «Martín · MaKo» y el título encima porque la
 // suya era un fondo liso, y sobre la de verdad no se leían.
 // =============================================================================
-import { useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
-import { useSenal, type MotivoFin } from './store';
-import { useVideoQueFlota } from './useVideoQueFlota';
+import { senalarDondeTocar, soltarSenal, useSenal, type MotivoFin } from './store';
+import { BANDERA_FLOTA, pausaPorFlotar, useVideoQueFlota } from './useVideoQueFlota';
+import { fraseEnElTiempo, type FraseVideo } from '@/lib/tutoriales/videos';
 import { useDalePlay } from './useDalePlay';
 import { cerrarDalePlay } from './entrada';
 
@@ -34,11 +35,23 @@ const conMayuscula = (s: string) => (s ? s.charAt(0).toLocaleUpperCase('es') + s
  * `onTermina`: cuando el video llegó al final (el onboarding V2 suelta ahí su primera pregunta); `onPausa`, cuando la persona lo pausa
  * (20/11, la verificación de OA-02: también la suelta); `onEmpieza`, cuando arranca. `dalePlay`: mientras está quieto, el
  * motor lo marca con «{título}: dale play» (V5, ./useDalePlay.ts): el video con el que abre un chat (los coaches, el reto, la bienvenida).
+ * LO QUE AVISA PARA LOS CHATS (20/11, la auditoría de chats, videos-1, 3 y 5; las piezas compartidas):
+ *   · `onPausa` sólo con una pausa de la persona: pasar a la esquina no cuenta (`pausaPorFlotar`, ./useVideoQueFlota.ts);
+ *   · `onTiempo(t)` en cada avance, `onError()` si el archivo no carga;
+ *   · `onFrase(f)` al empezar cada frase del manifiesto (para que un mensaje salga cuando la voz llega ahí), y con `marcarFrases`, la
+ *     frase que tiene lugar (`sel`) se marca mientras suena, sin tapar nada (se suelta en la frase siguiente);
+ *   · mientras llega el manifiesto, su recuadro (16:9 y la barra) queda RESERVADO: antes no dibujaba nada y después unos 270 px, con el
+ *     chat ya bajado.
+ * El fin en la esquina lo avisa `onTerminaFuera` (no `onTermina`: el reto pasa el mismo manejador a los dos).
  */
-export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, onEmpieza, onTerminaFuera, dalePlay = false }: {
+export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, onEmpieza, onTerminaFuera, onTiempo, onError, onFrase, marcarFrases = false, dalePlay = false }: {
   clave: string; titulo: string; revision: boolean; onTermina?: () => void; onPausa?: () => void; onEmpieza?: () => void; dalePlay?: boolean;
   /** Terminó (o lo cerraron con su X) en la esquina, después de salir de la vista (20/11, D1-03: el reto del día 1). */
   onTerminaFuera?: (m: MotivoFin) => void;
+  onTiempo?: (t: number) => void;
+  onError?: () => void;
+  onFrase?: (f: FraseVideo) => void;
+  marcarFrases?: boolean;
 }) {
   const v = useVideoTutorial(clave);
   const listo = useManifiestoListo();
@@ -55,10 +68,30 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, o
   const dur = durLeida || v?.duracion_s || 0;
   const raiz = useRef<HTMLDivElement>(null);
   useDalePlay(raiz, { clave, titulo, activo: dalePlay && !!v && estado === 'quieto' && !flotando });
+  // La frase que suena, y la marca de la que tiene lugar (videos-5).
+  const fraseAhora = useRef<string | null>(null);
+  const marca = useRef(0);
+  const soltarMarca = () => { if (marca.current) { soltarSenal(marca.current); marca.current = 0; } };
+  useEffect(() => () => { if (marca.current) soltarSenal(marca.current); }, []);
+  const alTiempo = (tt: number) => {
+    setT(tt);
+    onTiempo?.(tt);
+    const f = fraseEnElTiempo(v?.frases ?? [], tt);
+    if ((f?.id ?? null) === fraseAhora.current) return;
+    fraseAhora.current = f?.id ?? null;
+    soltarMarca();
+    if (!f) return;
+    onFrase?.(f);
+    if (marcarFrases && f.sel && typeof document !== 'undefined' && document.querySelector(f.sel)) {
+      const fuera = () => { marca.current = 0; };
+      marca.current = senalarDondeTocar({ sel: f.sel, titulo, texto: f.texto, haz: '' }, fuera, { alOmitir: fuera, libre: true });
+    }
+  };
 
-  // La placa, sólo con el manifiesto ya leído (F1): mientras carga, nada.
+  // Mientras llega el manifiesto, su lugar reservado (videos-3); leído, la placa en la revisión (F1) o nada.
   if (!v) {
-    return revision && listo
+    if (!listo) return <><style>{CSS}</style><div className="mk-vmom mk-vmom--reserva" data-clave={clave} aria-hidden="true" /></>;
+    return revision
       ? <><style>{CSS}</style><div className="mk-vmom mk-vmom--lugar" data-clave={clave} role="note"><b>Tu video: {titulo}</b><span>Todavía no está grabado: va aquí.</span></div></>
       : null;
   }
@@ -82,8 +115,10 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, o
       <style>{CSS}</style>
       <div className={`mk-vmom__pantalla${v.play === 'abajo-derecha' ? ' mk-vmom__pantalla--abajo-derecha' : ''}`} onClick={alternar}>
         <video ref={ref} className="mk-vmom__video" src={v.archivo} poster={v.poster} playsInline preload="metadata"
-          onPlay={() => { setEstado('reproduciendo'); if (dalePlay) cerrarDalePlay(clave); onEmpieza?.(); }} onPause={(e) => { if (!e.currentTarget.ended) { setEstado('pausado'); onPausa?.(); } }}
-          onEnded={() => { setEstado('terminado'); onTermina?.(); }} onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
+          onPlay={(e) => { delete e.currentTarget.dataset[BANDERA_FLOTA]; setEstado('reproduciendo'); if (dalePlay) cerrarDalePlay(clave); onEmpieza?.(); }}
+          onPause={(e) => { if (e.currentTarget.ended) return; setEstado('pausado'); soltarMarca(); if (!pausaPorFlotar(e.currentTarget)) onPausa?.(); }}
+          onEnded={() => { setEstado('terminado'); soltarMarca(); onTermina?.(); }} onTimeUpdate={(e) => alTiempo(e.currentTarget.currentTime)}
+          onError={() => onError?.()}
           onLoadedMetadata={(e) => { if (Number.isFinite(e.currentTarget.duration)) setDur(e.currentTarget.duration); }} />
         {/* Mientras flota abajo a la derecha, su lugar lo dice (20/11, F2): vuelve solo cuando el mensaje se ve otra vez. */}
         {flotando && <span className="mk-vmom__esquina" role="status">Se está viendo en la esquina ↘</span>}
@@ -130,6 +165,9 @@ const CSS = `
 .mk-vmom__hecho { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; background: #2F6FED; }
 .mk-vmom__vel { flex: none; font: 700 11px/1 'Geist', system-ui, sans-serif; color: #fff; background: rgba(255,255,255,.12); border: 0; border-radius: 6px; padding: 6px 7px; cursor: pointer; }
 .mk-vmom :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* Reservado mientras llega el manifiesto: el mismo alto que el reproductor (16:9 y su barra). */
+.mk-vmom--reserva::before { content: ''; display: block; aspect-ratio: 16 / 9; background: #000; }
+.mk-vmom--reserva::after { content: ''; display: block; height: 44px; background: #151A24; }
 .mk-vmom--lugar { background: var(--surface); color: var(--ink); border: 1.5px dashed var(--border-strong); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; padding: 10px; aspect-ratio: 16 / 9; }
 .mk-vmom--lugar b { font-size: var(--fs-sm); color: var(--ink); }
 .mk-vmom--lugar span { font-size: var(--fs-meta); color: var(--dim); }

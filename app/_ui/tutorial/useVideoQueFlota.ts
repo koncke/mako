@@ -10,6 +10,14 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { reproducirFlotante, volverAlChat, type MotivoFin } from './store';
 
+/**
+ * LA PAUSA POR FLOTAR NO ES UNA PAUSA DE LA PERSONA (20/11, la auditoría de chats, videos-1): al pasar a la esquina se pausa el video del
+ * chat, y eso disparaba `onPausa` (el onboarding soltaba su pregunta con el video todavía hablando). Lleva esta bandera en el <video>
+ * hasta que vuelva a correr; quien oye la pausa la mira (`pausaPorFlotar`).
+ */
+export const BANDERA_FLOTA = 'mkFlota';
+export const pausaPorFlotar = (v: { dataset?: DOMStringMap | Record<string, string | undefined> } | null | undefined): boolean => !!v?.dataset?.[BANDERA_FLOTA];
+
 /** `alTerminarFuera`: si termina (o lo cierran) en la esquina (20/11, D1-03: el día 1 marca Offer Coach igual). */
 export function useVideoQueFlota(ref: RefObject<HTMLVideoElement | null>, clave: string | null, titulo: string, alTerminarFuera?: (m: MotivoFin) => void): void {
   const aviso = useRef(alTerminarFuera);
@@ -20,6 +28,7 @@ export function useVideoQueFlota(ref: RefObject<HTMLVideoElement | null>, clave:
     const flotar = () => {
       if (v.paused || v.ended) return;
       const t = v.currentTime;
+      v.dataset[BANDERA_FLOTA] = '1';
       v.pause();
       reproducirFlotante(clave, titulo, t, (m) => aviso.current?.(m));
     };

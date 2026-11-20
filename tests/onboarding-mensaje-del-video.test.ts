@@ -74,6 +74,10 @@ test('2. los desvíos: nadie queda trabado (sin play, falla, pausa, ya visto, si
   const c = caso(video({ paused: false }));
   c.l.emitir('pause');
   assert.deepEqual(c.salidas, [true], 'pausado: sale');
+  // Pasar a la esquina NO es una pausa de la persona (videos-1): el video sigue hablando ahí; el momento lo da el tope.
+  const cf = caso(video({ paused: false, dataset: { mkFlota: '1' } }));
+  cf.l.emitir('pause');
+  assert.deepEqual(cf.salidas, [], 'flotando: no sale todavía');
   // Ya se vio entero (o ya pasó su momento).
   const d = caso(video({ ended: true, currentTime: 16.9 }));
   assert.deepEqual(d.salidas, [true], 'ya visto: sale enseguida');
