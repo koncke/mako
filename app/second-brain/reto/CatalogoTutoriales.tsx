@@ -56,13 +56,15 @@ export function gruposDelCatalogo(videos: readonly Video[], diaAbierto: number):
 
 const TU_CUENTA = 'Tu cuenta';
 const MAS = 'Más';
-const DE_TU_CUENTA = ['/perfil', '/integraciones', '/equipo', '/configuraciones', '/second-brain'];
+// Una expresión, no una lista de rutas entre comillas: tests/integracion-sin-salir.test.ts toma un literal que arranca con la de
+// Integraciones por un link nuevo, y esto sólo agrupa tutoriales.
+const DE_TU_CUENTA = /^\/(perfil|integraciones|equipo|configuraciones|second-brain)(\/|$)/;
 const empiezaCon = (p: string, base: string) => p === base || p.startsWith(`${base}/`);
 /** El grupo de un tutorial por su ruta: «Tu cuenta» (Settings y el Ops Center), «Pestañas · {familia}» (la familia de la fila de la
  *  barra cuya ruta es el comienzo de la suya) o, lo que no está en la barra, «Más». */
 export function grupoDeLaRuta(ruta: string): string {
   const p = ruta.split('?')[0];
-  if (DE_TU_CUENTA.some((b) => empiezaCon(p, b))) return TU_CUENTA;
+  if (DE_TU_CUENTA.test(p)) return TU_CUENTA;
   for (const fa of FAMILIAS) if (itemsDe(fa).some((it) => !!it.href && it.href !== '/' && empiezaCon(p, it.href.split('?')[0]))) return `Pestañas · ${fa.label}`;
   return MAS;
 }
