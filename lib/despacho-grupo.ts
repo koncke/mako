@@ -190,7 +190,7 @@ export const PIDE_DATOS_AGENDA = 'Claro. Para agendarlo dime qué es, qué día 
 
 const CREA_EN_LA_AGENDA = /\b(agreg|cre|pon|anot|sum|program|arm|carg)\w*/;
 const LA_AGENDA = /\b(eventos?|calendarios?|calendar|reunion|reuniones|citas?|llamadas?)\b/;
-const NO_CREA = /\b(cancel|borr|elimin|quit|sac|anul|suspend)\w*/;
+const NO_CREA = /\b(cancel|borr|elimin|quit|sac|anul|suspend|muev|mover|reprogram|pospon|posterg|cambi)\w*/;
 const TIENE_FECHA_U_HORA = /\b(hoy|manana|pasado|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b|\b\d{1,2}\s*(de|\/|-)\s*(\d{1,2}|ene|feb|mar|abr|may|jun|jul|ago|sep|set|oct|nov|dic)|\b\d{1,2}([:.]\d{2})?\s*(h|hs|horas|am|pm)\b|\ba las \d/;
 
 /**

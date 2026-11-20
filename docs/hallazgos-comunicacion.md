@@ -13672,8 +13672,11 @@ correr nunca el turno. Por eso ningún test vio el cartel. Con `crearPostgrest({
   - Por qué esperó a Martín: lo había pedido alguien que no administra el negocio (`delegadoQueDecideMartin`).
   - El diagnóstico del Cerebro era equivocado: «MaKo no contestó en el grupo». Leído en producción, contestó «Lo pasé al equipo de
     MaKo (pedido #120)». Dos minutos después la dueña lo pidió con los datos, y MaKo propuso, confirmó y agendó.
-  - Ahora `pideDatosEnVezDeDelegar` (sólo CREAR en la agenda, sin fecha ni hora, nunca si cancela o borra) le pide los datos con un
-    texto fijo, y no abre un ticket.
+  - Ahora `pideDatosEnVezDeDelegar` (sólo CREAR en la agenda, sin fecha ni hora, nunca si cancela, borra o mueve) le pide los datos
+    con un texto fijo, y no abre un ticket.
+  - **Trampa del test:** la rotura que saca el «si cancela» quedó VERDE. Los «cancela» del test ya daban null por otro lado: uno no
+    decía «agend…» y el otro traía «hoy». Un caso que prueba un freno tiene que pasar todos los demás filtros («Cancela la reunión
+    que agendamos»). Así apareció que «Mueve la reunión agendada» pedía «qué es, qué día y a qué hora».
   - `preguntaUnDato` reconoce el pedido del dato sin signo («pásame el día y la hora»).
   - **Trampa:** «cuando» sin tilde es una conjunción («escríbeme cuando quieras»); sólo «cuándo» pregunta.
   - **Lo que no cambió, a propósito:** en un grupo de WhatsApp CUALQUIER participante hace las escrituras simples con su «sí». Ahí

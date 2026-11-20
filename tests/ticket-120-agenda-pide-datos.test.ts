@@ -10,7 +10,8 @@
 // PROBADO ROMPIÉNDOLO (20/11/2026), cada rotura por separado y vuelta atrás:
 //   T1 `pideDatosEnVezDeDelegar` siempre null                   → falla 1
 //   T2 pide los datos aunque el pedido traiga la fecha           → falla 1
-//   T3 pide los datos aunque cancele                             → falla 1
+//   T3 pide los datos aunque cancele o mueva                     → falla 1 (la primera vez quedó verde: los
+//      «cancela» del test ya daban null por otro lado; ahora hay casos que dicen «agend…» sin fecha)
 //   T4 `preguntaUnDato` otra vez sólo con el signo final         → falla 2
 //   T5 el doer abre el ticket igual                              → falla 3
 //   T6 el doer no pone el pedido de los datos como respuesta     → falla 3
@@ -28,6 +29,8 @@ test('1. agendar sin qué ni cuándo se pregunta; con la fecha, o si cancela o b
   for (const t of [
     'Agendar mañana a las 10 una reunión con Ana', 'Agenda el 25 de noviembre la llamada', 'agrega un evento el viernes', 'Agendar reunión 16 hs',
     'Cancela la reunión con Ana', 'Borra el evento de hoy', 'Crea una campaña de anuncios', 'Agrega un lead: Juan Pérez',
+    // Sin fecha y diciendo «agend…»: sólo los frena que cancela, quita o mueve.
+    'Cancela la reunión que agendamos', 'Quita del calendario el evento agendado', 'Mueve la reunión agendada', 'Reprograma la llamada agendada',
   ]) assert.equal(pideDatosEnVezDeDelegar(t), null, t);
   assert.match(PIDE_DATOS_AGENDA, /qué es, qué día y a qué hora/);
   assert.match(PIDE_DATOS_AGENDA, /«MaKo, agenda la reunión con Ana el 25 de noviembre de 16 a 17»/, 'el ejemplo es un pedido que sí agenda');
