@@ -1503,7 +1503,7 @@ Tab **CRM** (`/crm`). 37 lecturas · 57 acciones.
 
 ### `GET /api/v1/crm/busqueda/leads` — Buscar leads por texto
 
-Busca leads del negocio por nombre, teléfono, email o empresa y devuelve una lista compacta (id, nombre, estado, etapa y etapa_nombre —la etapa en la que la ve el equipo y cómo se llama—, fechas de reuniones, monto de cierre en USD, closer y setter). Es el primer paso antes de cualquier otra operación sobre un lead: de aquí sale el leadId. Compara el texto tal cual (sensible a acentos) y devuelve como máximo 20 resultados.
+Busca leads del negocio por nombre, teléfono, email o empresa y devuelve una lista compacta (id, nombre, estado, etapa y etapa_nombre —la etapa en la que la ve el equipo y cómo se llama—, fechas de reuniones, monto de cierre en USD, closer y setter). Es el primer paso antes de cualquier otra operación sobre un lead: de aquí sale el leadId. Compara sin tildes y por palabras, en cualquier orden, y devuelve como máximo 20 resultados. Si ningún lead se llama así pero alguno se escribe parecido (una letra de diferencia en una palabra del nombre), devuelve "aproximados" sin teléfono ni email, con sus reuniones: no es el nombre exacto y se confirma con la persona antes de dar datos.
 
 - **Ruta por operación:** `GET /api/v1/crm/buscar_leads`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)

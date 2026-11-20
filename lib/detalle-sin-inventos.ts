@@ -24,6 +24,8 @@
 // =============================================================================
 
 import { normNombre, fuenteDicha, conNombreReal, type FuenteDicha, type AliasDelDueno } from './tarea-dueno';
+// «¿Se escribió casi igual?»: una sola copia, la del buscador (el ticket #121 la usa para los nombres de los leads).
+import { casiIgual } from './buscar-texto';
 
 /**
  * Lo que se dijo, armado UNA vez por reunión: las palabras (`fuenteDicha`, lo mismo que mira el rótulo de una
@@ -71,18 +73,6 @@ export const VOCABULARIO_MAKO = [
 const norm = (s: string): string => normNombre(s).replace(/[^a-z0-9ñ]+/g, ' ').trim();
 const juntar = (s: string): string => normNombre(s).replace(/[^a-z0-9@.]+/g, '');
 const soloDigitos = (s: string): string => s.replace(/[^0-9]/g, '');
-
-/** ¿Se escribió casi igual? (una letra de más, de menos o cambiada). Sólo de 4 letras para arriba. */
-function casiIgual(a: string, b: string): boolean {
-  if (a.length < 4 || Math.abs(a.length - b.length) > 1) return false;
-  let i = 0; let j = 0; let dif = 0;
-  while (i < a.length && j < b.length) {
-    if (a[i] === b[j]) { i++; j++; continue; }
-    if (++dif > 1) return false;
-    if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
-  }
-  return dif + (a.length - i) + (b.length - j) <= 1;
-}
 
 /** Lo que se puede citar sin haberlo dicho la reunión: el vocabulario de la app, los proyectos, la gente. */
 export type Permitidos = { palabras: ReadonlySet<string>; juntos: readonly string[] };

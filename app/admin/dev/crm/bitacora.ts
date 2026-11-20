@@ -4302,4 +4302,26 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '20 nov', hora: '15:45', chat: 'MaKo en WhatsApp: no callarse cuando le hablan', sesion: 'local_11c0bf11-9013-4748-80fc-b29ff97f77f6', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo encuentra a una lead aunque su nombre llegue con una letra de diferencia, y usa el día y la hora de la reunión para confirmarla',
+    puntos: [
+      '**Ticket #121 (Código Inmobiliario, ws 13):** una nota de voz pidió los datos de «Carolina Casab, que tiene agenda el miércoles 25 a las 15». La lead es «Carolina Cassab», con doble s, y MaKo contestó «no aparece en la base».',
+      '**Por qué:** la búsqueda de MaKo comparaba el texto entero, letra por letra. No toleraba tildes, palabras en otro orden ni una letra de diferencia, y con cero resultados MaKo se rendía sin probar la pista de la reunión.',
+      '**Ahora:** busca como la barra del CRM (sin tildes y por palabras). Si aun así no aparece, trae los nombres que se escriben parecido, sin teléfono ni email, y pregunta «¿Es Carolina Cassab, con reunión el miércoles 25/11 a las 15:00?». Si el día y la hora que dieron coinciden con una sola, contesta directo y aclara cómo está escrito.',
+      '**Si la persona no existe**, MaKo la busca también por el día y la hora de la reunión. Si tampoco aparece, pregunta cómo se escribe y no abre un ticket: un dato que no existe no es una falla.',
+    ],
+    archivos: [
+      'lib/mako-tools.ts — `buscar_leads`: la pasada del CRM y los aproximados sin contacto (`aproximadosDe`)',
+      'lib/buscar-texto.ts — `casiIgual` (una sola copia, venía de lib/detalle-sin-inventos.ts) y `nombreParecido`',
+      'lib/mako-doer-in.ts — la regla «UN NOMBRE QUE NO APARECE»; [[no-pude]] ya no es para un dato que no existe',
+      'lib/doer-hilo.ts — las refs ven el `leadId` de `reuniones_recientes`',
+      'lib/api-mako/areas/crm.def.ts · docs/api-mako.md — la descripción ya no dice «tal cual»',
+      'tests/ticket-121-buscar-leads-aproximados.test.ts · tests/_ticket-121-hijo.ts — probado rompiéndolo (11 roturas)',
+      'docs/hallazgos-crm.md · docs/hallazgos-ia.md · docs/hallazgos.md · AGENTS.md',
+    ],
+    revisar: '/crm?ws=13',
+    tickets: [121],
+  },
 ];

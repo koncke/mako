@@ -20,6 +20,45 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## `buscar_leads` era literal: «Carolina Casab» no encontraba a «Carolina Cassab» (ticket #121, 20/11/2026, ws 13)
+
+**Vive en:** `lib/mako-tools.ts` (`buscar_leads`, `aproximadosDe`) · `lib/buscar-texto.ts` (`coincideBusqueda`, `casiIgual`,
+`nombreParecido`) · `lib/api-mako/areas/crm.def.ts` (la descripción) · `tests/ticket-121-buscar-leads-aproximados.test.ts`.
+
+- **El síntoma:** una nota de voz al grupo pidió los datos de «Carolina Casab, que tiene agenda el miércoles 25 a las 15». MaKo
+  encontró a las otras dos leads del mensaje y de ésta dijo «no aparece en la base, no la tengo cargada», con [[no-pude]], que abrió
+  el ticket.
+- **El diagnóstico obvio era el equivocado:** «no está cargada». La lead existía desde el 19/11 como «Cassab», con doble s. Cuando el
+  dueño reescribió el apellido, MaKo la encontró en el turno siguiente: no era caché ni datos.
+- **La causa:** `buscar_leads` hacía `.includes` del texto ENTERO sobre nombre, email, empresa y teléfono. No quitaba tildes, no
+  partía en palabras y no toleraba una letra. Por eso «bustos martin» tampoco encontraba a «Martín Bustos» por MaKo, y sí por la barra
+  del CRM. El runner es el mismo para WhatsApp, el chat de la app, MaKo Mobile, /api/v1 y /api/agente/consultar.
+- **La fecha y la hora solas la identificaban.** Era la ÚNICA lead del ws 13 con R1 el 25/11 a las 15 (Buenos Aires). «A las 15»
+  sola no alcanza: otra lead tenía reunión el lunes 23 a la misma hora. Se desempata con el día Y la hora.
+- **Ahora son tres pasadas sobre la misma cartera,** sin otra lectura y sin migración:
+  1. la estricta de siempre, que gana;
+  2. la del buscador del CRM (`coincideBusqueda`: sin tildes, palabras en cualquier orden y #id), con el formato normal;
+  3. si sigue en 0, los **aproximados** a una letra por palabra (`nombreParecido`).
+- **Las colisiones de nombres de pila a una letra,** medidas en producción: 12 pares en el ws 13 y 245 en el ws 1 (mariana~mariano,
+  daniel~daniela, mario~maria, juan~joan). Por eso la tolerancia tiene reglas:
+  - sólo en el nombre;
+  - nunca con una sola palabra;
+  - al menos una palabra exacta;
+  - las dos palabras de 4 letras o más (`casiIgual` sólo mira el largo de la primera);
+  - nunca con dígitos o «@»: un dígito de diferencia es otra persona.
+- **Los aproximados van SIN teléfono ni email** (no usan `resumenLead`). El grupo lo lee el equipo, y el modelo pegaría el contacto de
+  alguien que quizá no es la persona pedida. Llevan sus reuniones (el día de la semana y la hora en la zona del negocio) y la orden de
+  preguntar. Si el día y la hora que dio la persona coinciden con UNA sola, MaKo contesta aclarando cómo está escrita (decisión del
+  Cerebro, 20/11).
+- **Trampa:** el «sí, ésa» del turno siguiente se resuelve con las refs (`referenciasDeLaSalida`, lib/doer-hilo.ts). Lo que mostraba
+  `reuniones_recientes` no quedaba como ref, porque devuelve `leadId` y `CLAVES_ID` no lo tenía. Ahora sí.
+- **Quedó sin hacer, a propósito:**
+  - `duplicados_lead` / `nombreComparable` (lib/leads-duplicados.ts): ahí se decide una identidad, y una búsqueda difusa fundiría a
+    personas distintas.
+  - La barra del CRM y `listar_chats` (lib/chats.ts).
+  - Los errores de oído de dos letras («Kassab» contra «Cassab»): esto arregla este caso, no toda la clase.
+  - La pista de vocabulario a Whisper. Mandar nombres de leads a Groq lo decide Martín, por privacidad; no se hace.
+
 ## Seis pedidos chicos de la ficha y el tablero, cerrados (18/11/2026, `punta/crm-pedidos-chicos`)
 
 Los seis «chicos» que dejó la re-medición de los 61 pedidos de diseño (la entrada de abajo, O47). Cada uno con su test que

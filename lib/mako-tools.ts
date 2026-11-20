@@ -22,7 +22,7 @@ import {
   listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez, type Lead,
 } from './leads';
 import { etapasDeLeads, getFunnelDefault, getPipelineStagesDeLead } from './funnels';
-import { etapaParaModelo, datosDeLaFicha, horasDeLasReuniones, landingParaModelo, type EtapaParaModelo, type OfertaParaModelo } from './mako-ficha-lead';
+import { etapaParaModelo, datosDeLaFicha, horasDeLasReuniones, horaEnLaZona, landingParaModelo, type EtapaParaModelo, type OfertaParaModelo } from './mako-ficha-lead';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { resumenExperimentos } from './experimentos';
 import { buscarReunionesAutomatico } from './auto-reuniones';
@@ -34,6 +34,7 @@ import { linkApp } from './app-url';
 import { tableroDeCapa } from './tablero-de-capa';
 import { formularioParaModelo } from './meta-leads-campos';
 import { respuestaDeCampana } from './leads-por-campana-server';
+import { coincideBusqueda, nombreParecido } from './buscar-texto';
 
 // ── helpers de entrada ────────────────────────────────────────────────────────
 
@@ -84,6 +85,45 @@ function resumenLead(l: Lead, etapas: readonly EtapaParaModelo[] | null | undefi
   };
 }
 
+/** «miércoles 25/11»: el día de una fecha (DATE, sin hora) como lo dice una persona. */
+function diaDeLaFecha(fecha: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha);
+  if (!m) return null;
+  const semana = new Date(`${m[1]}-${m[2]}-${m[3]}T12:00:00Z`).toLocaleDateString('es-AR', { weekday: 'long', timeZone: 'UTC' });
+  return `${semana} ${Number(m[3])}/${Number(m[2])}`;
+}
+
+/** Cuántos aproximados, como las «parecidas» de las campañas (lib/leads-por-campana.ts). */
+const TOPE_APROXIMADOS = 5;
+
+const INSTRUCCION_APROXIMADOS = 'Ningún lead se llama exactamente así. Éstos se escriben PARECIDO: no es el nombre exacto y pueden ser otra persona. No des ningún dato todavía. Si la persona dio el día y la hora de la reunión y coinciden los dos con UNO solo de éstos, es ése: contesta aclarando cómo está escrito («La tengo como <nombre>: …») y trae sus datos con ficha_lead. Si no, pregunta antes: «¿Es <nombre>, con reunión el <día> a las <hora>?».';
+const INSTRUCCION_NADIE = 'Nadie se llama así ni parecido. Si la persona dio otra pista (el día y la hora de la reunión, la empresa, el teléfono), búscalo ahora por esa pista: reuniones_recientes, o listar_leads con campo_fecha=fecha_junta_1 y desde/hasta si la tienes en este turno. Si tampoco aparece, no es una falla: di que no lo encuentras ni por el nombre ni por esa pista y pregunta cómo está escrito, sin [[no-pude]].';
+
+/**
+ * ⚠️ LOS QUE SE ESCRIBEN PARECIDO (el ticket #121, 20/11/2026, ws 13). Una nota de voz pidió los datos de «Carolina Casab, que
+ * tiene agenda el miércoles 25 a las 15»; la lead es «Carolina Cassab». `buscar_leads` devolvía `{encontrados: 0}` y MaKo contestó
+ * «no aparece en la base» con [[no-pude]]. Ahora, si ni la pasada estricta ni la del CRM traen a nadie, vuelven los nombres a una
+ * letra (`nombreParecido`, lib/buscar-texto.ts) como CANDIDATOS:
+ *   · SIN teléfono ni email (no `resumenLead`): el grupo lo lee el equipo, y el modelo pegaría el contacto de quien quizá no es;
+ *   · con sus reuniones en la hora del negocio, para desempatar por día Y hora («a las 15» solo trae a más de una);
+ *   · con la orden de preguntar antes de dar datos (AGENTS.md: «Un patrón trae CANDIDATOS; quién es quién lo decide una
+ *     comparación exacta»). Sus `id` quedan como refs del turno (lib/doer-hilo.ts) para que el «sí, ésa» siguiente lo resuelva.
+ * Sin ninguno, el cero de siempre más la orden de buscar por la otra pista: «no lo encontré escrito así» no es «no existe».
+ */
+async function aproximadosDe(texto: string, cartera: readonly Lead[]): Promise<string> {
+  const parecidos = cartera.filter((l) => nombreParecido(texto, l.nombre));
+  if (!parecidos.length) return JSON.stringify({ encontrados: 0, leads: [], instruccion: INSTRUCCION_NADIE });
+  const tz = await tzActual().catch(() => null);
+  const aproximados = parecidos.slice(0, TOPE_APROXIMADOS).map((l) => ({
+    id: l.id, nombre: l.nombre,
+    reuniones: ([['R1', l.fecha_junta_1, l.junta_1_at], ['R2', l.fecha_junta_2, l.junta_2_at]] as const)
+      .filter(([, fecha]) => !!fecha)
+      .map(([r, fecha, at]) => ({ r, fecha: String(fecha), dia: diaDeLaFecha(String(fecha)), hora: horaEnLaZona(at, tz) })),
+  }));
+  const omitidos = parecidos.length - aproximados.length;
+  return JSON.stringify({ encontrados: 0, aproximados, ...(omitidos > 0 ? { omitidos } : {}), instruccion: INSTRUCCION_APROXIMADOS });
+}
+
 /** La oferta asignada al lead (mig 0272), o null si no tiene. Si no se pudo leer, el id con `nombre: null`. */
 async function ofertaDeLaFicha(ofertaId: number | null | undefined): Promise<OfertaParaModelo | null> {
   if (ofertaId == null) return null;
@@ -102,7 +142,7 @@ async function ofertaDeLaFicha(ofertaId: number | null | undefined): Promise<Ofe
 export const MAKO_TOOLS: ToolDef[] = [
   {
     name: 'buscar_leads',
-    description: 'Busca leads del negocio por nombre, teléfono, email o empresa. Devuelve una lista compacta (id, nombre, estado, etapa). Usa el id que devuelve con las otras herramientas. Si ningún lead se llama así y el texto es el nombre (o parte) de una campaña de Meta, trae los leads de esa campaña con su teléfono.',
+    description: 'Busca leads del negocio por nombre, teléfono, email o empresa (sin importar tildes ni el orden de las palabras). Devuelve una lista compacta (id, nombre, estado, etapa). Usa el id que devuelve con las otras herramientas. Si ningún lead se llama así pero alguno se escribe parecido (una letra), devuelve "aproximados" SIN teléfono ni email: no es el nombre exacto y se confirma con la persona antes de dar datos. Si ningún lead se llama así y el texto es el nombre (o parte) de una campaña de Meta, trae los leads de esa campaña con su teléfono.',
     input_schema: {
       type: 'object',
       properties: { texto: { type: 'string', description: 'Texto a buscar en nombre / teléfono / email / empresa.' } },
@@ -219,17 +259,26 @@ export type ExtraDeHerramienta = { aPersona?: (texto: string) => void };
 export const runMakoTool = async (name: string, input: Record<string, unknown>, extra: ExtraDeHerramienta = {}): ReturnType<ToolRunner> => {
   switch (name) {
     case 'buscar_leads': {
-      const q = str(input, 'texto').trim().toLowerCase();
+      const texto = str(input, 'texto');
+      const q = texto.trim().toLowerCase();
       if (!q) return 'Pasa un texto para buscar.';
       // EL TEXTO PUEDE SER UNA CAMPAÑA (ticket #56, 4/11/2026): «los leads de la campaña recon Finca Cortesin» llegaba acá, ningún
       // lead se llama así, y MaKo contestaba «no encontré» y pedía la fecha. Si ningún lead coincide, se mira si el texto nombra
       // una campaña (lib/leads-por-campana-server.ts): sus leads, o las campañas parecidas para preguntar cuál.
-      const seLlamanAsi = (await listLeads())
+      const cartera = await listLeads();
+      let seLlamanAsi = cartera
         .filter((l) => `${l.nombre ?? ''} ${l.email ?? ''} ${l.empresa ?? ''} ${l.telefono ?? ''} ${l.telefono_normalizado ?? ''}`.toLowerCase().includes(q));
       if (!seLlamanAsi.length) {
-        const porCampana = await respuestaDeCampana(str(input, 'texto'), { aPersona: extra.aPersona, soloSiNombraUna: true });
+        const porCampana = await respuestaDeCampana(texto, { aPersona: extra.aPersona, soloSiNombraUna: true });
         if (porCampana) return porCampana;
+        // ⚠️ EL NOMBRE COMO LO BUSCA UNA PERSONA (el ticket #121, 20/11/2026): la pasada de arriba compara el texto ENTERO, así
+        // que «cassab carolina» o «carolína cassab» no encontraban a «Carolina Cassab». Si da 0, la regla del buscador del CRM
+        // (`coincideBusqueda`: sin tildes, palabras sueltas en cualquier orden, #id). Lo que trae es una coincidencia EXACTA por
+        // palabras: vuelve con el formato de siempre, con el contacto. Sobre la misma cartera, sin otra lectura.
+        seLlamanAsi = cartera.filter((l) => coincideBusqueda([l.id, l.nombre, l.empresa], texto));
       }
+      // Y si tampoco: los que se ESCRIBEN parecido (una letra), como candidatos sin contacto (`aproximadosDe`, abajo).
+      if (!seLlamanAsi.length) return aproximadosDe(texto, cartera);
       // DE CADA LEAD: las etapas de SU casa (`etapasDeLeads`, lib/funnels.ts), cada CRM leído una vez
       // para los 20. Hasta el 17/10/2026 eran las del negocio para todos, y un lead de otro CRM salía
       // con una etapa derivada que contradecía al tablero. Si la lectura falla, las de por defecto

@@ -83,3 +83,42 @@ export function coincideBusqueda(campos: Array<string | number | null | undefine
     return heno.includes(t);
   });
 }
+
+/** ¿Se escribió casi igual? (una letra de más, de menos o cambiada). Sólo de 4 letras para arriba. Vivía en
+ *  lib/detalle-sin-inventos.ts; desde el ticket #121 es ésta, la única. */
+export function casiIgual(a: string, b: string): boolean {
+  if (a.length < 4 || Math.abs(a.length - b.length) > 1) return false;
+  let i = 0; let j = 0; let dif = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++dif > 1) return false;
+    if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+  }
+  return dif + (a.length - i) + (b.length - j) <= 1;
+}
+
+const palabrasDelNombre = (s: string | null | undefined): string[] => normalizar(s ?? '').replace(/[^a-z0-9]+/g, ' ').split(' ').filter(Boolean);
+
+/**
+ * ¿Este NOMBRE se escribe parecido a lo buscado? (el ticket #121, 20/11/2026: una nota de voz dijo «Carolina Casab» y la lead
+ * es «Carolina Cassab»). Trae CANDIDATOS, no decide quién es: quien llama los devuelve sin contacto y se pregunta.
+ *
+ * Las reglas salen de las colisiones medidas en producción (nombres de pila a una letra: 12 pares en el ws 13 y 245 en el ws 1,
+ * mariana~mariano, daniel~daniela, juan~joan):
+ *   · sólo palabras de un NOMBRE: con dígitos o un «@» en lo buscado, nunca (un dígito de diferencia es otra persona);
+ *   · con una sola palabra, nunca («Mariano» no trae a «Mariana»);
+ *   · cada palabra buscada tiene pareja en el nombre: igual, o `casiIgual` con las dos de 4 letras o más;
+ *   · al menos UNA palabra es exacta («Karolina Casab» no trae a «Carolina Cassab»).
+ */
+export function nombreParecido(buscado: string, nombre: string | null | undefined): boolean {
+  if (/[0-9@]/.test(buscado)) return false;
+  const pedidas = palabrasDelNombre(buscado);
+  const tiene = palabrasDelNombre(nombre);
+  if (pedidas.length < 2 || !tiene.length) return false;
+  let exactas = 0;
+  for (const p of pedidas) {
+    if (tiene.includes(p)) { exactas++; continue; }
+    if (p.length < 4 || !tiene.some((w) => w.length >= 4 && casiIgual(p, w))) return false;
+  }
+  return exactas > 0;
+}

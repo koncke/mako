@@ -4,6 +4,32 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## El prompt empujaba a [[no-pude]] sin probar la otra pista (ticket #121, 20/11/2026, ws 13)
+
+**Vive en:** `lib/mako-doer-in.ts` (`bloqueDeLaClase`, `VOZ_DE_LA_CONSULTA`, y la regla «UN NOMBRE QUE NO APARECE» en `DOER_WA_TOOLS`) ·
+`lib/mako-tools.ts` (la `instruccion` del cero y de los aproximados) · `lib/doer-hilo.ts` (`CLAVES_ID`).
+
+- **El síntoma:** a «Carolina Casab, que tiene agenda el miércoles 25 a las 15», MaKo contestó «no aparece en la base» y marcó
+  [[no-pude]], que abrió un ticket. La lead era «Cassab». La búsqueda literal está en `docs/hallazgos-crm.md`.
+- **La causa del lado del modelo:** la clase PREGUNTA y la voz de la consulta decían «si no lo ves ahí, di que no lo sabes y marca
+  [[no-pude]]». `DOER_WA_TOOLS` sólo pedía «BÚSCALO antes de decir que no lo tienes», sin nada sobre qué hacer con 0 resultados. El
+  modelo usó 3 de sus 8 pasos y no reintentó, aunque tenía `reuniones_recientes`, que viaja siempre y mira 7 días hacia adelante.
+- **Ahora,** «no lo encontré escrito así» no es «no existe»:
+  - con 0 se busca por la otra pista (día y hora, empresa, teléfono), y se desempata con el día Y la hora juntos;
+  - lo que aparezca por la fecha con otro nombre se confirma antes de dar datos;
+  - si no existe, se pregunta cómo se escribe **sin [[no-pude]]**: un dato que no existe no es una falla de MaKo y no abre ticket. La
+    marca queda para lo que no se pudo mirar.
+- **La regla vive también en la salida de la herramienta** (la `instruccion` del cero y de los aproximados), no sólo en el prompt:
+  una regla que vive sólo en el prompt no es regla.
+- **Las refs no veían `leadId`.** Lo que mostraba `reuniones_recientes` no quedaba como ref, así que un «sí, ésa» después de encontrar
+  a la lead por la fecha no sabía cuál era. Ahora `leadId` está en `CLAVES_ID`.
+- **Quedó sin hacer: la nota de voz llega sin marca.** La transcripción entra como texto llano en el camino de un mensaje y en el del
+  lote (`transcribirAudio(...).trim()`, lib/mako-doer-in.ts), y el modelo no sabe que los nombres vienen de un audio. Para una línea en
+  el system («vino de una nota de voz: los nombres pueden estar mal escritos») hay que pasar una bandera hasta `armarSystem`. La regla
+  nueva ya lo dice en general.
+- **Tampoco queda rastro de qué herramientas corrió un turno del grupo:** `runTool` vive en memoria y `mako_doer_conv` guarda sólo el
+  texto. Todo lo que el #121 dice del modelo se dedujo por los tokens.
+
 ## La voz de los coaches: medida antes de construirla (18/11/2026)
 
 **Vive en:** `lib/voz-coach-reglas.ts` (la voz, el texto, el tope; puro) · `lib/voz-coach.ts` (`audioDelCoach`) ·
