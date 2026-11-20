@@ -224,7 +224,7 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
   useEffect(() => { mirar(chat); return () => mirar(null); }, [chat.clave, mirar]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Conversacion
-      turnos={k.turnosDe(chat)} carteros={k.carteros}
+      turnos={k.turnosDe(chat)} turnosListos={k.turnosListos(chat)} carteros={k.carteros}
       preguntasChat={k.preguntasDe(chat)} onResponder={(p, elegidas, otra) => k.contestarPregunta(chat, p, elegidas, otra)} avisoCerrado={(p) => k.avisoDePregunta(chat, p)}
       chat={chat} pedidos={k.porId} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       tareas={k.tareasDe(chat)}

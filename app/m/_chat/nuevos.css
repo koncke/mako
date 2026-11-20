@@ -1,0 +1,9 @@
+/* «3 mensajes nuevos» (20/11/2026, movil-1): flota arriba de la caja fija (.m-chats-composer y .m-crm-composer, que son su caja). */
+.m-chats-nuevos {
+  position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); z-index: 2;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 14px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: var(--fs-meta); font-weight: 600; white-space: nowrap; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(18, 21, 27, .14);
+}
+.m-chats-nuevos:focus-visible { outline: none; box-shadow: var(--focus-ring); }

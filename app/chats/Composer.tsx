@@ -61,6 +61,8 @@ type Miembro = { nombre: string; foto_url: string | null };
 export type ComposerProps = {
   ws: number | null;
   chat: ChatResumen;
+  /** La conversación: la caja la acompaña cuando crece (admin-6). */
+  seguir?: () => HTMLElement | null;
   yo: { id: number; nombre: string };
   equipo: Miembro[];
   /** La conversación que MaKo lee para sugerir. */
@@ -90,7 +92,7 @@ let secuenciaTmp = 0;
 const idTmp = () => `tmp:${Date.now().toString(36)}-${(secuenciaTmp++).toString(36)}`;
 
 export default function Composer({
-  ws, chat, yo, equipo, mensajes, borradores, onPendiente, onConfirmado, onFallido, onEnviado, onAviso, onAdjuntos,
+  ws, chat, yo, equipo, mensajes, borradores, onPendiente, onConfirmado, onFallido, onEnviado, onAviso, onAdjuntos, seguir,
 }: ComposerProps) {
   const clave = chat.clave;
   const canales = chat.canales;
@@ -514,6 +516,7 @@ export default function Composer({
           tituloMandar={enComentario ? 'Comentar' : 'Enviar'}
           enterManda
           campo={campo}
+          seguir={seguir}
           altoMax={160}
           adjuntos={adjuntosCaja}
           arriba={arriba}

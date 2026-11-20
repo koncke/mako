@@ -98,6 +98,10 @@ export function VentanaChat({
   const [parche, setParche] = useState<{ datos: Partial<ChatResumen>; desde: number } | null>(null);
   const [bajar, setBajar] = useState(0);
   const pedidos = useRef(0);
+  // La conversación, para que la caja la acompañe al crecer (admin-6, 20/11/2026: la caja no tenía `seguir`, y una respuesta larga
+  // tapaba el último mensaje del cliente hasta el próximo sondeo).
+  const hiloCaja = useRef<HTMLDivElement | null>(null);
+  const seguirHilo = useCallback(() => hiloCaja.current?.querySelector<HTMLElement>('.rio-hilo') ?? null, []);
   const aplicado = useRef(0);
   const enVuelo = useRef(false);
   const otraVez = useRef(false);
@@ -551,12 +555,12 @@ export function VentanaChat({
         onDrop={(e) => alSoltar(e, adjuntosRef.current)}>
         {/* El aviso va abajo a la izquierda del HILO, arriba de la caja de escribir (respond.io lo pone abajo a
             la izquierda; abajo de todo taparía «Agregar comentario»). */}
-        <div className="rio-hilo-caja">
+        <div className="rio-hilo-caja" ref={hiloCaja}>
           <Hilo ws={ws} chat={chat} mensajes={mensajes} equipo={equipo} cargando={cargando} error={hilo ? null : errorLectura}
             onReintentar={() => void cargar()} bajar={bajar} onCopiado={() => aviso.ok('Copiado')} />
           <AvisoVentana aviso={aviso.aviso} onCerrar={aviso.cerrar} />
         </div>
-        <Composer key={chat.clave} ws={ws} chat={chat} yo={yo} equipo={equipo} mensajes={mensajes} borradores={hilo?.borradores ?? []}
+        <Composer key={chat.clave} ws={ws} chat={chat} yo={yo} equipo={equipo} mensajes={mensajes} borradores={hilo?.borradores ?? []} seguir={seguirHilo}
           onPendiente={onPendiente} onConfirmado={onConfirmado} onFallido={onFallido} onEnviado={onEnviado}
           onAviso={(t, err, d) => (err ? aviso.error(t, d) : aviso.ok(t))} onAdjuntos={(a) => { adjuntosRef.current = a; }} />
       </div>
