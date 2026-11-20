@@ -100,10 +100,12 @@ export async function POST(req: NextRequest) {
     if (!r.ok) return no(422, r.error);
     const contestado = 'contestado' in r && r.contestado === true;
     // Como lo escribió (20/11, OA-F1): su respuesta se dibuja así; sin eso, con telefonoVisible.
-    await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}`, telefonoVisto: visto, telefonoEntrante: r.yaVerificado ? undefined : true });
+    // En el V2, el WhatsApp YA confirmado lo dice MaKo y sigue con su contacto (`telefonoYa`, 20/11): sin código ni burbuja inventada.
+    const yaEnElV2 = r.yaVerificado && h.v2;
+    await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}`, telefonoVisto: visto, telefonoEntrante: r.yaVerificado ? undefined : true, telefonoYa: yaEnElV2 ? true : undefined });
     await anotarRespuesta(e, h, visto ?? `+${digitos}`, confirmado);
-    // Ya verificado: la conversación dibuja el código como cargado sin pedirlo, y ésa es su respuesta (segunda revisión).
-    if (r.yaVerificado) await anotarRespuesta({ ...e, telefono: 'verificado', telefonoNumero: `+${digitos}` }, h, CODIGO_CARGADO, confirmado);
+    // Ya verificado (el de antes): la conversación dibuja el código como cargado sin pedirlo, y ésa es su respuesta (segunda revisión).
+    if (r.yaVerificado && !yaEnElV2) await anotarRespuesta({ ...e, telefono: 'verificado', telefonoNumero: `+${digitos}` }, h, CODIGO_CARGADO, confirmado);
     return listo(contestado ? { aviso: 'Te mandé el código a ese WhatsApp.' } : {});
   };
 
@@ -263,7 +265,7 @@ export async function POST(req: NextRequest) {
         if (!otro) return no(409, 'Ya no veo otro número. Toca «Abrir WhatsApp» y mándame el mensaje desde tu WhatsApp.');
         const malo = errorDelTelefono(otro);
         if (malo) return no(422, malo);
-        await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined });
+        await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined });
         const e2 = await estadoEstricto();
         const h2 = await hechosDelArranque(e2);
         if (etapaDeArranque(e2, h2) !== 'telefono') return no(409, 'Ahora no estoy esperando tu teléfono.');
@@ -278,7 +280,7 @@ export async function POST(req: NextRequest) {
         const h = await hechosDelArranque(e);
         if (!h.v2 || etapaDeArranque(e, h) !== 'codigo') return no(409, 'Ahora no estoy esperando tu código.');
         if (body.action === 'cambiar-numero') {
-          await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined });
+          await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined });
           return listo();
         }
         const r = await reenviarCodigoV2(g.ws);

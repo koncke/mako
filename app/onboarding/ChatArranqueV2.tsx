@@ -41,6 +41,7 @@ import { CriaturaMako, type Reaccion } from './CriaturaMako';
 import { SeguirEnPc } from './ChatArranque';
 import { tarjetaConNumero } from './arranque-ui';
 import { iniciales } from '@/lib/unicode-seguro';
+import { TarjetaContactoMako } from './TarjetaContactoMako';
 import { esconderLaBarra } from '@/app/_ui/tutorial/barra-oculta';
 import { senalAhora, senalarDondeTocar, soltarSenal } from '@/app/_ui/tutorial/store';
 import { MS_SIN_PLAY, useMensajeDelVideo } from '@/app/_ui/tutorial/useMensajeDelVideo';
@@ -395,6 +396,8 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
     <span role="status" aria-label="MaKo está escribiendo" className="of-escribiendo"><i /><i /><i /></span>, { conHora: false, resaltar });
 
   const tarjeta = (m: MensajeArranque): ReactNode => {
+    // El contacto de MaKo (con el WhatsApp ya confirmado) es parte de la conversación: queda, aunque MaKo siga hablando.
+    if (m.tarjeta === 'contacto') return <TarjetaContactoMako />;
     if (m.id !== ultimoMako?.id) return null;
     if (m.tarjeta === 'telefono') return <TarjetaTelefono inicial={vista.telefonoDelPago} ocupado={ocupado}
       onSeguir={(tel, visible) => void accion({ action: 'telefono', telefono: tel, visible }, visible)} onIncompleto={() => setError(E_TELEFONO_INCOMPLETO)} />;

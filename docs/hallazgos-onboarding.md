@@ -3899,6 +3899,15 @@ de la vista de administrador y scripts/reiniciar-onboarding.mts. RESET (lib/rese
   `--respaldo=<carpeta>` o MAKO_RESPALDOS, y se niega si hay un `.git` hacia arriba (un worktree lo tiene como ARCHIVO). No confía en
   el .gitignore: una carpeta «ignorada» adentro del repo depende de una línea que alguien puede borrar. El .gitignore suma
   `respaldo-*.json` igual, por si otro script repite el error.
+- **El WhatsApp ya verificado, en el V2, salía roto (el Cerebro, en producción, después del reinicio).** `pedirConfirmacionV2` contesta
+  `yaVerificado` y el paso pasa sin código, pero la conversación del V2 sólo conocía el camino del código: el mensaje «toca «Abrir
+  WhatsApp»… te contesto con un código» SIN su caja (la tarjeta va sólo en la etapa del código) y «Listo, ya lo cargué.» como respuesta
+  de ella. Esa burbuja era a propósito en el onboarding de antes («la conversación dibuja el código como cargado»), y el V2 la heredó.
+  Ahora la ruta marca `telefonoYa` y el V2 dice «Tu WhatsApp … ya está confirmado», la tarjeta de MaKo en el chat
+  (app/onboarding/TarjetaContactoMako.tsx: no hubo mensaje de WhatsApp que la trajera), «Guárdame en tus contactos…» y «¿Guardaste el
+  contacto de MaKo?». tests/whatsapp-ya-confirmado.test.ts.
+- **«Sí, reiniciar» no daba señal:** el aviso salía chico, abajo a la izquierda, y la pantalla quedaba igual. Ahora lo dice el mismo
+  panel y lleva al onboarding del negocio (navegación completa, con el `?ws=`).
 - **Encontrado de paso:** RESET no borra `perfil.onboardingV2` ni `perfil.recorridos`. Después de un RESET del ws 3, la barra oculta, la
   llegada y «Sigamos en tu computadora» no vuelven a salir.
 - **Sin hacer:**

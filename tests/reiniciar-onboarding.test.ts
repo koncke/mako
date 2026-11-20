@@ -142,7 +142,10 @@ test('6. el botón, al lado de RESET en la vista de administrador: dice que no b
   assert.match(barra, /<span style=\{\{ fontSize: 13\.5, minWidth: 0, flexShrink: 1000,/, 'el texto de la barra se achica primero');
   assert.match(barra, /\{!modoAgencia && \(\n\s*<div style=\{\{[^}]*minWidth: 0, overflowX: 'auto'/, 'las herramientas se deslizan; «Salir» queda a la vista');
   assert.match(b, /body: JSON\.stringify\(\{ aplicar: true \}\)/);
-  assert.doesNotMatch(b, /location\.href|router\.push/, 'no navega al onboarding: mirando, cada paso avanzaría el del cliente');
+  // Al terminar dice que quedó y lleva al onboarding de ESE negocio (20/11, el Cerebro: «no da ninguna señal y deja la pantalla como
+  // estaba»): navegación completa, con el `?ws=` de la pestaña.
+  assert.match(b, /setHecho\(true\);\n\s*setTimeout\(\(\) => window\.location\.assign\(conWs\('\/onboarding', ws\)\), \d+\);/);
+  assert.match(b, /\{hecho \? `Listo: el onboarding de \$\{cliente\} empieza de cero\.`/, 'lo dice el mismo panel');
   const ruta = sinComentarios(leer('app/api/admin/reiniciar-onboarding/route.ts'));
   assert.match(ruta, /if \(!\(await getSesionAdmin\(\)\)\) return NextResponse\.json\(\{ ok: false, error: '[^']+' \}, \{ status: 403 \}\);/);
   assert.match(ruta, /const ws = await getWorkspaceActual\(\);/, 'el negocio lo dice el server, nunca el pedido');
