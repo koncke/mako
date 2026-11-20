@@ -151,5 +151,9 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
 
 ## Esperando (20/11)
 
+- **V5, el «dale play» del día:** al abrir cada día, el velo con MaKo escribiendo y el video quieto marcado con «dale play», como en el
+  onboarding y los coaches. Esa pieza la arma el chat del onboarding en su motor. Cuando el Cerebro reenvíe el nombre del componente, se usa
+  en `Dia` / `VideoDelDia` (app/second-brain/reto/ChatDelReto.tsx). **No armarla aparte.**
+
 - **El clip del día 6:** se conecta `ClipDelReto` cuando la sesión de AI Avatar avise que su app/ai-avatar/regalo/actions.ts está en main.
 
