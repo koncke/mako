@@ -924,6 +924,14 @@
     "sel": "[data-recorrido=\"tour-settings-integraciones\"]"
    },
    {
+    "dice": "Una más: dile a Máko por WhatsApp a qué hora te escribe sobre el reto.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+    "rol": "cosa"
+   },
+   {
     "dice": "Y al final, toca aquí, en tu perfil, y sube tu foto: lo que contaste ya está guardado.",
     "rol": "accion",
     "tipo": "toca",
@@ -931,14 +939,6 @@
    },
    {
     "dice": "Hoy ganas velocidad: lo que pasa en tu negocio, lo ves en tu teléfono.",
-    "rol": "cierre"
-   },
-   {
-    "dice": "Para cerrar el día, dile a Máko por WhatsApp a qué hora te escribe sobre el reto.",
-    "rol": "cierre"
-   },
-   {
-    "dice": "Le escribes tú primero, y así WhatsApp no frena sus mensajes.",
     "rol": "cierre"
    }
   ],
@@ -978,7 +978,8 @@
    }
   ],
   "porque": "19/11: gancho → porqué con un ejemplo de los cursos → los toques de siempre → cierre (guiones-dias-2-7.md)",
-  "pesoMaxMb": 5
+  "pesoMaxMb": 5,
+  "nota": "20/11: el orden de la maqueta (d24-19): la hora de WhatsApp antes y el perfil último."
  },
  {
   "id": "reto-dia-3",
