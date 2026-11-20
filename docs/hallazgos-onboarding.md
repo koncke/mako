@@ -66,7 +66,8 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
     teléfono, /onboarding mandaba a la app. Ahora se decide en el servidor (`seguirEnPcPendiente`: V2 y sin `tutorial-ops-center`
     en `usuarios.perfil`, el mismo dato que guarda /api/recorridos): /inicio manda el teléfono a /onboarding, y /onboarding muestra
     esa pantalla en vez de la app (OA-10, OD-12).
-  - *El barrido del sol y la luna (OA-13)*: un `clip-path` no puede dejar un agujero, así que el velo usa una MÁSCARA radial cuyo
+  - *El barrido del sol y la luna (OA-13)*: un `clip-path: circle()` deja ver el adentro, no un agujero (con `path(evenodd, …)` sí
+    se puede, en px: así barre el motor, OD-F2 en docs/hallazgos-ui.md), así que este velo usa una MÁSCARA radial cuyo
     radio es una `@property` animable (de 150vmax a 0), centrada en la fila de MaKo escribiendo. Para mirarlo a mitad de camino
     en el Chromium sin ventana (que congela las animaciones en 0), la animación pausada con un `animation-delay` negativo.
   - *La llegada al Ops Center (OD-05, la maqueta m-12/m-13)*: en el chat «Onboarding», la pantalla oscura con MaKo escribiendo y el

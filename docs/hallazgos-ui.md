@@ -5677,3 +5677,14 @@ titular), no se tiñe.
     `soloTexto`: el `sel` no sale en el video, así que no hay que renderizar nada.
   - Quedaron para el motor (se saltean sin pausar): dashboard («Nueva hoja» está dentro de un desplegable: dos clics, y el `antes`
     es uno), chats-5 (no hay un selector fijo para «conectar»), copilot-3/4 (la Entrada ya hecha) y video/image sin consulta.
+- **El velo del motor entraba de golpe (OD-F2; app/_ui/tutorial/iris.ts, tests/tutorial-iris.test.ts).** Lo oscuro del motor no
+  es un elemento: es la sombra de 200vmax del hueco. Una MÁSCARA no sirve, porque recorta al borde del elemento (`mask-clip`,
+  border-box) y se lleva la sombra entera. Sirve un `clip-path: path(evenodd, …)`, que no recorta al borde: la pantalla entera menos
+  un círculo centrado en el hueco, que se achica desde la esquina más lejana hasta 0 en 720 ms, con la curva del barrido.
+  - Barre sólo cuando el hueco APARECE para una marca que todavía no barrió, y nunca con menos movimiento. La tarjeta aparece al
+    terminar.
+  - Es sólo del motor (V2): el Recorrido de todos no se tocó.
+  - Para mirarlo a mitad de camino sin `next dev`: el motor de verdad en un bundle de esbuild, con el reloj de los cuadros a mano
+    (`requestAnimationFrame` y `performance.now` reemplazados, `window.avanzarA(ms)`).
+  - Ese bundle necesita `window.process` definido. next/link lo lee al cargar, y sin él la página queda sin motor y sin error a la
+    vista.
