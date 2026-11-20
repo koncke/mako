@@ -6,7 +6,8 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 ## Los avisos del reto: un correo diario no podía cumplir el «te escribo a las {hora}» (20/11/2026, claude5)
 
 **Vive en:** `lib/reto/avisos.ts` (qué sale) · `lib/reto/avisos-salida.ts` (la vuelta) · `app/api/cron/reto-avisos` (cada hora, a los
-:02) · `lib/reto/respuestas.ts` (la hora y BAJA que llegan por WhatsApp, desde el webhook). Test: `tests/reto-avisos.test.ts`.
+:02) · `lib/reto/respuestas.ts` (lo que llega por WhatsApp, desde el webhook: la hora, BAJA y las pruebas de los días 3, 4, 5 y 7) ·
+`lib/reto/pruebas-whatsapp.ts` y `-servidor.ts` (los días 3, 4 y 5). Tests: `tests/reto-avisos.test.ts`, `tests/reto-pruebas-whatsapp.test.ts`.
 
 - **Síntoma:** el chat del reto promete «mañana a las 18:00 te escribo» y lo único que salía era un correo a las 10:00 de Argentina.
   **Causa:** el correo colgaba del cron diario de aviso-fin-de-prueba, «para no sumar otro cron». Con una hora de las 12:00 en
@@ -21,11 +22,50 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
   ventana ya lo deja afuera (la rotura R1 no da rojo). Queda para cuando `diaAbierto` cuente desde el último día abierto (d24-01).
 - **WhatsApp:** sale sólo con la hora elegida (así la manda la maqueta), sólo a quien verificó su número por el V2 (`v2 && verificado`),
   por `enviarAPersonaMaKo` (regla 1) y sólo a `WS_REVISION_V2` hasta que el V2 esté para todos (`retoPorWhatsApp`).
-- **Lo que quedó sin hacer:** las respuestas de los días 3, 4, 5 y 7 (el lead del audio en el CRM, la competencia, el guion, el audio
-  a Martín) son del bot y del doer en el chat privado. `manejarEntranteBot` sólo corre en `mako.bot.instancia`, que apunta a la línea
-  vieja, no a la que recibe; y `lib/mako-salida.ts` saca los mensajes privados por esa misma instancia, con la ventana de 24 horas.
-  Hasta que el bot pase a la línea que recibe (pide la frase de Martín), MaKo se calla en esos días. La hora (día 2) y BAJA las contesta
-  el código y no dependen del bot.
+- **«Te falta…» de algo que ya había hecho** (d24-04): lo hecho de `reto.estado` se pone al día recién cuando abre el chat del reto
+  (`leerTareasHechas`, app/api/reto). Ahora la vuelta relee con las señales (lib/reto/senales.ts) antes de la noche o del WhatsApp de
+  Martín. Lo leído vale sólo para decidir: el cron no reescribe `reto.estado`.
+- **«No lo sé» no es «falta»:** cada lectura de `senales.ts` daba hecha o no, y un error, un conteo que falló o la falta de sesión
+  caían en «no». Ahora hay un tercer estado, `NO_SE_LEE`:
+  - qué lo da: un `catch`, `contar` con error y la app con «no aplica»;
+  - `leerTareasDelReto(e, ahora, { sinSesion })` devuelve `{ hechas, noSeLeen }`, y sin sesión las tareas de `PIDEN_LA_PERSONA` (la app, la foto) ni se intentan;
+  - la noche y Martín deciden con `paraDecidir`: lo ilegible queda fuera, y si todo lo que queda es ilegible, no sale;
+  - el chat del reto sigue con `leerTareasHechas`, para el que ilegible es igual que no hecha.
+
+  **Trampa:** `NO_SE_LEE` es un símbolo, y un símbolo es «verdadero». Filtrar lo hecho con `!!v` lo contaba como hecho; va
+  `typeof v === 'string'`.
+- **«MaKo atendió a N clientes por ti»** sale de `wa_mensajes.automatico` (mig 0396): los chats distintos con un saliente automático
+  desde las 0:00 de SU zona, sin los grupos. Chats y el borrador aprobado marcan `false`; el resto, incluida la IA, `true`. Va una sola
+  vez (`reto.avisos.atendio`), con la automatización hecha y con la noche. Con 0, otra noche. Sólo cuenta WhatsApp.
+- **El día 7 no necesitaba al bot** (se creía bloqueado como el 3, 4 y 5): su audio no pide una herramienta, sólo pasárselo a
+  Martín. Lo contesta el código (`lib/reto/respuestas.ts`), como la hora y BAJA:
+  - va al grupo de SuperAdmin con el audio;
+  - la prueba queda respondida (`pruebaRespondida`, lib/reto/pruebas.ts, del chat del reto);
+  - MaKo contesta «¡Gracias! Ya se lo pasé a Martín.».
+
+  Se reclama antes en `reto.avisos` (`cierre`): con dos líneas de la misma cuenta, el audio llega dos veces. Si no le llegó a Martín, se
+  suelta el reclamo y no se le dice nada.
+- **Los días 3, 4 y 5 tampoco necesitaban mover el bot** (el Cerebro, 20/11 a la tarde). El diagnóstico «esperan la frase de Martín
+  para `mako.bot.instancia`» daba por hecho que había que correr el TURNO entero del doer. Su salida a un chat privado está atada a la
+  puerta del bot (`enviarAlChat`: sale por `mako.bot.instancia`, con la ventana de `mako_bot_contactos`). Lo que hacía falta eran sus
+  PIEZAS, y ésas no dependen de la línea. Se contestan en `responderAlReto` (lib/reto/pruebas-whatsapp*.ts, test
+  `tests/reto-pruebas-whatsapp.test.ts`) y salen por `enviarAPersonaMaKo`, la línea que recibió:
+  - día 3: `transcribirAudio` con las opciones de la nota de voz del bot; la IA barata saca los datos con la descripción de
+    `proponer_lead`, y la propuesta la deja esa herramienta del doer (`crearRunnerAcciones`);
+  - día 4: lo que guardó Competitor Spy, sin IA: los anuncios por días al aire, después lo publicado por su múltiplo;
+  - día 5: las operaciones del Copywriter de la API (`crear_documento_copywriter` y `editar_documento_copywriter`), con preparar y
+    ejecutar seguidos, sin la confirmación del chat.
+
+  **Trampa:** el lead queda para confirmar aunque la maqueta diga «cargué». Nada que llega por un canal escribe en el CRM
+  (app/api/agente/lead/route.ts), así que MaKo contesta «te dejé los datos… confírmalos aquí».
+  **Trampa:** una página vacía cuenta como guion escrito para la señal `'5:guion'` (mira sólo `actualizado >= inicio`). Si «Editar»
+  falla, la página va a la Papelera.
+  **Trampa:** con dos líneas de la misma cuenta el mensaje llega dos veces, y con IA serían dos guiones. Se reclama el id del
+  mensaje en `reto.avisos.probando`, con compare-and-set.
+  - Con el 3 y el 5 pendientes, los dos son audios: decide lo que dice el audio (`diaDelAudio`). Mientras una prueba de audio esté
+    pendiente, todo audio a la línea de MaKo se toma como esa prueba (en esa línea no hay bot que lo conteste de otra forma).
+  - Sin probar en el uso: en producción no hay ningún reto. La transcripción, la IA que saca el lead y «Editar» no se corrieron;
+    sólo se probó cómo se conectan.
 - **Distinto de la maqueta, a propósito:** el saludo cambia con la hora (a las 18:00, «¡Buenas tardes»); la noche dice «Mañana te lo
   dejo primero.» porque ninguna tarea sabe cuántos minutos lleva.
 
@@ -3592,3 +3632,118 @@ filas de los coaches tachaban el día 1 entero.
 - **Un día se cierra en el Plan cuando MaKo leyó todas sus tareas**, no cuando las dejó para después; y nunca se reabre una tarea que
   alguien movió a mano.
 - **Sin mirar en la app**: el Plan con las 7 tareas no se puede dibujar sin la base; lo cubren el test de las reglas y el de la ruta.
+
+## La verificación de la auditoría: lo que quedaba a medias (20/11/2026, chat «onboarding-v2», claude5)
+
+- **El comentario decía que la ruta usaba `codigoDeLoEscrito`, y no lo usaba** (OA-06). La tarjeta sí; la caja del chat sólo leía 6
+  números seguidos, y MaKo manda el código en dos grupos («482 913»). Ahora `codigoEnLaCaja` (lib/onboarding-arranque.ts) toma 6
+  seguidos, o 3 y 3, o los números si son 6 o menos. Un teléfono o un texto sin números no son un código. El grupo de 3 y 3 hace
+  falta porque lo pegado de WhatsApp trae la hora («[10:30]»), y sin él esos números se mezclan con el código.
+- **La caja vacía o sin números va a la verificación igual** (lo hizo el chat de WhatsApp, wa-12: `decidirCodigoV2` mira
+  `respondido`). Si MaKo no contestó, «Todavía no tienes el código…»; si ya contestó, que lo escriba. Sólo un teléfono queda afuera.
+- **El WhatsApp se dibuja como lo escribió** (OA-F1). `telefonoVisto` se guarda y se borra junto con `telefonoNumero`. Reagrupar de a
+  4 desde el final convertía «9 11» en «911», y la burbuja cambiaba de forma cuando volvía la respuesta del servidor.
+- **«Sigamos en tu computadora» también desde cualquier pantalla del teléfono** (OA-10, OD-12): ahora lo mira `requireMovil`, y la
+  cookie «Versión completa» ya no lo saltea (`esTelefono` lee el user-agent; `prefiereMovil` respeta la cookie). **Decisión: hasta que
+  vea el recorrido en la PC, no para siempre**: el día 2 del reto instala la app en el teléfono, y una pantalla fija la dejaría inútil.
+- **La pregunta del nombre, a su tiempo también para quien vuelve** (OA-02). Un video que no arranca solo no puede retenerla para
+  siempre: pausarlo la suelta, y si nadie le da play, sale a los 12 s (`MS_SIN_PLAY`).
+- **El video del WhatsApp sigue sin «dale play»**, aunque la verificación lo anotó como detalle. Llega junto a la tarjeta del código, y
+  las tapas de la marca no dejarían escribirlo (tests/tutorial-entrada.test.ts, 4).
+- **«Sigamos en tu computadora» se manda por una constante** (`RUTA_SEGUIR_EN_PC`, lib/onboarding-arranque-server.ts, al lado de
+  `seguirEnPcPendiente`). tests/onboarding-hub-retirado.test.ts no deja que ningún archivo nombre /onboarding, que fue el hub retirado.
+  Sumar a su lista cada archivo que manda ahí la aflojaba; la constante deja UN tolerado, con su porqué.
+- **Un mail real en un test lo para la punta** (tests/sin-mails-reales.test.ts, con las huellas de los de verdad). Los de la revisión
+  se nombran por `EMAILS_REVISION`, nunca escritos.
+- **Si la frase no espera el clic, la voz no dice «toca aquí»** (el Cerebro, 20/11). calendar-4, classroom-4 e image-3 se regrabaron
+  con «Mira aquí» (LA-CONFIG; guiones en scripts/tutorial-animado/guiones.json y C:/dev/tutoriales-video/guiones.json). Los tiempos se
+  midieron otra vez contra voz.mp3 sin usar la alineación del pipeline: los silencios con ffmpeg, y cada t_fin en un silencio y cada
+  t_inicio al salir de uno. **Trampa:** la voz dura menos que el video (32,0 contra 32,5 s), y el t_fin de la última frase cae en la cola
+  muda del video, no en voz.mp3: el último silencio se mide hasta el final del video. Si igual tocan, el motor se recupera
+  (lib/tutoriales/calendar.ts y classroom.ts, `antes`).
+- **Sin hacer** (nota del Cerebro, para la próxima vez que se toque Calendar): en el video de Calendar, «Toca aquí, en Publicaciones,
+  Plan, Ventas o Entregas,» sale con la letra más chica que el resto (el dibujo del pipeline, C:/dev/tutoriales-video).
+
+## El mensaje que nombra algo del video sale cuando la voz llega ahí (20/11/2026, tarde, chat «onboarding-v2», claude5)
+
+- **El síntoma (Martín, en producción):** en el paso del WhatsApp salían juntos el video y el mensaje con «Abrir WhatsApp» y la caja
+  del código: dos mensajes de MaKo de golpe, y el botón antes de que la voz lo nombrara.
+- **Qué quedó:** app/_ui/tutorial/useMensajeDelVideo.ts. El mensaje espera el t_inicio de la frase que lo nombra (los momentos, en
+  lib/onboarding-v2/momentos.ts, buscados en el texto de las frases del manifiesto). Después, los tres puntitos y el mensaje. Así salen
+  la primera pregunta («unas preguntas cortas…», 18,92 s), el mensaje del código («toca Abrir WhatsApp», 3,98 s), con el velo del
+  tutorial sobre el botón, y «¿Guardaste el contacto?» («guarda el contacto», 12,28 s, sólo si el video sigue corriendo).
+- **Nadie queda trabado:** si nadie le da play, sale a los 12 s; si falla, lo pausan o termina, sale; si ya se vio o no hay video,
+  también. Medido en el navegador (el componente de verdad en un bundle con el motor): los puntitos en el segundo 4,0, el código con
+  la marca, sin play a los 13,4 s, y el hilo a 0 px del final en cada paso.
+- **Trampa:** los eventos de un `<video>` (play, pause, timeupdate, ended, error) NO burbujean. Se oyen en CAPTURA desde la fila del
+  mensaje, sin tocar el reproductor (VideoDelMomento lo tocan otros chats).
+- **Trampa:** el globo del velo «abajo» tapaba el campo del código. Va a la «derecha»: a 1440 entra al lado del botón, y a 375 el motor
+  lo pasa abajo solo.
+- **Si una frase se regraba y deja de decirlo,** el mensaje saldría recién al terminar el video: tests/onboarding-mensaje-del-video.test.ts
+  lee el manifiesto de verdad y lo marca.
+- **Visto de paso, sin tocar:** el «dale play» del video de bienvenida (V5) pone sus tapas. Quien vuelve al onboarding en otro navegador
+  (con el video sin ver en ese navegador) no puede tocar la tarjeta del teléfono hasta darle play o cerrarlo (Escape o su X).
+
+## La segunda verificación: el arreglo cumplía en el caso feliz, no en el de al lado (20/11/2026, tarde, chat «onboarding-v2», claude5)
+
+- **«No me llegó, esperé 5 minutos» daba «Faltan números»** (OA-06). Sin grupo de código, `codigoEnLaCaja` devolvía TODOS los dígitos
+  del texto: el «5» era un código corto. Y «11 5555 0101» (un teléfono local sin «+») era un código equivocado que GASTABA un intento.
+  Ahora: con letras y sin grupo es una pregunta; si sólo hay números y son 8 o más, es un teléfono; los grupos (6 seguidos, o 3 y 3)
+  valen sólo SUELTOS, porque pegados a otra cifra son parte de un teléfono («011 555 123»). **Trampa:** el test cubría la pregunta
+  SIN números, que ya andaba.
+- **«Sigamos en tu computadora» se disparaba con la FALTA de un visto que ningún cliente de hoy tiene** (OA-10). `tutorial-ops-center`
+  lo anota sólo el motor del V2. Con el interruptor para todos, cada cliente de MaKo Mobile iba a quedar fuera de su teléfono. Decidido
+  por el Cerebro (en la memoria): sólo a quien EMPEZÓ el V2. Esa persona tiene la marca `perfil.onboardingV2` (la fecha de su primera
+  respuesta). La escribe `anotarQueEmpezoElV2` (lib/seguir-en-pc.ts) desde la ruta del arranque, con compare-and-set como
+  /api/recorridos. Va fuera de `recorridos` a propósito: el tope de lo visto olvida lo más viejo. La regla, en AGENTS.md.
+- **El riel de la barra se veía al recargar** (OD-03). El atributo lo ponía un `<script>` de /second-brain, que llega después de
+  loading.tsx, y la barra está en el layout. Ahora el layout raíz lo pone en el `<html>` del server, usando sólo el módulo chico. En
+  una página que no presenta el recorrido, el motor la devuelve a los 9 s (`ESPERA_BARRA_MS`): nunca queda sin salida.
+- **Volver de Second Brain redibujaba la llegada en medio del recorrido** (OD-05). Cambiar el panel por el mapa DESMONTA
+  BienvenidaOpsCenter, y al volver `fase` arrancaba otra vez en 'escribe' (el velo y los puntitos, 1,8 s). El «ya escrita» vive en el
+  módulo y dura lo que la página. El ensayo «desde cero» recarga, así que ahí vuelve a escribirse.
+- **Pausar `.arr-v2 video` no cortaba el video que ya flotaba** (OD-13): ése vive en un portal a `<body>`. Ahora `entrar()` suelta la
+  señal 'video'.
+- **`cierra_despues` esperaba a la próxima frase CON marca** (motor-7, offer-5). `fraseParaMarcar` saltea las que no tienen, y
+  offer-5 no tiene: la lista de offer-4 quedaba encima del chat toda su voz. Ahora `cierraYa` (lib/tutoriales/videos.ts) la cierra al
+  empezar la frase siguiente, tenga o no marca, y el motor no marca nada encima durante `MS_CIERRE`.
+- **La placa de la clase del funnel usaba `!PARA_TODOS`** (V10), que con el interruptor apagado es verdadero para todo el Cliente de
+  Prueba. Ahora `useEsRevision()`, como el resto.
+- **Sin ver en un navegador:** la barra oculta al recargar, la llegada al volver del mapa y el video de la esquina al entrar son
+  estados de una sesión real. Los cuidan tests (rotos a propósito, caen), no una captura.
+
+## La verificación del 20/11: lo que el reto daba por hecho y no lo estaba (chat «reto-tutoriales», claude5)
+
+Lo que dejó a la vista la verificación independiente del Cerebro (verificacion-pendientes-20-11.md): en todos estos casos el commit
+existía y el test pasaba, pero el camino de la persona se cortaba. El test comparaba texto; nadie recorrió el camino.
+
+- **Una marca cuyo lugar no está en la página espera para siempre.** El motor saltea las marcas de un *tutorial* a los 3 s, pero
+  nunca las de tipo `marca` (senalarDondeTocar): sin hueco, la tarjeta queda invisible y el motor queda ocupado. Cada selector de
+  una cadena del reto hay que comprobarlo contra la pantalla a la que lleva el clic anterior, no contra el repo. Ejemplo: el día 6
+  marcaba `a[href="/video-editor?ver=crear"]`, que sólo existe en los outliers, pero la barra abre el editor. Para algo que puede
+  faltar (las etapas del CRM en la vista de lista), conviene un selector con alternativa: `[data-colkey], [data-lead-id]`.
+- **El motor no navega.** `mostrarTutorial` en una pantalla donde no están sus marcas las saltea todas, y el video corre en la
+  esquina sin mostrar nada. Para mostrar una pestaña hay que marcarla en la barra y arrancar su video al tocarla
+  (app/second-brain/reto/enSuPestana.ts). Ojo con el orden: `terminar` (store.ts) limpia el motor ANTES de llamar a `alTerminar`.
+  Si la marca siguiente se encadena con un `setTimeout`, el tutorial de la pestaña, que la primera vez se abre solo (PrimeraVez),
+  encuentra el motor libre y vuelve a correr encima. Hay que encadenarla en el acto.
+- **El título de la tarea va en la fila de la BARRA, no en la última marca.** Con dos marcas, la última (el «⋮» del CRM) perdía su
+  frase («cárgalos con un CSV») y la de la barra decía sólo «CRM». La regla quedó en `marcasDeLaTarea`: lo lleva la primera marca
+  de la barra; sin barra (el día 2), la última; nunca una `propia`.
+- **Un «Entendido» que no cierra nada traba el día.** La última marca de las integraciones pedía «Entendido», que sólo relee. La
+  tarea se cierra cuando están TODAS conectadas, así que el paso 3 del día 2 nunca llegaba. Una marca `despues` deja la tarea «para
+  después» al tocar «Entendido»: el día sigue, como en la maqueta.
+- **Lo «visto» en memoria de la página se repite en cada carga.** La entrada de cada día (`useEntrada`) y el «dale play»
+  volvían en cada recarga: terminado el reto, «Día 7: dale play» para siempre. Lo visto por día va en localStorage (`yaVisto`).
+- **`QUERY_DE_SECCION` borra en silencio la consulta que no conoce.** El aviso del reto (`?reto=1`) pasaba por
+  `aSeccion('second-brain')` y perdía el `reto`. En el teléfono abría MaKo Mobile en vez de «Sigamos en tu computadora», y en la
+  computadora el Ops Center sin el reto. Toda consulta nueva de una sección va a esa lista (lib/movil-rutas.ts).
+- **Google Calendar no puede estar en las integraciones del día 2.** En la app no tiene tarjeta en Settings › Integraciones
+  (`google`, `oculto: true`; se conecta en Calendar), así que no hay `tour-int-google` adonde bajar. Además, conectarlo es la
+  tarea del día 3. Es la única diferencia con la tabla de la maqueta, y está escrita en `INTEGRA_POR_FUNNEL`.
+- **Quedó sin hacer, con su dueño:**
+  - la voz de reto-dia-1: dice «tu sistema para conseguir clientes» y «Debajo de este video están tus tareas», y el día 1 ya no
+    tiene tarjeta (D1-14, F2, D1-15). Es del chat de los videos;
+  - las respuestas por WhatsApp de los días 3 a 7 (d24-16, R57-10) y el aviso de las 20:00 que lee lo hecho (d24-04). Son del chat
+    de WhatsApp (lib/reto/respuestas.ts, avisos*);
+  - la pausa en el t_fin de la frase tocada (reto-dia-2-14, reto-dia-3-11 = motor-3/c). Es de MotorTutorial.tsx, del onboarding.

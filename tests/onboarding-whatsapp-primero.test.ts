@@ -103,7 +103,7 @@ test('5. el WhatsApp escrito en la caja vale, con su país; lo demás pide el n�
     assert.equal(telefonoEscrito(escrito), null, escrito);
   }
   const ruta = leer('app/api/onboarding/arranque/route.ts');
-  assert.match(ruta, /const escrito = etapa === 'telefono' && opcion === undefined && texto \? telefonoEscrito\(texto\) : null;\n\s+if \(escrito\) return await pedirCodigo\(e, h, confirmado, escrito\);/, 'lo escrito va por el mismo camino que la tarjeta, con su código');
+  assert.match(ruta, /const escrito = etapa === 'telefono' && opcion === undefined && texto \? telefonoEscrito\(texto\) : null;\n\s+if \(escrito\) return await pedirCodigo\(e, h, confirmado, escrito, undefined, telefonoComoLoEscribio\(texto, escrito\)\);/, 'lo escrito va por el mismo camino que la tarjeta, con su código');
   assert.deepEqual(leerRespuesta({}, H, { texto: 'hola' }), { ok: false, error: PIDE_TELEFONO });
   assert.deepEqual(leerRespuesta({}, H, { texto: 'ahora no' }), { ok: true, patch: { telefono: 'postergado' } });
   assert.deepEqual(leerRespuesta({}, H, { opcion: 0, opcionTexto: AHORA_NO }), { ok: true, patch: { telefono: 'postergado' } });

@@ -114,6 +114,20 @@ export function usePresentaReto(): boolean {
 }
 export const elChatPresentaElRecorrido = (): boolean => presentaElChat;
 
+// ¿ES LA REVISIÓN DE MARTÍN? (20/11, la verificación de V10): lo decide el servidor (lib/onboarding-v2/revision.ts → esRevision) y
+// lo trae el motor (app/layout.tsx → MotorTutorial); lo leen las placas «Todavía no está grabado» de los coaches y del reto.
+let revisionDeMartin = false;
+const oyentesRevision = new Set<() => void>();
+export function anotarRevision(si: boolean): void {
+  if (revisionDeMartin === si) return;
+  revisionDeMartin = si;
+  for (const f of oyentesRevision) f();
+}
+const suscribirRevision = (f: () => void): (() => void) => { oyentesRevision.add(f); return () => { oyentesRevision.delete(f); }; };
+export function useEsRevision(): boolean {
+  return useSyncExternalStore(suscribirRevision, () => revisionDeMartin, () => false);
+}
+
 /** Lo que se esté mostrando, fuera. No llama a `alTerminar` (lo cierra quien lo pidió). */
 export function cerrarTutorial(): void {
   if (!actual) return;

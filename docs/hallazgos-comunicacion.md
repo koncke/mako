@@ -96,10 +96,18 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 **Vive en:** `lib/verificacion-entrante.ts` («EL WHATSAPP DEL ONBOARDING V2») · `lib/mako-grupo.ts` (`responderPedidoV2`,
 `mandarCodigoV2`, `reenviarCodigoV2`, `setNumeroDuenoYSync`) · `lib/notif-destinatarios.ts`. Test: `tests/whatsapp-v2-auditoria.test.ts`.
 
+- **`enviarAlGrupoSuperAdmin` mandaba como IMAGEN todo adjunto que no fuera PDF** (`tipo: mime === 'application/pdf' ?
+  'document' : 'image'`): un audio habría salido roto, sin error. Desde el 20/11 un `audio/*` va como audio, con el texto antes
+  (un audio no lleva pie). Lo usa el día 7 del reto (el audio a Martín). **Regla:** un adjunto nuevo se mira contra los tipos que
+  arma esa función, no contra su firma (`ArchivoDelAviso` acepta cualquier mime).
 - **«Guárdame en tus contactos…» dejaba de salir desde la sexta persona en una hora, sin error a la vista.** Era el mismo texto
   para todos, y `enviarTextoVozMaKo` no deja salir un texto idéntico a más de 5 chats por hora (`cupoMismoTexto`); el `.catch(() =>
-  null)` se tragaba el motivo. Con el V2 en revisión no se notaba: con el V2 para todos, sí. **Regla:** un texto fijo que va a
-  cada persona viaja DENTRO de un mensaje personal (acá, pegado al código), o no sale.
+  null)` se tragaba el motivo. Con el V2 en revisión no se notaba: con el V2 para todos, sí.
+  **⚠️ El primer arreglo fue el equivocado:** pegarlo al código (1a7f519ad) le cambió a Martín los mensajes, y él los quiere
+  SEPARADOS (20/11 ~13:00 UTC: el código, la tarjeta, «Guárdame…»). El tope es para los avisos que MaKo manda por su cuenta, no
+  para contestarle a quien acaba de escribir (en los grupos ya era así, `respondiendoA`). Ahora el pedido sale aparte con
+  `enviarAPersonaMaKo(…, { contesta: true })`, que saltea sólo ese tope; la regla 1 sigue. **Regla:** contra un tope que frena una
+  respuesta, se marca que es respuesta; no se cambia la forma del mensaje que el producto pidió.
 - **La rama `'ya-verificado'` de `responderPedidoV2` no se alcanza:** la búsqueda trae sólo las verificaciones con
   `"verificado":false`, así que quien ya confirmó nunca llega ahí. Importa porque ahora el pedido que no es de nadie recibe
   «escribiste desde otro número»: antes de decirlo se mira aparte si ese número ya confirmó (`yaConfirmoV2`), y ante un error de
@@ -108,14 +116,30 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   la vez no se sabe de quién es: MaKo le contesta qué hacer igual, sin anotar nada. Contesta sólo la línea que recibe
   (`instanciaVoz`), porque con dos líneas de la misma cuenta el mensaje llega dos veces.
 - **Un `@lid` sin número no se puede contestar:** no se sabe de quién es, y mandarle el código a un `@lid` sería darle el código a
-  cualquiera. Queda en el log como `pedido del V2 por @lid sin número`; contarlo antes de decidir más.
+  cualquiera. **Se cuenta** en `mako.v2.lid_sin_numero` (app_settings del negocio de MaKo: `n`, `conUna`, desde, último; una vez
+  por id de mensaje). Con UNA verificación esperando, su tarjeta lo dice (`sinNumeroAt` → `aviso` de la vista).
+- **⚠️ La línea de MaKo no se espeja en `wa_mensajes`** (sólo las de los negocios, `mako_ws*`): un pedido a MaKo que no dejó estado
+  no existe en ninguna tabla, y el `console.warn` muere con el log de Vercel. El 20/11 «medir cuántos @lid llegan» dio 0 filas
+  porque no había dónde buscar, no porque no llegaran. **Regla:** lo que se quiere medir de esa línea se cuenta a propósito.
+- **Su mensaje llegó y la línea no mandó el código: la tarjeta seguía «esperando»** (`respondido` volvía a false y nada más). Ahora
+  se anota `sinLineaAt` y la vista trae `aviso` (`avisoDelPedidoV2`) sin cambiar el estado: la tarjeta sigue preguntando cada 4 s, y
+  el aviso se va solo cuando MaKo contesta (`respondido`). Un estado nuevo en la vista habría cortado esa pregunta.
+- **La caja vacía nunca llegaba a la verificación** (wa-12): la ruta pedía `texto &&`, y con '' caía en el «Escribe el código…» de
+  `leerRespuestaV2` aunque MaKo no hubiera mandado nada. `decidirCodigoV2` decide la caja vacía: sin `respondido`, «Todavía no
+  tienes el código…».
 - **El mensaje desde el otro número ya prueba ese número** («Usar el +54…», `escribioDesdeElOtro`): se anota CUÁNDO llegó
   (`otroNumeroAt`) y, dentro de las 24 horas, el pedido nuevo nace contestado y MaKo manda el código ahí, sin que lo escriba otra
   vez. **Trampa:** rehacer el pedido (`pedirConfirmacionV2`) pisa la verificación entera, con `otroNumero` y su hora: la ruta lo
   lee ANTES (`otroNumeroQueEscribioV2`). Si el código no sale, la verificación vuelve a «esperando» y que escriba ella.
-- **Lo que quedó para la tarjeta (es del chat del onboarding, app/onboarding/ChatArranqueV2.tsx):** la vista ya trae
-  `estado: 'otro-numero'` con `otroNumero`, y falta dibujarlo. Pasadas 24 horas, «Reenviar» devuelve `E_REESCRIBIR_V2`, y la
-  tarjeta debería abrir WhatsApp con el pedido escrito.
+- **«Reenviar el código» ya no manda nada** (wa-f3, el Cerebro, 20/11 a la tarde): abre SIEMPRE WhatsApp con el pedido escrito, como
+  la maqueta. La ventana de 24 h para mandarlo directo la había elegido este chat. Como en el onboarding casi siempre se está dentro de
+  esas 24 h, en la práctica «Reenviar» nunca abría WhatsApp. Ahora `reenviarCodigoV2` devuelve `E_REESCRIBIR_V2`, y con eso la tarjeta
+  abre el link. El código nuevo (vencido o con el tope lleno) lo arma `responderPedidoV2` cuando ella escribe. `reenviarDirecto` queda
+  sólo para «Usar el +…», que contesta un mensaje suyo que ya llegó. **Regla:** una decisión de producto que no está escrita se pregunta;
+  el chat no la elige y la marca «hecho».
+- **Lo que quedó para la tarjeta (es del chat del onboarding, app/onboarding/ChatArranqueV2.tsx):** mostrar `vista.whatsapp.aviso`
+  cuando viene (el otro número ya lo dibujó, 5aacc73cf). Sus comentarios de «Reenviar» y los de lib/onboarding-arranque.ts todavía dicen
+  «fuera de las 24 h»: desde wa-f3 es siempre.
 
 ## «Hola, quiero confirmar mi WhatsApp» y MaKo no mandó el código: la regla 1 no veía a quien escribió bajo un `@lid` (19/11/2026, claude5)
 

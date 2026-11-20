@@ -95,10 +95,12 @@ export const marcaIntegracion = (clave: string) => `tour-int-${clave}`;
 export const slugTab = (tab: string) => tab.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 /**
- * Lo de una pantalla de crear (app/_crear/PantallaCrear.tsx, y su par del teléfono): `charla` (el chat con MaKo) y
- * `proyectos` (la flecha que abre la lista de proyectos). Offer → `tour-offer-charla`, `tour-offer-proyectos`.
+ * Lo de una pantalla de crear (app/_crear/PantallaCrear.tsx, y su par del teléfono): `charla` (el chat con MaKo),
+ * `proyectos` (la flecha que abre la lista de proyectos) y `nuevo` (el primer renglón de esa lista, «Nuevo video», que muestra
+ * las plantillas; 20/11/2026, R57-18: el reto llega por ahí a «Tu personaje con IA» desde el editor de Video).
+ * Offer → `tour-offer-charla`, `tour-offer-proyectos`; Video → `tour-video-nuevo`.
  */
-export const marcaCrear = (tab: string, cosa: 'charla' | 'proyectos') => `tour-${slugTab(tab)}-${cosa}`;
+export const marcaCrear = (tab: string, cosa: 'charla' | 'proyectos' | 'nuevo') => `tour-${slugTab(tab)}-${cosa}`;
 
 /** El selector de una marca, para los pasos de los tutoriales. */
 export const conMarca = (marca: string) => `[data-recorrido="${marca}"]`;

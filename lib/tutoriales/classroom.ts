@@ -20,7 +20,7 @@ export const TUTORIAL_CLASSROOM: TutorialPestana = {
       sel: '[data-recorrido="vista-alumno"]',
       titulo: 'Vista del alumno',
       texto: 'El curso tal como lo ve quien te compró.',
-      sub: 'Toca aquí, en Vista del alumno, para verlo tal como lo ve tu cliente.',
+      sub: 'Mira aquí, Vista del alumno: lo ves tal como lo ve tu cliente.',
       lado: 'abajo',
       soloComputadora: true,
     },
@@ -32,6 +32,9 @@ export const TUTORIAL_CLASSROOM: TutorialPestana = {
       lado: 'abajo',
       haz: 'Haz clic en «Invitar alumnos»',
       clic: true,
+      // Si tocaron «Vista del alumno» (la frase de arriba es una «Mira aquí», pero se puede tocar), «Invitar» no está en la vista
+      // previa: el motor toca «← Volver a editar» (20/11, la verificación de classroom-5). Sin tocar nada, «Invitar» está y esto no corre.
+      antes: 'a[href^="/classroom?producto="]',
       soloComputadora: true,
     },
   ],

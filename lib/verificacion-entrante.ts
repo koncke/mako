@@ -90,6 +90,10 @@ export type EstadoVerificacion = {
   intentos?: number;
   /** V2: cuándo escribió ella pidiendo el código por última vez (ms). «Reenviar» escribe directo sólo dentro de las 24 horas. */
   escribioAt?: number;
+  /** V2: cuándo le llegó su pedido y la línea NO pudo mandarle el código (ms; 20/11, wa-04). La tarjeta lo dice (`avisoDelPedidoV2`). */
+  sinLineaAt?: number;
+  /** V2: cuándo llegó un pedido por un @lid sin número, con ella como la única esperando (ms; 20/11, wa-04). */
+  sinNumeroAt?: number;
 };
 
 export type Llegada = {
@@ -141,12 +145,14 @@ export type VistaEntrante = {
   numeroLinea: string | null;
   telefono: string;
   otroNumero: string | null;
+  /** V2: lo que la tarjeta del código tiene que decir porque su mensaje llegó y no le pudo contestar (`avisoDelPedidoV2`). */
+  aviso?: string | null;
 };
 
 export function vistaDeEntrante(v: EstadoVerificacion | null | undefined, ahora: number): VistaEntrante | null {
   if (!v || !v.entrante) return null;
   // En el V2 el link lleva el pedido, NUNCA el código: el código lo manda MaKo por WhatsApp y eso es lo que prueba el número.
-  const base = { link: linkWaMe(v.numeroLinea, v.v2 ? TEXTO_CONFIRMAR_V2 : textoParaMandar(v.codigo)), numeroLinea: v.numeroLinea ?? null, telefono: v.telefono, otroNumero: v.otroNumero ?? null };
+  const base = { link: linkWaMe(v.numeroLinea, v.v2 ? TEXTO_CONFIRMAR_V2 : textoParaMandar(v.codigo)), numeroLinea: v.numeroLinea ?? null, telefono: v.telefono, otroNumero: v.otroNumero ?? null, aviso: avisoDelPedidoV2(v) };
   if (v.verificado) return { ...base, estado: 'verificado' };
   if (ahora > v.expira) return { ...base, estado: 'vencido' };
   return { ...base, estado: v.otroNumero ? 'otro-numero' : 'esperando' };
@@ -192,12 +198,9 @@ export const codigoEnGrupos = (codigo: string): string => (/^\d{6}$/.test(codigo
 export const mensajeDelCodigoV2 = (nombre: string, codigo: string): string =>
   `Hola${nombre.trim() ? ` ${nombre.trim()}` : ''}, soy MaKo.\nTu código para confirmar tu WhatsApp es ${codigoEnGrupos(codigo)}.`;
 
-/**
- * El código y el pedido de guardar el contacto, en UN mensaje (20/11/2026, la auditoría wa-09). Iban separados, y el pedido es el mismo
- * texto para todos: la regla de «el mismo texto a muchos» (lib/mako-salida-reglas.ts) no lo deja salir a más de 5 chats por hora, y el
- * error se descartaba. Pegado al código, cada mensaje es distinto.
- */
-export const mensajeDelCodigoYAgendarV2 = (nombre: string, codigo: string): string => `${mensajeDelCodigoV2(nombre, codigo)}\n\n${AGENDAR_V2}`;
+// ⚠️ El código y «Guárdame en tus contactos…» (`AGENDAR_V2`) van SEPARADOS (Martín, 20/11/2026 ~13:00 UTC): el código, la tarjeta de MaKo
+// y el pedido (`mandarCodigoV2`, lib/mako-grupo.ts). El 20/11 a la madrugada se habían pegado por el tope del mismo texto; ahora el pedido
+// sale como respuesta a su mensaje y el tope no lo frena. No vuelvas a juntarlos.
 
 /** Con la línea de MaKo caída (20/11/2026, wa-05): en el V2 no hay «lo resuelves después» (el WhatsApp es obligatorio), y es de nuestro lado. */
 export const MAKO_SIN_LINEA_V2 = 'MaKo no puede recibir mensajes en este momento, es de nuestro lado. Prueba de nuevo en unos minutos.';
@@ -213,10 +216,9 @@ export function errorDelTelefono(digitos: string): string | null {
 }
 
 /**
- * «REENVIAR EL CÓDIGO» ESCRIBE DIRECTO SÓLO SI ELLA ESCRIBIÓ HACE POCO (20/11/2026, wa-f3). Martín: «ellos escriben primero, siempre».
- * El 19/11 se pidió que «Reenviar» con el código vencido mande uno nuevo (Martín volvió una hora después): dentro de las 24 horas de su
- * último mensaje, MaKo le contesta en la misma charla. Pasado eso, que vuelva a escribir ella (`E_REESCRIBIR_V2`). Sin la marca (una
- * verificación de antes de esto), como antes: directo.
+ * ¿MaKo puede contestar YA un mensaje suyo que llegó? Sólo dentro de las 24 horas (20/11/2026). Lo usa «Usar el +…» (`escribioDesdeElOtro`
+ * y `pedirConfirmacionV2`): ese mensaje ya prueba el número. Sin la marca (una verificación de antes de esto), sí.
+ * ⚠️ «Reenviar el código» YA NO la usa (wa-f3, el Cerebro, 20/11 a la tarde): abre SIEMPRE WhatsApp, como la maqueta (`reenviarCodigoV2`).
  */
 export const VENTANA_REENVIAR_MS = 24 * 3_600_000;
 export const reenviarDirecto = (v: Pick<EstadoVerificacion, 'escribioAt'>, ahora: number): boolean =>
@@ -276,6 +278,50 @@ export function decidirPedidoV2(v: EstadoVerificacion | null | undefined, l: { i
   return 'responder';
 }
 
+// =============================================================================
+// SU MENSAJE LLEGÓ Y MaKo NO LE PUDO CONTESTAR (20/11/2026, wa-04): la tarjeta no decía nada
+// =============================================================================
+// Dos casos: la línea no mandó el código (se vuelve atrás `respondido`, lib/mako-grupo.ts) y un pedido por un @lid SIN número
+// (WhatsApp no dio de quién es: sin el número, el código no puede ir a nadie). En los dos la pantalla seguía «esperando». Ahora la
+// vista trae `aviso` y la tarjeta lo muestra hasta que MaKo le conteste. Los @lid sin número, además, se cuentan
+// (`KEY_LID_SIN_NUMERO`, en el negocio de MaKo): el log se pierde, y lo que había que medir era cuántos llegan así.
+
+export const AVISO_SIN_LINEA_V2 = 'Me llegó tu mensaje, pero no pude contestarte: es de nuestro lado. En unos minutos toca «Abrir WhatsApp» y mándamelo otra vez.';
+export const AVISO_SIN_NUMERO_V2 = 'Me llegó tu mensaje, pero WhatsApp no me mostró tu número, y sin él no puedo mandarte el código. Mándamelo otra vez en un rato; si sigue igual, toca «Cambiar número» y usa otro WhatsApp.';
+
+/** Lo que dice la tarjeta del código: null mientras no pasó nada, o cuando MaKo ya le contestó. De los dos casos, el último. */
+export function avisoDelPedidoV2(v: EstadoVerificacion | null | undefined): string | null {
+  if (!v?.v2 || v.verificado || v.respondido) return null;
+  const linea = v.sinLineaAt ?? 0, numero = v.sinNumeroAt ?? 0;
+  if (!linea && !numero) return null;
+  return linea >= numero ? AVISO_SIN_LINEA_V2 : AVISO_SIN_NUMERO_V2;
+}
+
+/** La cuenta de los pedidos por @lid sin número (`app_settings` del negocio de MaKo). */
+export const KEY_LID_SIN_NUMERO = 'mako.v2.lid_sin_numero';
+export type CuentaLidSinNumero = {
+  /** Cuántos llegaron. */
+  n: number;
+  /** De ésos, con UNA verificación esperando (la que se avisó en la tarjeta). */
+  conUna: number;
+  desde: string;
+  ultimo: string;
+  /** Los últimos ids de mensaje: el mismo mensaje llega por las dos líneas de la cuenta, o Evolution lo reenvía. */
+  ids: string[];
+};
+
+/** La cuenta con este mensaje sumado; null si ya estaba contado. */
+export function sumarLidSinNumero(crudo: unknown, id: string, conUna: boolean, ahora: number): CuentaLidSinNumero | null {
+  let x: unknown = crudo;
+  if (typeof x === 'string') { try { x = JSON.parse(x); } catch { x = null; } }
+  const o = (x && typeof x === 'object' ? x : {}) as Partial<CuentaLidSinNumero>;
+  const ids = Array.isArray(o.ids) ? o.ids.filter((i): i is string => typeof i === 'string') : [];
+  if (ids.includes(id)) return null;
+  const n = Number.isInteger(o.n) ? Number(o.n) : 0, una = Number.isInteger(o.conUna) ? Number(o.conUna) : 0;
+  const cuando = new Date(ahora).toISOString();
+  return { n: n + 1, conUna: una + (conUna ? 1 : 0), desde: typeof o.desde === 'string' ? o.desde : cuando, ultimo: cuando, ids: [...ids, id].slice(-20) };
+}
+
 /** Los textos de los errores del código: rojos, arriba de la caja, y que se entienda qué hacer. Martín, 19/11, probándolo: «pegué un
  *  código incorrecto a propósito y me dice: el código tiene 6 números, revisa que esté completo. Eso no tiene sentido». Cada caso,
  *  el suyo: incompleto, incorrecto, vencido (los textos son los del Cerebro). */
@@ -287,12 +333,17 @@ export const E_CODIGO_TOPE_V2 = 'Probaste muchos códigos: toca «Reenviar el c�
 /** «Reenviar el código» cuando MaKo no le puede escribir (no encuentra que le haya escrito): que lo pida desde su WhatsApp. */
 export const E_REESCRIBIR_V2 = 'No pude mandártelo desde aquí. Toca «Abrir WhatsApp» y mándame el mensaje otra vez: te contesto con un código nuevo.';
 
+/** «Confirmar» con la caja vacía y MaKo YA le mandó el código (sin código mandado, E_SIN_CODIGO_V2: wa-12, la maqueta). */
+export const E_ESCRIBE_CODIGO_V2 = 'Escribe el código de 6 números que te mandé por WhatsApp.';
+
 /** El código pegado en la app (V2). `intentos`: cuántos equivocados lleva con éste. Con 7 o más números es uno equivocado. */
 export function decidirCodigoV2(v: EstadoVerificacion | null | undefined, escrito: string, ahora: number):
   { ok: true } | { ok: false; error: string; suma?: true } {
   const digitos = String(escrito ?? '').replace(/\D/g, '');
   if (!v || !v.v2) return { ok: false, error: E_SIN_CODIGO_V2 };
   if (v.verificado) return { ok: true };
+  // La caja vacía (20/11, wa-12): sin código mandado, que lo pida; con el código ya en su WhatsApp, que lo escriba. Nunca «Faltan números».
+  if (!digitos.length) return { ok: false, error: v.respondido ? E_ESCRIBE_CODIGO_V2 : E_SIN_CODIGO_V2 };
   if (digitos.length < LARGO_CODIGO) return { ok: false, error: E_CODIGO_LARGO_V2 };
   if (!v.respondido) return { ok: false, error: E_SIN_CODIGO_V2 };
   if ((v.intentos ?? 0) >= TOPE_INTENTOS_V2) return { ok: false, error: E_CODIGO_TOPE_V2 };

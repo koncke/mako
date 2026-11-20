@@ -19,7 +19,7 @@ import type { OfferSesionVista } from '@/lib/offer-marco';
 import type { CoachDelOps } from '@/lib/chat-mako-reglas';
 import type { PlanFunnel } from '@/lib/funnel-plan';
 import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
-import { PARA_TODOS } from '@/lib/onboarding-v2/revision';
+import { useEsRevision } from '@/app/_ui/tutorial/store';
 import { claveClaseFunnel, conLaClase, itemClaseFunnel, tituloClaseFunnel } from '@/lib/onboarding-v2/videos-coach';
 
 /** El hilo del coach con su portada adelante (la presentación y el video del Offer Coach mientras la persona no escribió). Como la
@@ -88,6 +88,9 @@ export function useHiloDelCoach(o: {
   conVoz: ReturnType<typeof vozDelCoach>; deLaOferta: EnMensajeDe | ((x: { id: string }) => EnMensaje | null);
 }): { hilo: ChatCliente; enMensaje: EnMensajeDe | undefined } {
   const { k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta } = o;
+  // La placa «Todavía no está grabado» sólo en la revisión de Martín (20/11, tarde, la segunda verificación de V10): con `!PARA_TODOS`
+  // era verdadero para TODO el Cliente de Prueba; como VideoDelDia, los coaches y VideoChico, la decide su email (lo anota el motor).
+  const revision = useEsRevision();
   const clase = useMemo(() => (dosCoaches && cual === 'funnel' && plan ? itemClaseFunnel(plan) : null), [dosCoaches, cual, plan]);
   const kConClase = useMemo(() => (clase ? { ...k, items: conLaClase<ItemHilo>(k.items, clase) } : k), [k, clase]);
   const hilo = useHiloConPortada(kConClase, dosCoaches ? portada.items : null);
@@ -95,7 +98,7 @@ export function useHiloDelCoach(o: {
   const enMensaje: EnMensajeDe = (x) => {
     if (idsPortada.has(x.id)) return conVoz(true, portada.enMensaje as never)(x);
     if (clase && plan && x.id === clase.id) {
-      return conVoz(false, () => ({ arriba: <VideoDelMomento clave={claveClaseFunnel(plan.funnel)} titulo={tituloClaseFunnel(plan.funnel)} revision={!PARA_TODOS} /> }))(x);
+      return conVoz(false, () => ({ arriba: <VideoDelMomento clave={claveClaseFunnel(plan.funnel)} titulo={tituloClaseFunnel(plan.funnel)} revision={revision} /> }))(x);
     }
     return conVoz(false, motorOffer ? (deLaOferta as never) : undefined)(x);
   };

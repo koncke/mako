@@ -115,6 +115,9 @@ export type EstadoArranque = {
   /** El teléfono de los avisos: 'codigo' = se mandó el código y falta cargarlo. */
   telefono?: 'codigo' | 'verificado' | 'postergado';
   telefonoNumero?: string;
+  /** El WhatsApp como lo escribió en su tarjeta («+54 9 11 5555 0101»; 20/11, la verificación de OA-F1): así se dibuja su respuesta.
+   *  Va y se borra junto con `telefonoNumero`. */
+  telefonoVisto?: string;
   /** Desde el 4/11/2026 la persona le ESCRIBE a MaKo (lib/verificacion-entrante.ts): 'codigo' = falta que mande el mensaje. Sin esto, MaKo le mandó el código. */
   telefonoEntrante?: boolean;
   /** La conversación de Offer donde vive la oferta (modo 'oferta'). */
@@ -1487,7 +1490,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     return { ok: true, patch: { faseResp: propias, ...escritas }, ...(completa ? { fase: completa, ...(siguiente.canal ? { faseCanal: siguiente.canal } : {}) } : {}) };
   }
   if (etapa === 'codigo') {
-    if (opcion === CAMBIAR_NUMERO) return { ok: true, patch: { telefono: undefined, telefonoNumero: undefined, telefonoEntrante: undefined } };
+    if (opcion === CAMBIAR_NUMERO) return { ok: true, patch: { telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined } };
     if (opcion === AHORA_NO) return { ok: true, patch: { telefono: 'postergado' } };
     return { ok: false, error: e.telefonoEntrante ? 'Mándame el mensaje por WhatsApp: aquí no hace falta escribir nada.' : 'Escribe el código de 6 dígitos.' };
   }
@@ -1792,6 +1795,18 @@ export function telefonoVisible(guardado: string): string {
   return `${lada} ${grupos.join(' ')}`;
 }
 
+/**
+ * El WhatsApp como lo escribió (20/11, la verificación de OA-F1: la maqueta dibuja «+54 9 11 5555 0101», la lada y el número tal cual):
+ * sólo si son sus mismos dígitos y nada más que el número (el `+`, espacios, guiones y paréntesis). Si no, `undefined` y se dibuja con
+ * `telefonoVisible`.
+ */
+export function telefonoComoLoEscribio(visto: unknown, digitos: string): string | undefined {
+  if (typeof visto !== 'string') return undefined;
+  const t = visto.replace(/\s+/g, ' ').trim();
+  if (!t || t.length > 32 || !/^\+?[\d ()-]+$/.test(t) || t.replace(/\D/g, '') !== digitos) return undefined;
+  return t.startsWith('+') ? t : `+${t}`;
+}
+
 /** El WhatsApp con menos dígitos (20/11, OA-15: el texto de la maqueta): en la tarjeta, y el mismo en la ruta. */
 export const E_TELEFONO_INCOMPLETO = 'A ese número le faltan dígitos. Revísalo y toca «Seguir».';
 /**
@@ -1801,6 +1816,24 @@ export const E_TELEFONO_INCOMPLETO = 'A ese número le faltan dígitos. Revísal
 export function codigoDeLoEscrito(texto: string): string {
   const seis = /(?<!\d)\d{6}(?!\d)/.exec(texto);
   return seis ? seis[0] : texto.replace(/\D/g, '').slice(0, 6);
+}
+/**
+ * El código en lo escrito en la CAJA del chat (20/11, la verificación de OA-06): MaKo lo manda en dos grupos («482 913»), y la
+ * persona lo escribe así o pega su mensaje entero. Es el grupo de 6 seguidos, o el de 3 y 3, sueltos (pegados a otra cifra son
+ * parte de un teléfono: «011 555 123»). Sin grupo, SÓLO si escribió números y nada más: 6 o menos (los menos, «Faltan números»)
+ * o 7 (uno de más: equivocado). `null` = no es un código y no gasta un intento (segunda verificación, 20/11, tarde): un teléfono,
+ * con «+» (`telefonoEscrito`) o local con 8 números o más («11 5555 0101»), o un texto con letras y sin grupo, que es una
+ * pregunta («no me llegó, esperé 5 minutos» daba «Faltan números»).
+ */
+export function codigoEnLaCaja(texto: string): string | null {
+  if (telefonoEscrito(texto)) return null;
+  const seis = /(?<!\d[  .-]?)\d{6}(?![  .-]?\d)/.exec(texto);
+  if (seis) return seis[0];
+  const tresYTres = /(?<!\d[  .-]?)(\d{3})[  .-](\d{3})(?![  .-]?\d)/.exec(texto);
+  if (tresYTres) return tresYTres[1] + tresYTres[2];
+  if (/\p{L}/u.test(texto)) return null;
+  const d = texto.replace(/\D/g, '');
+  return d && d.length <= 7 ? d : null;
 }
 export const V2_TELEFONO = (n: string): string => `Un gusto, ${n}. ¿A qué WhatsApp te escribo con los avisos y los reportes?`;
 // A QUÉ NÚMERO va el mensaje (Martín, 19/11: «debería decir a qué número se le está por enviar»): el de MaKo, el del sitio.
@@ -1866,7 +1899,7 @@ export function mensajesDeArranqueV2(e: EstadoArranque, h: HechosArranque): Mens
   if (h.conTelefono) {
     mako('telefono', V2_TELEFONO(n), etapa === 'telefono' ? { tarjeta: 'telefono' } : {});
     if (etapa === 'telefono') return out;
-    yo('telefono', e.telefonoNumero ? telefonoVisible(e.telefonoNumero) : 'Mi WhatsApp');
+    yo('telefono', e.telefonoVisto || (e.telefonoNumero ? telefonoVisible(e.telefonoNumero) : 'Mi WhatsApp'));
     mako('codigo', V2_CODIGO, etapa === 'codigo' ? { tarjeta: 'codigo' } : {});
     if (etapa === 'codigo') return out;
     yo('codigo', CODIGO_CARGADO);

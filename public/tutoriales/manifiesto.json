@@ -1204,41 +1204,41 @@
   },
   {
    "key": "reto-dia-1",
-   "pestana": "Reto · Día 1: tu oferta y tu sistema de adquisición",
+   "pestana": "Reto · Día 1: tu oferta y tu sistema para conseguir clientes",
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-1.mp4",
    "poster": "/tutoriales/reto-dia-1.jpg",
-   "duracion_s": 23.47,
-   "peso_kb": 1294,
-   "guion": "Te doy la bienvenida al día 1 del reto de 7 días. Tu onboarding ya está. Hoy armas tu oferta con Offer Coach, y después tu sistema para conseguir clientes con Funnel Coach. Los dos te preguntan como un coach, una cosa a la vez, y tu funnel queda armado en el CRM. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+   "duracion_s": 22.77,
+   "peso_kb": 1273,
+   "guion": "Te doy la bienvenida al día 1 del reto de 7 días. Tu onboarding ya está. Hoy armas tu oferta con Offer Coach, y después tu sistema para conseguir clientes con Funnel Coach. Los dos te preguntan como un coach, una cosa a la vez, y tu funnel queda armado en el CRM. Cuando termine este video, te marco Offer Coach: empecemos por tu oferta.",
    "frases": [
     {
      "id": "reto-dia-1-1",
      "rol": "gancho",
      "texto": "Te doy la bienvenida al día 1 del reto de 7 días.",
      "t_inicio": 0.04,
-     "t_fin": 3.44
+     "t_fin": 3.62
     },
     {
      "id": "reto-dia-1-2",
      "rol": "que-es",
      "texto": "Tu onboarding ya está. Hoy armas tu oferta con Offer Coach, y después tu sistema para conseguir clientes con Funnel Coach.",
      "t_inicio": 3.8,
-     "t_fin": 11.44
+     "t_fin": 11.72
     },
     {
      "id": "reto-dia-1-3",
      "rol": "cosa",
      "texto": "Los dos te preguntan como un coach, una cosa a la vez, y tu funnel queda armado en el CRM.",
-     "t_inicio": 12.02,
-     "t_fin": 17.54
+     "t_inicio": 12,
+     "t_fin": 17.72
     },
     {
      "id": "reto-dia-1-4",
      "rol": "cierre",
-     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
-     "t_inicio": 18.1,
-     "t_fin": 22.78,
+     "texto": "Cuando termine este video, te marco Offer Coach: empecemos por tu oferta.",
+     "t_inicio": 17.96,
+     "t_fin": 22.41,
      "espera_clic": false
     }
    ],
@@ -1247,7 +1247,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "1 → uno · 7 → siete (ortografía del transcriptor)",
-   "hecho": "2026-11-18T13:46:34.689Z"
+   "hecho": "2026-11-20T10:05:34.495Z"
   },
   {
    "key": "reto-dia-2",
@@ -2449,39 +2449,39 @@
    "ruta": "/calendario",
    "archivo": "/tutoriales/calendar.mp4",
    "poster": "/tutoriales/calendar.jpg",
-   "duracion_s": 31.6,
-   "peso_kb": 1489,
-   "guion": "Tu semana entera de un vistazo: llamadas, publicaciones, entregas y vencimientos. Te doy la bienvenida a Calendar: en esta pestaña vas a poder ver todo lo que tienes agendado, y las reuniones del CRM aparecen solas. Toca aquí, en Publicaciones, Plan, Ventas o Entregas, para esconder los que no necesitas hoy. Toca aquí, en Llamadas, y las ves todas juntas, sin nada alrededor. Si tuviste una llamada fuera de la agenda, toca aquí, en el botón más de Ventas, y anótala.",
+   "duracion_s": 32.5,
+   "peso_kb": 1529,
+   "guion": "Tu semana entera de un vistazo: llamadas, publicaciones, entregas y vencimientos. Te doy la bienvenida a Calendar: en esta pestaña vas a poder ver todo lo que tienes agendado, y las reuniones del CRM aparecen solas. Toca aquí, en Publicaciones, Plan, Ventas o Entregas, para esconder los que no necesitas hoy. Mira aquí, en Llamadas: las ves todas juntas, sin nada alrededor. Si tuviste una llamada fuera de la agenda, toca aquí, en el botón más de Ventas, y anótala.",
    "frases": [
     {
      "id": "calendar-1",
      "rol": "gancho",
      "texto": "Tu semana entera de un vistazo: llamadas, publicaciones, entregas y vencimientos.",
-     "t_inicio": 0.08,
-     "t_fin": 5.58
+     "t_inicio": 0.1,
+     "t_fin": 5.89
     },
     {
      "id": "calendar-2",
      "rol": "que-es",
      "texto": "Te doy la bienvenida a Calendar: en esta pestaña vas a poder ver todo lo que tienes agendado, y las reuniones del CRM aparecen solas.",
-     "t_inicio": 6.02,
-     "t_fin": 14.18
+     "t_inicio": 6.1,
+     "t_fin": 14.61
     },
     {
      "id": "calendar-3",
      "rol": "accion",
      "texto": "Toca aquí, en Publicaciones, Plan, Ventas o Entregas, para esconder los que no necesitas hoy.",
-     "t_inicio": 14.6,
-     "t_fin": 20.8,
+     "t_inicio": 14.82,
+     "t_fin": 21.29,
      "sel": "[data-recorrido=\"calendario-usos\"]",
      "espera_clic": true
     },
     {
      "id": "calendar-4",
      "rol": "accion",
-     "texto": "Toca aquí, en Llamadas, y las ves todas juntas, sin nada alrededor.",
-     "t_inicio": 21.14,
-     "t_fin": 25.44,
+     "texto": "Mira aquí, en Llamadas: las ves todas juntas, sin nada alrededor.",
+     "t_inicio": 21.54,
+     "t_fin": 26.18,
      "sel": "a[href=\"/calendario?vista=llamadas\"]",
      "espera_clic": false,
      "cierra_despues": true
@@ -2490,8 +2490,8 @@
      "id": "calendar-5",
      "rol": "cierre",
      "texto": "Si tuviste una llamada fuera de la agenda, toca aquí, en el botón «+» de Ventas, y anótala.",
-     "t_inicio": 25.86,
-     "t_fin": 30.92,
+     "t_inicio": 26.42,
+     "t_fin": 32.17,
      "sel": "[data-recorrido=\"calendario-llamada\"]",
      "espera_clic": false
     }
@@ -2501,7 +2501,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T14:06:37.683Z"
+   "hecho": "2026-11-20T09:35:10.749Z"
   },
   {
    "key": "automations",
@@ -2866,39 +2866,39 @@
    "ruta": "/classroom",
    "archivo": "/tutoriales/classroom.mp4",
    "poster": "/tutoriales/classroom.jpg",
-   "duracion_s": 24.83,
-   "peso_kb": 1351,
-   "guion": "Quien llega al resultado renueva y te recomienda. Te doy la bienvenida a Classroom: aquí vas a poder armar tu curso, y cada módulo es una etapa de tu entrega. Mira aquí, Nuevo módulo: cada uno suma su etapa al tablero de Clients. Toca aquí, en Vista del alumno, para verlo tal como lo ve tu cliente. Tu turno: completa tu curso y toca aquí, en Invitar alumnos.",
+   "duracion_s": 24.77,
+   "peso_kb": 1328,
+   "guion": "Quien llega al resultado renueva y te recomienda. Te doy la bienvenida a Classroom: aquí vas a poder armar tu curso, y cada módulo es una etapa de tu entrega. Mira aquí, Nuevo módulo: cada uno suma su etapa al tablero de Clients. Mira aquí, Vista del alumno: lo ves tal como lo ve tu cliente. Tu turno: completa tu curso y toca aquí, en Invitar alumnos.",
    "frases": [
     {
      "id": "classroom-1",
      "rol": "gancho",
      "texto": "Quien llega al resultado renueva y te recomienda.",
      "t_inicio": 0.04,
-     "t_fin": 3
+     "t_fin": 3.1
     },
     {
      "id": "classroom-2",
      "rol": "que-es",
      "texto": "Te doy la bienvenida a Classroom: aquí vas a poder armar tu curso, y cada módulo es una etapa de tu entrega.",
-     "t_inicio": 3.46,
-     "t_fin": 10.12
+     "t_inicio": 3.3,
+     "t_fin": 10.04
     },
     {
      "id": "classroom-3",
      "rol": "accion",
      "texto": "Mira aquí, Nuevo módulo: cada uno suma su etapa al tablero de Clients.",
-     "t_inicio": 10.5,
-     "t_fin": 15.14,
+     "t_inicio": 10.24,
+     "t_fin": 15.24,
      "sel": "[data-recorrido=\"nuevo-modulo\"]",
      "espera_clic": false
     },
     {
      "id": "classroom-4",
      "rol": "accion",
-     "texto": "Toca aquí, en Vista del alumno, para verlo tal como lo ve tu cliente.",
+     "texto": "Mira aquí, Vista del alumno: lo ves tal como lo ve tu cliente.",
      "t_inicio": 15.46,
-     "t_fin": 19.52,
+     "t_fin": 19.6,
      "sel": "[data-recorrido=\"vista-alumno\"]",
      "espera_clic": false,
      "cierra_despues": true
@@ -2907,8 +2907,8 @@
      "id": "classroom-5",
      "rol": "cierre",
      "texto": "Tu turno: completa tu curso y toca aquí, en Invitar alumnos.",
-     "t_inicio": 19.92,
-     "t_fin": 24.14,
+     "t_inicio": 19.84,
+     "t_fin": 24.43,
      "sel": "[data-recorrido=\"invitar\"]",
      "espera_clic": false
     }
@@ -2918,7 +2918,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T14:14:18.414Z"
+   "hecho": "2026-11-20T09:36:02.376Z"
   },
   {
    "key": "avatar",
@@ -3054,30 +3054,30 @@
    "ruta": "/image-editor",
    "archivo": "/tutoriales/image.mp4",
    "poster": "/tutoriales/image.jpg",
-   "duracion_s": 26.47,
-   "peso_kb": 1466,
-   "guion": "¿Quieres carruseles que la gente guarde y miniaturas que inviten a entrar? Te doy la bienvenida a Ímich: aquí vas a poder armar esas piezas, y cada miniatura de YouTube viene en dos versiones para probar cuál se toca más. Toca aquí, en la portada de Lista o tips: ya trae el nombre de tu negocio. Toca aquí, en Ver ejemplo, y mira cómo queda la pieza terminada. Empieza por un carrusel: toca aquí, en Usar plantilla.",
+   "duracion_s": 26.5,
+   "peso_kb": 1434,
+   "guion": "¿Quieres carruseles que la gente guarde y miniaturas que inviten a entrar? Te doy la bienvenida a Ímich: aquí vas a poder armar esas piezas, y cada miniatura de YouTube viene en dos versiones para probar cuál se toca más. Mira aquí, la portada de Lista o tips: ya trae el nombre de tu negocio. Toca aquí, en Ver ejemplo, y mira cómo queda la pieza terminada. Empieza por un carrusel: toca aquí, en Usar plantilla.",
    "frases": [
     {
      "id": "image-1",
      "rol": "gancho",
      "texto": "¿Quieres carruseles que la gente guarde y miniaturas que inviten a entrar?",
      "t_inicio": 0.04,
-     "t_fin": 3.6
+     "t_fin": 3.96
     },
     {
      "id": "image-2",
      "rol": "que-es",
      "texto": "Te doy la bienvenida a Image: aquí vas a poder armar esas piezas, y cada miniatura de YouTube viene en dos versiones para probar cuál se toca más.",
-     "t_inicio": 4.22,
-     "t_fin": 12.82
+     "t_inicio": 4.28,
+     "t_fin": 13.08
     },
     {
      "id": "image-3",
      "rol": "accion",
-     "texto": "Toca aquí, en la portada de Lista o tips: ya trae el nombre de tu negocio.",
-     "t_inicio": 13.34,
-     "t_fin": 17.68,
+     "texto": "Mira aquí, la portada de Lista o tips: ya trae el nombre de tu negocio.",
+     "t_inicio": 13.36,
+     "t_fin": 17.89,
      "sel": "span[aria-label=\"Lista o tips: portada\"]",
      "espera_clic": false,
      "cierra_despues": true
@@ -3086,8 +3086,8 @@
      "id": "image-4",
      "rol": "accion",
      "texto": "Toca aquí, en Ver ejemplo, y mira cómo queda la pieza terminada.",
-     "t_inicio": 18.2,
-     "t_fin": 21.96,
+     "t_inicio": 18.12,
+     "t_fin": 22.2,
      "sel": "button[aria-label=\"Ver un ejemplo de Lista o tips\"]",
      "espera_clic": true,
      "cierra_despues": true
@@ -3096,8 +3096,8 @@
      "id": "image-5",
      "rol": "cierre",
      "texto": "Empieza por un carrusel: toca aquí, en Usar plantilla.",
-     "t_inicio": 22.62,
-     "t_fin": 25.76,
+     "t_inicio": 22.5,
+     "t_fin": 26.17,
      "sel": "button[aria-label=\"Usar la plantilla Lista o tips\"]",
      "espera_clic": false
     }
@@ -3107,7 +3107,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "imich → image (ortografía del transcriptor)",
-   "hecho": "2026-11-18T14:17:27.708Z"
+   "hecho": "2026-11-20T09:36:52.932Z"
   },
   {
    "key": "chats",

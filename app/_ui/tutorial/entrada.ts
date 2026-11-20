@@ -37,10 +37,15 @@ export function sueltaDalePlay(o: { activo: boolean; aLaVista: boolean }): boole
   return !o.activo || !o.aLaVista;
 }
 
-// Lo visto y lo cerrado, mientras dure la página: la entrada de una clave sale UNA vez, y un «dale play» cerrado con la X no vuelve.
+// Lo visto y lo cerrado: la entrada de una clave sale UNA vez, y un «dale play» tocado, reproducido o cerrado con la X no vuelve.
+// GUARDADO en el navegador (20/11, la verificación de V5: vivía sólo en la página, y en cada recarga el día de hoy del reto volvía a
+// oscurecer la pantalla y a «escribir», y «Día 7: dale play» volvía sobre un video ya visto). Una clave por cosa (la del día del reto
+// es `reto-dia-<n>`: se guarda por día). Si el navegador no deja guardar, queda lo de la página.
 const entradas = new Set<string>();
 const cerrados = new Set<string>();
-export const yaEntro = (clave: string): boolean => entradas.has(clave);
-export const anotarEntrada = (clave: string): void => { entradas.add(clave); };
-export const dalePlayCerrado = (clave: string): boolean => cerrados.has(clave);
-export const cerrarDalePlay = (clave: string): void => { cerrados.add(clave); };
+const leerGuardado = (k: string): boolean => { try { return typeof localStorage !== 'undefined' && localStorage.getItem(k) === '1'; } catch { return false; } };
+const guardar = (k: string): void => { try { if (typeof localStorage !== 'undefined') localStorage.setItem(k, '1'); } catch { /* sin storage: queda la página */ } };
+export const yaEntro = (clave: string): boolean => entradas.has(clave) || leerGuardado(`mk-entrada:${clave}`);
+export const anotarEntrada = (clave: string): void => { entradas.add(clave); guardar(`mk-entrada:${clave}`); };
+export const dalePlayCerrado = (clave: string): boolean => cerrados.has(clave) || leerGuardado(`mk-dale-play:${clave}`);
+export const cerrarDalePlay = (clave: string): void => { cerrados.add(clave); guardar(`mk-dale-play:${clave}`); };

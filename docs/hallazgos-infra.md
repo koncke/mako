@@ -12897,3 +12897,32 @@ genérico encontró el ajeno.
 **La regla:** los scripts de un chat van al scratchpad de SU sesión, con ruta absoluta de Windows y nunca con nombres genéricos en
 `/tmp`. Un script que restaura un archivo lo lee y lo escribe con `newline=''`, para devolverlo byte por byte. Y un heredoc de Git Bash
 se come las barras invertidas: un script con rutas de Windows va a un archivo, no a un heredoc.
+
+## Un `todo` que falla tiñe la punta de quien toque lo que ese test lee (20/11/2026, chat «onboarding-v2», claude5)
+
+- **El síntoma:** la punta de onboarding-v2 dio rojo en tests/onboarding-llegada-superadmin.test.ts, y localmente pasaba (`ℹ fail 0`,
+  sale con 0).
+- **La causa:** el test tiene un caso `{ todo: … }`, de la copia de Polar a medias, cuya aserción falla. Node lo imprime igual en
+  «✖ failing tests:», con su «test at <archivo>». El runner de la punta (scripts/tests-afectados.mjs → `leerResultado`) cuenta como
+  rojo cualquier «test at <archivo>», sin mirar si es `todo`. El archivo le tocó a esa punta porque cambió lib/onboarding-arranque.ts,
+  que el test lee.
+- **Diagnóstico obvio y equivocado:** «es lo mismo que el hub retirado» (otro test rojo de la misma corrida). No tenía nada que ver con
+  el cambio.
+- **Qué se hizo:** el caso pasó a `skip` (igual de pendiente, no imprime «test at»). **Queda para infra:** que `leerResultado` no
+  cuente los `todo`, o el próximo que toque lib/onboarding-arranque.ts o las páginas de Polar vuelve a salir rojo.
+- **Regla al probar en la PC:** un test «verde» para la punta no es `ℹ fail 0`: es que la salida no tenga ningún «test at». Así lo
+  mide el runner de GitHub.
+
+## El build de Vercel colgado: un `import()` en el guard del layout raíz (20/11/2026, chat «onboarding-v2», claude5)
+
+- **El síntoma:** después de 1c22ea030, el build de producción se quedaba en «Creating an optimized production build» más de 15 y 25
+  minutos sin llegar a «Compiled» (df5335395, 62f168031); antes compilaba en 2-3 minutos.
+- **La causa:** lib/movil-guard.ts (lo importa app/layout.tsx) hacía `await import('./onboarding-arranque-server')` para «Sigamos en
+  tu computadora». Medido con esbuild: el guard pasó de 53 a 1786 módulos del repo. Lo detectó el Cerebro.
+- **Trampa:** «es un `import()` dentro de la función, así que no pesa» es falso para el build. El bundler lo sigue igual que un import
+  de arriba.
+- **Qué quedó:** lib/seguir-en-pc.ts, un módulo chico (52 módulos del repo; el guard, 62). El layout volvió a 2328 módulos y 8 ciclos,
+  contra 2322 y 8 en 1c22ea030. El ciclo grande de 436 módulos pasa por lib/mako-grupo.ts y ya estaba antes. La regla está en
+  AGENTS.md, y la cuida tests/seguir-en-pc-liviano.test.ts.
+- **Confirmado:** era la única causa. 5993355b5 (con el arreglo, 44e318f41) compiló en 1 min 54 s y quedó READY en producción el
+  20/11 a las 11:05 (lo midió el Cerebro). En el mismo rango había commits de otros chats.

@@ -162,8 +162,9 @@ test('4. el aviso de revisión lleva el comprobante, y el grupo de SuperAdmin lo
   assert.match(mes, /export async function avisarAMartin\(texto: string, archivo\?: ArchivoDelAviso \| null\)/);
   assert.match(mes, /enviarAlGrupoSuperAdmin\(texto, archivo \? \{ archivo \} : \{\}\)/);
   const grupo = tramo(leer('lib/mako-grupo.ts'), 'export async function enviarAlGrupoSuperAdmin', '\n}\n');
-  assert.match(grupo, /const media: MediaGrupo \| null = o\.archivo \? \{ tipo: o\.archivo\.mime === 'application\/pdf' \? 'document' : 'image',/);
-  assert.match(grupo, /const partes: PartePreparada\[\] \| null = o\.archivo && media\s*\?\s*\[\{ tipo: 'media', base64: o\.archivo\.base64, media, \.\.\.\(conPie \? \{ caption: texto \} : \{\}\) \}, \.\.\.\(conPie \? \[\] : \[\{ tipo: 'texto' as const, texto \}\]\)\]/, 'el archivo no arma la parte (con el texto de pie, o aparte si es largo)');
+  // Un audio (20/11, el día 7 del reto) va aparte, como audio; el comprobante (foto o PDF), igual que antes.
+  assert.match(grupo, /const media: MediaGrupo \| null = o\.archivo && !esAudio \? \{ tipo: o\.archivo\.mime === 'application\/pdf' \? 'document' : 'image',/);
+  assert.match(grupo, /: o\.archivo && media\s*\?\s*\[\{ tipo: 'media', base64: o\.archivo\.base64, media, \.\.\.\(conPie \? \{ caption: texto \} : \{\}\) \}, \.\.\.\(conPie \? \[\] : \[\{ tipo: 'texto' as const, texto \}\]\)\]/, 'el archivo no arma la parte (con el texto de pie, o aparte si es largo)');
   assert.match(grupo, /const conArchivo = partes \? await enviarPartesAJid\(jid, partes\)\.catch\(\(\) => null\) : null;/);
   assert.match(grupo, /if \(conArchivo\?\.ok && conArchivo\.ids\.length\) \{[\s\S]*?\} else \{\s*const e = await enviarTextoVozMaKo\(jid, texto\);/, 'si el archivo no sale, no sale el texto');
   assert.match(grupo, /copiarAlGrupo\(wsApp, \{ texto, de: 'mako', \.\.\.\(partes \? \{ partes \} : \{\}\) \}\)/, 'el hilo de la app no lleva el comprobante');

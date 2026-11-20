@@ -32,7 +32,7 @@ import { agenciasAprobadasDe } from './agencia';
 import { KEY_VOZ_INSTANCIA } from './linea-plataforma';
 import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
 import { MINUTOS_ENTRANTE, codigoDelTexto, codigoNuevo, decidirCodigoTipeado, decidirLlegada, linkWaMe, textoParaMandar, vistaDeEntrante, type EstadoVerificacion, type VistaEntrante } from './verificacion-entrante';
-import { E_REESCRIBIR_V2, E_SIN_CODIGO_V2, MAKO_SIN_LINEA_V2, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, errorDelTelefono, escribioDesdeElOtro, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, renovarCodigoV2, respuestaOtroNumeroV2, unicaEsperandoV2 } from './verificacion-entrante';
+import { E_REESCRIBIR_V2, KEY_LID_SIN_NUMERO, MAKO_SIN_LINEA_V2, sumarLidSinNumero, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, errorDelTelefono, escribioDesdeElOtro, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoV2, AGENDAR_V2, reenviarDirecto, renovarCodigoV2, respuestaOtroNumeroV2, unicaEsperandoV2 } from './verificacion-entrante';
 import { chatDelMensaje, esSuTelefono } from './mako-bot-reglas';
 import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, leEscribioEnLasFilas, pausaDeEscritura, puedeEscribirleAPersona, type FilaQuienEscribio } from './mako-salida-reglas';
 import { respondiendoA } from './respuesta-en-curso';
@@ -251,7 +251,7 @@ async function cupoMismoTexto(destino: string, texto: string): Promise<boolean> 
   }
 }
 
-async function enviarTextoVozMaKo(jidONumero: string, texto: string, delayMs?: number): Promise<{ ok: boolean; id: string; error?: string }> {
+async function enviarTextoVozMaKo(jidONumero: string, texto: string, delayMs?: number, o: { contesta?: boolean } = {}): Promise<{ ok: boolean; id: string; error?: string }> {
   // ⛔ REGLA 1: la línea de MaKo no le escribe primero a una persona que nunca le escribió (lib/mako-salida-reglas.ts).
   if (!jidONumero.endsWith('@g.us') && !puedeEscribirleAPersona({ leEscribio: await leEscribioALaLinea(jidONumero).catch(() => null) })) {
     console.warn(`[mako-grupo] no salió a ${jidONumero}: ${NO_LE_ESCRIBE_PRIMERO}`);
@@ -259,7 +259,9 @@ async function enviarTextoVozMaKo(jidONumero: string, texto: string, delayMs?: n
   }
   // La respuesta en el grupo donde alguien acaba de escribir no cuenta para «el mismo texto a muchos» (11/11/2026): durante una caída
   // de la IA, el mismo cartel le contesta a seis grupos en una hora, y el sexto quedaba sin respuesta. El tope sigue para los avisos.
-  if (respondiendoA() !== jidONumero && !(await cupoMismoTexto(jidONumero, texto))) {
+  // Lo mismo con lo que CONTESTA el mensaje de una persona en su chat (`contesta`, 20/11/2026): el «Guárdame en tus contactos…» del
+  // código del V2 va aparte (Martín) y es el mismo texto para todos; cada una acaba de escribirle a MaKo.
+  if (respondiendoA() !== jidONumero && !o.contesta && !(await cupoMismoTexto(jidONumero, texto))) {
     console.warn(`[mako-grupo] no salió a ${jidONumero}: ${MISMO_TEXTO_A_MUCHOS}`);
     return { ok: false, id: '', error: MISMO_TEXTO_A_MUCHOS };
   }
@@ -999,7 +1001,8 @@ export async function pedirConfirmacionV2(
   const r = await mandarCodigoV2(contestada, num);
   if (r.ok) return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero, contestado: true };
   console.error(`[mako-grupo] ws${ws}: no salió el código al otro número: ${r.error}`);
-  await guardarVerificacion(ws, nueva);
+  // Vuelve a «esperando», y la tarjeta dice que no le pudo contestar (wa-04).
+  await guardarVerificacion(ws, { ...nueva, sinLineaAt: Date.now() });
   return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero, contestado: false };
 }
 
@@ -1010,16 +1013,26 @@ export async function otroNumeroQueEscribioV2(ws: number): Promise<{ telefono: s
 
 /** Le manda el código por el chat privado (ella escribió primero: la regla 1 lo mira igual), su tarjeta de contacto y el pedido de agendarlo.
  *  Es un DM a una persona: va por `enviarAPersonaMaKo`, la puerta de los DM (tests/grupos-ops-guarda.test.ts). `destino`: su número. */
+/**
+ * EL CÓDIGO, LA TARJETA Y «GUÁRDAME…», EN TRES MENSAJES (Martín, 20/11/2026 ~13:00 UTC: «como el de ayer a las 21:02»). El 20/11 a la
+ * madrugada (wa-09, 1a7f519ad) el pedido se había pegado al código porque, aparte, es el mismo texto para todos y el tope del mismo
+ * texto a muchos (lib/mako-salida-reglas.ts) lo frenaba desde la sexta persona en una hora. Ahora va aparte y como RESPUESTA a su
+ * mensaje (`contesta`), que es lo que es: siempre se manda porque ella acaba de escribir. El código es lo único que no puede faltar; lo
+ * demás es best-effort, pero lo que no sale queda en el log con su motivo.
+ */
 async function mandarCodigoV2(v: EstadoVerificacion, destino: string): Promise<{ ok: boolean; error?: string }> {
-  const r = await enviarAPersonaMaKo(destino, mensajeDelCodigoYAgendarV2(v.nombre ?? '', v.codigo));
+  const r = await enviarAPersonaMaKo(destino, mensajeDelCodigoV2(v.nombre ?? '', v.codigo), { contesta: true });
   if (!r.ok) return { ok: false, error: r.error };
-  // La tarjeta de MaKo, para que la guarde con un toque (la maqueta: «Guardar contacto»). Best-effort: el código ya salió.
+  // La tarjeta de MaKo, para que la guarde con un toque (la maqueta: «Guardar contacto»).
   const numeroMaKo = soloDigitos(v.numeroLinea ?? '');
   if (numeroMaKo) {
-    await ev(`/message/sendContact/${await instanciaVoz()}`, {
+    const t = await ev(`/message/sendContact/${await instanciaVoz()}`, {
       method: 'POST', body: JSON.stringify({ number: destino, contact: [{ fullName: 'MaKo', wuid: numeroMaKo, phoneNumber: `+${numeroMaKo}` }] }),
-    }).catch(() => null);
+    }).catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
+    if (!t.ok) console.warn(`[mako-grupo] V2: no salió la tarjeta de MaKo a ${destino}`);
   }
+  const g = await enviarAPersonaMaKo(destino, AGENDAR_V2, { contesta: true });
+  if (!g.ok) console.warn(`[mako-grupo] V2: no salió «Guárdame en tus contactos» a ${destino}: ${g.error}`);
   return { ok: true };
 }
 
@@ -1029,7 +1042,7 @@ async function mandarCodigoV2(v: EstadoVerificacion, destino: string): Promise<{
  * de esto: así sigue al bot como cualquier otro. Lo que habla con WhatsApp va en `responder`, para correr después.
  */
 export async function responderPedidoV2(instancia: string, m: Record<string, unknown>): Promise<{ resultado: string; responder?: () => Promise<void> } | null> {
-  const key = (m?.key ?? {}) as { remoteJid?: string; fromMe?: boolean; remoteJidAlt?: string; senderPn?: string };
+  const key = (m?.key ?? {}) as { id?: string; remoteJid?: string; fromMe?: boolean; remoteJidAlt?: string; senderPn?: string };
   if (key.fromMe) return null;
   const msg = (m?.message ?? {}) as Record<string, unknown>;
   const texto = typeof msg.conversation === 'string' ? msg.conversation : String((msg.extendedTextMessage as { text?: string } | undefined)?.text ?? '');
@@ -1050,7 +1063,7 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
     // uno nuevo», y MaKo se callaba (vencido) o mandaba el mismo (tope). `hayQueRenovarV2`, lib/verificacion-entrante.ts.
     const base = d === 'renovar' ? renovarCodigoV2(v!, Date.now(), codigoNumerico()) : v!;
     // `destino`: el chat por donde escribió (así le llega aunque el número se haya tipeado de otra forma).
-    const anotado: EstadoVerificacion = { ...base, destino: chat.telefono ?? v!.destino, respondido: true, escribioAt: Date.now(), otroNumero: undefined };
+    const anotado: EstadoVerificacion = { ...base, destino: chat.telefono ?? v!.destino, respondido: true, escribioAt: Date.now(), otroNumero: undefined, sinLineaAt: undefined, sinNumeroAt: undefined };
     // De dos llegadas del mismo mensaje (dos líneas de la misma cuenta), contesta una.
     const gane = await runWithWorkspace(ws, () => cambiarSettingSi(KEY_VERIFICACION, fila.value, JSON.stringify(anotado))).catch(() => false);
     if (!gane) return { resultado: `ws${ws}: ya contestado por otra llegada` };
@@ -1062,15 +1075,23 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
         console.error(`[mako-grupo] ws${ws}: no salió el código del V2: ${r.error}`);
         // ⚠️ «Respondido» sin código es un «listo» falso (19/11/2026): la pantalla esperaba un código que nunca salió, y «Reenviar» lo
         // daba por mandado. Se vuelve atrás (sólo si nadie lo cambió después): el próximo «Hola, quiero confirmar…» lo vuelve a intentar.
-        await runWithWorkspace(ws, () => cambiarSettingSi(KEY_VERIFICACION, JSON.stringify(anotado), JSON.stringify({ ...anotado, respondido: false }))).catch(() => {});
+        await runWithWorkspace(ws, () => cambiarSettingSi(KEY_VERIFICACION, JSON.stringify(anotado), JSON.stringify({ ...anotado, respondido: false, sinLineaAt: Date.now() }))).catch(() => {});
       },
     };
   }
   // NADIE ESPERABA ESTE NÚMERO (20/11/2026, wa-04): MaKo se callaba y la pantalla no decía nada. Le contesta en ese chat qué hacer y, si
   // UNA sola verificación espera en esta línea, se le anota `otroNumero` (la pantalla pasa a `'otro-numero'`). Contesta sólo la línea que
   // recibe: con dos líneas de la misma cuenta, el mensaje llega dos veces. Un @lid sin número no se puede contestar: queda en el log.
+  const filas = ((data ?? []) as Array<{ workspace_id: number; value: string }>).map((f) => ({ ...f, v: parseVerificacion(f.value) }));
   if (!chat.telefono) {
+    // wa-04 (20/11): sin número el código no puede ir a nadie. Se CUENTA (el log se pierde: había que medir cuántos llegan así) y,
+    // si UNA sola verificación espera en esta línea, su tarjeta lo dice (`sinNumeroAt` → `avisoDelPedidoV2`).
     console.warn(`[mako-grupo] pedido del V2 por @lid sin número (${chat.jid}): no sé de quién es`);
+    const suya = unicaEsperandoV2(filas, instancia, Date.now());
+    await contarLidSinNumero(String(key.id || chat.jid), !!suya);
+    if (suya) {
+      await runWithWorkspace(Number(suya.workspace_id), () => cambiarSettingSi(KEY_VERIFICACION, suya.value, JSON.stringify({ ...suya.v!, sinNumeroAt: Date.now() }))).catch(() => false);
+    }
     return null;
   }
   if (instancia !== (await instanciaVoz())) return null;
@@ -1081,7 +1102,6 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
   if (ya) {
     return { resultado: 'ya confirmado', responder: async () => { await enviarAPersonaMaKo(tel, YA_CONFIRMADO_V2); } };
   }
-  const filas = ((data ?? []) as Array<{ workspace_id: number; value: string }>).map((f) => ({ ...f, v: parseVerificacion(f.value) }));
   const suya = unicaEsperandoV2(filas, instancia, Date.now());
   if (suya && suya.v!.otroNumero !== tel) {
     await runWithWorkspace(Number(suya.workspace_id), () => cambiarSettingSi(KEY_VERIFICACION, suya.value, JSON.stringify({ ...suya.v!, otroNumero: tel, otroNumeroAt: Date.now() }))).catch(() => false);
@@ -1095,6 +1115,17 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
   };
 }
 
+/** Suma un pedido por @lid sin número a la cuenta (una vez por mensaje). Best-effort: nunca frena la respuesta del webhook. */
+async function contarLidSinNumero(id: string, conUna: boolean): Promise<void> {
+  await runWithWorkspace(OWNER_WS, async () => {
+    for (let i = 0; i < 3; i++) {
+      const crudo = await getSetting(KEY_LID_SIN_NUMERO);
+      const nueva = sumarLidSinNumero(crudo, id, conUna, Date.now());
+      if (!nueva || (await cambiarSettingSi(KEY_LID_SIN_NUMERO, crudo, JSON.stringify(nueva)))) return;
+    }
+  }).catch((e) => console.error(`[mako-grupo] no pude contar el @lid sin número: ${e instanceof Error ? e.message : String(e)}`));
+}
+
 export const YA_CONFIRMADO_V2 = 'Tu WhatsApp ya está confirmado en MaKo ✓ Vuelve a MaKo y sigue desde ahí.';
 
 /** ¿Este número ya confirmó su WhatsApp por el V2 (en algún negocio)? null si la base no contesta: entonces no se le dice nada. */
@@ -1105,22 +1136,17 @@ async function yaConfirmoV2(telefono: string): Promise<boolean | null> {
   return ((data ?? []) as Array<{ value: string }>).some((f) => { const v = parseVerificacion(f.value); return !!v && [v.telefono, v.destino].some((t) => !!t && esSuTelefono(t, telefono)); });
 }
 
-/** «Reenviar el código» (V2): sólo si MaKo ya le contestó (si no, todavía no le escribió: que toque «Abrir WhatsApp»). Manda uno
- *  NUEVO, con su plazo y sus intentos de cero: es la salida de un código vencido o de muchos equivocados (los errores lo nombran). */
+/**
+ * «REENVIAR EL CÓDIGO» (V2) ABRE SIEMPRE WHATSAPP CON EL PEDIDO ESCRITO, como la maqueta (`abrirWhatsapp()`). Lo decidió el Cerebro el
+ * 20/11 a la tarde (wa-f3): «ellos escriben primero, siempre», nada de mandarlo directo dentro de las 24 h. Por eso no manda nada:
+ * devuelve E_REESCRIBIR_V2 y la tarjeta (app/onboarding/ChatArranqueV2.tsx, `reenviarAbreWhatsapp`) abre el link con el mensaje. Cuando
+ * ella lo manda, `responderPedidoV2` le contesta, con un código NUEVO si el anterior venció o se le acabaron los intentos (19/11).
+ * Ya confirmado, no hay nada que reenviar.
+ */
 export async function reenviarCodigoV2(ws: number): Promise<{ ok: true } | { ok: false; error: string }> {
   const v = await getVerificacion(ws);
-  if (!v?.v2 || !v.respondido || !v.destino) return { ok: false, error: E_SIN_CODIGO_V2 };
-  if (v.verificado) return { ok: true };
-  // Ellos escriben primero (wa-f3): pasadas 24 horas de su último mensaje, que vuelva a escribir ella; MaKo le contesta con uno nuevo.
-  if (!reenviarDirecto(v, Date.now())) return { ok: false, error: E_REESCRIBIR_V2 };
-  // Nunca el vencido (19/11/2026): con el código vencido o el tope lleno se arma uno NUEVO, se guarda y recién ahí se manda. Si se guardara
-  // después, el que llega no sería el que la app espera.
-  const aMandar = hayQueRenovarV2(v, Date.now()) ? renovarCodigoV2(v, Date.now(), codigoNumerico()) : v;
-  if (aMandar !== v) await guardarVerificacion(ws, aMandar);
-  const r = await mandarCodigoV2(aMandar, soloDigitos(v.destino));
-  if (r.ok) return { ok: true };
-  // Si MaKo no le puede escribir (no encuentra que le haya escrito), que lo pida desde su WhatsApp; si es la línea, que es de nuestro lado.
-  return { ok: false, error: r.error === NO_LE_ESCRIBE_PRIMERO ? E_REESCRIBIR_V2 : MAKO_SIN_LINEA_V2 };
+  if (v?.verificado) return { ok: true };
+  return { ok: false, error: E_REESCRIBIR_V2 };
 }
 
 /** El código PEGADO en la app (V2). Bien: el número queda probado y guardado como el del dueño, SIN grupo. */
@@ -1188,10 +1214,15 @@ export async function enviarAlGrupoSuperAdmin(texto: string, o: { sinCopia?: tru
   // texto de pie, en el hilo de la app y en WhatsApp (un texto largo va aparte: el pie de WhatsApp corta en ~1000). Si el archivo no sale por
   // WhatsApp, sale el texto solo: el aviso no se pierde por el adjunto.
   const conPie = texto.length <= PIE_MAX;
-  const media: MediaGrupo | null = o.archivo ? { tipo: o.archivo.mime === 'application/pdf' ? 'document' : 'image', mimetype: o.archivo.mime, fileName: o.archivo.nombre } : null;
-  const partes: PartePreparada[] | null = o.archivo && media
-    ? [{ tipo: 'media', base64: o.archivo.base64, media, ...(conPie ? { caption: texto } : {}) }, ...(conPie ? [] : [{ tipo: 'texto' as const, texto }])]
-    : null;
+  // UN AUDIO (20/11/2026, el día 7 del reto: «Lo escucha Martín»): el texto primero y el audio después (un audio no lleva pie). Antes
+  // todo lo que no era PDF salía como imagen.
+  const esAudio = !!o.archivo?.mime.startsWith('audio/');
+  const media: MediaGrupo | null = o.archivo && !esAudio ? { tipo: o.archivo.mime === 'application/pdf' ? 'document' : 'image', mimetype: o.archivo.mime, fileName: o.archivo.nombre } : null;
+  const partes: PartePreparada[] | null = o.archivo && esAudio
+    ? [{ tipo: 'texto', texto }, { tipo: 'audio', base64: o.archivo.base64, mime: o.archivo.mime }]
+    : o.archivo && media
+      ? [{ tipo: 'media', base64: o.archivo.base64, media, ...(conPie ? { caption: texto } : {}) }, ...(conPie ? [] : [{ tipo: 'texto' as const, texto }])]
+      : null;
   const app = o.sinCopia ? null : await grupoApp();
   const wsApp = app ? await wsSuperAdmin().catch(() => null) : null;
   const copia = app && wsApp != null ? await app.copiarAlGrupo(wsApp, { texto, de: 'mako', ...(partes ? { partes } : {}) }) : null;
@@ -1254,12 +1285,13 @@ export async function crearGrupoSuelto(
  * un colaborador las tareas que asumió en una reunión: le llega de MaKo, no del número
  * de ventas del negocio.
  */
-export async function enviarAPersonaMaKo(telefono: string, texto: string): Promise<EnvioGrupo> {
+export async function enviarAPersonaMaKo(telefono: string, texto: string, o: { contesta?: boolean } = {}): Promise<EnvioGrupo> {
   const num = soloDigitos(telefono);
   if (!num) return { ok: false, error: 'teléfono inválido' };
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
-  // Sólo a quien ya le escribió a la línea (regla 1): lo mira `enviarTextoVozMaKo`, y el motivo vuelve tal cual.
-  const r = await enviarTextoVozMaKo(num, texto);
+  // Sólo a quien ya le escribió a la línea (regla 1): lo mira `enviarTextoVozMaKo`, y el motivo vuelve tal cual. `contesta`: es la respuesta
+  // a SU mensaje, y no la frena el tope del mismo texto (la regla 1 sigue).
+  const r = await enviarTextoVozMaKo(num, texto, undefined, o);
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error ?? 'no se pudo enviar' };
 }
 

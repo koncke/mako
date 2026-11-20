@@ -155,9 +155,10 @@ test('5. el webhook contesta el pedido del V2, y el código pegado NO arma ning�
   assert.doesNotMatch(responder, /sincronizarConfirmado|setNumeroDuenoYSync|asegurarGrupoMaKo|sumarAlGrupo|verificado: true/, 'contestar no confirma ni arma grupo');
   const ruta = sinComentarios(leer('app/api/onboarding/arranque/route.ts'));
   assert.match(ruta, /const r = h\.v2\n\s*\? await pedirConfirmacionV2\(g\.ws, digitos,/);
-  // 20/11 (OA-06): lo escrito en la caja va a la verificación sólo si es un código (un grupo de 6 números, o menos de 6: «Faltan
-  // números»); un teléfono sin un grupo de 6 sigue como cualquier respuesta.
-  assert.match(ruta, /if \(h\.v2 && etapa === 'codigo' && texto && \(grupoDe6 \|\| \(digitosCodigo\.length > 0 && digitosCodigo\.length < 6\)\)\) \{\n\s*const r = await verificarCodigoV2\(g\.ws, grupoDe6 \?\? digitosCodigo\);/);
+  // 20/11 (OA-06 y su verificación): lo escrito en la caja va a la verificación si es un código (codigoEnLaCaja: «482 913» como lo
+  // manda MaKo, o su mensaje pegado); un teléfono o un texto sin números siguen como cualquier respuesta. Vacía también (wa-12: sin
+  // código mandado dice E_SIN_CODIGO_V2, tests/whatsapp-v2-auditoria.test.ts, V1). tests/onboarding-v2-verificacion.test.ts, 1.
+  assert.match(ruta, /if \(codigoEscrito !== null\) \{\n\s*const r = await verificarCodigoV2\(g\.ws, codigoEscrito\);/);
 });
 
 test('6. la pantalla del V2: la estrella, la caja del Ops Center, los dos videos y la pantalla oscura', () => {
@@ -167,8 +168,10 @@ test('6. la pantalla del V2: la estrella, la caja del Ops Center, los dos videos
   assert.doesNotMatch(v2, /Ahora no/, 'el onboarding es obligatorio');
   // Sin «Pega aquí el código» ni «Pegar» (Martín, 19/11).
   assert.doesNotMatch(v2, /[>"']Pega aquí el código|>Pegar</);
-  // El primer mensaje sale cuando termina el video o se toca la caja, con MaKo escribiendo antes (Martín, 19/11).
-  assert.match(v2, /onTermina=\{soltarPrimero\}/);
+  // El primer mensaje sale a su momento del video (desde el 20/11, tarde: cuando la voz dice «unas preguntas cortas…», o al terminar,
+  // pausarlo, sin play o sin video) o al tocar la caja, con MaKo escribiendo antes (Martín, 19/11). La espera y sus desvíos:
+  // app/_ui/tutorial/useMensajeDelVideo.ts, tests/onboarding-mensaje-del-video.test.ts.
+  assert.match(v2, /lugar: filaBienvenida, activo: fase === 'chat', inicial: inicial\.etapa === 'nombre' \? 'espera' : 'listo',/);
   assert.match(v2, /\{primero === 'escribe' && escribiendo\('arr-primero'\)\}/);
   assert.match(v2, /\{primero === 'listo' && mensajes\.map\(/);
   assert.match(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /onEnded=\{\(\) => \{ setEstado\('terminado'\); onTermina\?\.\(\); \}\}/);
@@ -179,11 +182,12 @@ test('6. la pantalla del V2: la estrella, la caja del Ops Center, los dos videos
   assert.match(v2, /const VIDEO_BIENVENIDA = 'onboarding-bienvenida';/);
   // Sólo si el video existe de verdad: nunca un «no está grabado» en producción (el Cerebro, 19/11).
   // (20/11, V5: quieto, marcado con «dale play»: tests/tutorial-entrada.test.ts.)
-  assert.match(v2, /\{videoBienvenida && filaMako\('arr-video', <VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="Bienvenida a MaKo" revision=\{false\} onTermina=\{soltarPrimero\} dalePlay \/>\)\}/);
+  assert.match(v2, /\{videoBienvenida && filaMako\('arr-video', <VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="Bienvenida a MaKo" revision=\{false\} dalePlay \/>, \{ lugar: filaBienvenida \}\)\}/);
   // El video, cortado en dos (Martín, 19/11: «que tenga cortes como los pasos»): la bienvenida arriba, y el del WhatsApp como su propio
   // mensaje justo antes del paso del código. No es `onboarding-whatsapp`, el de la pantalla vieja.
   assert.match(v2, /const VIDEO_WHATSAPP = 'onboarding-bienvenida-whatsapp';/);
-  assert.match(v2, /if \(m\.id === MENSAJE_DEL_CODIGO && videoWhatsapp\) return \[filaMako\('arr-video-whatsapp', <VideoDelMomento clave=\{VIDEO_WHATSAPP\} [^>]*\/>\), fila\];/);
+  // (Desde el 20/11, tarde, el mensaje del código sale a su momento del video, con sus puntitos: tests/onboarding-mensaje-del-video.test.ts.)
+  assert.match(v2, /const video = videoWhatsapp \? filaMako\('arr-video-whatsapp', <VideoDelMomento clave=\{VIDEO_WHATSAPP\} [^>]*\/>, \{ lugar: filaWhatsapp \}\) : null;/);
   assert.equal(mensajesDeArranque({ nombre: 'Vale', telefono: 'codigo', telefonoNumero: '+54 9 11 5555 0101', telefonoEntrante: true }, H).antes.at(-1)?.id, 'arr-codigo', 'el id del mensaje del código');
   // En el teléfono (o una pantalla angosta), el final es «Continuar el onboarding desde la PC», como la maqueta (18/11).
   assert.match(v2, /window\.matchMedia\('\(max-width: 640px\)'\)\.matches\) setEnTelefono\(true\)/);

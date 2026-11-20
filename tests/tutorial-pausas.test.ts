@@ -85,11 +85,14 @@ test('5. el motor NUNCA pausa en el t_inicio por una marca ausente: la busca mie
 
 test('6. después de un clic, el video se queda en el silencio de la frase tocada hasta que aparece la marca siguiente', () => {
   const m = motor();
-  assert.match(m, /const destino = f && clic \? siguienteConMarca\(frases, f, hechas\.current\) : null;\n\s*if \(destino && !lugarDe\(pasoDeFrase\(destino, pasos\)\.sel\)\) \{ v\.pause\(\); retener\(/);
+  // En el SILENCIO de verdad (20/11, la verificación de motor-3/c): tocada durante su voz, la frase termina y se retiene en su t_fin.
+  assert.match(m, /const destino = f && clic \? siguienteConMarca\(frases, f, hechas\.current\) : null;\n[^\n]*\n\s*if \(destino && !lugarDe\(pasoDeFrase\(destino, pasos\)\.sel\)\) \{/);
+  assert.match(m, /const quieto = \(\) => \{ if \(lugarDe\(pasoDeFrase\(destino, pasos\)\.sel\)\) return; v\.pause\(\); retener\(\{ desde: Date\.now\(\), url: desdeUrl, navega, destino \}\); \};/);
   assert.match(m, /if \(retenida\.current\) \{ if \(!v\.paused\) v\.pause\(\); return; \}/, 'retenido, quieto');
   assert.match(m, /soltarRetencion\(r, \{ ms: ahora, url: urlAhora\(\), marca, cargando: cargandoAhora\(\), quietoMs: ahora - cambio \}\)/);
   // El clic de la persona, con adónde lleva medido ANTES de navegar.
-  assert.match(m, /const navega = navegaAlTocar\(el\), url = urlAhora\(\);\n\s*window\.setTimeout\(\(\) => \(modoVideo && !cierre \? seguirVideo\('persona', navega, url\)/);
+  // (Sin video, antes anota qué paso sigue a su clic: su `antes` no se vuelve a tocar. La verificación de OD-10.)
+  assert.match(m, /const navega = navegaAlTocar\(el\), url = urlAhora\(\);\n\s*if \(!modoVideo\) trasSuClic\.current = pasos\[i \+ 1\] \?\? null;\n\s*window\.setTimeout\(\(\) => \(modoVideo && !cierre \? seguirVideo\('persona', navega, url\)/);
 });
 
 test('7. «Siguiente» hace el clic (abre el menú, el grafo, Settings), sin contarlo como tocado por la persona', () => {
@@ -104,7 +107,8 @@ test('8. el `antes` del paso viaja con la frase, y el motor lo toca sólo si la 
   assert.match(m, /\.\.\.\(mismo\?\.antes \? \{ antes: mismo\.antes \} : \{\}\),/);
   // (20/11: con un `antes` de uno, la regla de siempre; una cadena arranca en lo que dejó abierto la frase tocada: el 11.)
   assert.match(m, /if \(paso\.antes && \(typeof paso\.antes !== 'string' \|\| !\(previa && pulsadas\.current\.has\(previa\.id\)\)\)\) tocarAntes\(paso\.antes, \(\) => vivo\.current\);/);
-  assert.match(m, /if \(paso\.antes && !modoVideo && !lugarDe\(paso\.sel\)\) tocarAntes\(paso\.antes, \(\) => vivo\);/, 'con la marca ya puesta no se toca de nuevo');
+  // (Y no justo después de que la persona lo tocó: el Second Brain alterna. La verificación de OD-10.)
+  assert.match(m, /if \(paso\.antes && !modoVideo && !lugarDe\(paso\.sel\) && !recienTocado\) tocarAntes\(paso\.antes, \(\) => vivo\);/, 'con la marca ya puesta no se toca de nuevo');
   // El recorrido: «Siguiente» en el Second Brain ya no deja el grafo sin abrir.
   assert.match(leer('lib/onboarding-v2/recorrido.ts'), /\{ sel: '\[data-recorrido="sb-grafo"\]'[^}]*antes: SECOND_BRAIN/);
 });
@@ -121,7 +125,7 @@ test('9. las tapas respetan `libre`, y `libre` viaja del reto al tutorial del d�
 
 test('10. los relojes del modo video se limpian al desmontar, y nunca un play() sin capa o con el video cerrado', () => {
   const m = motor();
-  assert.match(m, /return \(\) => \{ vivo\.current = false; window\.clearTimeout\(reloj\.current\); observador\.current\?\.disconnect\(\); retenida\.current = null; pendiente\.current = null; \};/);
+  assert.match(m, /return \(\) => \{ vivo\.current = false; window\.clearTimeout\(reloj\.current\); cancelAnimationFrame\(alFinDeLaTocada\.current\); observador\.current\?\.disconnect\(\); retenida\.current = null; pendiente\.current = null; \};/);
   assert.match(m, /if \(!vivo\.current \|\| !v \|\| !v\.isConnected \|\| v\.ended\) return;\n\s*void v\.play\(\)/);
   // Ningún play() suelto: todos pasan por `reproducir`, salvo el arranque del modo video y el del VideoChico (cada uno con su
   // reintento en silencio).
@@ -147,7 +151,7 @@ test('11. el `antes` en cadena: arranca en el último eslabón a la vista, esper
     'en el video, una cadena va aunque se haya tocado la frase anterior (arranca en lo que esa frase dejó abierto)');
   // Sin video, sólo si la marca falta: el efecto vuelve a correr al encontrarla, y tocarla otra vez cerraba el menú (medido en el
   // navegador: con la cadena, «Canal» y «Conectar» se tocaban dos veces).
-  assert.match(m, /if \(paso\.antes && !modoVideo && !lugarDe\(paso\.sel\)\) tocarAntes\(paso\.antes, \(\) => vivo\);/);
+  assert.match(m, /if \(paso\.antes && !modoVideo && !lugarDe\(paso\.sel\) && !recienTocado\) tocarAntes\(paso\.antes, \(\) => vivo\);/);
 });
 
 test('12. Chats con canales y el Dashboard con hojas: sus cadenas, con lugares que existen', () => {

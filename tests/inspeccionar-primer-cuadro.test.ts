@@ -55,7 +55,8 @@ test('la barra de inspección nace con el cliente que dijo el server', () => {
 test('el layout se lo pasa a los dos, y abre el hueco de la barra desde el HTML del server', () => {
   const l = sinComentarios(leer('app/layout.tsx'));
   assert.match(l, /const vista = sesion \? await vistaDeOtro\(\) : null;/);
-  assert.match(l, /<html lang="es" className="h-full antialiased" \{\.\.\.\(vista \? \{ 'data-barra-agencia': '1' \} : \{\}\)\}>/, 'sin el atributo, la pantalla salta 50 px cuando hidrata');
+  // (Desde el 20/11, al lado, el de la barra oculta del onboarding V2: tests/onboarding-v2-verificacion.test.ts, 7.)
+  assert.match(l, /<html lang="es" className="h-full antialiased" \{\.\.\.\(vista \? \{ 'data-barra-agencia': '1' \} : \{\}\)\}( \{\.\.\.\(barraOculta \? \{ \[ATTR_BARRA_OCULTA\]: '' \} : \{\}\)\})?>/, 'sin el atributo, la pantalla salta 50 px cuando hidrata');
   assert.match(l, /<Sidebar inicial=\{\{ nombre: sesion\?\.nombre \?\? '', rol: sesion\?\.rol \?\? '', clienteNombre: vista\?\.clienteNombre \?\? null \}\} \/>/);
   assert.match(l, /<ImpersonationBanner inicial=\{vista\} \/>/);
 });

@@ -21,12 +21,13 @@ import { destinoDeTabVieja } from './tabs-catalogo';
 import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { veOnboardingV2, esRevision } from '@/lib/onboarding-v2/revision';
-import { prefiereMovil } from '@/lib/movil-guard';
+import { esTelefono } from '@/lib/movil-guard';
 import { ChatArranque, SeguirEnPc } from './ChatArranque';
 import { ChatArranqueV2 } from './ChatArranqueV2';
 import { requireRolWs } from '@/lib/tab-access';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
-import { seguirEnPcPendiente, vistaArranque } from '@/lib/onboarding-arranque-server';
+import { vistaArranque } from '@/lib/onboarding-arranque-server';
+import { seguirEnPcPendiente } from '@/lib/seguir-en-pc';
 import { primerNombre } from '@/lib/onboarding-arranque';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import { ARBOL_VACIO } from '../offer/arbol';
@@ -64,19 +65,20 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     // `?ws=` a otro sin recargar deja montado el MISMO componente: React le pasa la vista nueva y él sigue mostrando las
     // respuestas del negocio anterior. Con la key, otro workspace es otro chat, de cero. tests/onboarding-otro-ws.test.ts.
     // El onboarding V2 en un TELÉFONO (18/11/2026): el primer paso acá y, al terminar, «Continuar el onboarding desde la PC».
-    const seguirEnPc = v2 && (await prefiereMovil().catch(() => false));
+    // Un teléfono es un teléfono aunque haya pedido la «Versión completa» (20/11, la verificación de OA-10).
+    const seguirEnPc = v2 && (await esTelefono().catch(() => false));
     const persona = sesion ? { nombre: (sesion.nombre ?? '').trim().split(/\s+/)[0] ?? '', email: sesion.email } : undefined;
     const ws = await getWorkspaceActual();
     // EL ONBOARDING V2 (19/11/2026): el de la maqueta (./ChatArranqueV2.tsx). Con la guardia puesta, la pantalla de siempre (su aviso).
     if (vista.v2 && !vista.bloqueo) {
       return <ChatArranqueV2 inicial={vista} key={`ws-${ws ?? 'ninguno'}`} seguirEnPc={seguirEnPc} persona={persona} />;
     }
-    return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} seguirEnPc={seguirEnPc} persona={persona} videos={v2 ? { revision: esRevision(v2) } : null} />;
+    return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} seguirEnPc={seguirEnPc} persona={persona} videos={v2 ? { revision: esRevision(v2, sesion?.email) } : null} />;
   }
 
   // EL TELÉFONO, ya terminado el primer paso: «Sigamos en tu computadora» cada vez que entra, hasta que vea el recorrido en la PC
   // (20/11, OA-10 y OD-12: antes era un estado de la pantalla, y al volver entraba a MaKo como siempre).
-  if ((await prefiereMovil().catch(() => false)) && (await seguirEnPcPendiente())) {
+  if ((await esTelefono().catch(() => false)) && (await seguirEnPcPendiente())) {
     const sesionPc = await getUsuarioActual().catch(() => null);
     const vistaPc = await vistaArranque().catch(() => null);
     return <SeguirEnPc nombre={primerNombre(vistaPc?.nombre || sesionPc?.nombre || '')} email={sesionPc?.email ?? ''} maqueta />;

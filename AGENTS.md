@@ -2661,6 +2661,41 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
 - **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
   desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 
+# Un chat sigue al último mensaje también cuando el mensaje CRECE (y lo que nombra el video sale cuando la voz llega ahí)
+
+Martín, 20/11/2026: «siempre se haga scroll automático hacia el último mensaje». Bajar una vez al montar el mensaje no alcanza: un video,
+una imagen o una tarjeta crecen después.
+
+- **Un chat nuevo usa `useBajarAlUltimo` (app/_chat/useBajarAlUltimo.ts)**, nunca un `scrollTop = scrollHeight` en un efecto: baja
+  con cada mensaje nuevo y con lo que crece mientras la persona está abajo, y si subió a leer, no la arrastra. Un mensaje que no sale
+  de la lista del chat (una llegada, sus puntitos) lo avisa con `avisarMensajeNuevo()`.
+- **Un mensaje que nombra algo de un video sale cuando la voz llega ahí** (app/_ui/tutorial/useMensajeDelVideo.ts, con sus tres
+  puntitos), y nunca deja a nadie esperando: sin play, con error, pausado o ya visto, sale igual.
+
+# Una pantalla que TRABA se dispara con la marca de quien entró al flujo, no con la falta de un «visto» nuevo
+
+El 20/11/2026, «Sigamos en tu computadora» (lib/seguir-en-pc.ts) salía a quien NO tuviera `tutorial-ops-center` en su perfil. Ese visto
+lo anota sólo el motor del onboarding V2, así que ningún cliente de hoy lo tiene: con el interruptor para todos, cada cliente de MaKo
+Mobile iba a quedar fuera de su teléfono. Lo encontró la segunda verificación, no un test.
+
+- **La falta de una marca NUEVA es verdad para TODOS los que ya existen.** Algo que bloquea, redirige o esconde pide una marca
+  positiva de quien entró al flujo nuevo (el caso: `perfil.onboardingV2`, la fecha de su primera respuesta), y recién ahí mira lo
+  que le falta.
+- **Un atributo de `<html>` que tiene que estar al RECARGAR sale del layout, en el server**, no de un `<script>` de la página: la
+  página llega después de su loading.tsx, y el layout ya pintó. Y lo que importa el layout raíz, del módulo chico (la regla de abajo).
+
+# Lo que importa el layout raíz no arrastra un servidor pesado (tampoco con un `import()`)
+
+El 20/11/2026 el build de producción de Vercel se quedó colgado en «Creating an optimized production build» más de 25 minutos
+(antes compilaba en 2-3). La causa: lib/movil-guard.ts, que importa `app/layout.tsx`, sumó un `await import('./onboarding-arranque-server')`
+y pasó de 53 a 1786 módulos del repo. Un `import()` dentro de una función NO saca nada del build: el bundler lo sigue igual, y
+todo eso entra al análisis de CADA ruta.
+
+- **Lo que importa el layout raíz, y lo que importan sus imports, va en módulos CHICOS.** Si una guarda necesita una lectura del
+  servidor de otra área, esa lectura va a su propio módulo con dependencias mínimas (el caso: lib/seguir-en-pc.ts).
+- **Se mide, no se adivina:** tests/seguir-en-pc-liviano.test.ts arma el grafo con esbuild (`metafile`) y falla si el guard pasa
+  de su techo o arrastra un servidor pesado. Para otro módulo del layout, el mismo patrón.
+
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 
 Si algo vive en `app/layout.tsx`, se lo come **todo el mundo**. Y si además arranca desde

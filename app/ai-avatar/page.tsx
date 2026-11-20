@@ -10,7 +10,7 @@
 // La query: `?plantilla=<preset>` abre «Nueva» con ese preset elegido; `?avatar=<proyecto o mediaId>` abre ese proyecto.
 
 import './estudio.css';
-import { candadoDeAiAvatar, requireAiAvatar } from './acceso';
+import { cartelDeAiAvatar, requireAiAvatar } from './acceso';
 import { Pagina } from '@/app/_ui';
 import { ErrorState } from '@/app/_ui/Estados';
 import { CartelSoloPro } from '@/app/_components/CartelSoloPro';
@@ -29,7 +29,8 @@ export default async function AiAvatarPage({ searchParams }: { searchParams: Pro
   await requireAiAvatar();
   // SÓLO MaKo Pro (14/11/2026, ./acceso.ts): al Essential, el cartel EN LUGAR del estudio, antes de leer nada. Nada se borra:
   // con Pro vuelve tal cual estaba. La defensa de verdad es la puerta de las actions (./actions.ts); esto es lo que se ve.
-  const pro = await candadoDeAiAvatar();
+  // `cartelDeAiAvatar` y no `candadoDeAiAvatar` (20/11/2026, R57-03): mirar no gasta el único uso que el reto le abre en la prueba.
+  const pro = await cartelDeAiAvatar();
   if (pro) return <Pagina ancho="completo" densidad="compacta"><CartelSoloPro texto={pro} /></Pagina>;
   const sp = await searchParams;
   const uno = (v: string | string[] | undefined) => (typeof v === 'string' ? v.slice(0, 120) : undefined);

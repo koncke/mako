@@ -20,7 +20,8 @@
 // EL OFFER COACH = EL MOTOR DE OFFER (19/11/2026, ./useChatDelCoach.ts → `motorOffer`): el hilo es SU conversación de Offer, con su
 // presentación y su video arriba hasta que la persona escribe, y la oferta armada en UN mensaje (./OfertaEnElChat.tsx).
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { Modal } from '@/app/_ui';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
@@ -43,7 +44,7 @@ import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ErrorDelOfferCoach, useHiloDelCoach, useOfertaEnMensaje, vozDelCoach } from './coach-compartido';
 
 
-export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVolver, cual = 'funnel', dosCoaches = false, visible = false }: {
+export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVolver, cual = 'funnel', dosCoaches = false, visible = false, alFinal }: {
   referente: IdAsesor | null;
   /** Con qué oferta abre (lib/funnel-plan.ts → `ofertaDelCoach`); null = todavía no se sabe. */
   oferta: OfertaDelCoach | null;
@@ -57,6 +58,8 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
   dosCoaches?: boolean;
   /** Está a la vista (queda montado y escondido): el paso a Funnel Coach sólo corre con el Offer Coach en pantalla. */
   visible?: boolean;
+  /** Un mensaje de MaKo al final del hilo: «Tu día 1 está completo…» del reto (20/11, D1-05; app/second-brain/reto/MensajeVueltaAlReto.tsx). */
+  alFinal?: import('react').ReactNode;
 }) {
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
@@ -82,8 +85,10 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
   // del funnel como un mensaje en su lugar y, con el motor de Offer, la oferta armada en el mensaje que trae su PDF.
   const deLaOferta = useOfertaEnMensaje(motorOffer ? k.sesionOffer : null, () => caja.current?.focus(), false);
   const { hilo: hiloCoach, enMensaje: enMensajeDelHilo } = useHiloDelCoach({ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta });
-  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);
+  // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11): con cada mensaje y cuando lo último crece (un video, una imagen o una tarjeta que
+  // cargan después); si subió a leer, lo que crece no la arrastra (app/_chat/useBajarAlUltimo.ts).
+  useBajarAlUltimo(seguirHilo, `${k.items.length}|${k.trabajo}`);
   // Quién aconseja se elige en el coach único y, con el V2, en el Offer Coach: el Funnel Coach del V2 no tiene referente al frente.
   const eligeReferente = puedeElegir && !(dosCoaches && cual === 'funnel');
 
@@ -125,6 +130,7 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
               <HiloMako items={portada.items} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null} enMensaje={dosCoaches ? conVoz(true, portada.enMensaje as never) : portada.enMensaje}
                 onTarjeta={() => {}} onReintentar={() => {}} onRecargar={k.recargar} onResponder={(t) => k.enviar(t)} />
             ) : <HiloDelCliente k={hiloCoach} enMensaje={enMensajeDelHilo} />}
+        {!mostrandoPlan && alFinal && <div className="co-hilo__col">{alFinal}</div>}
       </PanelDeChat>
       {eligiendo && <ElegirReferente titulo={titulo} elegido={referente} onCerrar={() => setEligiendo(false)} onElegir={(id) => { setEligiendo(false); onReferente(id); }} />}
       {k.conectando && (

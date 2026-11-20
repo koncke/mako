@@ -34,3 +34,12 @@ export function decidirProDelReto(e: EstadoReto | null, f: ProDelReto, o: { enPr
   if (uso) return { abre: o.ahora < Date.parse(uso.hasta), nuevo: null };
   return { abre: true, nuevo: { desde: new Date(o.ahora).toISOString(), hasta: new Date(o.ahora + VENTANA_MS).toISOString() } };
 }
+
+/**
+ * Lo que el reto le abre AHORA, sin anotar ningún uso: lo que todavía no usó (con su día abierto) y lo que está dentro de la
+ * ventana de su uso. Es para la PANTALLA (20/11, R57-03): /api/auth/me lo manda como `proDelReto` y `useSoloPro`
+ * (app/_components/solo-pro.ts) no pone el candado de Essential en esas funciones. La misma regla que el servidor.
+ */
+export function queAbreElReto(e: EstadoReto | null, o: { enPrueba: boolean; ahora: number }): ProDelReto[] {
+  return (Object.keys(PRO_DEL_RETO) as ProDelReto[]).filter((f) => decidirProDelReto(e, f, o).abre);
+}

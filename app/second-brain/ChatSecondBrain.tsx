@@ -65,7 +65,8 @@
 //    criatura, marca `sb-funnel`). Cada uno es ./ChatDelCoach.tsx con su `cual`, montado una vez y escondido. Quien no lo ve, el coach
 //    único, exactamente como antes.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { Modal, Toast, useToast } from '@/app/_ui';
@@ -88,7 +89,8 @@ import { useCoaches, useGurusConCharla } from './useCoaches';
 import { ChatDelCentro, FilaDeChat, GruposPorJefe, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, RenglonDeFila, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BienvenidaOpsCenter } from './BienvenidaOpsCenter';
-import { VideosDelChat } from '@/app/_ui/tutorial/VideosDelChat';
+import { VideosDelChat, type VideoDeUnChat } from '@/app/_ui/tutorial/VideosDelChat';
+import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { ChatNuevoCentro } from '@/app/admin/operaciones/ChatNuevo';
 import { TicketeraCentro } from '@/app/admin/operaciones/TicketeraCentro';
 import { esVistaTicketera, type VistaDeTicketera } from '@/app/tickets/decisiones/reglas';
@@ -120,6 +122,7 @@ import { PREVIA_DEL_FUNNEL_COACH_V2, previaDelCoach, previaDelOfferCoach } from 
 import { ASPECTO_FUNNEL_COACH_V2 } from './useChatDelCoach';
 import { usePasoAlFunnel } from './reto/usePasoAlFunnel';
 import { useVueltaAlReto } from './reto/useVueltaAlReto';
+import { MensajeVueltaAlReto } from './reto/MensajeVueltaAlReto';
 
 /** Cuántas filas se ven debajo del Cerebro antes de «Mostrar N más». */
 const FILAS_VISIBLES = SUBS_VISIBLES;
@@ -188,11 +191,12 @@ type Props = {
 };
 
 /** Los videos del chat «Onboarding» (20/11, V9): para volver a verlos terminado el onboarding (el ícono de videos de su cabecera). */
-const VIDEOS_DEL_ONBOARDING = [
+// El recorrido, con sus marcas (20/11, la verificación de V9): el motor lo pasa como la primera vez.
+const VIDEOS_DEL_ONBOARDING: readonly VideoDeUnChat[] = [
   { clave: 'onboarding-bienvenida', titulo: 'Bienvenida a MaKo' },
   { clave: 'onboarding-bienvenida-whatsapp', titulo: 'Tu WhatsApp con MaKo' },
-  { clave: 'recorrido', titulo: 'Tu recorrido por MaKo' },
-] as const;
+  { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', tutorial: TUTORIAL_RECORRIDO },
+];
 
 export function ChatSecondBrain(props: Props) {
   // ⚠️ UNA VUELTA DEL SERVIDOR QUE FALLA NO DESARMA EL OPS CENTER (22/10/2026, el 503 de cada deploy, medido por el Cerebro):
@@ -379,9 +383,11 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const apertura = useAperturaDelCerebro(k, { libre: conGuia });
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
   // El chat nuevo abre arriba: abajo de la portada están los gurús, y bajando se perdía lo que dice.
-  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = enChatNuevo && !k.items.length ? 0 : el.scrollHeight; }, [k.items.length, k.trabajo, k.idTurno, idOffer, enChatNuevo]);
   // El campo que crece y el scroll que lo acompaña son de la caja única (app/_chat/CajaChat.tsx): le pasa la conversación.
   const seguirHilo = useCallback(() => hilo.current, []);
+  // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11), también en el chat «Onboarding»: su llegada (BienvenidaOpsCenter) avisa cada mensaje
+  // nuevo, y lo que crece después (el video, la portada) baja mientras la persona está abajo (app/_chat/useBajarAlUltimo.ts).
+  useBajarAlUltimo(seguirHilo, `${k.items.length}|${k.trabajo}|${k.idTurno}|${idOffer}|${enChatNuevo}`, { arriba: enChatNuevo && !k.items.length });
 
   // ── Elegir en la barra ──
   /** Lo que hay en el panel (lib/ops-center-navegar.ts → panelQueSeVe). */
@@ -552,7 +558,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const seVeLaConversacion = idOffer != null && !conCoach && !enOtroChat && !verMapa && !ticketera;
   usePasoAlFunnel({ activo: dosCoaches && seVeLaConversacion, entregadaEn: entregadaOffer, ocupado: k.enCurso || k.tarjeta != null, contenedor: useCallback(() => hilo.current, []) });
   // Terminado el día 1 en Funnel Coach, «Vuelve a tu reto» sobre la fila del reto (20/11, D1-05: ./reto/useVueltaAlReto.ts).
-  useVueltaAlReto(retoV2 && dosCoaches && verFunnel && !reto);
+  const vueltaAlReto = useVueltaAlReto(retoV2 && dosCoaches && verFunnel && !reto);
   const coaches = (
     <div className="co-cuenta co-cuenta--coaches">
       {/* LOS DOS COACHES (onboarding V2): el Offer Coach con las conversaciones de oferta colgando de él, y después el Funnel Coach. */}
@@ -630,7 +636,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           {listaSB && (<>
           {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude (y el del Ops Center del super admin). Con el V2, al final. */}
           {!retoV2 && <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!verMapa && !enOtroChat && enChatNuevo} />}
-          <FilasDelGrupo g={grupos} abierto={!verMapa && !ticketera ? grupo : null} onElegir={abrirGrupo} />
+          {/* Con el V2, NADA arriba del Ops Center (20/11, la verificación de OD-08): el grupo de WhatsApp del negocio (y su esqueleto
+              mientras carga) va después de los coaches. */}
+          {!retoV2 && <FilasDelGrupo g={grupos} abierto={!verMapa && !ticketera ? grupo : null} onElegir={abrirGrupo} />}
           {k.errorLista && <p className="co-lista__vacio">{k.errorLista}</p>}
           {/* UNA lista (21/10/2026): el Cerebro arriba y todos los demás por actividad, sin plegables; desde el 22/10, agrupados por
               su origen («Offer › …», «Dashboard › …») con el MISMO agrupado del super admin (`GruposPorJefe`). */}
@@ -647,6 +655,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
                 </div>
               )}
               {retoV2 && coaches}
+              {retoV2 && <FilasDelGrupo g={grupos} abierto={!verMapa && !ticketera ? grupo : null} onElegir={abrirGrupo} />}
               <div className="co-cuenta">
                 {/* Sin títulos de sección (22/10/2026, Martín): el grupo sin chat propio lleva su fila JEFE, con su criatura. */}
                 <GruposPorJefe chats={corte} fila={fila} jefe={(g) => { const j = jefeDelGrupo(g); return j ? { ...j, aspecto: aspectoDeChat(j.clave) } : null; }} />
@@ -786,7 +795,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       })}
       {funnelAbierto && (
         <div style={{ display: verFunnel ? 'contents' : 'none' }}>
-          <ChatDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} dosCoaches={dosCoaches} visible={verFunnel} />
+          <ChatDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} alFinal={vueltaAlReto ? <MensajeVueltaAlReto /> : undefined} dosCoaches={dosCoaches} visible={verFunnel} />
         </div>
       )}
       {offerAbierto && dosCoaches && (

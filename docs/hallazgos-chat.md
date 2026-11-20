@@ -484,3 +484,21 @@ compartidas del Cerebro (`auditoria-chats-*-20-11.md`).
     - MaKo Mobile (app/m/chats, app/m/crm/[id]/chat);
     - el superadmin (app/admin/operaciones/PanelChat.tsx: ahí va el seguimiento central, porque `PanelDeChat` lo usan casi
       todas).
+## El chat no bajaba al último mensaje cuando el mensaje CRECÍA después (20/11/2026, chat «onboarding-v2», claude5)
+
+- **El síntoma (Martín, en producción):** llega un video al chat y el chat no baja. «Siempre se haga scroll automático hacia el último
+  mensaje para que el usuario sepa dónde están las cosas.»
+- **La causa:** cada chat bajaba UNA vez, al montarse el mensaje (`scrollTop = scrollHeight` con el largo de la lista en las
+  dependencias). Un video se dibuja más tarde: la portada y los metadatos llegan después y el mensaje crece con el chat ya quieto. Lo
+  mismo pasa con una imagen lenta o una tarjeta que se arma después. Ningún cambio en la lista lo avisa.
+- **Qué quedó:** app/_chat/useBajarAlUltimo.ts. Un mensaje NUEVO baja siempre. Lo que CRECE baja mientras la persona está abajo
+  (ResizeObserver sobre el hilo y sus hijos). Si subió a leer, lo que crece no la arrastra; el próximo mensaje nuevo, sí. Lo usan el
+  onboarding V2, los coaches (computadora y teléfono) y el Ops Center, también en su chat «Onboarding» (la llegada avisa cada mensaje
+  con `avisarMensajeNuevo`). El núcleo no usa React y lo prueba tests/bajar-al-ultimo.test.ts con un hilo de mentira.
+- **UN mecanismo para lo que crece (`bajarAlCrecer`), dos reglas de «abajo»:** el chat de los grupos (app/_chat/grupo/useSeguirElHilo.ts)
+  ya tenía la suya, como WhatsApp: lo nuevo de otros no la baja si está leyendo, y un botón cuenta cuántos llegaron. Usa el mismo
+  `bajarAlCrecer`, con su `estabaAbajo`. Si «un mensaje nuevo sí la baja» vale también ahí, lo decide la auditoría de todos los chats.
+- **Trampa:** el «subió a leer» se mide por el scroll que BAJA. Lo que baja el chat solo nunca la despega, y cuando el hilo se achica el
+  navegador recorta el scroll y la deja cerca del final: por eso se mira primero la distancia al final y después la dirección.
+- **Sin hacer:** ChatDelReto.tsx (lo tiene el chat del reto; el Cerebro le pasa el hook) y el resto de los chats de la app (la
+  auditoría del Cerebro). Los que todavía bajan una sola vez: `grep -rn "scrollTop = el.scrollHeight" app`.

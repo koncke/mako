@@ -12,9 +12,12 @@
 import { useState } from 'react';
 import { videoDe } from '@/lib/tutoriales/videos';
 import { useManifiesto } from './useVideoTutorial';
-import { reproducirFlotante } from './store';
+import { mostrarTutorial, reproducirFlotante } from './store';
+import type { TutorialPestana } from '@/lib/tutoriales';
 
-export type VideoDeUnChat = { clave: string; titulo: string };
+/** `tutorial`: el video es el de un tutorial con marcas (el recorrido): se ve con ellas, como la primera vez (20/11, la verificación de
+ *  V9: se veía suelto en la esquina, sin marcar nada). */
+export type VideoDeUnChat = { clave: string; titulo: string; tutorial?: TutorialPestana };
 
 /** Si el video tiene su reproductor en el chat que se ve, baja hasta él y lo arranca ahí. false si no está (o está escondido). */
 export function verEnSuMensaje(clave: string): boolean {
@@ -42,7 +45,7 @@ export function VideosDelChat({ videos }: { videos: readonly VideoDeUnChat[] }) 
         <ul className="mk-vchat__lista" role="menu">
           {hay.map((v) => (
             <li key={v.clave} role="none">
-              <button type="button" role="menuitem" onClick={() => { setAbierto(false); if (!verEnSuMensaje(v.clave)) reproducirFlotante(v.clave, v.titulo, 0); }}>▶ {v.titulo}</button>
+              <button type="button" role="menuitem" onClick={() => { setAbierto(false); if (v.tutorial) mostrarTutorial(v.tutorial, { directo: true }); else if (!verEnSuMensaje(v.clave)) reproducirFlotante(v.clave, v.titulo, 0); }}>▶ {v.titulo}</button>
             </li>
           ))}
         </ul>

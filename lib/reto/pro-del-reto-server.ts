@@ -4,7 +4,7 @@ import { cambiarSettingSi, getSetting } from '../settings';
 import { cambiarReto } from './cambiar';
 import { getWorkspaceActual, runWithWorkspace } from '../workspace';
 import { CLAVE_RETO, leerEstado } from './dias';
-import { decidirProDelReto, type ProDelReto } from './pro-del-reto';
+import { decidirProDelReto, queAbreElReto, type ProDelReto } from './pro-del-reto';
 
 /**
  * ¿El reto le abre esta función de Pro? `usar`: la acción que la usa (anota el uso la primera vez); sin él, sólo pregunta.
@@ -27,4 +27,22 @@ export async function abreElReto(f: ProDelReto, o: { ws?: number | null; usar: b
       return abre;
     });
   } catch { return false; }
+}
+
+/**
+ * Lo que el reto le abre AHORA a la pantalla, SIN anotar ningún uso (20/11, R57-03): /api/auth/me lo manda como `proDelReto`
+ * para que `useSoloPro` no ponga el candado de Essential antes de llamar al servidor. El uso lo anota la acción que usa la
+ * función (`abreElReto` con `usar: true`). Nunca tira: si algo no se puede leer, nada (queda el candado de siempre).
+ */
+export async function loQueAbreElReto(ws?: number | null): Promise<ProDelReto[]> {
+  try {
+    const w = ws === undefined ? await getWorkspaceActual() : ws;
+    if (w == null) return [];
+    return await runWithWorkspace(w, async () => {
+      const e = leerEstado(await getSetting(CLAVE_RETO));
+      if (!e) return [];
+      const { estadoDePrueba } = await import('../prueba-uso');
+      return queAbreElReto(e, { enPrueba: (await estadoDePrueba(w)).enPrueba, ahora: Date.now() });
+    });
+  } catch { return []; }
 }

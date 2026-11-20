@@ -39,8 +39,9 @@ test('1. OA-06: de lo pegado, el grupo de 6 números; «Confirmar» siempre acti
   assert.match(t, /onChange=\{\(e\) => setCodigo\(codigoDeLoEscrito\(e\.target\.value\)\)\}/);
   assert.match(t, /<Button variant="primary" size="sm" disabled=\{ocupado\} loading=\{ocupado\} onClick=\{confirmar\}>Confirmar<\/Button>/, 'sin apagarse por el largo');
   const ruta = leer('app/api/onboarding/arranque/route.ts');
-  assert.match(ruta, /const grupoDe6 = texto \? \/\(\?<!\\d\)\\d\{6\}\(\?!\\d\)\/\.exec\(texto\)\?\.\[0\] : undefined;/);
-  assert.match(ruta, /\(grupoDe6 \|\| \(digitosCodigo\.length > 0 && digitosCodigo\.length < 6\)\)/, 'un teléfono (más de 6 sin un grupo de 6) no entra');
+  // La caja, con `codigoEnLaCaja` desde la verificación (20/11): «482 913» como lo manda MaKo; un teléfono no entra; vacía, sí
+  // (wa-12). tests/onboarding-v2-verificacion.test.ts, 1.
+  assert.match(ruta, /codigoEnLaCaja\(texto\)/);
 });
 
 test('2. OA-07: con los 6 números, el código se confirma solo a los 0,9 s, una vez por código', () => {
@@ -78,7 +79,8 @@ test('5. OA-14, OA-18 y OA-F2: «Escribe otra cosa» en el contacto, la pregunta
   assert.equal(origen.recuadro?.pregunta, '¿Cómo llegaste a MaKo?', 'OA-18: el recuadro sin el nombre');
   assert.match(origen.texto, /Valentina/, 'el mensaje sí lo nombra');
   const t = v2();
-  assert.match(t, /<p className="co-preg__texto">\{q\.pregunta \?\? m\.texto\}<\/p>/);
+  assert.match(t, /const pregunta = q\.pregunta \?\? m\.texto;/);
+  assert.match(t, /<p className="co-preg__texto">\{pregunta\}<\/p>/);
   assert.match(t, /const enAgendadoNo = etapa === 'agendado' && mensajes\.some\(\(m\) => m\.id === 'arr-agendado-no'\);/);
   assert.match(t, /: enAgendadoNo \? 'Ya lo guardé' : PH\[etapa\]/, 'OA-F2');
 });
@@ -88,13 +90,14 @@ test('6. OA-F1: el WhatsApp de la burbuja, con la lada y en grupos (nunca pegado
   assert.equal(telefonoVisible('5491155550101'), '+54 911 5555 0101');
   const r = mensajesDeArranque({ ...VERIFICADO }, H).antes.find((m) => m.id === 'arr-telefono-r');
   assert.equal(r?.texto, '+54 911 5555 0101', 'la respuesta guardada');
-  assert.match(v2(), /onSeguir=\{\(tel, visible\) => void accion\(\{ action: 'telefono', telefono: tel \}, visible\)\}/, 'la que espera, como la escribió');
+  assert.match(v2(), /onSeguir=\{\(tel, visible\) => void accion\(\{ action: 'telefono', telefono: tel, visible \}, visible\)\}/, 'la que espera, como la escribió (y se guarda así: verificación de OA-F1)');
 });
 
 test('7. OA-11 / OD-F3: «Sigamos en tu computadora» con la estrellita, el correo y el nombre del chat', () => {
   const s = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
   assert.match(s, /\{maqueta && <span aria-hidden="true" data-seguir-criatura=""><CriaturaMako size=\{64\} reaccion="contenta" \/><\/span>\}/);
-  assert.match(s, /\{maqueta && email && <p data-seguir-correo=""[^>]*>Te mandamos el link a <b[^>]*>\{email\}<\/b>\.<\/p>\}/);
+  // Con su sobre, y «tu correo» sin email (20/11, la verificación de OA-11): tests/onboarding-v2-verificacion.test.ts, 5.
+  assert.match(s, /Te mandamos el link a <b[^>]*>\{email \|\| 'tu correo'\}<\/b>\./);
   assert.match(v2(), /<SeguirEnPc nombre=\{primerNombre\(vista\.nombre \|\| persona\?\.nombre \|\| ''\)\} email=\{persona\?\.email \?\? ''\} maqueta \/>/);
 });
 
@@ -138,18 +141,20 @@ test('11. OD-03: «Tu panel» abre la barra ENTERA mientras dura el paso, y al p
 });
 
 test('12. OA-10 / OD-12: en el teléfono, «Sigamos en tu computadora» se queda hasta ver el recorrido en la PC', () => {
-  const srv = leer('lib/onboarding-arranque-server.ts');
-  const f = srv.slice(srv.indexOf('export async function seguirEnPcPendiente'), srv.indexOf('export async function hiloOnboardingGuardado'));
+  // En el módulo chico desde el 20/11 (el guard lo importa el layout raíz: tests/seguir-en-pc-liviano.test.ts).
+  const srv = leer('lib/seguir-en-pc.ts');
+  const f = srv.slice(srv.indexOf('export async function seguirEnPcPendiente'));
   assert.match(f, /if \(!veOnboardingV2\(/, 'sólo con el V2');
   assert.match(f, /if \(await estaImpersonando\(\)\.catch\(\(\) => true\)\) return false;/, 'mirando a un cliente, nunca');
-  assert.match(f, /return !Object\.prototype\.hasOwnProperty\.call\(vistosDePerfil\([^)]*\)\?\.perfil\), ID_RECORRIDO_PC\);/);
+  // Y sólo a quien EMPEZÓ el V2 (la segunda verificación, 20/11, tarde: tests/onboarding-v2-verificacion.test.ts, 6b).
+  assert.match(f, /if \(!empezoElV2\(perfil\)\) return false;\n\s*return !Object\.prototype\.hasOwnProperty\.call\(vistosDePerfil\(perfil\), ID_RECORRIDO_PC\);/);
   assert.match(srv, /const ID_RECORRIDO_PC = 'tutorial-ops-center';/, 'el id con que lo anota el motor');
   assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /const id = `tutorial-\$\{t\.pestana\}`;/, 'el motor anota `tutorial-<pestaña>`');
   const onb = sinComentarios(leer('app/onboarding/page.tsx'));
-  assert.match(onb, /if \(\(await prefiereMovil\(\)\.catch\(\(\) => false\)\) && \(await seguirEnPcPendiente\(\)\)\) \{[\s\S]{0,300}return <SeguirEnPc [^>]*maqueta \/>;/);
+  assert.match(onb, /if \(\(await esTelefono\(\)\.catch\(\(\) => false\)\) && \(await seguirEnPcPendiente\(\)\)\) \{[\s\S]{0,300}return <SeguirEnPc [^>]*maqueta \/>;/);
   assert.ok(onb.indexOf('seguirEnPcPendiente()') < onb.indexOf('redirect(await rutaConWs(destinoDeTabVieja(tab)))'), 'antes de mandarlo a la app');
   const ini = sinComentarios(leer('app/inicio/page.tsx'));
-  assert.match(ini, /if \(telefono && \(await seguirEnPcPendiente\(\)\)\) redirect\(await rutaConWs\('\/onboarding'\)\);\n\s*if \(telefono\) redirect\(await rutaConWs\(ENTRADA_MOVIL\)\);/);
+  assert.match(ini, /if \(MOBILE_AL_ENTRAR && !!sesion && \(await esTelefono\(\)\) && \(await seguirEnPcPendiente\(\)\)\) redirect\(await rutaConWs\(RUTA_SEGUIR_EN_PC\)\);\n\s*if \(telefono\) redirect\(await rutaConWs\(ENTRADA_MOVIL\)\);/);
 });
 
 test('13. OA-12: el sol y la luna también en la entrada («Hola, soy MaKo»), y su clic no la empieza', () => {
@@ -177,7 +182,8 @@ test('15. F2: el video que pasó a la esquina vuelve al chat cuando su mensaje s
   assert.equal(volverAlChat('onboarding-bienvenida'), null, 'ya no flota');
   const h = sinComentarios(leer('app/_ui/tutorial/useVideoQueFlota.ts'));
   assert.match(h, /if \(!e\.isIntersecting\) \{ flotar\(\); continue; \}\n\s*const t = volverAlChat\(clave\);/);
-  assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /onTimeUpdate=\{\(e\) => anotarTiempoFlotante\(e\.currentTarget\.currentTime\)\}/);
+  // El de la esquina es el reproductor de la maqueta desde la verificación de F2 (app/_ui/tutorial/VideoEnLaEsquina.tsx): anota igual.
+  assert.match(sinComentarios(leer('app/_ui/tutorial/VideoEnLaEsquina.tsx')), /anotarTiempoFlotante\(e\.currentTarget\.currentTime\);/);
   assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /\{flotando && <span className="mk-vmom__esquina" role="status">Se está viendo en la esquina ↘<\/span>\}/);
 });
 

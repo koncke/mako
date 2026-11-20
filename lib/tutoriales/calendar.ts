@@ -19,7 +19,7 @@ export const TUTORIAL_CALENDAR: TutorialPestana = {
       sel: 'a[href="/calendario?vista=llamadas"]',
       titulo: 'Llamadas',
       texto: 'Todas tus llamadas de venta en una lista, una debajo de otra.',
-      sub: 'Toca aquí, en Llamadas, y las ves todas juntas, sin nada alrededor.',
+      sub: 'Mira aquí, en Llamadas: las ves todas juntas, sin nada alrededor.',
       lado: 'abajo',
     },
     {
@@ -30,6 +30,9 @@ export const TUTORIAL_CALENDAR: TutorialPestana = {
       lado: 'abajo',
       haz: 'Haz clic en el + de Ventas',
       clic: true,
+      // Si tocaron Llamadas (la frase de arriba es una «Mira aquí», pero se puede tocar), el «+» no está en esa lista: el motor vuelve
+      // a la semana (20/11, la verificación de calendar-5). Sin tocar nada, el «+» está y esto no corre.
+      antes: 'a[href^="/calendario?vista=semana"]',
     },
   ],
 };

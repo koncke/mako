@@ -27,8 +27,11 @@ import { useEffect, useState } from 'react';
  * /api/auth/me, que sólo viene para él: lib/vista-de-otro.ts).
  */
 type SuperAdminMira = { agenciaWs: number; clienteWs: number };
-/** `planEsencial`: el negocio paga MaKo Essential por la pasarela (lib/plan-esencial.ts, el mismo dato que lee el Sidebar). */
-type QuienMira = { clienteDeAgencia: boolean; agenciaAdentroDe: number | null; superAdminMira: SuperAdminMira | null; planEsencial: boolean };
+/**
+ * `planEsencial`: el negocio paga MaKo Essential por la pasarela (lib/plan-esencial.ts, el mismo dato que lee el Sidebar).
+ * `proDelReto`: las funciones de Pro que el reto le abre AHORA en su prueba (20/11/2026, R57-03, lib/reto/pro-del-reto.ts).
+ */
+type QuienMira = { clienteDeAgencia: boolean; agenciaAdentroDe: number | null; superAdminMira: SuperAdminMira | null; planEsencial: boolean; proDelReto: readonly string[] };
 let promesa: Promise<QuienMira | null> | null = null;
 
 function leerQuienMira(): Promise<QuienMira | null> {
@@ -37,6 +40,7 @@ function leerQuienMira(): Promise<QuienMira | null> {
     .then((j) => (j?.ok && j.autenticado
       ? {
         planEsencial: j.planEsencial === true,
+        proDelReto: Array.isArray(j.proDelReto) ? j.proDelReto.filter((f: unknown): f is string => typeof f === 'string') : [],
         clienteDeAgencia: j.clienteDeAgencia === true,
         agenciaAdentroDe: j.modoAgencia === true && Number(j.clienteWs) > 0 ? Number(j.clienteWs) : null,
         superAdminMira: j.rol === 'admin' && Number(j.agencia?.ws) > 0 && Number(j.clienteWs) > 0
@@ -111,5 +115,30 @@ export function usePlanEsencial(): boolean | null {
     void leerPlanEsencial().then((v) => { if (vivo) setEs(v); });
     return () => { vivo = false; };
   }, []);
+  return es;
+}
+
+/**
+ * ¿El candado de Essential cubre la función `f` para quien mira? (20/11/2026, R57-03) Es `planEsencial`, SALVO que el reto se
+ * la abra ahora en su prueba (`proDelReto`: la primera vez, o dentro de la ventana de ese uso; lib/reto/pro-del-reto.ts). Sin
+ * esto la pantalla cortaba lo que el servidor sí dejaba pasar. Después del uso, el servidor contesta el 403 y `marcarSoloPro`
+ * (./solo-pro.ts) vuelve a poner el candado; al recargar, /api/auth/me ya no la manda. Un fallo es `false`, como arriba.
+ */
+export const candadoEsencial = (q: Pick<QuienMira, 'planEsencial' | 'proDelReto'> | null, f: string): boolean =>
+  q?.planEsencial === true && !q.proDelReto.includes(f);
+
+/** La misma lectura de /api/auth/me, para la función `f` (lo que usa `esSoloPro`). */
+export function leerCandadoEsencial(f: string): Promise<boolean> {
+  return leerQuienMira().then((q) => candadoEsencial(q, f));
+}
+
+/** `candadoEsencial` como hook (lo que usa `useSoloPro`): `null` mientras no se sabe, después `true` o `false`. */
+export function useCandadoEsencial(f: string): boolean | null {
+  const [es, setEs] = useState<boolean | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void leerCandadoEsencial(f).then((v) => { if (vivo) setEs(v); });
+    return () => { vivo = false; };
+  }, [f]);
   return es;
 }

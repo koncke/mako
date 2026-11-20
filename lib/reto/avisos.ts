@@ -17,7 +17,7 @@
 // OTRA clave (`reto.avisos`), no en `reto.estado`: el cron escribía el estado entero que había leído, y una tarea marcada en el medio
 // se perdía.
 // =============================================================================
-import { DIAS_RETO, desfaseHoras, diaAbierto, proximaTarea, type EstadoReto } from './dias';
+import { DIAS_RETO, claveTarea, desfaseHoras, diaAbierto, proximaTarea, type EstadoReto } from './dias';
 
 /** Lo que ya salió, por negocio (`app_settings` → `reto.avisos`). */
 export type AvisosReto = {
@@ -30,6 +30,13 @@ export type AvisosReto = {
   abandono?: string;
   /** Cuándo contestó BAJA: desde ahí, ningún WhatsApp del reto. */
   baja?: string;
+  /** Cuándo se reclamó su audio del día 7 para pasárselo a Martín (uno solo: con dos líneas de la misma cuenta llega dos veces). */
+  cierre?: string;
+  /** El día (de su zona) en que salió «MaKo atendió a N clientes por ti»: una sola vez, como la maqueta (`vioRespuestas`). */
+  atendio?: number;
+  /** El id del último mensaje de una prueba (días 3, 4 y 5) que se está contestando: con dos líneas de la misma cuenta llega dos
+   *  veces, y la IA corre una sola (lib/reto/respuestas.ts, `reclamarElMensaje`). */
+  probando?: string;
 };
 
 export const CLAVE_AVISOS = 'reto.avisos';
@@ -64,8 +71,8 @@ export function leerAvisos(crudo: unknown, e: EstadoReto | null): AvisosReto {
   const o = (x && typeof x === 'object' ? x : {}) as Partial<AvisosReto>;
   const dia = Number.isInteger(o.dia) ? Math.max(1, Math.min(7, Number(o.dia))) : Math.max(1, Math.min(7, e?.avisado ?? 1));
   const fecha = (s: unknown) => (typeof s === 'string' && !Number.isNaN(Date.parse(s)) ? s : undefined);
-  const abandono = fecha(o.abandono), baja = fecha(o.baja);
-  return { v: 1, dia, ...(Number.isInteger(o.noche) ? { noche: Number(o.noche) } : {}), ...(abandono ? { abandono } : {}), ...(baja ? { baja } : {}) };
+  const abandono = fecha(o.abandono), baja = fecha(o.baja), cierre = fecha(o.cierre);
+  return { v: 1, dia, ...(Number.isInteger(o.noche) ? { noche: Number(o.noche) } : {}), ...(abandono ? { abandono } : {}), ...(baja ? { baja } : {}), ...(cierre ? { cierre } : {}), ...(Number.isInteger(o.atendio) ? { atendio: Number(o.atendio) } : {}), ...(typeof o.probando === 'string' && o.probando ? { probando: o.probando.slice(0, 120) } : {}) };
 }
 
 export type PlanDeAvisos = {
@@ -75,6 +82,8 @@ export type PlanDeAvisos = {
   noche?: { dia: number; tarea: string };
   /** El WhatsApp de Martín: el día en que quedó. */
   abandono?: { dia: number };
+  /** Con la noche: «MaKo atendió a N clientes por ti» (`conAtendidos`). */
+  atendidos?: number;
   /** Lo que se guarda (antes de mandar: así dos vueltas a la vez no mandan dos veces). */
   avisos: AvisosReto;
 };
@@ -122,6 +131,51 @@ export function queMandar(p: { e: EstadoReto; a: AvisosReto; ahora: number; ulti
   return plan;
 }
 
+// ── La noche, con lo que de verdad pasó (20/11/2026, d24-04) ─────────────────────────────────────────────────────────
+// Lo hecho de `reto.estado` se pone al día recién cuando abre el chat del reto (app/api/reto, `leerTareasHechas`): sin releer, la
+// noche (y Martín) le decían «Te falta…» de algo que ya había hecho. La vuelta relee con las señales (lib/reto/senales.ts) antes de
+// decirlo, y lo leído entra como hecho sólo para decidir: `reto.estado` lo escribe el chat del reto, no el cron.
+// Y la maqueta (`nuevoDia`): con la automatización ya hecha, la noche suma UNA vez «MaKo atendió a N clientes por ti», con el número
+// real de hoy (los chats que atendió solo; lib/reto/avisos-salida.ts los cuenta). Con 0, nada: otra noche.
+
+/** Lo leído por las señales del reto, como hecho (con la hora de ahora). Lo ya guardado no se toca. Sin nada nuevo, el mismo estado. */
+export function conLoLeido(e: EstadoReto, leidas: Record<string, string>, ahora: number): EstadoReto {
+  const nuevas = Object.keys(leidas).filter((k) => !e.hechas[k]);
+  if (!nuevas.length) return e;
+  const en = new Date(ahora).toISOString();
+  return { ...e, hechas: { ...e.hechas, ...Object.fromEntries(nuevas.map((k) => [k, en])) } };
+}
+
+/**
+ * Para decidir la noche y el WhatsApp de Martín: lo leído como hecho, y lo que NO SE PUDO LEER, fuera (ni hecho ni falta: «no lo
+ * sé» no es «falta»). Así «Te falta…» nombra sólo lo que falta de verdad, y si todo lo que queda es ilegible, no sale. Con
+ * `lectura` null (no se pudo leer nada), todo lo pendiente de los días abiertos queda fuera. Sólo para decidir: no se guarda.
+ */
+export function paraDecidir(e: EstadoReto, lectura: { hechas: Record<string, string>; noSeLeen: readonly string[] } | null, ahora: number): EstadoReto {
+  const fuera = lectura
+    ? lectura.noSeLeen
+    : DIAS_RETO.filter((d) => d.n <= diaAbierto(e, ahora)).flatMap((d) => d.tareas.map((t) => claveTarea(d.n, t.id)));
+  return conLoLeido(e, { ...Object.fromEntries(fuera.map((k) => [k, 'no se pudo leer'])), ...(lectura?.hechas ?? {}) }, ahora);
+}
+
+/** Las 0:00 de hoy en SU zona (ms): desde ahí se cuentan los clientes que atendió MaKo. */
+export const inicioDelDia = (ms: number, zona?: string): number => ms - Math.round(horaEnSuZona(ms, zona) * HORA_MS);
+
+/** ¿Hace falta contar los atendidos? Con la noche, la automatización hecha y nunca dicho antes. */
+export const quiereAtendidos = (e: EstadoReto, a: AvisosReto, plan: PlanDeAvisos): boolean =>
+  !!plan.noche && !!e.hechas[claveTarea(3, 'automatizacion')] && a.atendio == null;
+
+/** El plan con los atendidos de hoy, si atendió a alguien (null: no se pudo contar; 0: nadie todavía). Se guarda el día: una vez. */
+export function conAtendidos(plan: PlanDeAvisos, n: number | null): PlanDeAvisos {
+  if (!plan.noche || plan.avisos.noche == null || n == null || n < 1) return plan;
+  return { ...plan, atendidos: n, avisos: { ...plan.avisos, atendio: plan.avisos.noche } };
+}
+
+/** El aviso de los atendidos (la maqueta). */
+export function avisoDeAtendidos(n: number): { titulo: string; texto: string } {
+  return { titulo: `MaKo atendió a ${n} ${n === 1 ? 'cliente' : 'clientes'} por ti`, texto: 'Míralo en Chats, en «Atiende MaKo».' };
+}
+
 /** ¿Cambió algo para guardar? */
 export const hayQueGuardar = (antes: AvisosReto, despues: AvisosReto): boolean => JSON.stringify(antes) !== JSON.stringify(despues);
 
@@ -162,6 +216,27 @@ export function whatsappDeAbandono(nombre: string | null | undefined, dia: numbe
 export const esBaja = (texto: string): boolean => /^\s*baja[\s.!]*$/i.test(texto);
 
 export const RESPUESTA_BAJA = 'Listo: no te escribo más sobre el reto. Tu reto sigue en MaKo para cuando quieras.';
+
+// ── El día 7: su audio, a Martín (20/11/2026, d24-16 y R57-10) ─────────────────────────────────────────────────────────
+// La prueba del día 7 (lib/reto/dias.ts): «Cuéntale a MaKo cómo te fue con el reto: mándale un audio por WhatsApp. Lo escucha
+// Martín.» Y la maqueta (`d7`): MaKo contesta «¡Gracias! Ya se lo pasé a Martín.». No necesita al bot: lo contesta el código
+// (lib/reto/respuestas.ts), como la hora y BAJA.
+
+/** Lo que MaKo le contesta cuando su audio ya le llegó a Martín. */
+export const GRACIAS_DIA_7 = '¡Gracias! Ya se lo pasé a Martín.';
+/** Lo que dice la tarjeta del día 7 en el chat del reto («✓ Hecho: …», `pruebaRespondida`, lib/reto/pruebas.ts). */
+export const LEIDO_DIA_7 = 'Le pasé tu audio a Martín.';
+
+/** ¿Es el audio del día 7? Un audio, con el día 7 abierto, la prueba sin responder y ninguno reclamado antes. */
+export function esElAudioDelCierre(p: { e: EstadoReto; a: AvisosReto; ahora: number; esAudio: boolean }): boolean {
+  return p.esAudio && diaAbierto(p.e, p.ahora) >= 7 && !p.e.pruebas?.['7'] && !p.a.cierre;
+}
+
+/** Lo que le llega a Martín, al grupo de SuperAdmin, con el audio adjunto. Sin el audio (no se pudo bajar), dónde escucharlo. */
+export function audioParaMartin(nombre: string | null | undefined, ws: number, conAudio: boolean): string {
+  const n = (nombre ?? '').trim() || 'Alguien';
+  return `Día 7 del reto: ${n} (ws ${ws}) te cuenta cómo le fue.${conAudio ? '' : ' No pude bajar su audio: escúchalo en su chat con MaKo.'}`;
+}
 
 /**
  * LA HORA DEL DÍA 2, DE SU MENSAJE (D1-12): «Hola MaKo, prefiero que me escribas a las {hora} sobre el reto.» Vale también si lo

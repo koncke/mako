@@ -2448,3 +2448,17 @@ en `desconocido`: no paga dos veces, pero queda trabado.
 
 **Hecho de lo que estaba SIN HACER (arriba, 17/11):** `cuerpoDePedido` ya manda, para el Omni, `resolution: '720p'`,
 `aspect_ratio: '9:16'` y la duración entre 3 y 15 s. `generarVideo` tiene su primer llamador: app/ai-avatar/regalo/clip.ts.
+
+## Los tutoriales: un texto que no entra se parte, no se achica; y subir uno solo sin arrastrar los de otros (20/11/2026, «reto-tutoriales», claude5)
+
+- **El síntoma:** en reto-dia-1, «y después tu sistema para conseguir clientes con Funnel Coach.» salía con la letra bastante más
+  chica que las otras escenas (lo vio el Cerebro en la hoja).
+- **La causa:** `trozos` (scripts/tutorial-animado/hacer.mjs) corta por PALABRAS (hasta 10), y esas 10 palabras tienen 62 letras.
+  Al lado del personaje entran 3 renglones de unas 17 letras con la letra de 112 px, en el 52 % del ancho (engine3.js, `ajustar`).
+  Lo que no entraba, `ajustar` lo achicaba en silencio hasta 72 px.
+- **La regla que queda:** después de decidir el modo de cada escena, una escena «lado» que no entra en 3 renglones (medida a media
+  letra por carácter) se parte en dos, en el corte más natural donde las dos mitades entran: antes de «y», «para», «con»… o después
+  de una coma. Las escenas grandes no cambian. El render lo dice: «partida (no entraba con la letra de siempre): «…» | «…»».
+- **La trampa al subir uno solo:** `subir.mjs` copia al repo el manifiesto ENTERO y el guiones.json ENTERO de la carpeta local. Si
+  otro chat dejó en esa carpeta un video renderizado y todavía sin subir, su línea del manifiesto (los tiempos nuevos) sale con el
+  mp4 viejo. Para un solo video, se copia su mp4, su póster y SU entrada del manifiesto y del guion, nada más.
