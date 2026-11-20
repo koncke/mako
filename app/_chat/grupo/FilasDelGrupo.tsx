@@ -13,7 +13,7 @@ import { Skeleton } from '@/app/_ui/Feedback';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { FilaDeChat } from '@/app/admin/operaciones/PiezasCentro';
 import { AlfilerWA } from '@/app/admin/operaciones/MensajeWA';
-import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { ASPECTO_GRUPO } from '@/lib/centro-munecos';
 import { edadDelGrupo, filasVisibles, noLeidosEnFila, previaDelGrupo } from './pantalla';
 import type { GruposDeLaLista } from './useGrupos';
 import './grupo.css';
@@ -30,7 +30,7 @@ export function FilasDelGrupo({ g, abierto, onElegir }: {
     return g.cargando ? (
       <div className="co-cuenta co-cuenta--grupo" aria-hidden>
         <div className="gr-esqueleto">
-          <Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo="dormido" size={38} />
+          <Muneco titulo="MaKo" aspecto={ASPECTO_GRUPO} animo="dormido" size={38} />
           <span className="gr-esqueleto__texto"><Skeleton w="60%" h={12} /><Skeleton w="85%" h={10} /></span>
         </div>
       </div>
@@ -43,7 +43,7 @@ export function FilasDelGrupo({ g, abierto, onElegir }: {
       {visibles.map((f) => {
         const n = noLeidosEnFila(f.noLeidos);
         return (
-          <FilaDeChat key={f.ws} titulo={f.titulo} criatura="MaKo" aspecto={ASPECTO_MAKO} animo="despierto" actual={abierto === f.ws} hace={edadDelGrupo(f, g.ahora)}
+          <FilaDeChat key={f.ws} titulo={f.titulo} criatura="MaKo" aspecto={ASPECTO_GRUPO} animo="despierto" actual={abierto === f.ws} hace={edadDelGrupo(f, g.ahora)}
             chip={<span className="gr-alfiler" title="Fijado" aria-label="Fijado"><AlfilerWA size={12} /></span>}
             previa={<span className="co-fila__l2"><span className={`gr-previa${n ? ' gr-previa--sinleer' : ''}`}>{previaDelGrupo(f)}</span>{n && <span className="gr-sinleer" aria-label={`${n} sin leer`}>{n}</span>}</span>}
             onElegir={() => onElegir(f.ws)} />

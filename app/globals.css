@@ -187,6 +187,11 @@
   --mako-bg: #FDF4DE;
   --mako-border: #EFDCA9;
 
+  /* El avatar del grupo «MaKo <> negocio» (AvatarDelGrupo, app/admin/operaciones/Muneco.tsx, 20/11/2026): el de un grupo de
+     WhatsApp sin foto, siluetas blancas en un círculo gris claro. En oscuro, el gris baja (abajo, en [data-tema="oscuro"]). */
+  --avatar-grupo-fondo: #DFE5E7;
+  --avatar-grupo-figura: #FFFFFF;
+
   /* Alias heredados del dorado. `--accent` se usaba para TEXTO e íconos
      dorados y `--accent-soft` para RELLENOS: conservan ese rol, apuntando al
      único dorado. No agregues usos nuevos — usá --mako / --mako-ink. */
@@ -340,6 +345,9 @@
 [data-tema="oscuro"] {
   /* En oscuro el velo ACLARA: uno negro sobre una superficie oscura no se ve. */
   --velo-hover: rgba(255, 255, 255, .07);
+  /* El avatar del grupo: un gris pizarra que se ve sobre el fondo oscuro, con las siluetas casi blancas. */
+  --avatar-grupo-fondo: #4B5A62;
+  --avatar-grupo-figura: #E9EDEF;
   --bg: #0b0b0b;
   --surface: #161616;
   --surface-2: #262626;

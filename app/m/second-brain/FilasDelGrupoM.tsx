@@ -10,17 +10,18 @@ import { useState } from 'react';
 import { FilaM } from '@/app/m/_ui';
 import { Skeleton } from '@/app/_ui/Feedback';
 import { AlfilerWA } from '@/app/admin/operaciones/MensajeWA';
-import { Icon } from '@/app/_components/icons';
+import { AvatarDelGrupo } from '@/app/admin/operaciones/Muneco';
 import { edadDelGrupo, filasVisibles, noLeidosEnFila, previaDelGrupo } from '@/app/_chat/grupo/pantalla';
 import type { GruposDeLaLista } from '@/app/_chat/grupo/useGrupos';
 import '@/app/_chat/grupo/grupo.css';
 
 /**
  * La foto del grupo: el ícono de personas en un círculo, como un grupo de WhatsApp sin foto (13/11/2026, el prototipo aprobado). Antes era la estrella de
- * MaKo, y con el chat de MaKo debajo la lista mostraba dos estrellas iguales.
+ * MaKo, y con el chat de MaKo debajo la lista mostraba dos estrellas iguales. Desde el 20/11/2026 es el MISMO avatar de la computadora (`AvatarDelGrupo`,
+ * Muneco.tsx: el círculo gris claro con tres siluetas blancas): antes era el ícono de personas en verde.
  */
 export function FotoDelGrupo({ size = 48 }: { size?: number }) {
-  return <span className="gr-foto" style={{ width: size, height: size }} aria-hidden><Icon name="users" size={Math.round(size * 0.5)} /></span>;
+  return <AvatarDelGrupo size={size} />;
 }
 
 export function FilasDelGrupoM({ g, abierto, onAbrir }: { g: GruposDeLaLista; abierto: number | null; onAbrir: (ws: number) => void }) {
