@@ -344,7 +344,10 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
   const pasos2 = dia.n === 2 && hoy;
   const paso2 = pasos2 ? ['app', 'extension', 'integraciones'].findIndex((id) => !tareaHecha(e, 2, id) && !tareaDespues(e, 2, id)) : -1;
   const llega2 = (i: number) => !pasos2 || paso2 === -1 || i <= paso2;
-  const enLaTarjeta = pasos2 ? primeras.filter((t) => t.id === 'app') : primeras;
+  // Los días 3 y 4 de HOY también van de a una tarea (d24-08): las hechas o dejadas para después, y la que sigue.
+  const deAUna = hoy && (dia.n === 3 || dia.n === 4);
+  const iSigue = primeras.findIndex((t) => !tareaHecha(e, dia.n, t.id) && !tareaDespues(e, dia.n, t.id));
+  const enLaTarjeta = pasos2 ? primeras.filter((t) => t.id === 'app') : deAUna && iSigue >= 0 ? primeras.slice(0, iSigue + 1) : primeras;
   const tarea2 = (id: string) => dia.tareas.find((t) => t.id === id);
   // `n`: el día de la tarea (una de un día anterior va en la tarjeta de hoy con «Del día N», d24-21).
   const fila = (t: TareaReto, n: number = dia.n) => {

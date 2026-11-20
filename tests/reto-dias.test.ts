@@ -556,10 +556,11 @@ test('d24-08 (20/11): el día 2 de hoy va en pasos, de a uno y con su mensaje; u
   const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   assert.ok(chat.includes("const paso2 = pasos2 ? ['app', 'extension', 'integraciones'].findIndex((id) => !tareaHecha(e, 2, id) && !tareaDespues(e, 2, id)) : -1;"), 'el paso: el primero sin hacer ni dejar para después');
   assert.ok(chat.includes('const pasos2 = dia.n === 2 && hoy;'), 'sólo el día 2 de HOY');
-  assert.ok(chat.includes("const enLaTarjeta = pasos2 ? primeras.filter((t) => t.id === 'app') : primeras;"), 'la tarjeta del día empieza sólo con la app');
+  assert.ok(chat.includes("const enLaTarjeta = pasos2 ? primeras.filter((t) => t.id === 'app') :"), 'la tarjeta del día empieza sólo con la app');
   assert.ok(chat.includes('{pasos2 && llega2(1) && tarea2(\'extension\') && ('), 'la extensión, en su paso');
   assert.ok(chat.includes('<Burbuja><p>{RETO_D2_EXT}</p></Burbuja>'), 'con su mensaje');
   assert.ok(chat.includes('{ultimo && llega2(3) && ('), 'el perfil, recién con los tres primeros listos');
+  assert.ok(chat.includes('const deAUna = hoy && (dia.n === 3 || dia.n === 4);') && chat.includes(': deAUna && iSigue >= 0 ? primeras.slice(0, iSigue + 1) : primeras;'), 'los días 3 y 4 de hoy, de a una tarea');
 });
 
 test('R57-19 y R57-20 (20/11): el reto empieza con la prueba, y cada día se abre a su hora en SU zona', async () => {
