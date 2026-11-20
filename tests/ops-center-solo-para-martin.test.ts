@@ -105,10 +105,14 @@ test('2. lo YA guardado tampoco se dibuja, ni es lo último de la fila', () => {
 });
 
 test('3. la computadora y el teléfono dibujan por la misma regla', () => {
-  // Los dos montan Hilo, y Hilo dibuja lo que deja `lineasDeConversacion`.
+  // Los dos montan Hilo, y Hilo dibuja lo que deja `lineasDeConversacion`. Desde el 20/11 (admin-5, los turnos de a uno) le pasan
+  // `vista.lineas`: las mismas `lineas` del chat, con la cola de salida reteniendo lo que todavía no salió (`useTurnosDeAUno`).
   assert.match(sinComentarios(leer('app/admin/operaciones/Hilo.tsx')), /const lineas = sinOcultos\(lineasDeConversacion\(todas\), marcas\);/);
-  assert.match(sinComentarios(leer('app/admin/operaciones/Conversacion.tsx')), /<Hilo lineas=\{lineas\}/);
-  assert.match(sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx')), /<Hilo lineas=\{lineas\}/);
+  for (const r of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
+    const src = sinComentarios(leer(r));
+    assert.match(src, /const vista = useTurnosDeAUno\([^,]+, lineas, /, `${r}: la vista sale de las líneas del chat`);
+    assert.match(src, /<Hilo lineas=\{vista\.lineas\}/, `${r}: Hilo dibuja la vista`);
+  }
   // El «otro» sigue contando para que una pregunta quede atrás (lo guarda y lo lee `sanearTurnos`).
   assert.match(sinComentarios(leer('lib/centro-preguntas-chat.ts')), /x\.rol === 'yo' \|\| x\.rol === 'otro'/);
 });
@@ -118,3 +122,6 @@ test('3. la computadora y el teléfono dibujan por la misma regla', () => {
 //   · `sanearTurnos` sin sacar la compactación                                     → 1/2 (1 y 2)
 //   · `vistaPrevia` sin `esParaMartin`                                             → 2/1 (2)
 //   · Hilo dibujando `todas` en vez de `lineasDeConversacion(todas)`               → 2/1 (3)
+// Y el 20/11/2026 (la vista de los turnos de a uno, base 3/0):
+//   · el teléfono monta `<Hilo lineas={lineas.slice(-5)}` en vez de la vista       → 2/1 (3)
+//   · la computadora arma la vista sobre `[]` en vez de las líneas del chat         → 2/1 (3)

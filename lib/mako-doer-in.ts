@@ -69,7 +69,7 @@ import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
 import { conElReenvio, esReenviado } from '@/lib/doer-reenvio';
 import { clasificarConIA, type LlamarAlClasificador } from '@/lib/mako-intencion-ia';
 import { abrirTicketDelGrupo, respuestaDelTicket } from '@/lib/tickets-del-grupo';
-import { delegaLaAccion, faltaAlgunaParte, lineaApruebaEnLaApp, lineaDeLoQueFalta, negocioLeido, partesQueCuentan, respuestaDeLaDelegacion, respuestaDelDebug, viajaEnLaAccion, type EscrituraDelTurno } from '@/lib/despacho-grupo';
+import { delegaLaAccion, faltaAlgunaParte, lineaApruebaEnLaApp, lineaDeLoQueFalta, negocioLeido, partesQueCuentan, pideDatosEnVezDeDelegar, respuestaDeLaDelegacion, respuestaDelDebug, viajaEnLaAccion, type EscrituraDelTurno } from '@/lib/despacho-grupo';
 import { hechosDelDiagnostico } from '@/lib/diagnostico-negocio';
 import { AUDIO_DEL_LOTE_SIN_ESCUCHAR, audioCitadoDe, conElAudioCitado, conLaCitaSinEscuchar, conUnAudioCitadoEscuchado } from '@/lib/audio-citado';
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
@@ -3688,7 +3688,16 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         // Lo que dice HECHO sin respaldo, con la misma red del saneo del grupo (sin contar la lectura como respaldo).
         leyo: leyoDelTurno, afirmaHecho: (sanearSalida(respuesta, { corrioHerramientas: corridasDelTurno > 0, enElGrupo: { respaldado: false, propuesto: false, leyo: false } }).sinRespaldo ?? []).length > 0,
       })) {
-      const abierto = await abrirTicketDelGrupo({
+      // LO QUE MaKo HACE SOLA, SIN LOS DATOS, SE PREGUNTA (20/11/2026, el ticket #120: «Marcela quiere probar la funcionalidad de agregar
+      // un evento al calendario de google»): agendar un evento es una escritura simple; sin qué ni cuándo no hay qué proponer, y se
+      // delegaba (a Martín, porque lo pidió alguien que no administra el negocio). El pedido de los datos lo escribe el código.
+      const pideDatos = pideDatosEnVezDeDelegar(sinPrefijoDeLote(texto));
+      if (pideDatos) {
+        void recordUsage('clase-doer', 'clase:pide-datos', {}, `ws${wsData} · agenda sin qué ni cuándo · ${tools.length} tools · ${corridasDelTurno} corridas`.slice(0, 200), 'mako', 1).catch(() => {});
+        respuesta = pideDatos;
+        textoFijo = true;
+      }
+      const abierto = pideDatos ? null : await abrirTicketDelGrupo({
         ws: wsData, actor: actorDeWhatsApp(quienPide, data.pushName) ?? null, jid, msgId,
         resumen: claseDeLaIA?.resumen || sinPrefijoDeLote(texto).slice(0, 120), pedido: sinPrefijoDeLote(texto),
         ultimoDeMaKo: typeof ultimoDeMako === 'string' ? ultimoDeMako : null,

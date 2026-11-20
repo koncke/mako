@@ -19,7 +19,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { Icon } from '@/app/_components/icons';
 import { PanelDeChat } from './PanelChat';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
-import { chatTrabadoEnLaApp, preguntasDeLaApp, preguntasIgnoradas, preguntasParaElBloque, type TabDelIndice } from '@/lib/centro-chats';
+import { chatTrabadoEnLaApp, chatTrabajando, preguntasDeLaApp, preguntasIgnoradas, preguntasParaElBloque, type TabDelIndice } from '@/lib/centro-chats';
 import { historialDelChat, tandaHasta, yaEstaSinVer, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, idDeLinea, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
@@ -43,6 +43,8 @@ import type { AdjuntosDeCaja } from './AdjuntosCaja';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { TareasVinculadas, irAlTurno } from './Avance';
 import { animoDe } from './Muneco';
+import { claveDelHilo } from './hilo-a-la-vista';
+import { useTurnosDeAUno } from './useTurnosDeAUno';
 
 const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 const SIN_PUSHES: PushP[] = [];
@@ -60,7 +62,7 @@ export type WaDeConversacion = {
 
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onGrabada, onCrearClave, onCopiarClave, onVolver,
-  aspecto, onMuneco, onRenombrar, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
+  aspecto, onMuneco, onRenombrar, preguntas, respuestas, responder, selectores, turnos = [], turnosListos = false, adjuntos, carteros,
   preguntasChat = [], onResponder, avisoCerrado, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos, yaVisto = null, onYaVisto, ignorar,
   indiceTabs,
 }: {
@@ -70,6 +72,8 @@ export function Conversacion({
   ignorar?: ParaIgnorar;
   /** Los pasos en vivo de su turno abierto (la E): van en el «Trabajando…» del hilo. */
   pasos?: readonly PasoDelTurno[];
+  /** Ya llegaron los turnos de este chat (useCentro.ts → turnosListos): lo de después sale de a uno, con puntitos (admin-5). */
+  turnosListos?: boolean;
   /** La conversación ya calculada (useCentro.ts → lineasDe, memorizada): sin esto se calcula acá en cada render. */
   lineas?: readonly LineaChat[];
   /** Lo de WhatsApp en cada mensaje (17/10/2026, MensajeWA.tsx): las marcas, la cita de la caja, reenviar y copiar. */
@@ -137,8 +141,12 @@ export function Conversacion({
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
 
-  // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
-  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [chat.clave, lineas.length]);
+  // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo. Lo hace el panel (PanelDeChat `seguir`, la pieza
+  // compartida app/_chat/useBajarAlUltimo.ts) con la CLAVE de la última línea DIBUJADA (./hilo-a-la-vista.ts), no con
+  // `lineas.length`: el historial cuenta pedidos y turnos que el hilo no dibuja, y bajaba de golpe sin nada a la vista (admin-1). Lo que
+  // crece (el bloque de lo que espera a Martín, los pasos del «Trabajando…», un cierre) lo sigue el panel mientras está abajo
+  // (admin-2, 3 y 4). Los turnos que llegan juntos salen de a uno, con puntitos (admin-5, ./useTurnosDeAUno.ts).
+  const vista = useTurnosDeAUno(chat.clave, lineas, turnosListos);
   // El campo que crece y el scroll que lo acompaña son de la caja única (app/_chat/CajaChat.tsx): le pasa la conversación.
   const seguirHilo = useCallback(() => hilo.current, []);
   // Elegir un chat deja el cursor en su caja, como cualquier app de chat.
@@ -170,6 +178,8 @@ export function Conversacion({
   // CUALQUIERA, también una técnica que Martín no ve (10/11/2026): el chat no lee igual.
   const trabado = chatTrabadoEnLaApp(lineas);
   const vivo = useMemo(() => (carteros ? { chat, carteros, trabado, indiceTabs } : undefined), [chat, carteros, trabado, indiceTabs]);
+  // Lo último que se dibuja: la última línea y, debajo, los puntitos del «Trabajando…» (los del chat o los de la cola).
+  const seguir = { clave: claveDelHilo(vista.lineas, [vista.escribiendo || (vivo ? chatTrabajando(vivo.chat, lineas, ahora) : false)]) };
 
   // ── Lo de WhatsApp: el menú de un mensaje, su Info y Reenviar ───────────────────────────────────────────────────
   // La conversación abre con los últimos mensajes (Hilo.tsx → TANDA_HILO); «Ver anteriores» o ir a uno viejo dibujan todos.
@@ -217,7 +227,7 @@ export function Conversacion({
   };
 
   return (
-    <PanelDeChat hilo={hilo} adjuntos={adjuntos}
+    <PanelDeChat hilo={hilo} adjuntos={adjuntos} seguir={seguir}
       cabecera={{ clave: chat.clave, titulo: chat.titulo, aspecto, animo, espera, onMuneco, onRenombrar, onVolver }}
       // Los fijados, arriba de la conversación (WhatsApp): tocar va al mensaje.
       arriba={wa && <BarraFijados marcas={marcas} lineas={lineas} titulo={chat.titulo} onSoltar={(id) => wa.onMarcar({ tipo: 'fijar', id, si: false })} verTodo={verTodo} />}
@@ -251,7 +261,7 @@ export function Conversacion({
           <div className="co-caja">
             {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026): la misma en toda la app. Arriba, la cita del mensaje que se
                 responde (con su ✕, WhatsApp); en el «+», con qué corre y las tareas del chat. */}
-            <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); onTexto(v); }} onMandar={onMandar} onGrabada={onGrabada} enviando={enviando}
+            <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); onTexto(v); }} onMandar={() => { vista.empezoLaEspera(); onMandar(); }} onGrabada={onGrabada} enviando={enviando}
               // ⚠️ «Escribe a Chat nuevo» (6/11/2026). `chat.titulo` es `SIN_TITULO` hasta que el modelo le pone nombre
               // después del primer turno, así que la caja de un chat recién abierto decía «Escribe a Chat nuevo», como si
               // «Chat nuevo» fuera alguien. Sin título no se nombra a nadie: el mismo texto que la caja de al lado
@@ -276,8 +286,8 @@ export function Conversacion({
       </>}
       estado={envio.puede ? faltaMic ?? estado ?? resumenEnvio ?? '' : ''}>
       <ContextoWA.Provider value={wa ? accionesWA : null}>
-        <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
-          vivo={vivo} onResponder={onResponder ? responderPregunta : undefined} tareas={tareas} onFeedback={feedback} marcas={wa?.marcas} pasos={pasos}
+        <Hilo lineas={vista.lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
+          vivo={vivo} onResponder={onResponder ? responderPregunta : undefined} tareas={tareas} onFeedback={feedback} marcas={wa?.marcas} pasos={pasos} escribiendo={vista.escribiendo}
           yaVisto={yaVisto} onYaVisto={onYaVisto ? yaVistoCb : undefined}
           mostrar={cuantos} onVerAnteriores={verTodo} />
       </ContextoWA.Provider>

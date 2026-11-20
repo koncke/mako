@@ -273,6 +273,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     }
   }, [pedirTurnos, cargarBorrador]);
   const turnosDe = (c: ChatCentro): TurnoChat[] => turnos[c.clave] ?? [];
+  /** Ya llegaron los turnos de este chat (admin-5): lo que había entonces es su historia y se dibuja de una vez (useTurnosDeAUno.ts). */
+  const turnosListos = (c: ChatCentro): boolean => c.clave in turnos;
   const preguntasDe = (c: ChatCentro): PreguntaChat[] => preguntas[c.clave] ?? [];
   const tareasDe = (c: ChatCentro): TareaDelChat[] => tareas[c.clave] ?? SIN_TAREAS;
   const marcasDe = (c: ChatCentro): MarcasChat => marcas[c.clave] ?? SIN_MARCAS;
@@ -874,7 +876,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   return {
     chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, indiceTabs, firma, pedidos,
-    turnosDe, preguntasDe, tareasDe, contestarPregunta, ignorarPregunta, ignorarDecision, avisoDePregunta, estadoPc, mirar,
+    turnosDe, turnosListos, preguntasDe, tareasDe, contestarPregunta, ignorarPregunta, ignorarDecision, avisoDePregunta, estadoPc, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, leerCreditoApi, cambiarCreditoDelNegocio, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, mandarNota, anotarEnviado, copiarConAviso, crearClave, copiarClave,

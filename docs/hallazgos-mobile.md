@@ -7,6 +7,28 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## Los chats con clientes del teléfono escrolean la PÁGINA, y nadie los bajaba (20/11/2026, la auditoría de los chats, movil-1 a 5)
+
+**Vive en:** `app/m/_chat/SeguirLaPagina.tsx` (`useSeguirLaPagina`, `NuevosM`) y `seguir-la-pagina.ts` (lo puro) ·
+`app/m/chats/[clave]/ComposerChatsM.tsx` · `app/m/crm/[id]/chat/ComposerChat.tsx`. Test: `tests/chats-bajan-movil-admin.test.ts`.
+
+- **/m/chats/[clave] y /m/crm/[id]/chat no tienen una caja que escrolea:** escrolea la página, y el composer va fijo abajo por
+  portal. Las piezas compartidas (`useBajarAlUltimo`, `useSeguirElHilo`) esperan un elemento con su propio scroll. Sirve
+  `bajarAlCrecer` sobre `document.documentElement`: es un Element (el ResizeObserver lo acepta) y su `scrollTop` mueve la página.
+  Un objeto que imitara al hilo no sirve: `ResizeObserver.observe` tira con algo que no es un Element.
+- **Lo que llega por el sondeo no bajaba nunca** (movil-1): `router.refresh()` sin bajar después. Ahora la página le pasa al
+  composer la clave del ÚLTIMO mensaje y cuántos hay. Son chats con clientes, así que va como WhatsApp: baja a quien está abajo, y a
+  quien lee arriba le cuenta «N mensajes nuevos».
+- **Lo propio bajaba con un `setTimeout(400)`** (movil-2): con la red lenta, el mensaje llegaba después y quedaba fuera de la vista.
+  Ahora se espera lo suyo (`esperarLoSuyo`) y baja cuando aparece. Si la persona sube a leer mientras tanto, ya no la arrastra.
+- **El foco en la caja frenaba el sondeo** (movil-3): `escribiendo = true` al enfocar. Mientras contestaba, no le llegaba lo que
+  escribía el cliente. Ahora sólo lo frena un envío en curso (`enviandoAhora`).
+- **Las fotos sí crecen** (movil-4: sin caja, hasta 320 px), a diferencia del video, que tiene caja fija. Lo que crece lo sigue
+  `bajarAlCrecer` mientras la persona está abajo.
+- **El chat del lead no tenía sondeo** (movil-5): lo que escribía el lead no llegaba con la pantalla abierta. Ahora usa el mismo
+  sondeo de /m/chats (`CADA_MS_HILO`, 15 s, con la pantalla a la vista).
+- **Sin probar en un teléfono.** La guardia de RAM no dejó levantar nada; se probó el código y el cableado.
+
 ## Cuatro pendientes del teléfono de octubre: las líneas de Chats, las iniciales, las plantillas propias y las hojas (18/11/2026)
 
 **Vive en:** lib/chats-reglas.ts (`opcionesDeCanal`), app/m/chats/ListaChats.tsx, app/m/chats/modelo.ts, app/m/chats/datos.ts,

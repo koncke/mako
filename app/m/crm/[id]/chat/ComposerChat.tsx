@@ -12,6 +12,9 @@
 // segura). `data-m-sin-barra` esconde la barra también en el HTML del server, antes de hidratar.
 // Al abrir, el hilo baja hasta el último mensaje (como cualquier app de mensajes). Sin red no se
 // escribe: la cinta del shell ya dice desde cuándo son los datos.
+// LO QUE ESCRIBE EL LEAD LLEGA SOLO (20/11/2026, movil-5): antes nada lo pedía mientras la pantalla estaba abierta. El mismo sondeo
+// de /m/chats (cada 15 s, con la pantalla a la vista, sin un envío en curso), y lo que llega, lo que crece y lo suyo los sigue
+// `useSeguirLaPagina` (app/m/_chat/SeguirLaPagina.tsx): como WhatsApp, a quien lee arriba no lo arrastra.
 // =============================================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -19,10 +22,14 @@ import { useRouter } from '@/app/_ui/Link';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { useConexion, useToastM } from '@/app/m/_ui';
 import { haptico } from '@/lib/haptico';
+import { NuevosM, useSeguirLaPagina } from '@/app/m/_chat/SeguirLaPagina';
+import { CADA_MS_HILO } from '@/app/m/chats/modelo';
 
-const alFinal = () => window.scrollTo({ top: document.documentElement.scrollHeight });
-
-export function ComposerChat({ leadId, chatJid, telefono, linea }: { leadId: number; chatJid: string; telefono: string; linea: string | null }) {
+export function ComposerChat({ leadId, chatJid, telefono, linea, ultimo, total }: {
+  leadId: number; chatJid: string; telefono: string; linea: string | null;
+  /** La clave del último mensaje dibujado y cuántos hay (movil-5). */
+  ultimo: string; total: number;
+}) {
   const router = useRouter();
   const toast = useToastM();
   const { enLinea } = useConexion();
@@ -30,14 +37,21 @@ export function ComposerChat({ leadId, chatJid, telefono, linea }: { leadId: num
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const area = useRef<HTMLTextAreaElement>(null);
+  const seguir = useSeguirLaPagina(ultimo, total);
+  /** Un envío en curso: lo único que frena el sondeo. */
+  const enviandoAhora = useRef(false);
 
-  // Al abrir, el último mensaje a la vista.
-  useEffect(() => { alFinal(); }, []);
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && !enviandoAhora.current) router.refresh();
+    }, CADA_MS_HILO);
+    return () => window.clearInterval(t);
+  }, [router]);
 
   const enviar = async () => {
     const t = texto.trim();
     if (!t || enviando) return;
-    setEnviando(true); setError(null);
+    setEnviando(true); enviandoAhora.current = true; setError(null);
     try {
       // ⚠️ CON SEÑAL DE CORTE: un fetch sin signal con la red caída no resuelve nunca.
       const r = await fetch('/api/whatsapp/evolution/mensajes', {
@@ -52,17 +66,19 @@ export function ComposerChat({ leadId, chatJid, telefono, linea }: { leadId: num
       if (area.current) area.current.style.height = '';
       haptico('success');
       toast('Enviado');
+      // Lo suyo baja cuando aparece (antes, a los 300 ms: con la red lenta llegaba después, movil-2).
+      seguir.esperarLoSuyo();
       router.refresh();
-      window.setTimeout(alFinal, 300);
     } catch {
       haptico('error'); setError('No salió el mensaje. Revisa el chat antes de reintentar.');
     } finally {
-      setEnviando(false);
+      setEnviando(false); enviandoAhora.current = false;
     }
   };
 
   return (
     <div className="m-crm-composer" data-m-sin-barra>
+      <NuevosM n={seguir.nuevos} onBajar={seguir.bajar} />
       {error && <p className="m-crm-error">{error}</p>}
       <div className="m-crm-composer__fila">
         <textarea
