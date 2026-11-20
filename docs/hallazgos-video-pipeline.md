@@ -131,9 +131,9 @@ fijar un costo se lee la página del modelo: cada una publica su tabla, así que
 **SIN HACER, con dónde vive** (el precio lo arregla el chat de MaKo Tokens; esto es lo de generar):
 - **`MODELO_VIDEO_POR_DEFECTO` y `MODELO_PARA_PROBAR` son Hailuo** (`lib/apimart-reglas.ts:90` y `:102`). Si alguien conecta
   `generarVideo` sin pasarle el modelo, una cara que habla sale con Hailuo, contra la regla «sólo Omni».
-- **`cuerpoDePedido` manda cualquier duración** (`lib/apimart-reglas.ts:200`). Un 5 le da `invalid_duration` al 1.1 Ext.
+- **`cuerpoDePedido` manda cualquier duración** (`lib/apimart-reglas.ts:200`). Un 5 le da `invalid_duration` al 1.1 Ext. *(20/11: para el Omni ya manda 720p, 9:16 y de 3 a 15 s; el 1.1 Ext sigue sin tope.)*
   Tampoco manda `resolution`, `aspect_ratio` ni `generation_type` según el modelo.
-- **Conectar ApiMart de verdad es otro trabajo:** hoy `generarVideo` (lib/apimart.ts:66) no tiene llamador, y el estudio filma
+- *(20/11: `generarVideo` ya tiene un llamador, el clip de regalo del reto, app/ai-avatar/regalo/clip.ts.)* **Conectar ApiMart de verdad es otro trabajo:** hoy `generarVideo` (lib/apimart.ts:66) no tiene llamador, y el estudio filma
   por el puente de Flow.
 
 **Medido GENERANDO el 17/11, con el sí de Martín:** el clip 4 del reel de los pistachos, en el que Martín se transforma en la caricatura
@@ -2428,3 +2428,17 @@ que esa corrida encontró en el código de la app está en docs/hallazgos-onboar
     bienvenida…» sigue con la regla del 18/11.
   - **Regla:** una medida que «da ok» se contrasta con un cuadro mirado de cerca en el momento que no mide (la entrada). Si la
     hoja muestra algo tapado y la medida dice ok, falla la medida, no la hoja.
+
+## ApiMart sin saldo se leía como «no sé si arrancó» (20/11/2026)
+
+**Síntoma (leyendo, antes de que pase):** `comoQuedo` (lib/apimart-reglas.ts) sólo tomaba como RECHAZO un pedido mal armado. Un
+«Insufficient balance» o un 402 caía en `desconocido`, que a propósito no se reintenta, porque podría estar corriendo y cobrándose. Para
+el clip de regalo del reto, eso era un regalo trabado para siempre por una cuenta sin crédito, que es el «no arrancó» más claro que hay.
+
+**La regla:** un 402, o un mensaje con insufficient, balance o 余额, es `rechazado` con `sinSaldo: true`. La persona lee «no se te
+cobró nada» y puede volver a pedir; para Martín queda un `console.error`. **Sin medir:** no se vio el texto real del error de ApiMart sin
+saldo, porque verlo necesita una cuenta vacía. El patrón sale de las APIs compatibles con OpenAI. Si ApiMart lo dice de otra forma, cae
+en `desconocido`: no paga dos veces, pero queda trabado.
+
+**Hecho de lo que estaba SIN HACER (arriba, 17/11):** `cuerpoDePedido` ya manda, para el Omni, `resolution: '720p'`,
+`aspect_ratio: '9:16'` y la duración entre 3 y 15 s. `generarVideo` tiene su primer llamador: app/ai-avatar/regalo/clip.ts.

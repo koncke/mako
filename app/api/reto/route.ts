@@ -69,10 +69,20 @@ async function intereses(): Promise<string[]> {
   try { const a = JSON.parse((await getSetting('onboarding.arranque')) ?? 'null') as { intereses?: unknown } | null; return Array.isArray(a?.intereses) ? a.intereses.filter((x): x is string => typeof x === 'string') : []; } catch { return []; }
 }
 
+/** ¿Es una prueba de MaKo Essential? (20/11, R57-03): ahí lo de Pro de los días 4 a 6 se usa una vez, y la tarjeta lo dice. */
+async function essentialEnPrueba(): Promise<boolean> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return false;
+    const [{ estadoDePrueba }, { esEsencialDe }] = await Promise.all([import('@/lib/prueba-uso'), import('@/lib/plan-esencial')]);
+    return (await estadoDePrueba(ws)).enPrueba && (await esEsencialDe(ws));
+  } catch { return false; }
+}
+
 async function respuesta(e: EstadoReto | null, numero: string | null) {
   const { abierto, dias, hechos } = estadoDeLosDias(e, Date.now());
-  const [f, i] = await Promise.all([funnel(), intereses()]);
-  return Response.json({ ok: true, ve: true, estado: e, abierto, dias, hechos, linea: numero, funnel: f, intereses: i });
+  const [f, i, unaVez] = await Promise.all([funnel(), intereses(), essentialEnPrueba()]);
+  return Response.json({ ok: true, ve: true, estado: e, abierto, dias, hechos, linea: numero, funnel: f, intereses: i, proUnaVez: unaVez });
 }
 
 export async function GET() {
@@ -107,6 +117,16 @@ export async function POST(req: NextRequest) {
     const p = String((body as { pestana?: unknown }).pestana ?? '');
     if (!/^[a-z-]{2,30}$/.test(p)) return Response.json({ ok: false, error: 'Esa pestaña no es del reto.' }, { status: 400 });
     e = { ...e, muestras: [...new Set([...(e.muestras ?? []), p])] };
+  } else if (body.accion === 'despues') {
+    // «Lo hago después» (R57-F1): queda guardado; el día termina igual y la tarea sigue marcada como pendiente.
+    const k = `${Number(body.dia)}:${String(body.id ?? '')}`;
+    if (!/^\d:[a-z-]+$/.test(k)) return Response.json({ ok: false, error: 'Esa tarea no es del reto.' }, { status: 400 });
+    e = { ...e, despues: [...new Set([...(e.despues ?? []), k])] };
+  } else if (body.accion === 'manana') {
+    // «Mañana» (D1-06): la respuesta queda en el chat.
+    const dia = Number(body.dia);
+    if (!Number.isInteger(dia) || dia < 2 || dia > 7) return Response.json({ ok: false, error: 'Ese día no es del reto.' }, { status: 400 });
+    e = { ...e, manana: dia };
   } else if (body.accion === 'hora') {
     const hora = String(body.hora ?? '');
     if (!(HORAS_WA as readonly string[]).includes(hora)) return Response.json({ ok: false, error: 'Esa hora no está entre las del reto.' }, { status: 400 });
