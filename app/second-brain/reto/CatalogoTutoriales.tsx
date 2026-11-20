@@ -5,7 +5,8 @@
 // Lo acordado (memoria onboarding-16-11-decisiones: «un botón de tutoriales, un ícono de videos: reemplaza el chat por un CATÁLOGO
 // ordenado de todos los videos de MaKo»; la maqueta, cuerpo.html → catálogo): el ícono de videos en la cabecera del chat del reto
 // cambia los mensajes por el catálogo, con «Volver al chat». Para empezar (la bienvenida, el WhatsApp y el recorrido), el reto (los
-// coaches y los 7 días; los que no llegaron, «Se abre el día N») y una tarjeta «Cómo funciona…» por cada pestaña con video. Cada
+// coaches y los 7 días; los que no llegaron, «Se abre el día N») y una tarjeta por cada pestaña con video, con su nombre (Martín,
+// 20/11: nunca más «Cómo funciona…»; tests/tutorial-sin-presentacion.test.ts). Cada
 // tarjeta reproduce su video ahí mismo (VideoDelMomento, que sigue en la esquina si se navega). Sale de public/tutoriales/manifiesto.json:
 // un video que no está, no se muestra (nunca un hueco).
 // =============================================================================
@@ -33,9 +34,9 @@ export function gruposDelCatalogo(videos: readonly Video[], diaAbierto: number):
   const empezar = PARA_EMPEZAR.map(([k, t]) => tarjeta(k, t)).filter((x): x is Tarjeta => !!x);
   const reto = DEL_RETO.map(([k, t]) => { const n = Number(/^reto-dia-(\d)$/.exec(k)?.[1] ?? 0); return tarjeta(k, t, n > diaAbierto ? `Se abre el día ${n}` : undefined); }).filter((x): x is Tarjeta => !!x);
   // Sin «AI Avatar»: la tab se cerró el 14/11 (el personaje está en Video). Las de adentro de Classroom, con su nombre: si no, hay
-  // dos «Cómo funciona Calendar».
-  const pestanas = TUTORIALES.filter((t) => t.pestana !== 'avatar').map((t) => (usados.has(t.pestana) ? null : tarjeta(t.pestana, `Cómo funciona ${t.pestana.startsWith('classroom-') ? `Classroom › ${t.nombre}` : t.nombre}`))).filter((x): x is Tarjeta => !!x);
-  return [{ titulo: 'Para empezar', tarjetas: empezar }, { titulo: 'Tu reto de 7 días', tarjetas: reto }, { titulo: 'Cómo funciona cada pestaña', tarjetas: pestanas }].filter((g) => g.tarjetas.length);
+  // dos «Calendar».
+  const pestanas = TUTORIALES.filter((t) => t.pestana !== 'avatar').map((t) => (usados.has(t.pestana) ? null : tarjeta(t.pestana, t.pestana.startsWith('classroom-') ? `Classroom › ${t.nombre}` : t.nombre))).filter((x): x is Tarjeta => !!x);
+  return [{ titulo: 'Para empezar', tarjetas: empezar }, { titulo: 'Tu reto de 7 días', tarjetas: reto }, { titulo: 'Cada pestaña', tarjetas: pestanas }].filter((g) => g.tarjetas.length);
 }
 
 const mmss = (s?: number) => (s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : '');

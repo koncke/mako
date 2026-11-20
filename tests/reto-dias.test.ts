@@ -251,13 +251,13 @@ test('el catálogo «Tutoriales de MaKo»: para empezar, el reto con los días c
   const { gruposDelCatalogo } = await import('../app/second-brain/reto/CatalogoTutoriales');
   const videos = ['onboarding-bienvenida', 'recorrido', 'offer-coach', 'reto-dia-1', 'reto-dia-2', 'reto-dia-5', 'crm', 'plan'].map((key) => ({ key, duracion_s: 60 }));
   const g = gruposDelCatalogo(videos, 2);
-  assert.deepEqual(g.map((x) => x.titulo), ['Para empezar', 'Tu reto de 7 días', 'Cómo funciona cada pestaña']);
+  assert.deepEqual(g.map((x) => x.titulo), ['Para empezar', 'Tu reto de 7 días', 'Cada pestaña']);
   assert.deepEqual(g[0].tarjetas.map((t) => t.key), ['onboarding-bienvenida', 'recorrido'], 'sin video, no hay tarjeta (nunca un hueco)');
   assert.equal(g[1].tarjetas.find((t) => t.key === 'reto-dia-5')?.cerrado, 'Se abre el día 5', 'los días que no llegaron');
   assert.equal(g[1].tarjetas.find((t) => t.key === 'reto-dia-2')?.cerrado, undefined);
-  assert.ok(g[2].tarjetas.some((t) => t.key === 'crm' && t.titulo.startsWith('Cómo funciona')), 'una por pestaña');
+  assert.ok(g[2].tarjetas.some((t) => t.key === 'crm' && t.titulo === 'CRM'), 'una por pestaña, con su nombre (nunca «Cómo funciona…», Martín 20/11)');
   const g2 = gruposDelCatalogo(['avatar', 'calendar', 'classroom-calendar'].map((key) => ({ key })), 1);
-  assert.deepEqual(g2[0].tarjetas.map((t) => t.titulo), ['Cómo funciona Calendar', 'Cómo funciona Classroom › Calendar'], 'sin AI Avatar, y sin dos «Calendar»');
+  assert.deepEqual(g2[0].tarjetas.map((t) => t.titulo), ['Calendar', 'Classroom › Calendar'], 'sin AI Avatar, y sin dos «Calendar»');
   const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
   assert.ok(chat.includes('<BotonTutoriales activo={catalogo}') && chat.includes('catalogo && d ? <CatalogoTutoriales'), 'el ícono en la cabecera cambia el hilo por el catálogo');
 });
