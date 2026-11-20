@@ -107,4 +107,8 @@ test('5. cada coach entra la primera vez como la bienvenida: oscuro, escribe, y 
   assert.match(e, /window\.setTimeout\(\(\) => setEscribe\(false\), msEscribiendo\(texto\)\)/);
   assert.match(e, /if \(!hayCaja \|\| !nodo \|\| menosMovimiento\(\)\) return;\s*return barrer\(nodo\);/, 'con el barrido, salvo con menos movimiento');
   assert.match(e, /createPortal\(/, 'el velo afuera de los contextos de apilado del panel');
+  // UN SOLO VELO (20/11/2026: con una marca del motor a la vista, este velo iba encima y su hueco dejaba una mancha clara sobre la
+  // tarjeta del motor): con una señal del motor, sin velo.
+  assert.match(e, /const motor = useSenal\(\);/);
+  assert.match(e, /\{caja && !motor && typeof document !== 'undefined' && createPortal\(/);
 });

@@ -3992,6 +3992,15 @@ de la vista de administrador y scripts/reiniciar-onboarding.mts. RESET (lib/rese
   no tiene dueño (o no se pudo leer), `personaDelOnboarding` da null y cada pantalla caía en el email de la sesión. Ahora la pantalla
   dice «tu correo» y /api/recorridos no lee ni anota nada. Que «Sigamos en tu computadora» siguiera saliendo después del recorrido
   no se reprodujo después (con el preset de teléfono, /onboarding?ws=3 ya mandaba a la app).
+- **El recorrido del Ops Center arrancaba SOLO después de «Entrar a MaKo»** (el Cerebro, en producción, con el bucle ya arreglado):
+  con la carga entera, el motor (MotorTutorial) lo arrancaba apenas veía la fila «Reto de 7 días», y sólo esperaba si el chat ya
+  presentaba el recorrido; recién cargada, la llegada todavía no estaba. Marcaba la fila ~10 s sobre una pantalla vacía, sin «dale
+  play». Entrando a /second-brain?reto=1 a mano no pasaba (la llegada llegaba antes). Ahora el motor NUNCA arranca el del Ops Center:
+  lo arranca el «dale play» de la llegada.
+- **Dos velos a la vez dejan una mancha clara:** al tocar Offer Coach antes del día 1, la marca del motor («Tu reto de 7 días», velo
+  en 400) y la entrada del coach (EntradaEscribiendo, velo en 650 con su hueco redondeado) salían juntas: el hueco de arriba dejaba
+  ver claro lo que caía debajo, el título de la tarjeta del motor. Con una señal del motor a la vista, la entrada no pone velo.
+  Diagnóstico por el código, no mirado todavía.
 - **El navegador de QUIEN MIRA también guarda el onboarding:** el reinicio limpiaba el del dueño (el layout, una vez), pero el
   administrador que reinicia desde su vista conservaba el «dale play», lo ya escrito del arranque y la llegada de ese negocio, y el
   onboarding arrancaba con «¿cómo te llamas?» antes del video. «Sí, reiniciar» limpia también ahí (`limpiarClavesDelOnboarding`).

@@ -203,7 +203,8 @@ test('16. OD-05 y V9: la llegada (desde el 20/11, el primer mensaje del chat del
   assert.match(b, /createPortal\(\n\s*<div className="sbl-capa" aria-hidden="true">/, 'el velo, en un portal');
   // El motor no lo arranca solo mientras el chat lo presenta.
   const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
-  assert.match(m, /if \(t\.pestana === 'ops-center' && elChatPresentaElRecorrido\(\)\) \{ window\.setTimeout\(mirar, 500\); return; \}/);
+  // Nunca arranca solo (20/11/2026: arrancaba con la página vacía después de «Entrar a MaKo»): lo arranca el «dale play» de la llegada.
+  assert.match(m, /if \(t\.pestana === 'ops-center'\) return;/);
   // Ya no va en el chat «Onboarding»: lo monta el chat del reto (Martín, 20/11).
   const c = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
   assert.doesNotMatch(c, /<BienvenidaOpsCenter|<LlegadaAlReto/);

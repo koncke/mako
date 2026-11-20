@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom';
 import { anotarEntrada, yaEntro } from './entrada';
 import { msEscribiendo } from '@/lib/puntitos';
 import { barrer } from './iris';
+import { useSenal } from './store';
 
 const menosMovimiento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -47,6 +48,10 @@ export function EntradaEscribiendo({ foto, quien = 'MaKo' }: { foto: ReactNode; 
   const fila = useRef<HTMLDivElement>(null);
   const hueco = useRef<HTMLDivElement>(null);
   const [caja, setCaja] = useState<Caja | null>(null);
+  // ⚠️ UN SOLO VELO (20/11/2026, el Cerebro en producción: al tocar Offer Coach antes del día 1, la tarjeta del motor «Tu reto de 7 días»
+  // tenía una mancha blanca ovalada sobre el título). Este velo (z 650) iba ENCIMA del del motor (400): su hueco dejaba ver claro lo que
+  // caía debajo, la tarjeta incluida. Con una señal del motor a la vista (una marca, un tutorial), aquí no hay velo: sólo los puntitos.
+  const motor = useSenal();
   useLayoutEffect(() => {
     const el = fila.current;
     if (!el) return;
@@ -84,7 +89,7 @@ export function EntradaEscribiendo({ foto, quien = 'MaKo' }: { foto: ReactNode; 
           <div className="co-el__cuerpo"><span role="status" aria-label={`${quien} está escribiendo`} className="mk-entrada__puntos"><i /><i /><i /></span></div>
         </div>
       </div>
-      {caja && typeof document !== 'undefined' && createPortal(
+      {caja && !motor && typeof document !== 'undefined' && createPortal(
         <div className="mk-entrada" aria-hidden="true">
           <style>{CSS}</style>
           <div ref={hueco} className="mk-entrada__hueco" style={{ left: caja.x, top: caja.y, width: caja.ancho, height: caja.alto }} />

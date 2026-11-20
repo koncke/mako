@@ -35,7 +35,6 @@ import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
 import { barrer, tocaIris } from './iris';
 import { VideoEnLaEsquina } from './VideoEnLaEsquina';
 import { cierraYa, fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigueLosPasos, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
-import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
 import { barraEntera, mostrarLaBarra, presentaLaBarra } from './barra-oculta';
 import { useLugarALaVista } from './lugarDelVideo';
@@ -270,8 +269,11 @@ function PrimeraVez({ t }: { t: TutorialPestana }) {
     const desde = Date.now();
     const mirar = () => {
       if (!vivo || pedido.current || senalAhora()) return;
-      // El recorrido del Ops Center lo arranca el «Dale play» del chat «Onboarding» cuando ese chat lo presenta (20/11, OD-05).
-      if (t.pestana === 'ops-center' && elChatPresentaElRecorrido()) { window.setTimeout(mirar, 500); return; }
+      // ⚠️ EL RECORRIDO DEL OPS CENTER NUNCA ARRANCA SOLO (20/11/2026, el Cerebro en producción: después de «Entrar a MaKo», con la carga
+      // entera, arrancaba antes de que la página estuviera dibujada y marcaba la fila «Reto de 7 días» unos 10 s sobre una pantalla vacía,
+      // sin «dale play»). Lo arranca SIEMPRE el «dale play» de la llegada (el primer mensaje del chat del reto, app/second-brain/
+      // LlegadaAlReto.tsx), que sale con la página dibujada. Antes esperaba sólo si el chat ya lo presentaba, y recién cargada no estaba.
+      if (t.pestana === 'ops-center') return;
       // La PRIMERA vez en el Ops Center (recién salida del onboarding), el video del recorrido en lugar del de la pestaña: presenta
       // a los coaches, Uso, la Ticketera y termina mandando al chat del reto (acordado con el chat de los videos, 18/11).
       // La PRIMERA vez en el Ops Center, el RECORRIDO APROBADO (lib/onboarding-v2/recorrido.ts) en lugar del tutorial de la pestaña:
@@ -283,7 +285,7 @@ function PrimeraVez({ t }: { t: TutorialPestana }) {
       // con lo que lo abre a la vista, o con la página quieta un rato. Lo que falta lo marca el video cuando suena (o no lo dice).
       const p0 = pasos[0];
       const abre0 = typeof p0.antes === 'string' ? !!lugarDe(p0.antes) : !!p0.antes?.some((s) => !!lugarDe(s));
-      if (arrancaLaPrimeraVez({ marca: !!lugarDe(p0.sel), abre: abre0, cargando: cargandoAhora(), pasadoMs: Date.now() - desde })) { pedido.current = true; mostrarTutorial(t.pestana === 'ops-center' ? TUTORIAL_RECORRIDO : t, { alTerminar: onCerrar, ...(t.pestana === 'ops-center' ? {} : { directo: true }) }); return; }
+      if (arrancaLaPrimeraVez({ marca: !!lugarDe(p0.sel), abre: abre0, cargando: cargandoAhora(), pasadoMs: Date.now() - desde })) { pedido.current = true; mostrarTutorial(t, { alTerminar: onCerrar, directo: true }); return; }
       window.setTimeout(mirar, 250);
     };
     const id = window.setTimeout(mirar, 600);
