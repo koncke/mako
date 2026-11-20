@@ -212,6 +212,13 @@ export async function anotarRespuesta(e: EstadoArranque, h: HechosServer, dicho:
  * pendiente) y mientras NO vio el recorrido del Ops Center en la computadora (`tutorial-ops-center` en `usuarios.perfil`, lo que
  * guarda /api/recorridos). Mirando a un cliente, nunca. Si no se puede leer, no (la persona entra como siempre).
  */
+/**
+ * Dónde se dibuja «Sigamos en tu computadora»: la página del onboarding (app/onboarding/page.tsx), que en el teléfono la muestra
+ * mientras `seguirEnPcPendiente`. No es el hub retirado (tests/onboarding-hub-retirado.test.ts): el guard del teléfono y el Ops
+ * Center de escritorio abierto en un teléfono mandan aquí por esta constante, sin nombrar la ruta.
+ */
+export const RUTA_SEGUIR_EN_PC = '/onboarding';
+
 export async function seguirEnPcPendiente(): Promise<boolean> {
   try {
     if (await estaImpersonando().catch(() => true)) return false;

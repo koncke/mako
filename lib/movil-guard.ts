@@ -110,9 +110,8 @@ export async function requireMovil(opts: { navKey?: string | null; onboarding?: 
   // «Sigamos en tu computadora» también aquí (20/11, la verificación de OA-10 y OD-12): un link directo a /m, un push, una pestaña
   // guardada o una ruta de escritorio que el proxy desvía a /m entraban a MaKo Mobile. Con el V2, mientras no vio el recorrido en
   // la PC, cualquier pantalla del teléfono va a /onboarding, que la muestra. Importado al llamar: el servidor del arranque es pesado.
-  if (opts.onboarding !== false && (await import('./onboarding-arranque-server').then((m) => m.seguirEnPcPendiente()).catch(() => false))) {
-    redirect(await rutaConWs('/onboarding'));
-  }
+  const seguirEnPc = opts.onboarding !== false ? await import('./onboarding-arranque-server').catch(() => null) : null;
+  if (seguirEnPc && (await seguirEnPc.seguirEnPcPendiente().catch(() => false))) redirect(await rutaConWs(seguirEnPc.RUTA_SEGUIR_EN_PC));
   if (opts.navKey && !puedeVerKey(opts.navKey, ctx.rol, ctx.capa)) redirect(await rutaConWs(HOME_MOVIL));
   // MaKo Essential (23/10/2026): la tab de Pro, como en la computadora (lib/tab-access.ts → requireCapa), a su cartel con «Pasar a Pro».
   if (opts.navKey && esNavSoloPro(opts.navKey) && (await esEsencialDeLaSesion())) redirect(await rutaConWs(`/no-esta-en-tu-plan?tab=${encodeURIComponent(opts.navKey)}&pro=1`));

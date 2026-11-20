@@ -33,7 +33,7 @@ import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
 import { rutaDelSecondBrainEnOpsCenter } from '@/lib/ops-center-ruta';
 import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
 import { PantallaSecondBrain, mapaDelSecondBrain, pideElMapa, quienOpera, type QuerySecondBrain } from './pagina';
-import { hiloOnboardingGuardado, hiloParaQuienYaTermino, seguirEnPcPendiente } from '@/lib/onboarding-arranque-server';
+import { RUTA_SEGUIR_EN_PC, hiloOnboardingGuardado, hiloParaQuienYaTermino, seguirEnPcPendiente } from '@/lib/onboarding-arranque-server';
 import { ATTR_BARRA_OCULTA } from '@/app/_ui/tutorial/barra-oculta';
 import { esTelefono } from '@/lib/movil-guard';
 import { rutaDelHilo } from '@/lib/onboarding-arranque';
@@ -52,7 +52,7 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   if (opera) redirect(await rutaConWs(rutaDelSecondBrainEnOpsCenter(q)));
   // El TELÉFONO con la «Versión completa» (20/11, la verificación de OA-10 y OD-12): mientras no vio el recorrido en la PC, el Ops
   // Center de escritorio tampoco; va a «Sigamos en tu computadora». En la computadora, `esTelefono` corta antes de leer nada.
-  if ((await esTelefono().catch(() => false)) && (await seguirEnPcPendiente())) redirect(await rutaConWs('/onboarding'));
+  if ((await esTelefono().catch(() => false)) && (await seguirEnPcPendiente())) redirect(await rutaConWs(RUTA_SEGUIR_EN_PC));
   // El chat «Onboarding» de quien terminó antes de que existiera (20/10/2026, Florencia, ws21): en su primera visita se crea
   // y entra a él, con el tutorial. Una vez: después ya está anotado y esto no hace nada.
   // El grafo (la lectura más pesada: construirCerebro) sale A LA VEZ que esto, que ESCRIBE (crea el hilo) y por eso va

@@ -51,8 +51,7 @@ const AL_WIZARD: ReadonlyArray<{ archivo: string; por: string }> = [
   { archivo: 'lib/movil-desvio.ts', por: 'la lista de rutas que el teléfono abre igual (el wizard)' },
   { archivo: 'lib/titulo-tab.ts', por: 'el título de la pestaña del wizard' },
   { archivo: 'lib/onboarding-guardia-server.ts', por: 'el aviso de bloqueo lleva al super admin al wizard del cliente, donde está «Desbloquear» (17/10)' },
-  { archivo: 'lib/movil-guard.ts', por: 'el teléfono con el V2 y sin el recorrido visto en la PC va a «Sigamos en tu computadora», que vive en /onboarding (20/11, OA-10)' },
-  { archivo: 'app/second-brain/page.tsx', por: 'el Ops Center de escritorio abierto en un teléfono, lo mismo que el guard del teléfono (20/11, OA-10)' },
+  { archivo: 'lib/onboarding-arranque-server.ts', por: 'RUTA_SEGUIR_EN_PC: «Sigamos en tu computadora» se dibuja en /onboarding (20/11, OA-10); el guard del teléfono y el Ops Center abierto en un teléfono mandan por la constante' },
 ];
 
 test('cada sección tiene un lugar que existe: el área está en AREAS y la sub-pestaña en SUBVISTAS', () => {
