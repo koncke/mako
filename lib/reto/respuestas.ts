@@ -16,7 +16,7 @@ import { runWithWorkspace } from '../workspace';
 import { esNombreDeCanal } from '../mako-canal';
 import { chatDelMensaje, esSuTelefono } from '../mako-bot-reglas';
 import { enviarAPersonaMaKo } from '../mako-grupo';
-import { CLAVE_RETO, HORAS_WA, leerEstado } from './dias';
+import { CLAVE_RETO, HORAS_WA, leerEstado, type EstadoReto } from './dias';
 import { CLAVE_AVISOS, RESPUESTA_BAJA, esBaja, horaDelMensaje, leerAvisos, respuestaDeLaHora } from './avisos';
 
 const KEY_VERIFICACION = 'mako.contacto.verificacion';
@@ -73,10 +73,14 @@ export async function responderAlReto(instancia: string, m: Record<string, unkno
   }
 
   // La hora: se guarda en su reto (compare-and-set sobre lo leído: una tarea marcada en el medio no se pisa; se relee y se reintenta).
-  let crudo = crudoReto, actual = e, gane = false;
-  for (let i = 0; i < 3 && actual && !gane; i++) {
-    if (i > 0) { crudo = await leerClave(ws, CLAVE_RETO); actual = leerEstado(crudo); if (!actual) break; }
-    gane = actual.horaWa === hora || (await runWithWorkspace(ws, () => cambiarSettingSi(CLAVE_RETO, crudo, JSON.stringify({ ...actual!, horaWa: hora }))));
+  let crudo = crudoReto;
+  let actual: EstadoReto | null = e;
+  let gane = false;
+  for (let i = 0; i < 3 && !gane; i++) {
+    if (i > 0) { crudo = await leerClave(ws, CLAVE_RETO); actual = leerEstado(crudo); }
+    if (!actual) break;
+    const base: EstadoReto = actual, esperado = crudo;
+    gane = base.horaWa === hora || (await runWithWorkspace(ws, () => cambiarSettingSi(CLAVE_RETO, esperado, JSON.stringify({ ...base, horaWa: hora }))));
   }
   if (!gane) console.error(`[reto] ws${ws}: no pude guardar la hora ${hora} (cambió en el medio); igual le contesto`);
   return {
