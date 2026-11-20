@@ -5601,6 +5601,9 @@ titular), no se tiñe.
   sobrevive a la navegación de adentro de la app; al recargar no está. **La trampa: si el tutorial no arranca, la barra quedaría
   escondida para siempre.** Por eso tiene tres salidas: el paso que marca `aside[data-sidebar]` (y la frase del video que lo presenta,
   ANTES de buscarlo: escondido no se encuentra), el final del tutorial, y 9 s sin ningún tutorial.
+  En «Tu panel» se abre ENTERA y al pasar se vuelve a plegar (20/11, OD-03). La barra no expone cómo abrirse: el motor manda
+  el evento `mk-barra-entera` (barra-oculta.ts) y la barra lo oye como si fuera su flecha (`abiertaAca`), sin tocar lo que la
+  persona guardó. Se pliega en la limpieza del efecto del paso: vale igual si se pasa con el clic, con «Siguiente» o cerrando el video.
 
 
 ## Las pausas a destiempo de los videos de los tutoriales: era el motor, no los tiempos (20/11/2026)

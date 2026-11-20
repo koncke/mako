@@ -122,3 +122,14 @@ test('10. OD-08: con el V2, la lista del Ops Center va Ops Center, Onboarding, R
   assert.doesNotMatch(lee, /guardarEstadoArranque|insert|crear/i, 'sólo lee');
   assert.match(leer('app/second-brain/page.tsx'), /const hiloOnboarding = retoV2 \? await hiloOnboardingGuardado\(\) : null;/);
 });
+
+test('11. OD-03: «Tu panel» abre la barra ENTERA mientras dura el paso, y al pasar se vuelve a plegar', () => {
+  const b = sinComentarios(leer('app/_ui/tutorial/barra-oculta.ts'));
+  assert.match(b, /export const EVENTO_BARRA_ENTERA = 'mk-barra-entera';/);
+  assert.match(b, /window\.dispatchEvent\(new CustomEvent<boolean>\(EVENTO_BARRA_ENTERA, \{ detail: si \}\)\)/);
+  const s = sinComentarios(leer('app/_components/Sidebar.tsx'));
+  assert.match(s, /const alPedir = \(e: Event\) => setAbiertaAca\(\(e as CustomEvent<boolean>\)\.detail === true\);\n\s*window\.addEventListener\(EVENTO_BARRA_ENTERA, alPedir\);/);
+  const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
+  assert.match(m, /const abreLaBarra = presentaLaBarra\(paso\.sel\);\n\s*if \(abreLaBarra\) barraEntera\(true\);/);
+  assert.match(m, /if \(abreLaBarra\) barraEntera\(false\); \};\n\s*\}, \[paso, senal\.tipo, siguiente, modoVideo\]\);/, 'al pasar, plegada');
+});

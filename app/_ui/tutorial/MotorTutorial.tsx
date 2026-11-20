@@ -35,7 +35,7 @@ import { useVideoTutorial } from './useVideoTutorial';
 import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigueLosPasos, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
-import { mostrarLaBarra, presentaLaBarra } from './barra-oculta';
+import { barraEntera, mostrarLaBarra, presentaLaBarra } from './barra-oculta';
 import { alFinSinMarca, navegaA, siguienteConMarca, soloEnComputadora, soltarRetencion, type Retencion } from './pausas';
 
 /**
@@ -499,8 +499,11 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   // 1. Cada paso: lo de `antes`, y esperar a que aparezca lo marcado (hasta 3 s; una marca espera siempre).
   useEffect(() => {
     if (!paso) return;
-    // El paso que presenta la barra la muestra (estaba escondida desde «Entrar a MaKo»: ./barra-oculta.ts).
+    // El paso que presenta la barra la muestra (estaba escondida desde «Entrar a MaKo»: ./barra-oculta.ts), ENTERA mientras dura
+    // el paso, y plegada al pasar (20/11, OD-03).
     if (presentaLaBarra(paso.sel)) mostrarLaBarra();
+    const abreLaBarra = presentaLaBarra(paso.sel);
+    if (abreLaBarra) barraEntera(true);
     let vivo = true;
     // En el modo video el `antes` lo toca el efecto 0, sólo si la marca falta: aquí la marca ya está, y tocarlo de nuevo cerraría lo abierto.
     if (paso.antes && !modoVideo) { const a = lugarDe(paso.antes); if (a) a.click(); }
@@ -523,7 +526,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
     obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-recorrido', 'hidden', 'style', 'class', 'aria-expanded'] });
     const reloj = window.setInterval(buscar, 300);
     cuadro = requestAnimationFrame(buscar);
-    return () => { vivo = false; obs.disconnect(); window.clearInterval(reloj); if (cuadro) cancelAnimationFrame(cuadro); };
+    return () => { vivo = false; obs.disconnect(); window.clearInterval(reloj); if (cuadro) cancelAnimationFrame(cuadro); if (abreLaBarra) barraEntera(false); };
   }, [paso, senal.tipo, siguiente, modoVideo]);
 
   // 2. Medir el recorte y la tarjeta; de nuevo con el scroll, el tamaño y los cambios de la página.
