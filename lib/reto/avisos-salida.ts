@@ -25,7 +25,7 @@ import { CLAVE_RETO, correoDelDia, diasDelReto, leerEstado, type EstadoReto } fr
 import { leerTareasDelReto } from './senales';
 import { rutaChatsDeVista } from '../chats-links';
 import {
-  CLAVE_AVISOS, PREHEADER_DIA, RUTA_RETO, avisoDeAtendidos, avisoDeLaNoche, avisoDelDia, conAtendidos, conLoLeido, hayQueGuardar,
+  CLAVE_AVISOS, PREHEADER_DIA, RUTA_RETO, avisoDeAtendidos, avisoDeLaNoche, avisoDelDia, conAtendidos, conLoLeido, correoDeLaNoche, hayQueGuardar,
   horaEnSuZona, inicioDelDia, leerAvisos, paraDecidir, queMandar, quiereAtendidos, whatsappDeAbandono, whatsappDelDia,
 } from './avisos';
 
@@ -118,6 +118,25 @@ export async function avisarDelReto(opts: { ahoraMs?: number; enSeco?: boolean }
       contar(r, plan);
       const link = linkApp(RUTA_RETO, ws);
 
+      // La noche va ANTES que la mañana: con la hora de las 20:00 salen en la misma vuelta (d24-04), y la maqueta (`nuevoDia`) avisa
+      // primero lo que faltaba y después el día nuevo.
+      if (plan.noche) {
+        // Primero lo que MaKo hizo por ella, después lo que falta (el orden de la maqueta).
+        if (plan.atendidos) {
+          const t = avisoDeAtendidos(plan.atendidos), ruta = rutaChatsDeVista('mako');
+          await crearNotificacion({ ws, tipo: 'reto-atendidos', titulo: t.titulo, descripcion: t.texto, link: ruta, entityType: 'reto', entityId: 'atendidos' });
+          await enviarPush(ws, { tipo: 'reto-atendidos', titulo: t.titulo, cuerpo: t.texto, ruta, tag: 'reto-atendidos', soloAdmins: true });
+        }
+        const n = avisoDeLaNoche(plan.noche);
+        await crearNotificacion({ ws, tipo: 'reto-falta', titulo: n.titulo, descripcion: n.texto, link: RUTA_RETO, entityType: 'reto', entityId: String(plan.noche.dia) });
+        await enviarPush(ws, { tipo: 'reto-falta', titulo: n.titulo, cuerpo: n.texto, ruta: RUTA_RETO, tag: 'reto-falta', soloAdmins: true });
+        // Y por correo (segunda verificación de d24-04; reto-7-dias-prueba: app, push y email). Uno por noche y persona.
+        const c = correoDeLaNoche(plan.noche, link);
+        for (const to of para) {
+          const r2 = await avisarDePlataforma({ to, tag: 'reto-falta', asunto: c.asunto, preheader: c.preheader, cuerpo: c.cuerpo, idempotencyKey: `reto-falta-${ws}-${plan.avisos.noche ?? plan.noche.dia}-${to}` });
+          if (!r2.enviado) console.warn(`[reto] no salió el correo de la noche a ${to} (ws ${ws}): ${r2.error ?? 'sin detalle'}`);
+        }
+      }
       if (plan.manana) {
         const { dia } = plan.manana;
         const app = avisoDelDia(dia);
@@ -132,17 +151,6 @@ export async function avisarDelReto(opts: { ahoraMs?: number; enSeco?: boolean }
           const w = await enviarAPersonaMaKo(v2.destino, whatsappDelDia(v2.nombre, dia, Math.floor(horaEnSuZona(ahora, e.zona))));
           if (w.ok) r.whatsapp++; else { r.errores++; console.warn(`[reto] no salió el WhatsApp del día ${dia} (ws ${ws}): ${w.error}`); }
         }
-      }
-      if (plan.noche) {
-        // Primero lo que MaKo hizo por ella, después lo que falta (el orden de la maqueta).
-        if (plan.atendidos) {
-          const t = avisoDeAtendidos(plan.atendidos), ruta = rutaChatsDeVista('mako');
-          await crearNotificacion({ ws, tipo: 'reto-atendidos', titulo: t.titulo, descripcion: t.texto, link: ruta, entityType: 'reto', entityId: 'atendidos' });
-          await enviarPush(ws, { tipo: 'reto-atendidos', titulo: t.titulo, cuerpo: t.texto, ruta, tag: 'reto-atendidos', soloAdmins: true });
-        }
-        const n = avisoDeLaNoche(plan.noche.tarea);
-        await crearNotificacion({ ws, tipo: 'reto-falta', titulo: n.titulo, descripcion: n.texto, link: RUTA_RETO, entityType: 'reto', entityId: String(plan.noche.dia) });
-        await enviarPush(ws, { tipo: 'reto-falta', titulo: n.titulo, cuerpo: n.texto, ruta: RUTA_RETO, tag: 'reto-falta', soloAdmins: true });
       }
       if (plan.abandono && v2) {
         const w = await enviarAPersonaMaKo(v2.destino, whatsappDeAbandono(v2.nombre, plan.abandono.dia));

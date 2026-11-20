@@ -49,7 +49,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { HORAS_WA, diaAbierto, type EstadoReto } from '../lib/reto/dias';
 import {
-  queMandar, leerAvisos, horaEnSuZona, diaEnSuZona, whatsappDelDia, whatsappDeAbandono, avisoDelDia, avisoDeLaNoche, esBaja, CLAVE_AVISOS,
+  queMandar, leerAvisos, horaEnSuZona, diaEnSuZona, whatsappDelDia, whatsappDeAbandono, avisoDelDia, avisoDeLaNoche, correoDeLaNoche, esBaja, CLAVE_AVISOS,
   horaDelMensaje, respuestaDeLaHora, esElAudioDelCierre, audioParaMartin, GRACIAS_DIA_7, LEIDO_DIA_7,
   conLoLeido, inicioDelDia, quiereAtendidos, conAtendidos, avisoDeAtendidos, paraDecidir,
   type AvisosReto,
@@ -147,11 +147,41 @@ test('el aviso coincide con `diaAbierto`: sale en la vuelta en que el día se ab
   assert.equal(queMandar({ e, a, ahora: t - HORA, ...activo(0) }).manana, undefined);
 });
 
-test('con la hora de las 20:00, el día nuevo sale a las 20:00 y no le «falta» nada esa noche', () => {
+test('con la hora de las 20:00, la noche sale igual: en la vuelta en que se abre el día, con lo que faltaba de antes (segunda verificación de d24-04)', () => {
   const salio = simular(reto({ horaWa: '20:00' }), 9);
-  assert.deepEqual(salio.filter((x) => x.que === 'manana').map((x) => x.hora), [20, 20, 20, 20, 20, 20]);
+  const mananas = salio.filter((x) => x.que === 'manana');
+  assert.deepEqual(mananas.map((x) => x.hora), [20, 20, 20, 20, 20, 20]);
   const noches = salio.filter((x) => x.que === 'noche');
-  assert.ok(noches.every((x) => x.fecha === diaEnSuZona(Date.parse(INICIO))), 'sólo la primera noche, antes del día 2');
+  // Antes salía sólo la primera: a las 20:02 la frenaba el día nuevo y a las 21:02 el día era nuevo. Ahora, una cada noche hasta el
+  // día 7, a las 20:00.
+  assert.deepEqual(noches.map((x) => x.hora), [20, 20, 20, 20, 20, 20, 20]);
+  assert.equal(new Set(noches.map((x) => x.fecha)).size, 7, 'una por noche');
+  // La de la vuelta en que se abre un día nombra lo de antes, nunca lo del día que se acaba de abrir.
+  for (const m of mananas) { const n = noches.find((x) => x.fecha === m.fecha); assert.ok(n && n.dia < m.dia, `la noche del día ${m.dia}`); }
+  // Con lo de antes hecho, la del día que se abre no sale (no le «falta» nada a un día recién abierto).
+  const hechas: Record<string, string> = { '1:offer': INICIO, '1:funnel': INICIO };
+  const t = Date.parse('2026-11-20T23:02:00Z'); // 20:02 del 20/11 en Argentina: se abre el día 2
+  const p = queMandar({ e: reto({ horaWa: '20:00', hechas }), a: { v: 1, dia: 1 }, ahora: t, ...activo(t) });
+  assert.deepEqual(p.manana?.dia, 2);
+  assert.equal(p.noche, undefined);
+  // La noche va ANTES que el día en la vuelta que manda (la maqueta, `nuevoDia`).
+  const v = fuenteSinComentarios('lib/reto/avisos-salida.ts');
+  assert.ok(v.indexOf('      if (plan.noche) {') > 0 && v.indexOf('      if (plan.noche) {') < v.indexOf('      if (plan.manana) {'));
+});
+
+test('el aviso de la noche, con el texto de la maqueta: «Son N minutos.» donde la tarea los dice, y también por correo (d24-04)', () => {
+  // Con todo el día 1 hecho, a las 20:02 del día 2 (abierto a las 9:00) falta la app: 3 minutos.
+  const hechas: Record<string, string> = { '1:offer': INICIO, '1:funnel': INICIO };
+  const t = Date.parse('2026-11-20T23:02:00Z');
+  const p = queMandar({ e: reto({ horaWa: '9:00', hechas }), a: { v: 1, dia: 2 }, ahora: t, ...activo(t) });
+  assert.deepEqual(p.noche, { dia: 2, tarea: 'Instala la app de MaKo en tu teléfono', id: 'app', min: 3 });
+  assert.deepEqual(avisoDeLaNoche(p.noche!), { titulo: 'Te falta instalar la app de MaKo en tu teléfono', texto: 'Son 3 minutos.' });
+  assert.deepEqual(avisoDeLaNoche({ tarea: 'Conecta Google Calendar', id: 'calendar', min: 2 }), { titulo: 'Te falta conectar tu calendario', texto: 'Son 2 minutos.' });
+  const c = correoDeLaNoche(p.noche!, 'https://app/x');
+  assert.equal(c.asunto, 'Te falta instalar la app de MaKo en tu teléfono');
+  assert.ok(c.cuerpo.includes('Son 3 minutos.') && c.cuerpo.endsWith('https://app/x'));
+  const v = fuenteSinComentarios('lib/reto/avisos-salida.ts');
+  assert.ok(v.includes('const c = correoDeLaNoche(plan.noche, link);') && v.includes("tag: 'reto-falta', asunto: c.asunto"), 'por correo, a cada admin');
 });
 
 test('el abandono: a los 2 días sin entrar, al mediodía, uno por semana, nunca con el de la mañana a la vez', () => {
@@ -209,7 +239,7 @@ test('los textos de la maqueta', () => {
   assert.match(whatsappDelDia('', 3, 20), /^¡Buenas noches! Ya está tu día 3/);
   assert.doesNotMatch(whatsappDelDia('Antonio', 3, 9), /https?:/, 'sin link');
   assert.deepEqual(avisoDelDia(4), { titulo: 'Día 4 de tu reto', texto: 'Copia lo que le funciona a tu competencia.' });
-  assert.deepEqual(avisoDeLaNoche('Carga tus clientes en el CRM'), { titulo: 'Te falta: carga tus clientes en el CRM', texto: 'Mañana te lo dejo primero.' });
+  assert.deepEqual(avisoDeLaNoche({ tarea: 'Carga tus clientes en el CRM', id: 'contactos' }), { titulo: 'Te falta: carga tus clientes en el CRM', texto: 'Mañana te lo dejo primero.' });
   assert.equal(whatsappDeAbandono('Antonio', 3), 'Hola, Antonio. Soy Martín, el creador de MaKo. Vi que tu reto quedó en el día 3. ¿Te trabaste en algo?\n\nSi prefieres que no te escriba, respóndeme BAJA.');
 });
 
@@ -269,7 +299,8 @@ test('la tarjeta de la hora (día 2): tocar una hora sólo la elige; se guarda c
   const c = fuenteSinComentarios('app/second-brain/reto/ChatDelReto.tsx');
   assert.match(c, /onHora=\{\(h\) => setHora\(h\)\}/, 'tocar una hora no la guarda');
   assert.doesNotMatch(c, /setHora\(h\); void hacer\(\{ accion: 'hora'/);
-  assert.match(c, /onConfirmarHora=\{\(\) => \{ if \(ensayo\.activo\) void hacer\(\{ accion: 'hora', hora: horaWa \}\); \}\}/, 'sólo en el ensayo, que no tiene WhatsApp');
+  // Con la hora que eligió en el selector (R57-F3: la confirmada, la de las burbujas, es otra).
+  assert.match(c, /onConfirmarHora=\{\(\) => \{ if \(ensayo\.activo\) void hacer\(\{ accion: 'hora', hora: horaElegida \}\); \}\}/, 'sólo en el ensayo, que no tiene WhatsApp');
   for (const t of ['Una más: dile a MaKo a qué hora te escribe por WhatsApp sobre el reto. Le escribes tú primero, así WhatsApp no frena sus mensajes.',
     '¿A qué hora te escribe MaKo sobre el reto?', 'Al confirmar se abre tu WhatsApp con el mensaje ya escrito: lo mandas tú y MaKo te contesta.',
     'MaKo te escribe cada día a las {hora}.', '✓ MaKo te escribe cada día a las {guardada}, por WhatsApp.', 'Confirmar y abrir WhatsApp']) {

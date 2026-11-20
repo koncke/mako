@@ -9,7 +9,8 @@
 //     {n}! Ya está tu día {k} del reto: … Te espera en MaKo.»), SÓLO si ya eligió la hora por WhatsApp (le escribió primero el
 //     día 2: la maqueta lo manda sólo con `d.horaWa`); el aviso en la app («Día {k} de tu reto») y el correo «Día {k} del reto
 //     de MaKo» («Tu video de hoy ya está en MaKo.»). Un día ADELANTADO no se avisa: lo abrió ella.
-//   · A LAS 20:00, si al día le falta algo y mañana se abre otro: «Te falta: …» en la app y en el teléfono. Nunca por WhatsApp.
+//   · A LAS 20:00, si al día le falta algo y mañana se abre otro: «Te falta…» en la app, en el teléfono y por correo (la segunda
+//     verificación de d24-04: lo dice reto-7-dias-prueba). Nunca por WhatsApp. Con la hora de las 20:00, en la misma vuelta que el día.
 //   · A LOS 2 DÍAS SIN ENTRAR: el WhatsApp de Martín («Vi que tu reto quedó en el día N. ¿Te trabaste en algo?», con «respóndeme
 //     BAJA»). Uno por semana como mucho; con BAJA, nunca más.
 //
@@ -17,7 +18,7 @@
 // OTRA clave (`reto.avisos`), no en `reto.estado`: el cron escribía el estado entero que había leído, y una tarea marcada en el medio
 // se perdía.
 // =============================================================================
-import { DIAS_RETO, claveTarea, desfaseHoras, diaAbierto, proximaTarea, type EstadoReto } from './dias';
+import { DIAS_RETO, FALTA_TAREA, claveTarea, desfaseHoras, diaAbierto, proximaTarea, type EstadoReto } from './dias';
 
 /** Lo que ya salió, por negocio (`app_settings` → `reto.avisos`). */
 export type AvisosReto = {
@@ -78,8 +79,8 @@ export function leerAvisos(crudo: unknown, e: EstadoReto | null): AvisosReto {
 export type PlanDeAvisos = {
   /** El día que se abrió por calendario: el aviso en la app, el correo y, con `whatsapp`, el WhatsApp de MaKo. */
   manana?: { dia: number; whatsapp: boolean };
-  /** Lo que falta, a las 20:00. */
-  noche?: { dia: number; tarea: string };
+  /** Lo que falta, a las 20:00: la tarea (su id, su título y sus minutos, si la maqueta los dice). */
+  noche?: { dia: number; tarea: string; id: string; min?: number };
   /** El WhatsApp de Martín: el día en que quedó. */
   abandono?: { dia: number };
   /** Con la noche: «MaKo atendió a N clientes por ti» (`conAtendidos`). */
@@ -112,11 +113,16 @@ export function queMandar(p: { e: EstadoReto; a: AvisosReto; ahora: number; ulti
   const pasados = hoy - diaEnSuZona(Date.parse(e.inicio), e.zona);
   const falta = proximaTarea(e, ahora);
 
-  // A las 20:00, si falta algo y mañana se abre otro día (la maqueta: el aviso de la noche va en `nuevoDia`, del 2 al 7). No sobre un
-  // día que se acaba de abrir (con la hora de las 20:00, el día nuevo sale a las 20:00 y a las 21:00 ya le «faltaría» todo).
+  // A las 20:00, si falta algo y mañana se abre otro día (la maqueta: el aviso de la noche va en `nuevoDia`, del 2 al 7). Nunca sobre un
+  // día que se acaba de abrir (a las 21:00 ya le «faltaría» todo).
+  // CON LA HORA DE LAS 20:00 (segunda verificación de d24-04): el día nuevo se abre a la misma hora que la noche, y el aviso no salía
+  // NUNCA: a las 20:02 lo frenaba el de la mañana y a las 21:02 el día era nuevo. Sale en la misma vuelta, ANTES del de la mañana
+  // (lib/reto/avisos-salida.ts), con lo que faltaba de los días anteriores al que se abre.
   const quieto = diaAbierto(e, ahora - VENTANA_AVISO_MS) === abierto;
-  if (falta && abierto < 7 && quieto && hora >= HORA_NOCHE && hora < HORA_NOCHE + 2 && a.noche !== hoy && !plan.manana) {
-    plan.noche = { dia: falta.dia.n, tarea: falta.tarea.titulo };
+  const deNoche = hora >= HORA_NOCHE && hora < HORA_NOCHE + 2 && a.noche !== hoy;
+  const loQueFalta = !falta ? null : plan.manana ? (falta.dia.n < plan.manana.dia ? falta : null) : quieto && abierto < 7 ? falta : null;
+  if (loQueFalta && deNoche) {
+    plan.noche = { dia: loQueFalta.dia.n, tarea: loQueFalta.tarea.titulo, id: loQueFalta.tarea.id, ...(loQueFalta.tarea.min ? { min: loQueFalta.tarea.min } : {}) };
     avisos.noche = hoy;
   }
 
@@ -199,9 +205,20 @@ export function avisoDelDia(dia: number): { titulo: string; texto: string } {
   return { titulo: `Día ${d.n} de tu reto`, texto: `${d.titulo}.` };
 }
 
-/** El de las 20:00: lo que falta. La maqueta pone «Son N minutos.» cuando lo sabe; acá no se sabe. */
-export function avisoDeLaNoche(tarea: string): { titulo: string; texto: string } {
-  return { titulo: `Te falta: ${primeraMinuscula(tarea)}`, texto: 'Mañana te lo dejo primero.' };
+/**
+ * El de las 20:00: lo que falta, con el texto de la maqueta (`nuevoDia`: `t.falta || 'Te falta: ' + t.t`, y `Son N minutos.` cuando la
+ * tarea trae `min`; segunda verificación de d24-04). Las que traen sus minutos (la app, Calendar) dicen lo suyo con FALTA_TAREA
+ * («Te falta instalar la app de MaKo en tu teléfono»); las demás, su título.
+ */
+export function avisoDeLaNoche(t: { tarea: string; id?: string; min?: number }): { titulo: string; texto: string } {
+  const falta = t.min && t.id ? FALTA_TAREA[t.id] : undefined;
+  return { titulo: falta ? `Te falta ${falta}` : `Te falta: ${primeraMinuscula(t.tarea)}`, texto: t.min ? `Son ${t.min} minutos.` : 'Mañana te lo dejo primero.' };
+}
+
+/** El mismo aviso, por correo (reto-7-dias-prueba: app, push y email). Corto, con el link al chat del reto. */
+export function correoDeLaNoche(t: { tarea: string; id?: string; min?: number }, link: string): { asunto: string; preheader: string; cuerpo: string } {
+  const n = avisoDeLaNoche(t);
+  return { asunto: n.titulo, preheader: n.texto, cuerpo: [`${n.titulo}. ${n.texto}`, '', 'Lo retomas en el chat «Reto de 7 días» de MaKo:', link].join('\n') };
 }
 
 export const SALIDA_BAJA = 'Si prefieres que no te escriba, respóndeme BAJA.';

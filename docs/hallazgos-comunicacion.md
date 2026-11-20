@@ -102,8 +102,12 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   arma esa función, no contra su firma (`ArchivoDelAviso` acepta cualquier mime).
 - **«Guárdame en tus contactos…» dejaba de salir desde la sexta persona en una hora, sin error a la vista.** Era el mismo texto
   para todos, y `enviarTextoVozMaKo` no deja salir un texto idéntico a más de 5 chats por hora (`cupoMismoTexto`); el `.catch(() =>
-  null)` se tragaba el motivo. Con el V2 en revisión no se notaba: con el V2 para todos, sí. **Regla:** un texto fijo que va a
-  cada persona viaja DENTRO de un mensaje personal (acá, pegado al código), o no sale.
+  null)` se tragaba el motivo. Con el V2 en revisión no se notaba: con el V2 para todos, sí.
+  **⚠️ El primer arreglo fue el equivocado:** pegarlo al código (1a7f519ad) le cambió a Martín los mensajes, y él los quiere
+  SEPARADOS (20/11 ~13:00 UTC: el código, la tarjeta, «Guárdame…»). El tope es para los avisos que MaKo manda por su cuenta, no
+  para contestarle a quien acaba de escribir (en los grupos ya era así, `respondiendoA`). Ahora el pedido sale aparte con
+  `enviarAPersonaMaKo(…, { contesta: true })`, que saltea sólo ese tope; la regla 1 sigue. **Regla:** contra un tope que frena una
+  respuesta, se marca que es respuesta; no se cambia la forma del mensaje que el producto pidió.
 - **La rama `'ya-verificado'` de `responderPedidoV2` no se alcanza:** la búsqueda trae sólo las verificaciones con
   `"verificado":false`, así que quien ya confirmó nunca llega ahí. Importa porque ahora el pedido que no es de nadie recibe
   «escribiste desde otro número»: antes de decirlo se mira aparte si ese número ya confirmó (`yaConfirmoV2`), y ante un error de

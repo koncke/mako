@@ -444,6 +444,20 @@ function senal(ms: number): AbortSignal | undefined {
   try { return typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(ms) : undefined; } catch { return undefined; }
 }
 
+/** La huella de la última persona que contestó el server (la de la sesión): con ella `anotarVisto` escribe la clave que lee `useRecorrido`. */
+let ultimoQuien: string | null = null;
+
+/**
+ * Lo marca como visto DESDE AFUERA del recorrido (20/11, la segunda verificación de OD-06): el chat del reto pasa el video de una pestaña
+ * con «Muéstrame…», y el tutorial de esa pestaña (`tutorial-<pestaña>`, el motor) no tiene que volver a correr solo ni al omitirlo ni
+ * la próxima vez que se entra. Al server y a lo local de la persona (los `useRecorrido` montados se enteran en el acto).
+ */
+export function anotarVisto(id: string): void {
+  escribirLocal(claveLocal(id, ultimoQuien));
+  if (ultimoQuien) escribirLocal(claveLocal(id));
+  guardarEnServidor(id);
+}
+
 function guardarEnServidor(id: string): void {
   try {
     // `keepalive`: el «Listo» suele ser lo último antes de navegar, y sin esto el pedido
@@ -511,6 +525,7 @@ export function useRecorrido(id: string, opciones?: { soloLocal?: boolean; autoa
         if (!vivo) return;
         const j = (crudo && typeof crudo === 'object' ? crudo : {}) as { ok?: boolean; guardado?: boolean; vistos?: unknown; quien?: unknown };
         const quien = quienValido(j.quien) ? j.quien : null;
+        if (quien) ultimoQuien = quien;
         // `guardado: false` (sesión sin cuenta propia) o una respuesta rara = el server no
         // sabe (`null`): decide lo local. Sólo un `vistos` de verdad es su palabra.
         const enServidor = okHttp && j.ok && j.guardado && Array.isArray(j.vistos) ? j.vistos.includes(id) : null;

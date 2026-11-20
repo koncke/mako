@@ -25,7 +25,10 @@ export type MarcaReto = { sel: string; titulo: string; texto: string; haz: strin
   propia?: true;
   /** Con «Entendido» (`listo`): la persona ya vio dónde se hace. Si MaKo todavía no la leyó hecha, la tarea queda «para después» y el
    *  día sigue (la maqueta: «Entendido» cierra el paso, b.integraciones = true; auditoría d24-05). Sin esto el día 2 se trababa. */
-  despues?: true };
+  despues?: true;
+  /** «Pasa el mouse por tu foto» (la maqueta): el menú de la foto se abre al pasar el mouse, y pasar ya cuenta (OD-11). Con un clic
+   *  esperado, quien pasaba el mouse e iba directo a Settings dejaba la marca de la foto esperando para siempre. */
+  pasar?: true };
 
 export type TareaReto = {
   id: string;
@@ -37,6 +40,8 @@ export type TareaReto = {
   marcas: MarcaReto[];
   /** Hecha desde el principio, sin nada que hacer ni marcar: «Tu onboarding» (el reto empieza al terminarlo; D1-14). */
   siempre?: true;
+  /** Cuántos minutos lleva (la maqueta, `min`: la app 3, Calendar 2): el aviso de la noche dice «Son N minutos.» (d24-04). */
+  min?: number;
 };
 
 export type PruebaWhatsApp = {
@@ -114,7 +119,7 @@ export const DIAS_RETO: readonly DiaReto[] = [
     tareas: [
       // Martín, 18/11: «MaKo con tu teléfono» no se entiende, «pareciera que está hablando de MaKo con WhatsApp otra vez… es la
       // aplicación de MaKo en tu teléfono». Se nombra la APP, aparte de MaKo por WhatsApp.
-      { id: 'app', titulo: 'Instala la app de MaKo en tu teléfono', donde: en('Settings › Instalar la app'), detalle: 'Escanea el QR del día 2. Es aparte de MaKo por WhatsApp.',
+      { id: 'app', titulo: 'Instala la app de MaKo en tu teléfono', donde: en('Settings › Instalar la app'), detalle: 'Escanea el QR del día 2. Es aparte de MaKo por WhatsApp.', min: 3,
         marcas: [
           { sel: conMarca(MARCA.barraFoto), titulo: 'Tu cuenta', texto: 'Lo de tu cuenta está en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'Todo lo de tu cuenta y tu negocio.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
@@ -131,17 +136,16 @@ export const DIAS_RETO: readonly DiaReto[] = [
         ] },
       { id: 'integraciones', titulo: 'Las integraciones de lo que elegiste', donde: en('Settings › Integraciones'), detalle: 'Las que pide lo que elegiste con Offer Coach y Funnel Coach. Se conectan en Settings, en Integraciones.',
         marcas: [
-          { sel: conMarca(MARCA.barraFoto), titulo: 'Tus integraciones', texto: 'Están en Settings, en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
+          { sel: conMarca(MARCA.barraFoto), titulo: 'Tus integraciones', texto: 'Están en Settings, en el menú de tu foto.', haz: 'Pasa el mouse por tu foto', lado: 'derecha', libre: true, pasar: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'Todo lo de tu cuenta y tu negocio.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
           { sel: conMarca(marcaSettings('integraciones')), titulo: 'Integraciones', texto: 'Aquí conectas lo que necesita tu funnel.', haz: 'Haz clic en Integraciones', lado: 'derecha' },
         ] },
       { id: 'perfil', titulo: 'Tu perfil y tu foto', donde: en('Settings › Perfil'), detalle: 'Lo que me contaste ya quedó guardado; ahí subes tu foto.',
         marcas: [
-          { sel: conMarca(MARCA.barraFoto), titulo: 'Tu perfil', texto: 'Está en Settings, en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
+          // La maqueta (b-perfil, b-perfil-2, b-perfil-3; verificación OD-11): la foto (pasando el mouse), Settings y el botón de la foto.
+          // Sin la sección Perfil en el medio: Settings abre en el perfil, y era un paso de más.
+          { sel: conMarca(MARCA.barraFoto), titulo: 'Tu perfil', texto: 'Está en Settings, en el menú de tu foto.', haz: 'Pasa el mouse por tu foto', lado: 'derecha', libre: true, pasar: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'La primera sección es tu perfil.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
-          // 19/11: la última marca es la sección Perfil (la que marca el video del día 2, `tour-settings-info`). Con Settings como
-          // última, tocar Settings en el video cerraba «Tu perfil y tu foto» antes de llegar al perfil, y tocar Perfil no cerraba nada.
-          { sel: conMarca(marcaSettings('info')), titulo: 'Perfil', texto: 'Tu nombre y tu foto: lo que contaste en el chat ya está guardado.', haz: 'Haz clic en Perfil', lado: 'derecha' },
           // 20/11 (d24-20, la maqueta): la última es el botón de la foto (app/perfil/InformacionPersonal.tsx, `MARCA.settingsFoto`), con «Entendido».
           // Con SU texto (`propia`): sin eso, `marcasDeLaTarea` le ponía el de la tarea (la maqueta, onboarding.html:20185-20198).
           { sel: conMarca(MARCA.settingsFoto), titulo: 'Tu foto', texto: 'Súbela aquí. Tu nombre, tu WhatsApp y tu negocio ya están guardados.', haz: 'Entendido', lado: 'derecha', listo: 'Entendido', propia: true, despues: true },
@@ -169,7 +173,7 @@ export const DIAS_RETO: readonly DiaReto[] = [
           // «Atiende MaKo» de Chats es sólo un filtro (las charlas que ya atiende MaKo): la respuesta automática se arma aquí.
           { sel: 'aside[aria-label="Tus automatizaciones"] button.chb-nueva', titulo: 'Nueva automatización', texto: 'Pídesela a MaKo con tus palabras: qué responder y por qué canal.', haz: 'Haz clic en Nueva automatización', lado: 'derecha' },
         ] },
-      { id: 'calendar', titulo: 'Conecta Google Calendar', donde: 'En Calendar', detalle: 'Las llamadas que agenden caen en tu calendario.',
+      { id: 'calendar', titulo: 'Conecta Google Calendar', donde: 'En Calendar', detalle: 'Las llamadas que agenden caen en tu calendario.', min: 2,
         marcas: [enLaBarra('/calendario', 'Calendar', 'Conecta tu calendario: las llamadas caen en tu agenda.')] },
     ],
     whatsapp: { texto: 'Pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead a tu CRM.', ejemplo: '«MaKo, carga a Juan Pérez en mi CRM: me escribió por Instagram y quiere el programa.»', audio: true },
@@ -300,6 +304,8 @@ const COLUMNA_DEL_FUNNEL: Readonly<Record<string, keyof typeof POR_FUNNEL>> = {
 // (la tarjeta de cada una en Settings › Integraciones lleva `marcaIntegracion(clave)`). Google Calendar no va: es la tarea del día 3.
 export type IntegracionReto = { key: string; nombre: string; para: string };
 /** El mensaje de MaKo antes del perfil, el último paso del día 2 (la maqueta, D2_PERFIL). */
+/** La respuesta a «Mañana» (la maqueta, MANANA; verificación D1-06), con SU hora: cada mañana MaKo le avisa (lib/reto/avisos.ts). */
+export const RETO_MANANA = (hora: string, n: number): string => `Perfecto: mañana a las ${hora} te escribo con el día ${n}.`;
 export const RETO_D2_PERFIL = 'Último paso del día 2: tu perfil. Lo que me contaste ya quedó guardado en Settings; ahí subes tu foto.';
 /** El mensaje de MaKo antes de la extensión, en el día 2 en pasos (la maqueta, D2_EXT; d24-08). */
 export const RETO_D2_EXT = 'Ahora la extensión de MaKo para Chrome: te acompaña mientras navegas.';
@@ -408,7 +414,10 @@ export type EstadoReto = { v: 1; inicio: string; adelantado: number; hechas: Rec
   /** El reto ya está en el Plan, como proyecto con una tarea por día (20/11, d24-22: lib/reto/plan.ts). */
   enElPlan?: true;
   /** La prueba por WhatsApp de cada día, ya respondida por MaKo («5» → cuándo y lo que hizo; lib/reto/pruebas.ts, d24-16 y R57-10). */
-  pruebas?: Record<string, { en: string; leido?: string }> };
+  pruebas?: Record<string, { en: string; leido?: string }>;
+  /** Los días que ELLA adelantó con «Adelantar al día N» (verificación D1-06: su elección queda como su mensaje en el hilo, como la
+   *  maqueta, `yo(rt, r.v)`). `adelantado` guarda sólo el último. */
+  adelantados?: number[] };
 
 export const CLAVE_RETO = 'reto.estado';
 export const HORAS_WA = ['8:00', '9:00', '10:00', '12:00', '15:00', '18:00', '20:00'] as const;
@@ -442,13 +451,14 @@ export function leerEstado(crudo: unknown): EstadoReto | null {
   const muestras = Array.isArray(e.muestras) ? [...new Set(e.muestras.filter((x): x is string => typeof x === 'string' && /^[a-z-]{2,30}$/.test(x)))].slice(0, 11) : [];
   const despues = Array.isArray(e.despues) ? [...new Set(e.despues.filter((x): x is string => typeof x === 'string' && /^\d:[a-z-]+$/.test(x)))] : [];
   const manana = Number.isInteger(e.manana) ? Math.max(2, Math.min(7, Number(e.manana))) : undefined;
+  const adelantados = Array.isArray(e.adelantados) ? [...new Set(e.adelantados.filter((x): x is number => Number.isInteger(x) && x >= 2 && x <= 7))] : [];
   const pro: Record<string, { desde: string; hasta: string }> = {};
   for (const [k, v] of Object.entries(e.pro && typeof e.pro === 'object' ? e.pro : {})) {
     const u = v as { desde?: unknown; hasta?: unknown } | undefined;
     if (/^[a-z-]{2,30}$/.test(k) && typeof u?.desde === 'string' && typeof u?.hasta === 'string' && !Number.isNaN(Date.parse(u.desde)) && !Number.isNaN(Date.parse(u.hasta))) pro[k] = { desde: u.desde, hasta: u.hasta };
   }
   return { v: 1, inicio: e.inicio, adelantado, hechas: confiables, leidas, ...(dia1Desde ? { dia1Desde } : {}), ...(muestras.length ? { muestras } : {}),
-    ...(despues.length ? { despues } : {}), ...(manana ? { manana } : {}), ...(Object.keys(pro).length ? { pro } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}), ...(zona ? { zona } : {}), ...(Object.keys(abiertoEl).length ? { abiertoEl } : {}), ...(e.enElPlan === true ? { enElPlan: true as const } : {}), ...(Object.keys(pruebas).length ? { pruebas } : {}) };
+    ...(despues.length ? { despues } : {}), ...(manana ? { manana } : {}), ...(Object.keys(pro).length ? { pro } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}), ...(zona ? { zona } : {}), ...(Object.keys(abiertoEl).length ? { abiertoEl } : {}), ...(e.enElPlan === true ? { enElPlan: true as const } : {}), ...(Object.keys(pruebas).length ? { pruebas } : {}), ...(adelantados.length ? { adelantados } : {}) };
 }
 
 /** La hora de Argentina (la de MaKo), UTC−3: la de un reto sin zona. */
@@ -513,6 +523,32 @@ export function diaAbierto(e: EstadoReto, ahora: number): number {
   return Math.max(1, Math.min(7, Math.max(porCalendario, desdeAdelanto)));
 }
 
+/**
+ * CUÁNDO SE ABRIÓ el día `n` (20/11, la segunda verificación de R57-F3): no cuándo se vio. El día que se abre por calendario, a su
+ * hora de ese día; el adelantado, cuando se adelantó (lo anota /api/reto en `abiertoEl`, exacto; sin eso, `adelantadoEn`). Antes se
+ * guardaba la primera vez que se veía abierto: con el 2 abierto el martes y la persona de vuelta el miércoles (ya con el 3), los dos
+ * quedaban del miércoles y los dos decían «Hoy». Sin abrir todavía, null.
+ */
+export function cuandoSeAbrio(e: EstadoReto, n: number, ahora: number): number | null {
+  const guardado = e.abiertoEl?.[String(n)];
+  if (guardado && !Number.isNaN(Date.parse(guardado))) return Date.parse(guardado);
+  const inicio = Date.parse(e.inicio);
+  if (n <= 1) return inicio;
+  if (diaAbierto(e, ahora) < n) return null;
+  // El adelanto vale desde que se hizo: antes, el día se abría sólo por calendario.
+  const ad = e.adelantadoEn ? Date.parse(e.adelantadoEn) : NaN;
+  const abiertoAl = (t: number) => {
+    const porCalendario = 1 + abiertosDesde(inicio, e.horaWa, t, e.zona);
+    const desdeAdelanto = Number.isFinite(ad) ? (t >= ad ? e.adelantado + abiertosDesde(ad, e.horaWa, t, e.zona) : 1) : e.adelantado;
+    return Math.max(porCalendario, desdeAdelanto);
+  };
+  // El primer minuto en que ya estaba abierto (crece con el tiempo: se busca partiendo a la mitad).
+  let lo = inicio, hi = ahora;
+  if (abiertoAl(lo) >= n) return lo;
+  while (hi - lo > 60_000) { const m = Math.floor((lo + hi) / 2); if (abiertoAl(m) >= n) hi = m; else lo = m; }
+  return hi;
+}
+
 export const claveTarea = (dia: number, id: string) => `${dia}:${id}`;
 /**
  * La marca de una tarea lleva la TAREA, no la pestaña (20/11, f24-04 y R57-F2; la maqueta, `marca: { titulo: t.t, texto: t.d }`):
@@ -540,7 +576,7 @@ const FUNNELS_CON_ANUNCIOS: ReadonlySet<string> = new Set(['anuncios', 'anuncios
 export const RETO_PILOTO = (funnel?: string | null): string => (FUNNELS_CON_ANUNCIOS.has(funnel ?? '')
   ? 'El piloto automático lo prendemos cuando tus anuncios estén corriendo: te aviso.'
   : 'El piloto automático lo prendemos cuando publiques tu primera semana: te aviso.');
-const FALTA_TAREA: Readonly<Record<string, string>> = {
+export const FALTA_TAREA: Readonly<Record<string, string>> = {
   app: 'instalar la app de MaKo en tu teléfono', extension: 'la extensión de MaKo para Chrome', onboarding: 'tu onboarding', offer: 'tu oferta', funnel: 'tu sistema para conseguir clientes', integraciones: 'conectar tus integraciones',
   perfil: 'tu perfil y tu foto', contactos: 'cargar tus clientes en el CRM', automatizacion: 'tu primera automatización',
   calendar: 'conectar tu calendario', spy: 'agregar a tus competidores', web: 'tu página', carrusel: 'tu carrusel', guion: 'tu guion',

@@ -38,6 +38,9 @@ import { cierraYa, fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigue
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
 import { barraEntera, mostrarLaBarra, presentaLaBarra } from './barra-oculta';
+import { useLugarALaVista } from './lugarDelVideo';
+import { BarraDelVideo, alternarVideo } from './BarraDelVideo';
+import { CSS_REPRODUCTOR } from './VideoDelMomento';
 import { TOPE_CADENA_MS, TOPE_CARGA_MS, alFinSinMarca, retenerAlFin, comoCadena, navegaA, pasoDeLaCadena, siguienteConMarca, soloEnComputadora, soltarRetencion, type Retencion } from './pausas';
 
 /**
@@ -686,8 +689,13 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
     };
     window.addEventListener('pointerdown', alTocar, true);
     window.addEventListener('click', alTocar, true);
-    return () => { window.removeEventListener('pointerdown', alTocar, true); window.removeEventListener('click', alTocar, true); };
-  }, [el, esperaClic, siguiente, modoVideo, cierre, seguirVideo, pasos, i]);
+    // «Pasa el mouse por tu foto» (la maqueta; verificación OD-11): el menú se abre al pasar, y pasar ya cuenta. Si no, quien pasaba el
+    // mouse e iba directo a Settings dejaba la marca de la foto esperando un clic que nunca llegaba.
+    const pasa = senal.tipo === 'marca' && !!senal.pasar;
+    const alPasar = (e: PointerEvent) => { if (tocado || !e.isTrusted) return; tocado = true; window.setTimeout(siguiente, 0); };
+    if (pasa) el.addEventListener('pointerenter', alPasar);
+    return () => { window.removeEventListener('pointerdown', alTocar, true); window.removeEventListener('click', alTocar, true); if (pasa) el.removeEventListener('pointerenter', alPasar); };
+  }, [el, esperaClic, siguiente, modoVideo, cierre, seguirVideo, pasos, i, senal]);
 
   // 4. Escape: omitir el tutorial (una marca sólo si se puede dejar para después).
   useEffect(() => {
@@ -717,7 +725,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
       <style>{cssRecorrido() + CSS_TUTORIAL}</style>
       {senal.tipo === 'tutorial' && (
         <VideoChico tutorial={senal.tutorial} video={video} vidRef={vidRef} autoplay={!conFrases} manda={soloVideo}
-          sub={paso?.sub ?? senal.tutorial.intro} revision={revision} arriba={videoArriba}
+          sub={paso?.sub ?? senal.tutorial.intro} revision={revision} arriba={videoArriba} lugar={senal.lugar}
           onCerrar={() => fin('omitido')} onOmitir={() => fin('omitido')} />
       )}
       {geo.hueco
@@ -801,12 +809,15 @@ function Pie({ senal, paso, ultimo, esperaClic, hayAnterior, conVideo, siguiente
  * El video chico de Martín de ESTA pestaña, abajo a la derecha. Sin video, nada (en la revisión, su lugar marcado). Con frases con
  * marca, manda desde que arranca; entre frase y frase (sin tarjeta) lleva «Omitir recorrido» abajo (`manda`). Cerrarlo saltea el tutorial.
  */
-function VideoChico({ tutorial, video, vidRef, autoplay, manda, sub, revision, arriba, onCerrar, onOmitir }: {
+function VideoChico({ tutorial, video, vidRef, autoplay, manda, sub, revision, arriba, lugar, onCerrar, onOmitir }: {
   tutorial: TutorialPestana; video: VideoTutorial | null; vidRef: RefObject<HTMLVideoElement | null>; autoplay: boolean; manda: boolean;
   sub: string; revision: boolean; arriba: boolean; onCerrar: () => void; onOmitir: () => void;
+  /** El lugar del mensaje donde se ve mientras está a la vista (./lugarDelVideo.ts, V4): ahí, con el reproductor de la maqueta. */
+  lugar?: string;
 }) {
   const [cerrado, setCerrado] = useState(false);
   const manifiestoListo = useManifiestoListo();
+  const enLugar = useLugarALaVista(lugar && video ? lugar : null);
   useEffect(() => {
     const v = vidRef.current;
     if (!v || !autoplay) return;
@@ -816,6 +827,30 @@ function VideoChico({ tutorial, video, vidRef, autoplay, manda, sub, revision, a
   // La placa «Todavía no está grabado», sólo con el manifiesto ya leído (20/11, F1): mientras carga, nada.
   if (cerrado || (!video && !(revision && manifiestoListo))) return null;
   const cerrar = () => { vidRef.current?.pause(); setCerrado(true); onCerrar(); };
+  // EN SU MENSAJE (20/11, V4 y R57-21): el MISMO <video> (nunca se vuelve a montar: no pierde la frase ni la pausa), dibujado encima
+  // del lugar del mensaje y recortado a lo que se ve del hilo; fuera de la vista, en la esquina, con su cabecera y su X.
+  if (lugar && video) {
+    const r = enLugar?.recorte;
+    const estilo: CSSProperties | undefined = enLugar && r ? { left: enLugar.x, top: enLugar.y, width: enLugar.ancho, right: 'auto', bottom: 'auto',
+      clipPath: `inset(${r.arriba}px ${r.derecha}px ${r.abajo}px ${r.izquierda}px round 14px)` } : undefined;
+    return (
+      <div role="complementary" className="mk-tuto__video mk-tuto__video--maqueta" data-en-lugar={enLugar ? '' : undefined} data-arriba={!enLugar && arriba ? '' : undefined}
+        style={estilo} aria-label={`El video de ${tutorial.nombre}`} data-clave-lugar={video.key}>
+        <style>{CSS_REPRODUCTOR}</style>
+        {!enLugar && <header className="mk-tuto__vcab"><span className="mk-tuto__vfoto" aria-hidden>M</span><b>Martín · MaKo</b>
+          <button type="button" className="mk-tuto__vx" aria-label="Cerrar el video" onClick={cerrar}>
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
+          </button></header>}
+        <div className="mk-vmom" data-estado="reproduciendo">
+          <div className="mk-vmom__pantalla" onClick={() => alternarVideo(vidRef)}>
+            <video ref={vidRef} className="mk-vmom__video" src={video.archivo} poster={video.poster} playsInline preload="metadata" />
+          </div>
+          <BarraDelVideo vidRef={vidRef} archivo={video.archivo} durManifiesto={video.duracion_s ?? 0} />
+        </div>
+        {manda && !enLugar && <div className="mk-tuto__vpie"><button type="button" onClick={onOmitir}>Omitir recorrido</button></div>}
+      </div>
+    );
+  }
   return (
     <div role="complementary" className="mk-tuto__video" data-arriba={arriba ? '' : undefined} aria-label={`El video de ${tutorial.nombre}`}>
       <header className="mk-tuto__vcab"><span className="mk-tuto__vfoto" aria-hidden>M</span><b>Martín · MaKo</b>
@@ -858,6 +893,8 @@ const CSS_TUTORIAL = `
 .mk-tuto__vpie { padding: 6px 10px 8px; }
 .mk-tuto__vpie button { border: 0; background: none; padding: 2px 0; color: rgba(255,255,255,.8); font: inherit; font-size: var(--fs-meta); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .mk-tuto__vid { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+.mk-tuto__video--maqueta .mk-vmom { width: 100%; margin: 0; border-radius: 0; box-shadow: none; }
+.mk-tuto__video[data-en-lugar] { border-radius: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
 .mk-tuto__lugar { margin: 0 10px; aspect-ratio: 16 / 9; border: 1.5px dashed rgba(255,255,255,.4); border-radius: var(--r-md); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; padding: 8px; }
 .mk-tuto__lugar b { font-size: var(--fs-sm); }
 .mk-tuto__lugar span { font-size: var(--fs-meta); opacity: .75; }

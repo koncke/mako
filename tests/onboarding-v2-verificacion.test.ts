@@ -19,10 +19,10 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 
 test('1. OA-06: la caja lee el código como lo manda MaKo («482 913») o su mensaje pegado; vacío, según si MaKo ya contestó', async () => {
   const { codigoEnLaCaja } = await import('../lib/onboarding-arranque');
-  const { decidirCodigoV2, mensajeDelCodigoYAgendarV2, E_SIN_CODIGO_V2, E_ESCRIBE_CODIGO_V2, E_CODIGO_LARGO_V2 } = await import('../lib/verificacion-entrante');
+  const { decidirCodigoV2, mensajeDelCodigoV2, E_SIN_CODIGO_V2, E_ESCRIBE_CODIGO_V2, E_CODIGO_LARGO_V2 } = await import('../lib/verificacion-entrante');
   assert.equal(codigoEnLaCaja('482 913'), '482913', 'en dos grupos, como lo escribe MaKo');
   assert.equal(codigoEnLaCaja('482913'), '482913');
-  assert.equal(codigoEnLaCaja(mensajeDelCodigoYAgendarV2('Juan', '482913')), '482913', 'el mensaje de MaKo entero');
+  assert.equal(codigoEnLaCaja(mensajeDelCodigoV2('Juan', '482913')), '482913', 'el mensaje de MaKo entero');
   assert.equal(codigoEnLaCaja('48 29 13'), '482913');
   assert.equal(codigoEnLaCaja('[10:30] MaKo: Tu código para confirmar tu WhatsApp es 482 913.'), '482913', 'pegado con la hora de WhatsApp: el grupo de 3 y 3');
   assert.equal(codigoEnLaCaja('482'), '482', 'los menos: «Faltan números»');
@@ -77,7 +77,8 @@ test('4. OA-F1: el WhatsApp se dibuja como lo escribió («+54 9 11 5555 0101»)
 });
 
 test('5. OA-11: «Sigamos en tu computadora» con el sobre delante de «Te mandamos el link» y «tu correo» sin email', () => {
-  const s = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
+  // En su archivo desde el 20/11 (R57-F5: el reto usa el mismo); ChatArranque lo re-exporta.
+  const s = sinComentarios(leer('app/onboarding/SeguirEnPc.tsx'));
   assert.match(s, /<p data-seguir-correo=""[^>]*>\s*<svg[^>]*aria-hidden="true"[^>]*><rect x="3" y="5" width="18" height="14" rx="2\.5" \/><path d="m4 7 8 6 8-6" \/><\/svg>/);
   assert.match(s, /Te mandamos el link a <b style=\{\{ color: 'var\(--ink\)' \}\}>\{email \|\| 'tu correo'\}<\/b>\./);
 });
@@ -210,9 +211,11 @@ test('14. V5: la entrada de un día y su «dale play» se guardan en el navegado
     assert.equal(dalePlayCerrado('offer-coach'), true);
   } finally { delete (globalThis as { localStorage?: unknown }).localStorage; }
   assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /onPlay=\{\(\) => \{ setEstado\('reproduciendo'\); if \(dalePlay\) cerrarDalePlay\(clave\); onEmpieza\?\.\(\); \}\}/);
-  assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /onClick=\{\(\) => \{ anotarVisto\(`video:\$\{dia\.n\}`\); cerrarDalePlay\(dia\.video\); mostrarTutorial\(tutorialDelDia\(dia\)/);
+  // Desde el 20/11, tarde (V4), el play del día corre por verVideoDelDia: lo anota visto y cierra el «dale play» antes del motor.
+  // (Con la clave de ESTE reto, `delReto`, para el video con marcas: 20/11, ~13:00.)
+  assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /anotarVisto\(`video:\$\{dia\.n\}`\);\n\s*cerrarDalePlay\(conMarcas \? delReto\(dia\.video\) : dia\.video\);\n\s*if \(conMarcas\) \{\n[^\n]*\n\s*mostrarTutorial\(tutorialDelDia\(dia\)/);
   // (Y el `visto` del chat del reto, d712c72df: el «dale play» del día sólo si ese video no se vio en este navegador.)
-  assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /activo: dalePlay && conMarcas && !visto \}\);/);
+  assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /activo: dalePlay && conMarcas && !visto && !corre \}\);/);
   assert.match(sinComentarios(leer('app/_ui/tutorial/useDalePlay.ts')), /cerrado: cerrado \|\| dalePlayCerrado\(clave\)/);
   // El del WhatsApp sigue SIN «dale play» (la verificación lo anotó como detalle; la decisión está en tests/tutorial-entrada.test.ts, 4:
   // llega junto a la tarjeta del código, y las tapas de la marca no dejarían escribirlo).

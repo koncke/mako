@@ -440,17 +440,57 @@ verde de «Enviar audio» quedaba cortado contra el borde derecho, y en el hilo 
 - **Regla:** un elemento compartido que se centra con `margin-inline: auto` lleva `width: 100%` + `min-width: 0` para no depender del
   tipo de su padre (bloque, flex o grilla). Se mide en el chat MÁS angosto donde vive, con su estado más ancho (la nota lista).
 
-## El chat no bajaba al último mensaje: el disparador era una CUENTA, no el video (20/11/2026, chat «onboarding-v2», claude5)
+## El chat que no baja y los mensajes que salen juntos: la auditoría de TODOS los chats (20/11/2026, Cerebro, claude5)
 
-- **El síntoma (Martín, en producción):** llega un mensaje o un video al chat y el chat no baja. «Siempre se haga scroll automático hacia
-  el último mensaje para que el usuario sepa dónde están las cosas.»
-- **El diagnóstico obvio era el equivocado:** «el video carga su portada después y crece». VideoDelMomento y la portada de la llegada
-  tienen CAJA FIJA (aspect-ratio 16/9); un arreglo que escuche `loadedmetadata` no arregla nada. Lo dijo la auditoría de chats del
-  Cerebro (side-session-notes, auditoria-chats-onboarding-ops-20-11.md); la primera versión de este hook (95644fc4b) se armó sobre el
-  diagnóstico equivocado y bajaba por cuenta.
-- **La causa real:** lo que dispara el scroll. Cada chat bajaba con una CUENTA (`mensajes.length + pendiente + ocupado`). Al contestar,
-  el servidor suma dos mensajes (la respuesta y la pregunta nueva) y en el MISMO render React se van lo pendiente y los puntitos: la
-  cuenta no cambia y el efecto no corre. Y en el Ops Center, las filas de la llegada vivían fuera de `k.items`: no las contaba nadie.
+Martín, probando el onboarding: «cuando se envían los videos no se hace scroll para abajo», y después, «para todo»: el scroll,
+los tres puntitos, que no salgan mensajes juntos y que cada uno salga a su tiempo. Tres revisores, cada uno con su pasada de
+escéptico, miraron 8 grupos de chats y confirmaron unos 70 casos. Los informes, con archivo y línea, están en las notas
+compartidas del Cerebro (`auditoria-chats-*-20-11.md`).
+
+- **Diagnóstico obvio y equivocado: «el video crece al cargar».** VideoDelMomento (400 px, 16:9) y la portada de la llegada
+  tienen caja fija. Un arreglo que escuche `loadedmetadata` no arregla nada. Lo que falla es lo que DISPARA el scroll:
+  - **Una cuenta de filas que no cambia.** Al responder, la respuesta reemplaza a la fila de los puntitos en el mismo render
+    (React junta los set del `finally`), y `mensajes.length + pendiente + ocupado` queda igual. Pasa en
+    ChatArranqueV2 (`cuantos`) y en ChatMakoVista de Automations (`n`).
+  - **Filas que viven fuera de la lista que se mira:** la llegada del Ops Center (fuera de `k.items`), las decisiones de la
+    Ticketera en el superadmin, las notas de voz (`nota.conNotas`), los pasos de «Trabajando…», lo que cuelga de un día
+    del reto.
+  - **Una cuenta que incluye lo que no se dibuja:** `lineas.length` en el superadmin cuenta pedidos y turnos filtrados, y
+    baja de golpe a quien estaba leyendo arriba sin que haya nada nuevo a la vista.
+- **Lo que sí crece:** las fotos de /m/chats (sin caja, hasta 320 px), VideoDelMomento mientras no llegó el manifiesto (nada
+  y después unos 270 px) y lo que aparece arriba de la caja, que achica el hilo (CajaChat sin `seguir`).
+- **Los mensajes juntos tienen una sola forma:** un `setState` con el turno entero (`itemsDeRespuesta` en
+  app/m/mako/chat-ui.ts), o un hilo guionado que es función pura del estado y se recalcula de una vez, o una tarjeta que vive
+  DENTRO de la fila de su mensaje. Ninguna duración de puntitos dependía del largo: 1,2, 1,4 y 1,8 s fijos, o lo que tarde
+  el fetch.
+- **Trampa del video en la esquina:** al pasar a flotante se pausa el video del chat, y eso dispara `onPausa`. El V2 soltaba
+  la primera pregunta con el video todavía hablando. Y el fin en la esquina no avisa a nadie (`terminar` del tipo
+  'video' en store.ts), así que la marca de Offer Coach no sale y el video vuelve a pedir play.
+- **Regla:**
+  - El hilo baja por la CLAVE de la última fila dibujada, nunca por una cuenta. Un ResizeObserver sobre la columna sigue lo
+    que crece sólo si la persona estaba abajo. Un mensaje nuevo baja siempre.
+  - Lo de MaKo sale por una cola: uno por vez, con puntitos según el largo y con la tarjeta o el botón después del texto.
+  - Lo ya visto se dibuja de una al recargar.
+  - Excepción escrita: los chats con personas (grupos y bandeja) siguen como WhatsApp.
+  - Las dos piezas son compartidas: nadie escribe el scroll de su pantalla.
+- **Lo que quedó SIN hacer al 20/11, 13:45 UTC:**
+  - Las dos piezas compartidas, más VideoDelMomento (`onFrase`, `onError`, el fin en la esquina) y EntradaEscribiendo, las
+    arma el chat del onboarding.
+  - Las usan después, cada uno en sus archivos:
+    - el reto (app/second-brain/reto/ChatDelReto.tsx, con reto-1 a reto-11);
+    - los coaches (ChatDelCoach, coach-compartido, VideoDelCoach, ChatOffer);
+    - el chat general (ChatSecondBrain, AperturaMako, useChatCliente, chat-ui.ts);
+    - las pestañas (Automations, Copywriter, Media Buyer, Newsletter, Dashboard, Image Editor);
+    - MaKo Mobile (app/m/chats, app/m/crm/[id]/chat);
+    - el superadmin (app/admin/operaciones/PanelChat.tsx: ahí va el seguimiento central, porque `PanelDeChat` lo usan casi
+      todas).
+
+## Las dos piezas compartidas: `useBajarAlUltimo` y la cola de salida (20/11/2026, chat «onboarding-v2», claude5)
+
+El diagnóstico (no era el video, que tiene caja fija: era lo que dispara el scroll) está en la entrada de la auditoría, justo arriba. Aquí,
+lo que quedó y sus trampas. **La primera versión de este hook (95644fc4b) se armó sobre el diagnóstico equivocado** («el video crece») y
+bajaba por cuenta; la corrigió la tanda siguiente. VideoDelMomento sin tocar: los momentos del video se oyen en captura desde su fila
+(app/_ui/tutorial/useMensajeDelVideo.ts), sin `onFrase` ni `onError` nuevos.
 - **Qué quedó:** app/_chat/useBajarAlUltimo.ts baja por la CLAVE de la última fila dibujada (su id, sus puntitos, su pieza), sin
   animación y la primera vez antes de pintar. Una fila que no sale de la lista del chat avisa con `avisarMensajeNuevo()`. El
   ResizeObserver (`bajarAlCrecer`) queda para lo que de verdad cambia de alto: una tarjeta que se arma, el recuadro o el error arriba de

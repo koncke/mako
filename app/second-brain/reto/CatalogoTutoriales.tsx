@@ -122,7 +122,7 @@ export function BotonTutoriales({ activo, onClick }: { activo: boolean; onClick:
 export const CSS_CATALOGO = `
 .rt-btn--ico { width: 36px; padding: 0; justify-content: center; }
 .rt-btn--ico[aria-pressed="true"] { background: var(--surface-2); }
-.rt-acciones { display: flex; align-items: center; gap: 8px; }
+.rt-acciones { margin-left: auto; flex: none; position: relative; display: flex; align-items: center; gap: 8px; }
 .rt-cat { display: flex; flex-direction: column; gap: 18px; padding: 8px 0 24px; }
 .rt-cat__cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .rt-cat__t { margin: 0; font-weight: 700; font-size: var(--fs-card, 15px); color: var(--ink); }

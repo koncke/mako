@@ -32,7 +32,7 @@ import { agenciasAprobadasDe } from './agencia';
 import { KEY_VOZ_INSTANCIA } from './linea-plataforma';
 import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
 import { MINUTOS_ENTRANTE, codigoDelTexto, codigoNuevo, decidirCodigoTipeado, decidirLlegada, linkWaMe, textoParaMandar, vistaDeEntrante, type EstadoVerificacion, type VistaEntrante } from './verificacion-entrante';
-import { E_REESCRIBIR_V2, KEY_LID_SIN_NUMERO, MAKO_SIN_LINEA_V2, sumarLidSinNumero, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, errorDelTelefono, escribioDesdeElOtro, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, renovarCodigoV2, respuestaOtroNumeroV2, unicaEsperandoV2 } from './verificacion-entrante';
+import { E_REESCRIBIR_V2, KEY_LID_SIN_NUMERO, MAKO_SIN_LINEA_V2, sumarLidSinNumero, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, errorDelTelefono, escribioDesdeElOtro, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoV2, AGENDAR_V2, reenviarDirecto, renovarCodigoV2, respuestaOtroNumeroV2, unicaEsperandoV2 } from './verificacion-entrante';
 import { chatDelMensaje, esSuTelefono } from './mako-bot-reglas';
 import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, leEscribioEnLasFilas, pausaDeEscritura, puedeEscribirleAPersona, type FilaQuienEscribio } from './mako-salida-reglas';
 import { respondiendoA } from './respuesta-en-curso';
@@ -251,7 +251,7 @@ async function cupoMismoTexto(destino: string, texto: string): Promise<boolean> 
   }
 }
 
-async function enviarTextoVozMaKo(jidONumero: string, texto: string, delayMs?: number): Promise<{ ok: boolean; id: string; error?: string }> {
+async function enviarTextoVozMaKo(jidONumero: string, texto: string, delayMs?: number, o: { contesta?: boolean } = {}): Promise<{ ok: boolean; id: string; error?: string }> {
   // ⛔ REGLA 1: la línea de MaKo no le escribe primero a una persona que nunca le escribió (lib/mako-salida-reglas.ts).
   if (!jidONumero.endsWith('@g.us') && !puedeEscribirleAPersona({ leEscribio: await leEscribioALaLinea(jidONumero).catch(() => null) })) {
     console.warn(`[mako-grupo] no salió a ${jidONumero}: ${NO_LE_ESCRIBE_PRIMERO}`);
@@ -259,7 +259,9 @@ async function enviarTextoVozMaKo(jidONumero: string, texto: string, delayMs?: n
   }
   // La respuesta en el grupo donde alguien acaba de escribir no cuenta para «el mismo texto a muchos» (11/11/2026): durante una caída
   // de la IA, el mismo cartel le contesta a seis grupos en una hora, y el sexto quedaba sin respuesta. El tope sigue para los avisos.
-  if (respondiendoA() !== jidONumero && !(await cupoMismoTexto(jidONumero, texto))) {
+  // Lo mismo con lo que CONTESTA el mensaje de una persona en su chat (`contesta`, 20/11/2026): el «Guárdame en tus contactos…» del
+  // código del V2 va aparte (Martín) y es el mismo texto para todos; cada una acaba de escribirle a MaKo.
+  if (respondiendoA() !== jidONumero && !o.contesta && !(await cupoMismoTexto(jidONumero, texto))) {
     console.warn(`[mako-grupo] no salió a ${jidONumero}: ${MISMO_TEXTO_A_MUCHOS}`);
     return { ok: false, id: '', error: MISMO_TEXTO_A_MUCHOS };
   }
@@ -1011,16 +1013,26 @@ export async function otroNumeroQueEscribioV2(ws: number): Promise<{ telefono: s
 
 /** Le manda el código por el chat privado (ella escribió primero: la regla 1 lo mira igual), su tarjeta de contacto y el pedido de agendarlo.
  *  Es un DM a una persona: va por `enviarAPersonaMaKo`, la puerta de los DM (tests/grupos-ops-guarda.test.ts). `destino`: su número. */
+/**
+ * EL CÓDIGO, LA TARJETA Y «GUÁRDAME…», EN TRES MENSAJES (Martín, 20/11/2026 ~13:00 UTC: «como el de ayer a las 21:02»). El 20/11 a la
+ * madrugada (wa-09, 1a7f519ad) el pedido se había pegado al código porque, aparte, es el mismo texto para todos y el tope del mismo
+ * texto a muchos (lib/mako-salida-reglas.ts) lo frenaba desde la sexta persona en una hora. Ahora va aparte y como RESPUESTA a su
+ * mensaje (`contesta`), que es lo que es: siempre se manda porque ella acaba de escribir. El código es lo único que no puede faltar; lo
+ * demás es best-effort, pero lo que no sale queda en el log con su motivo.
+ */
 async function mandarCodigoV2(v: EstadoVerificacion, destino: string): Promise<{ ok: boolean; error?: string }> {
-  const r = await enviarAPersonaMaKo(destino, mensajeDelCodigoYAgendarV2(v.nombre ?? '', v.codigo));
+  const r = await enviarAPersonaMaKo(destino, mensajeDelCodigoV2(v.nombre ?? '', v.codigo), { contesta: true });
   if (!r.ok) return { ok: false, error: r.error };
-  // La tarjeta de MaKo, para que la guarde con un toque (la maqueta: «Guardar contacto»). Best-effort: el código ya salió.
+  // La tarjeta de MaKo, para que la guarde con un toque (la maqueta: «Guardar contacto»).
   const numeroMaKo = soloDigitos(v.numeroLinea ?? '');
   if (numeroMaKo) {
-    await ev(`/message/sendContact/${await instanciaVoz()}`, {
+    const t = await ev(`/message/sendContact/${await instanciaVoz()}`, {
       method: 'POST', body: JSON.stringify({ number: destino, contact: [{ fullName: 'MaKo', wuid: numeroMaKo, phoneNumber: `+${numeroMaKo}` }] }),
-    }).catch(() => null);
+    }).catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
+    if (!t.ok) console.warn(`[mako-grupo] V2: no salió la tarjeta de MaKo a ${destino}`);
   }
+  const g = await enviarAPersonaMaKo(destino, AGENDAR_V2, { contesta: true });
+  if (!g.ok) console.warn(`[mako-grupo] V2: no salió «Guárdame en tus contactos» a ${destino}: ${g.error}`);
   return { ok: true };
 }
 
@@ -1273,12 +1285,13 @@ export async function crearGrupoSuelto(
  * un colaborador las tareas que asumió en una reunión: le llega de MaKo, no del número
  * de ventas del negocio.
  */
-export async function enviarAPersonaMaKo(telefono: string, texto: string): Promise<EnvioGrupo> {
+export async function enviarAPersonaMaKo(telefono: string, texto: string, o: { contesta?: boolean } = {}): Promise<EnvioGrupo> {
   const num = soloDigitos(telefono);
   if (!num) return { ok: false, error: 'teléfono inválido' };
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
-  // Sólo a quien ya le escribió a la línea (regla 1): lo mira `enviarTextoVozMaKo`, y el motivo vuelve tal cual.
-  const r = await enviarTextoVozMaKo(num, texto);
+  // Sólo a quien ya le escribió a la línea (regla 1): lo mira `enviarTextoVozMaKo`, y el motivo vuelve tal cual. `contesta`: es la respuesta
+  // a SU mensaje, y no la frena el tope del mismo texto (la regla 1 sigue).
+  const r = await enviarTextoVozMaKo(num, texto, undefined, o);
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error ?? 'no se pudo enviar' };
 }
 

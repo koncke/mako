@@ -177,17 +177,17 @@ test('lo tocado durante el video del día cuenta como hecho: la tarea cuya últi
   assert.deepEqual(tareasQueCierra(d2, '[data-recorrido="tour-settings-instalar"]'), ['app', 'extension'], 'tocar «Instalar la app» cierra la app y la extensión');
   assert.deepEqual(tareasQueCierra(d2, '[data-recorrido="tour-settings-integraciones"]'), ['integraciones']);
   assert.deepEqual(tareasQueCierra(d2, '[data-recorrido="tour-barra-foto"]'), [], 'la foto es un paso del camino, no cierra nada');
-  // 19/11: el video marca Perfil (`tour-settings-info`) para «Tu perfil y tu foto». Antes la última marca de esa tarea era Settings:
-  // tocar Settings la cerraba antes de llegar al perfil, y tocar Perfil no cerraba nada.
-  assert.deepEqual(tareasQueCierra(d2, '[data-recorrido="tour-settings-info"]'), ['perfil'], 'tocar Perfil cierra tu perfil y tu foto');
-  assert.deepEqual(tareasQueCierra(d2, '#user-menu a[href^="/perfil"]'), [], 'Settings es un paso del camino, no cierra nada');
+  // 20/11, tarde (segunda verificación de OD-11, la maqueta): el perfil es la foto, Settings y el botón de la foto (con «Entendido»),
+  // sin la sección Perfil en el medio. Lo tocado ya no da nada por hecho (D1-01, abajo): esto sólo dice cuál es su último paso.
+  assert.deepEqual(tareasQueCierra(d2, '[data-recorrido="tour-settings-info"]'), [], 'la sección Perfil ya no es un paso');
+  assert.deepEqual(tareasQueCierra(d2, '#user-menu a[href^="/perfil"]'), ['perfil'], 'Settings es el último que se toca del perfil');
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.match(chat, /alTocar: onTocado/, 'el video del día avisa lo tocado');
   // 20/11 (auditoría D1-01, d24-07, d24-12 y R57-09): tocar lo marcado NO da la tarea por hecha; sólo relee el reto.
   assert.doesNotMatch(chat, /accion: 'hecha'/, 'el chat del reto nunca marca «hecha» por un toque');
   // 20/11 (D1-03, d24-09 y R57-12): nada se marca solo a los 0,9 s; lo que falta, al terminar o cerrar el video del día.
   assert.ok(!chat.includes('}, 900)'), 'sin la marca automática a los 900 ms');
-  assert.ok(chat.includes('alTerminar: () => onFin?.()') && chat.includes('onTermina={() => { anotarVisto(`video:${dia.n}`); onFin?.(); }}'), 'la marca de lo que falta sale al terminar el video');
+  assert.ok(chat.includes('alTerminar: () => o.alTerminar?.()') && chat.includes('{ alTocar: onTocado, alTerminar: onFin }') && chat.includes('onTermina={alFin} onTerminaFuera={alFin}'), 'la marca de lo que falta sale al terminar el video (también en la esquina: D1-03)');
   assert.ok(chat.includes("marcarTarea(marcasDeLaTarea(t), dejaParaDespues(t) ? dejar : () => { void leer(); }, n === 1 ? undefined : dejar);"), 'el día 1 sin «Lo hago después» (F1)');
   assert.match(chat, /¡Hiciste todo lo del día \{dia\.n\}!/, 'con todo hecho, la felicita y pasa a WhatsApp');
 });
@@ -248,8 +248,9 @@ test('el desplegable del reto: «El reto de 7 días de MaKo», el video de cada 
 
 test('los tres puntitos: cada mensaje del reto llega después de que MaKo escribe, de a uno (20/11, D1-10 y d24-11)', () => {
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
-  assert.ok(chat.includes('const ap = useAparicion(claves);'), 'los mensajes pasan por la aparición');
-  assert.ok(chat.indexOf('const ap = useAparicion(claves);') < chat.indexOf('ap.escribiendo]'), 'ap se declara antes de usarlo en un efecto');
+  // Con lo visto de ESTE reto (20/11, ~13:00): lo visto en otro negocio no los deja salir juntos.
+  assert.ok(chat.includes("const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');"), 'los mensajes pasan por la aparición');
+  assert.ok(chat.indexOf("const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');") < chat.indexOf('ap.escribiendo]'), 'ap se declara antes de usarlo en un efecto');
   for (const k of ["ap.ver('hola')", "ap.ver('interes')", 'ap.ver(`dia:${dia.n}`)', 'ap.ver(`fin:${actual.n}`)']) assert.ok(chat.includes(k), `${k} espera su turno`);
   assert.ok(chat.includes('co-trabajando__puntos'), 'los puntitos del Ops Center');
   assert.ok(chat.includes('!empezo1 && !muestraPendiente && ap.listo && !ap.escribiendo'), 'las opciones, recién cuando MaKo terminó de escribir');
@@ -324,7 +325,8 @@ test('la marca de cada tarea lleva la tarea, y la tarjeta del día su título (2
   const perfil = DIAS_RETO[1].tareas.find((x) => x.id === 'perfil')!;
   assert.equal(marcasDeLaTarea(perfil)[0].titulo, perfil.marcas[0].titulo, 'las del camino quedan como están');
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
-  assert.ok(chat.includes("{hoy ? 'Lo que te toca hoy' : 'Lo que te tocó'}") && chat.includes('<p className="rt-tarjeta__t">{dia.titulo}</p>'));
+  // La cabecera de la maqueta (segunda verificación de f24-03): «Día N de 7» y el título, sin «Lo que te toca hoy».
+  assert.ok(chat.includes('<span className="rt-tarjeta__n">Día {dia.n} de 7</span><span className="rt-tarjeta__t">{dia.titulo}</span>'));
 });
 
 test('la caja del reto le escribe al MaKo del Ops Center con el contexto del reto, en su conversación (20/11, D1-09 y R57-13)', async () => {
@@ -371,8 +373,9 @@ test('cambiar el reto no pisa la hora que guardó el WhatsApp en el medio (20/11
 
 test('cada día abre con el velo y MaKo escribiendo, y su video con «dale play»; el día 2 termina en el perfil (20/11, V5, V14, d24-19)', () => {
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
-  assert.ok(chat.includes("const fase = useEntrada(`reto-dia-${dia.n}`, hoy && nuevo);") && chat.includes('<EntradaEscribiendo foto='), 'la entrada del motor (no una propia)');
-  assert.ok(chat.includes('useDalePlay(boton, {') && chat.includes('dalePlay={dalePlay && !visto} />'), 'el «dale play» del motor, en los dos videos');
+  // Con la clave de ESTE reto (20/11, ~13:00: lo visto en otro negocio no la saltea).
+  assert.ok(chat.includes("const fase = useEntrada(delReto(`reto-dia-${dia.n}`), hoy && nuevo);") && chat.includes('<EntradaEscribiendo foto='), 'la entrada del motor (no una propia)');
+  assert.ok(chat.includes('useDalePlay(raiz, {') && chat.includes('dalePlay={dalePlay && !visto} />'), 'el «dale play» del motor, en los dos videos');
   assert.ok(!chat.includes('<video ref='), 'sin el reproductor del navegador (V14)');
   assert.ok(chat.indexOf('<TarjetaHora p={p}') > 0 && chat.indexOf('<TarjetaHora p={p}') < chat.indexOf('<Burbuja><p>{RETO_D2_PERFIL}</p></Burbuja>'), 'la hora antes del perfil');
   assert.ok(chat.includes("const ultimo = dia.n === 2 ? dia.tareas.find((t) => t.id === 'perfil') : undefined;"), 'el perfil sale de la tarjeta del día 2');
@@ -486,7 +489,7 @@ test('tanda 7 (20/11): los textos de la maqueta, las marcas que faltaban y «Tu 
   const info = fuente('../app/perfil/InformacionPersonal.tsx');
   assert.ok(info.includes('data-recorrido={MARCA.settingsFoto}'), 'el botón de la foto lleva su ancla (la del chat del onboarding, OD-11)');
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
-  assert.ok(chat.includes('{ alOmitir: alDejar, libre: m.libre, ...(m.listo ? { listo: m.listo } : {}) }'), 'marcarTarea le pasa «Entendido» al motor');
+  assert.ok(chat.includes('{ alOmitir: alDejar, libre: m.libre, ...(m.listo ? { listo: m.listo } : {}), ...(m.pasar ? { pasar: true } : {}) }'), 'marcarTarea le pasa «Entendido» al motor');
   // f24-05: después de CRM, el «⋮» (app/crm/CrmToolbar.tsx, `ancla('crm-mas')`).
   assert.deepEqual(t(3, 'contactos').marcas.map((m) => m.sel), ['aside[data-sidebar] a[href^="/crm"]', '[data-colkey], [data-lead-id]', '[data-recorrido="crm-mas"]']);
   // R57-18: Video, «Crear desde cero» y la tarjeta «Tu personaje con IA».
@@ -603,7 +606,9 @@ test('f24-01 y R57-F5 (20/11): el reto abierto en el teléfono dice «Sigamos en
   const m = fuente('../app/m/second-brain/page.tsx');
   const i = m.indexOf("if (uno(sp.reto) === '1') {");
   assert.ok(i > 0, 'mira el ?reto=1 del link del correo');
-  assert.ok(m.includes('if (yo && ws != null && veOnboardingV2({ email, ws })) return <PantallaM><SeguirEnPcReto nombre={primerNombre(yo.nombre ?? \'\')} email={email} /></PantallaM>;'), 'la pantalla del reto, adentro de PantallaM (tests/movil-refrescar.test.ts)');
+  // El MISMO componente del onboarding (segunda verificación de R57-F5), en su archivo: app/onboarding/SeguirEnPc.tsx.
+  // Con el nombre del onboarding del negocio (20/11, ~13:00: la vista como administrador muestra lo que ve el cliente).
+  assert.ok(m.includes('if (yo && ws != null && veOnboardingV2({ email, ws })) return <PantallaM><SeguirEnPc nombre={await nombreDelReto(yo.nombre)} email={email} para="reto" maqueta /></PantallaM>;'), 'la pantalla del reto, adentro de PantallaM (tests/movil-refrescar.test.ts)');
   assert.ok(!m.includes('onboarding/ChatArranque'), 'sin el chat del onboarding: le sumaría sus rutas al Ops Center (tests/d6b-rutas.test.ts)');
   assert.ok(i < m.indexOf("if (ctx.sesion.rol === 'admin' && !ctx.impersonando) redirect(await rutaConWs(RUTA_CENTRO_M));"), 'antes del desvío al Centro (perdería el ?reto=)');
   const avisos = fuente('../lib/reto/avisos.ts');
@@ -722,7 +727,7 @@ test('verificación 20/11: lo visto se recuerda por día; el desplegable, el pin
   assert.ok(chat.includes('<svg className="rt-menu__flecha"') && chat.includes('<PinDelReto dias='), 'la flecha de cada fila y el pin');
   assert.ok(chat.includes('const quienMako = useMemo(() => ({ nombre: RETO_TITULO, aspecto: ASPECTO_MAKO }), []);'), '«Escribe a Reto de 7 días»');
   const ruta = fuente('../app/api/reto/route.ts');
-  assert.ok(ruta.includes("abiertoEl: { ...Object.fromEntries(abiertos.map((n) => [n, n === '1' ? x.inicio : cuando])), ...(x.abiertoEl ?? {}) }"), 'todo día abierto con su fecha');
+  assert.ok(ruta.includes("abiertoEl: { ...Object.fromEntries(abiertos.map((n) => [n, new Date(cuandoSeAbrio(x, Number(n), Date.parse(cuando)) ?? Date.parse(cuando)).toISOString()])), ...(x.abiertoEl ?? {}) }"), 'todo día abierto con la fecha de cuando se abrió (R57-F3)');
 });
 
 test('verificación 20/11: el aviso del reto abre el reto (F3) y Funnel Coach dice «Tu día 1 está completo» (D1-05)', async () => {

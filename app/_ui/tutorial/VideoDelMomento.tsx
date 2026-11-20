@@ -20,7 +20,7 @@
 import { useRef, useState, type MouseEvent } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
-import { useSenal } from './store';
+import { useSenal, type MotivoFin } from './store';
 import { useVideoQueFlota } from './useVideoQueFlota';
 import { useDalePlay } from './useDalePlay';
 import { cerrarDalePlay } from './entrada';
@@ -35,8 +35,10 @@ const conMayuscula = (s: string) => (s ? s.charAt(0).toLocaleUpperCase('es') + s
  * (20/11, la verificación de OA-02: también la suelta); `onEmpieza`, cuando arranca. `dalePlay`: mientras está quieto, el
  * motor lo marca con «{título}: dale play» (V5, ./useDalePlay.ts): el video con el que abre un chat (los coaches, el reto, la bienvenida).
  */
-export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, onEmpieza, dalePlay = false }: {
+export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, onEmpieza, onTerminaFuera, dalePlay = false }: {
   clave: string; titulo: string; revision: boolean; onTermina?: () => void; onPausa?: () => void; onEmpieza?: () => void; dalePlay?: boolean;
+  /** Terminó (o lo cerraron con su X) en la esquina, después de salir de la vista (20/11, D1-03: el reto del día 1). */
+  onTerminaFuera?: (m: MotivoFin) => void;
 }) {
   const v = useVideoTutorial(clave);
   const listo = useManifiestoListo();
@@ -44,7 +46,7 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, o
   const flotando = senal?.tipo === 'video' && senal.clave === clave;
   const ref = useRef<HTMLVideoElement>(null);
   // Si sale de la vista corriendo (o se navega), sigue abajo a la derecha (Martín, 18/11).
-  useVideoQueFlota(ref, v ? clave : null, titulo);
+  useVideoQueFlota(ref, v ? clave : null, titulo, onTerminaFuera);
   const [estado, setEstado] = useState<Estado>('quieto');
   const [t, setT] = useState(0);
   // La duración: la del archivo cuando la lee el navegador; hasta entonces, la del manifiesto (nunca «0:00»).

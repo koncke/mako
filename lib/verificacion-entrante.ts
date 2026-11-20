@@ -198,12 +198,9 @@ export const codigoEnGrupos = (codigo: string): string => (/^\d{6}$/.test(codigo
 export const mensajeDelCodigoV2 = (nombre: string, codigo: string): string =>
   `Hola${nombre.trim() ? ` ${nombre.trim()}` : ''}, soy MaKo.\nTu código para confirmar tu WhatsApp es ${codigoEnGrupos(codigo)}.`;
 
-/**
- * El código y el pedido de guardar el contacto, en UN mensaje (20/11/2026, la auditoría wa-09). Iban separados, y el pedido es el mismo
- * texto para todos: la regla de «el mismo texto a muchos» (lib/mako-salida-reglas.ts) no lo deja salir a más de 5 chats por hora, y el
- * error se descartaba. Pegado al código, cada mensaje es distinto.
- */
-export const mensajeDelCodigoYAgendarV2 = (nombre: string, codigo: string): string => `${mensajeDelCodigoV2(nombre, codigo)}\n\n${AGENDAR_V2}`;
+// ⚠️ El código y «Guárdame en tus contactos…» (`AGENDAR_V2`) van SEPARADOS (Martín, 20/11/2026 ~13:00 UTC): el código, la tarjeta de MaKo
+// y el pedido (`mandarCodigoV2`, lib/mako-grupo.ts). El 20/11 a la madrugada se habían pegado por el tope del mismo texto; ahora el pedido
+// sale como respuesta a su mensaje y el tope no lo frena. No vuelvas a juntarlos.
 
 /** Con la línea de MaKo caída (20/11/2026, wa-05): en el V2 no hay «lo resuelves después» (el WhatsApp es obligatorio), y es de nuestro lado. */
 export const MAKO_SIN_LINEA_V2 = 'MaKo no puede recibir mensajes en este momento, es de nuestro lado. Prueba de nuevo en unos minutos.';

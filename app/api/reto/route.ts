@@ -18,7 +18,7 @@ import { cambiarSettingSi, getSetting } from '@/lib/settings';
 import { cambiarReto, type IoReto } from '@/lib/reto/cambiar';
 import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
 import { WHATSAPP_MAKO } from '@/app/vsl/_sitio/contacto';
-import { CLAVE_RETO, HORAS_WA, diaAbierto, estadoDeLosDias, inicioConLaPrueba, leerEstado, tareaHecha, zonaValida, type EstadoReto } from '@/lib/reto/dias';
+import { CLAVE_RETO, HORAS_WA, cuandoSeAbrio, diaAbierto, estadoDeLosDias, inicioConLaPrueba, leerEstado, tareaHecha, zonaValida, type EstadoReto } from '@/lib/reto/dias';
 import { estadoDeIntegraciones, leerTareasHechas } from '@/lib/reto/senales';
 
 export const dynamic = 'force-dynamic';
@@ -65,15 +65,15 @@ async function conLoLeido(e: EstadoReto | null): Promise<EstadoReto | null> {
     if (reservo) await alPlan();
   } else if (delPlan && Object.keys(nuevas).length) await alPlan();
   const conPlan = (x: EstadoReto): EstadoReto => (reservo || x.enElPlan ? { ...x, enElPlan: true } : x);
-  // La primera vez que se ve abierto un día, su fecha (R57-F3: la que lo separa en el hilo). El día 1, la del inicio. También los días
-  // que se abrieron sin que nadie mirara (verificación d24-11: uno que se salteaba entero quedaba sin fecha): la de cuando se ven.
+  // Cuándo se ABRIÓ cada día (R57-F3: la fecha que lo separa en el hilo), también los que se abrieron sin que nadie mirara (d24-11).
+  // La de cuando se abrió, no la de cuando se vio (segunda verificación del 20/11: `cuandoSeAbrio`, lib/reto/dias.ts).
   const abiertos = Array.from({ length: diaAbierto(e, Date.now()) }, (_, i) => String(i + 1));
   const sinFecha = abiertos.some((n) => !e.abiertoEl?.[n]);
   if (!Object.keys(nuevas).length && !sinFecha) return conPlan(e);
   const cuando = new Date().toISOString();
   // Con compare-and-set (lib/reto/cambiar.ts): sólo suma lo leído, sobre lo último guardado, y no pisa la hora del WhatsApp.
   const r = await cambiarReto(IO, (x) => ({ ...x, hechas: { ...x.hechas, ...Object.fromEntries(Object.keys(nuevas).filter((k) => !x.hechas[k]).map((k) => [k, cuando])) }, leidas: { ...(x.leidas ?? {}), ...nuevas },
-    abiertoEl: { ...Object.fromEntries(abiertos.map((n) => [n, n === '1' ? x.inicio : cuando])), ...(x.abiertoEl ?? {}) } })).catch(() => null);
+    abiertoEl: { ...Object.fromEntries(abiertos.map((n) => [n, new Date(cuandoSeAbrio(x, Number(n), Date.parse(cuando)) ?? Date.parse(cuando)).toISOString()])), ...(x.abiertoEl ?? {}) } })).catch(() => null);
   return conPlan(r ?? e);
 }
 
@@ -156,7 +156,9 @@ function aplicar(e: EstadoReto, body: { accion?: string; dia?: unknown; id?: unk
     if (!Number.isInteger(dia) || dia !== abierto + 1 || dia > 7) return Response.json({ ok: false, error: 'Ese día no se puede adelantar.' }, { status: 400 });
     // Adelantado = abierto ahora: el que sigue se abre mañana a su hora (adelantadoEn), y este día no lleva aviso de la mañana
     // (`avisado`): lo acordado es que el aviso sale sólo cuando el día se abre por calendario.
-    return { ...e, adelantado: dia, adelantadoEn: new Date(ahora).toISOString(), avisado: Math.max(e.avisado ?? 1, dia) };
+    // Y se abrió AHORA (R57-F3): la fecha exacta del día en el hilo.
+    return { ...e, adelantado: dia, adelantadoEn: new Date(ahora).toISOString(), avisado: Math.max(e.avisado ?? 1, dia), abiertoEl: { ...(e.abiertoEl ?? {}), [String(dia)]: new Date(ahora).toISOString() },
+      adelantados: [...new Set([...(e.adelantados ?? []), dia])] };
   }
   // «Empezar mi día 1» (D1-02): desde acá el chat muestra los días.
   if (body.accion === 'dia1') return { ...e, dia1Desde: e.dia1Desde ?? new Date(ahora).toISOString() };

@@ -21,8 +21,8 @@ import { esAdminDeTab } from '@/lib/puerta-admin-tab';
 import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
-import { primerNombre } from '@/lib/onboarding-arranque';
-import { SeguirEnPcReto } from '@/app/second-brain/reto/SeguirEnPcReto';
+import { SeguirEnPc } from '@/app/onboarding/SeguirEnPc';
+import { nombreDelReto } from '@/lib/reto/nombre';
 import { RUTA_CENTRO_M } from '@/lib/movil-rutas';
 import { personaDelRequest, listarSesiones } from '@/lib/mako-turno-app';
 import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
@@ -54,7 +54,8 @@ export default async function SecondBrainPagina({ searchParams }: {
   if (uno(sp.reto) === '1') {
     const [yo, ws] = await Promise.all([getUsuarioActual().catch(() => null), getWorkspaceActual().catch(() => null)]);
     const email = (yo?.email ?? '').trim().toLowerCase();
-    if (yo && ws != null && veOnboardingV2({ email, ws })) return <PantallaM><SeguirEnPcReto nombre={primerNombre(yo.nombre ?? '')} email={email} /></PantallaM>;
+    // El nombre del onboarding del negocio, no el de la sesión (20/11: la vista como administrador muestra lo que ve el cliente).
+    if (yo && ws != null && veOnboardingV2({ email, ws })) return <PantallaM><SeguirEnPc nombre={await nombreDelReto(yo.nombre)} email={email} para="reto" maqueta /></PantallaM>;
   }
 
   // ⚠️ Y para el super admin el Second Brain vive dentro del Ops Center (17/10/2026): su entrada salió de More y un
