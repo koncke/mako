@@ -79,7 +79,8 @@ test('4. en un grupo, los puntitos de MaKo pensando se ven (ops-center-8a); lo n
 
 test('5. en la cabecera de Offer Coach y Funnel Coach, los videos y lo demás van a la DERECHA (la maqueta: `.mq-arriba { margin-left: auto }`)', () => {
   const c = sinComentarios(leer('app/second-brain/ChatDelCoach.tsx'));
-  assert.match(c, /acciones: \(\n\s*<span className="co-cab__der">\n\s*\{dosCoaches && <VideosDelChat videos=\{videosDeLaLista\} \/>\}/);
+  // A la derecha, y el ícono de los videos LO ÚLTIMO (20/11, la llamada con Leila; tests/onboarding-v2-coaches-videos.test.ts, 6).
+  assert.match(c, /acciones: \(\n\s*<span className="co-cab__der">[\s\S]*?\{dosCoaches && <VideosDelChat videos=\{videosDeLaLista\} \/>\}\n\s*<\/span>/);
   assert.match(leer('app/admin/operaciones/centro.css'), /\.co-cab__der \{ margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; \}/);
   // La lista de videos abre hacia la izquierda también en el teléfono (abierta hacia la derecha se salía de la pantalla).
   assert.doesNotMatch(leer('app/_ui/tutorial/VideosDelChat.tsx'), /\.mk-vchat__lista \{ right: auto; left: 0; \}/);

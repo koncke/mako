@@ -28,6 +28,7 @@ import { requireRolWs } from '@/lib/tab-access';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
 import { vistaArranque } from '@/lib/onboarding-arranque-server';
 import { personaDelOnboarding, seguirEnPcPendiente } from '@/lib/seguir-en-pc';
+import { mandarCorreoSeguirEnPc } from '@/lib/seguir-en-pc-correo';
 import { primerNombre } from '@/lib/onboarding-arranque';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import { ARBOL_VACIO } from '../offer/arbol';
@@ -86,6 +87,8 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     const sesionPc = await getUsuarioActual().catch(() => null);
     const vistaPc = await vistaArranque().catch(() => null);
     const quienPc = await personaDelOnboarding().catch(() => null);
+    // La pantalla promete el correo: si el cierre no lo mandó (otro camino, o falló), sale ahora. Una vez por persona.
+    await mandarCorreoSeguirEnPc();
     return <SeguirEnPc nombre={primerNombre(vistaPc?.nombre || sesionPc?.nombre || '')} email={quienPc?.email || sesionPc?.email || ''} maqueta />;
   }
   // Ya onboardeado → Second Brain, a la sección que pedía el link (`?tab=`), o a su portada.
