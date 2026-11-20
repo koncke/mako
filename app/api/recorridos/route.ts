@@ -19,12 +19,14 @@
 // devuelve en vez de tragárselo por la misma razón que `setNotifInApp` (lib/perfil.ts):
 // sin eso, «lo guardé» y «no tengo dónde guardarlo» se ven iguales.
 //
-// ⚠️ NO SE APLICA EL «VIENDO COMO CLIENTE». El super admin que entra a mirar un cliente
-// sigue siendo él frente al teclado: el recorrido que vio es suyo, y marcarlo sobre el
-// usuario del cliente le escondería el recorrido a quien todavía no lo vio. Por eso la
-// fila sale del email de la SESIÓN y nunca del workspace que se está mirando — es el
-// criterio de `filaPropia` en lib/perfil.ts, que no se importa porque es privada y además
-// no trae `updated_at`, que acá hace falta (abajo).
+// ⚠️ MIRANDO UN NEGOCIO COMO ADMINISTRADOR (la D7, con la decisión del 20/11/2026): se LEE del
+// DUEÑO del negocio que se mira (Martín: «la vista como administrador muestra lo mismo que ve el
+// cliente»), y se ESCRIBE en el dueño SÓLO en los negocios de prueba (ws 3 y ws 9, donde Martín
+// prueba como si fuera el cliente: `escribeComoElCliente`). En cualquier otro, lo que el
+// administrador cierra queda en su navegador y nunca toca el perfil del cliente: si soporte mira
+// una cuenta, el cliente no puede perder sus tutoriales. Sin mirar a nadie, la fila es la de la
+// SESIÓN — el criterio de `filaPropia` en lib/perfil.ts, que no se importa porque es privada y
+// además no trae `updated_at`, que acá hace falta (abajo).
 //
 // No va en lib/rutas-publicas.ts a propósito: sin sesión no hay persona, y el proxy corta
 // con 401 antes de llegar acá. El portal del alumno (que no tiene sesión) usa el modo
@@ -36,7 +38,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { idRecorridoValido, perfilConVisto, vistosDePerfil } from '@/lib/recorridos';
 import { personaDelOnboarding } from '@/lib/seguir-en-pc';
-import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
+import { escribeComoElCliente } from '@/lib/onboarding-v2/revision';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -44,17 +46,20 @@ export const revalidate = 0;
 type Fila = { id: number; perfil: unknown; updated_at: string | null };
 
 /**
- * El email de la persona cuyos recorridos se leen y se anotan, normalizado como se guarda en `usuarios`. '' = sin persona.
- * La de la sesión; mirando como administrador un negocio con el onboarding V2, su DUEÑO (Martín, 20/11: «la vista como administrador
- * muestra lo mismo que ve el cliente»; lib/seguir-en-pc.ts → personaDelOnboarding). Esto da vuelta, SÓLO ahí, la regla D7 (el super
- * admin que mira un cliente no le consume el recorrido): en un negocio del V2, lo que el administrador ve y cierra es lo del cliente.
- * Con el V2 sólo en la revisión (lib/onboarding-v2/revision.ts), alcanza al Cliente de Prueba; con el interruptor para todos, a todos.
+ * El email de la persona cuyos recorridos se LEEN, normalizado como se guarda en `usuarios`. '' = sin persona. La de la sesión;
+ * mirando un negocio como administrador, su DUEÑO (lib/seguir-en-pc.ts → personaDelOnboarding; la cabecera, la D7).
  */
 async function emailDeLaSesion(): Promise<string> {
   const p = await personaDelOnboarding();
-  if (p?.mirando && veOnboardingV2({ ws: p.ws })) return p.email;
+  if (p?.mirando) return p.email;
   const sesion = await getUsuarioActual();
   return sesion?.email?.trim().toLowerCase() ?? '';
+}
+
+/** ¿Se puede ANOTAR? Sin mirar a nadie, sí; mirando un negocio, sólo en los de prueba (ws 3 y ws 9: `escribeComoElCliente`). */
+async function puedeAnotar(): Promise<boolean> {
+  const p = await personaDelOnboarding();
+  return !p?.mirando || escribeComoElCliente(p.ws);
 }
 
 /** La huella de la persona para el respaldo del navegador (ver la cabecera). */
@@ -105,6 +110,8 @@ export async function POST(req: NextRequest) {
   const id = body.id;
 
   try {
+    // Mirando un cliente que no es de prueba: queda en el navegador del administrador (su respaldo local), nunca en el perfil del cliente.
+    if (!(await puedeAnotar())) return Response.json({ ok: true, guardado: false, soloEstaSesion: true });
     const sb = getSupabaseServer();
     // ⚠️ EL JSONB `perfil` TIENE VARIOS ESCRITORES (el formulario del perfil, el sonido de
     // las notificaciones, esto) y cada uno lo reescribe ENTERO. Leer-modificar-escribir sin

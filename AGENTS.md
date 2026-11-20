@@ -2682,6 +2682,8 @@ van dos marcas en el mismo render).
 Martín, 20/11/2026, probando en Lalaland «como administrador»: la vista como administrador muestra LO MISMO que ve el cliente. Lo que se
 guarda por persona en el onboarding (empezó el V2, vio el recorrido, la barra oculta) se lee y se anota con `personaDelOnboarding()`
 (lib/seguir-en-pc.ts), que da el dueño del negocio que se mira. Nunca con la persona de la sesión ni con un «mirando, nunca».
+**Se lee del dueño siempre; se ESCRIBE en el dueño sólo en los negocios de prueba** (`escribeComoElCliente`: ws 3 y ws 9). En cualquier
+otro cliente, lo que hace el administrador no toca el perfil del cliente (la D7, docs/diseno-curso-skool.md).
 
 # Una pantalla que TRABA se dispara con la marca de quien entró al flujo, no con la falta de un «visto» nuevo
 

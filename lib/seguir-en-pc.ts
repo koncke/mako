@@ -11,7 +11,7 @@
 import 'server-only';
 import { getSesionAdmin, getUsuarioActual } from './auth';
 import { estaImpersonando, getWorkspaceActual, wsSuperAdmin } from './workspace';
-import { veOnboardingV2 } from './onboarding-v2/revision';
+import { escribeComoElCliente, veOnboardingV2 } from './onboarding-v2/revision';
 import { getSupabaseServer } from './supabase';
 import { CLAVE_EMPEZO_V2, empezoElV2, vistosDePerfil } from './recorridos';
 import { emailDelDuenoDelWs } from './dueno-del-ws';
@@ -79,8 +79,11 @@ export async function seguirEnPcPendiente(): Promise<boolean> {
  */
 export async function anotarQueEmpezoElV2(): Promise<void> {
   try {
-    const email = (await personaDelOnboarding())?.email;
-    if (!email) return;
+    const p = await personaDelOnboarding();
+    // Mirando un negocio, se anota en su dueño SÓLO en los de prueba (ws 3 y ws 9; la D7, decidida el 20/11): soporte mirando una
+    // cuenta nunca le cambia el onboarding al cliente.
+    if (!p || (p.mirando && !escribeComoElCliente(p.ws))) return;
+    const { email } = p;
     const sb = getSupabaseServer();
     for (let intento = 0; intento < 3; intento++) {
       const { data, error } = await sb.from('usuarios').select('id, perfil, updated_at').eq('email', email).maybeSingle();

@@ -112,7 +112,8 @@ test('6b. OA-10, segunda verificación (20/11, tarde): «Sigamos en tu computado
   // La marca: la primera respuesta del V2, de la persona de la sesión (nunca mirando a un cliente), conservando el resto del jsonb.
   const a = sep.slice(sep.indexOf('export async function anotarQueEmpezoElV2'));
   // En la fila de la persona del onboarding: mirando un negocio como administrador, su dueño (Martín, 20/11: lo mismo que el cliente).
-  assert.match(a, /const email = \(await personaDelOnboarding\(\)\)\?\.email;/);
+  assert.match(a, /const p = await personaDelOnboarding\(\);\n\s*if \(!p \|\| \(p\.mirando && !escribeComoElCliente\(p\.ws\)\)\) return;\n\s*const \{ email \} = p;/,
+    'y mirando, sólo en los negocios de prueba (la D7, 20/11)');
   assert.match(a, /if \(empezoElV2\(fila\.perfil\)\) return;/, 'sólo la primera vez');
   assert.match(a, /update\(\{ perfil: \{ \.\.\.base, \[CLAVE_EMPEZO_V2\]: ahora \}, updated_at: ahora \}\)/);
   assert.match(a, /q = fila\.updated_at == null \? q\.is\('updated_at', null\) : q\.eq\('updated_at', fila\.updated_at\);/, 'compare-and-set, como /api/recorridos');
