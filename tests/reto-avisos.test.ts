@@ -30,13 +30,17 @@
 //   Z1 la hora de la noche y del mediodía en Argentina · Z2 «una noche por día» con el día de Argentina · Z3 los 21 días desde el
 //   inicio contados en Argentina · Z4 el reloj de la hora ignora la zona · Z5 el del día también · Z6 el saludo del WhatsApp con la
 //   hora de Argentina.
+// El día 7 (20/11, d24-16 y R57-10: su audio, a Martín), cada una → falla «el día 7»:
+//   P1 cualquier mensaje, no sólo un audio · P2 desde el día 6 · P3 con la prueba ya respondida · P4 sin «uno solo» (`cierre`)
+//   P5 el reclamo no se lee de vuelta (`leerAvisos`) · P6 el «¡Gracias!» aunque a Martín no le llegó · P7 sin soltar el reclamo si
+//   no salió · P8 el audio al grupo de SuperAdmin como imagen · P9 un audio no llega a mirarse.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { HORAS_WA, diaAbierto, type EstadoReto } from '../lib/reto/dias';
 import {
   queMandar, leerAvisos, horaEnSuZona, diaEnSuZona, whatsappDelDia, whatsappDeAbandono, avisoDelDia, avisoDeLaNoche, esBaja, CLAVE_AVISOS,
-  horaDelMensaje, respuestaDeLaHora,
+  horaDelMensaje, respuestaDeLaHora, esElAudioDelCierre, audioParaMartin, GRACIAS_DIA_7, LEIDO_DIA_7,
   type AvisosReto,
 } from '../lib/reto/avisos';
 import { fuenteSinComentarios } from './_fuente-sin-comentarios';
@@ -236,7 +240,7 @@ test('la hora del día 2 sale de SU mensaje, y MaKo le contesta (D1-12, wa-02)',
   assert.equal(horaDelMensaje('¿Qué le está funcionando a mi competencia?', HORAS_WA), null);
   assert.equal(respuestaDeLaHora('Antonio', '18:00'), '¡Hecho, Antonio! Cada día te escribo a las 18:00 con tu día del reto. Guárdame en tus contactos para que no se pierda nada.');
   const r = fuenteSinComentarios('lib/reto/respuestas.ts');
-  assert.match(r, /if \(!baja && !hora\) return null;/, 'sin uno de los dos mensajes no toca la base');
+  assert.match(r, /if \(!baja && !hora && !esAudio\) return null;/, 'sin uno de sus mensajes (la hora, BAJA o un audio) no toca la base');
   assert.match(r, /if \(!quien \|\| !\(esNombreDeCanal\(instancia\) \|\| instancia === quien\.linea\)\) return null;/, 'sólo en una línea de MaKo');
   assert.match(r, /\.ilike\('value', '%"v2":true%'\)\.ilike\('value', '%"verificado":true%'\)/, 'sólo quien verificó por el V2');
   assert.match(r, /cambiarSettingSi\(CLAVE_RETO, esperado, JSON\.stringify\(\{ \.\.\.base, horaWa: hora \}\)\)/, 'la hora, sin pisar lo marcado en el medio');
@@ -263,4 +267,39 @@ test('la tarjeta de la hora (día 2): tocar una hora sólo la elige; se guarda c
   assert.match(c, /const link = linkWaMe\(linea, mensajeEscrito\(p, hora\)\);/, 'el mensaje escrito con la hora elegida, no con 9:00');
   assert.match(c, /window\.addEventListener\('focus', alVolver\);/, 'al volver de WhatsApp se relee');
   assert.doesNotMatch(c, /no está conectada/, 'sin número no es «la línea está caída»');
+});
+
+test('el día 7: su audio le llega a Martín, la prueba queda respondida y MaKo le contesta «¡Gracias!» (d24-16, R57-10)', () => {
+  const e = reto({ horaWa: '9:00' });
+  const a = nuevos(e);
+  const dia7 = h('2026-11-25T12:30:00Z'); // el 25/11 a las 9:30 de Argentina: el día 7 (empezó el 19/11)
+  assert.equal(diaAbierto(e, dia7), 7);
+  assert.equal(esElAudioDelCierre({ e, a, ahora: dia7, esAudio: true }), true);
+  assert.equal(esElAudioDelCierre({ e, a, ahora: dia7, esAudio: false }), false, 'sólo un audio (la prueba: «mándale un audio»)');
+  assert.equal(esElAudioDelCierre({ e, a, ahora: h('2026-11-24T12:30:00Z'), esAudio: true }), false, 'el día 6, todavía no');
+  assert.equal(esElAudioDelCierre({ e: { ...e, pruebas: { 7: { en: INICIO } } }, a, ahora: dia7, esAudio: true }), false, 'ya respondida');
+  assert.equal(esElAudioDelCierre({ e, a: { ...a, cierre: INICIO }, ahora: dia7, esAudio: true }), false, 'a Martín le llega uno solo');
+  assert.equal(leerAvisos(JSON.stringify({ v: 1, dia: 7, cierre: INICIO }), e).cierre, INICIO, 'el reclamo se lee de vuelta');
+  // Los textos: el de la maqueta (`d7`), el de la tarjeta y el que le llega a Martín.
+  assert.equal(GRACIAS_DIA_7, '¡Gracias! Ya se lo pasé a Martín.');
+  assert.equal(LEIDO_DIA_7, 'Le pasé tu audio a Martín.');
+  assert.equal(audioParaMartin('Ana López', 3, true), 'Día 7 del reto: Ana López (ws 3) te cuenta cómo le fue.');
+  assert.match(audioParaMartin('', 3, false), /^Día 7 del reto: Alguien \(ws 3\).*No pude bajar su audio/);
+  // El orden: se reclama antes (uno solo), sale a Martín, y recién entonces la prueba y el «¡Gracias!»; si no salió, se suelta.
+  const r = fuenteSinComentarios('lib/reto/respuestas.ts');
+  assert.match(r, /if \(!baja && !hora && !esAudio\) return null;/, 'un audio llega a mirarse');
+  const reclama = r.indexOf('cambiarSettingSi(CLAVE_AVISOS, crudo, reclamo)');
+  const responde = r.indexOf('responder: async () => {', reclama);
+  const aMartin = r.indexOf('await enviarAlGrupoSuperAdmin(audioParaMartin(', responde);
+  const noSalio = r.indexOf('if (!r.ok) {', aMartin);
+  const prueba = r.indexOf('await pruebaRespondida(ws, 7, LEIDO_DIA_7)', aMartin);
+  const gracias = r.indexOf('enviarAPersonaMaKo(destino, GRACIAS_DIA_7)', aMartin);
+  assert.ok(reclama > 0 && responde > reclama && aMartin > responde, 'se reclama ANTES de mandar');
+  assert.ok(noSalio > aMartin && prueba > noSalio && gracias > prueba, 'si no salió, nada más; si salió, la prueba y el «¡Gracias!»');
+  const siNo = r.slice(noSalio, prueba);
+  assert.ok(siNo.includes('cambiarSettingSi(CLAVE_AVISOS, reclamo, crudo ?? JSON.stringify(a))') && siNo.includes('return;'), 'se suelta el reclamo y no se le contesta');
+  // El grupo de SuperAdmin manda el audio como audio (antes, todo lo que no era PDF salía como imagen).
+  const g = fuenteSinComentarios('lib/mako-grupo.ts');
+  assert.ok(g.includes("const esAudio = !!o.archivo?.mime.startsWith('audio/');"));
+  assert.ok(g.includes("const partes: PartePreparada[] | null = o.archivo && esAudio\n    ? [{ tipo: 'texto', texto }, { tipo: 'audio', base64: o.archivo.base64, mime: o.archivo.mime }]"));
 });

@@ -21,11 +21,19 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
   ventana ya lo deja afuera (la rotura R1 no da rojo). Queda para cuando `diaAbierto` cuente desde el último día abierto (d24-01).
 - **WhatsApp:** sale sólo con la hora elegida (así la manda la maqueta), sólo a quien verificó su número por el V2 (`v2 && verificado`),
   por `enviarAPersonaMaKo` (regla 1) y sólo a `WS_REVISION_V2` hasta que el V2 esté para todos (`retoPorWhatsApp`).
-- **Lo que quedó sin hacer:** las respuestas de los días 3, 4, 5 y 7 (el lead del audio en el CRM, la competencia, el guion, el audio
-  a Martín) son del bot y del doer en el chat privado. `manejarEntranteBot` sólo corre en `mako.bot.instancia`, que apunta a la línea
+- **El día 7 no necesitaba al bot** (se creía bloqueado como el 3, 4 y 5): su audio no pide una herramienta, sólo pasárselo a
+  Martín. Lo contesta el código (`lib/reto/respuestas.ts`), como la hora y BAJA:
+  - va al grupo de SuperAdmin con el audio;
+  - la prueba queda respondida (`pruebaRespondida`, lib/reto/pruebas.ts, del chat del reto);
+  - MaKo contesta «¡Gracias! Ya se lo pasé a Martín.».
+
+  Se reclama antes en `reto.avisos` (`cierre`): con dos líneas de la misma cuenta, el audio llega dos veces. Si no le llegó a Martín, se
+  suelta el reclamo y no se le dice nada.
+- **Lo que quedó sin hacer:** las respuestas de los días 3, 4 y 5 (el lead del audio en el CRM, la competencia, el guion) usan las
+  herramientas del bot y del doer en el chat privado. `manejarEntranteBot` sólo corre en `mako.bot.instancia`, que apunta a la línea
   vieja, no a la que recibe; y `lib/mako-salida.ts` saca los mensajes privados por esa misma instancia, con la ventana de 24 horas.
-  Hasta que el bot pase a la línea que recibe (pide la frase de Martín), MaKo se calla en esos días. La hora (día 2) y BAJA las contesta
-  el código y no dependen del bot.
+  Hasta que el bot pase a la línea que recibe (pide la frase de Martín), MaKo se calla en esos días. Cuando conteste, que llame
+  `pruebaRespondida(ws, dia, leido)` (con el día 5 marca también la tarea del guion).
 - **Distinto de la maqueta, a propósito:** el saludo cambia con la hora (a las 18:00, «¡Buenas tardes»); la noche dice «Mañana te lo
   dejo primero.» porque ninguna tarea sabe cuántos minutos lleva.
 

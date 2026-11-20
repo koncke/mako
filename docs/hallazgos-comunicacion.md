@@ -96,6 +96,10 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 **Vive en:** `lib/verificacion-entrante.ts` («EL WHATSAPP DEL ONBOARDING V2») · `lib/mako-grupo.ts` (`responderPedidoV2`,
 `mandarCodigoV2`, `reenviarCodigoV2`, `setNumeroDuenoYSync`) · `lib/notif-destinatarios.ts`. Test: `tests/whatsapp-v2-auditoria.test.ts`.
 
+- **`enviarAlGrupoSuperAdmin` mandaba como IMAGEN todo adjunto que no fuera PDF** (`tipo: mime === 'application/pdf' ?
+  'document' : 'image'`): un audio habría salido roto, sin error. Desde el 20/11 un `audio/*` va como audio, con el texto antes
+  (un audio no lleva pie). Lo usa el día 7 del reto (el audio a Martín). **Regla:** un adjunto nuevo se mira contra los tipos que
+  arma esa función, no contra su firma (`ArchivoDelAviso` acepta cualquier mime).
 - **«Guárdame en tus contactos…» dejaba de salir desde la sexta persona en una hora, sin error a la vista.** Era el mismo texto
   para todos, y `enviarTextoVozMaKo` no deja salir un texto idéntico a más de 5 chats por hora (`cupoMismoTexto`); el `.catch(() =>
   null)` se tragaba el motivo. Con el V2 en revisión no se notaba: con el V2 para todos, sí. **Regla:** un texto fijo que va a
