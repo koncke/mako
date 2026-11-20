@@ -12,7 +12,10 @@
 //   8. el pedido del Omni va como se generó el 17/11: 720p, 9:16, la foto como primer cuadro;
 //   9. el camino: sin el candado de Pro, con la puerta del reto y la prueba, reserva ANTES de lanzar, no cobra MaKo Tokens y
 //      anota lo que costó; y anotar el costo NO avisa al medidor;
-//  10. el estimado es el clip de la tabla de costos (US$0,24).
+//  10. el estimado es el clip de la tabla de costos (US$0,24);
+//  11-13. el cron que termina los clips que nadie vuelve a mirar (app/api/cron/clip-regalo): mira sólo lo que sigue en curso
+//      en las últimas 25 h, está agendado cada 15 min, y hace la MISMA vuelta que la tarjeta (`terminarClipDe`), negocio por
+//      negocio en su contexto, sin sesión y sin lanzar nunca un clip.
 //
 // PROBADO ROMPIÉNDOLO (20/11/2026; una rotura por vez, restaurada): ver el final del archivo.
 // =============================================================================
@@ -23,8 +26,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CLAVE_CLIP_REGALO, MAX_INTENTOS_CLIP, MAX_PALABRAS_CLIP, SEGUNDOS_CLIP_REGALO, TEXTOS_CLIP, USD_ESTIMADO_CLIP_REGALO,
-  GENERANDO_VENCE_MS, GUARDANDO_VENCE_MS, PIDIENDO_VENCE_MS,
-  fraseDelClip, leerEstado, promptDelClip, publico, sePuedePedir, vencido, type EstadoGuardado,
+  GENERANDO_VENCE_MS, GUARDANDO_VENCE_MS, PIDIENDO_VENCE_MS, MAX_CLIPS_POR_CORRIDA, SCHEDULE_CRON_CLIP, VENTANA_CRON_MS,
+  fraseDelClip, leerEstado, pendienteParaElCron, promptDelClip, publico, sePuedePedir, vencido, type EstadoGuardado,
 } from '../lib/reto/clip-regalo-reglas';
 import { comoQuedo, cuerpoDePedido, MODELO_OMNI, MODELO_VIDEO_POR_DEFECTO } from '../lib/apimart-reglas';
 import { USD_POR_CLIP } from '../lib/mako-tokens-paquetes';
@@ -156,8 +159,9 @@ test('9. el camino: sin candado de Pro, puerta del reto y prueba, reserva antes 
   assert.ok(reserva > 0 && lanza > reserva, 'se lanza el video ANTES de reservar: dos clics pagan dos clips');
   assert.match(pedir, /if \(!gano\)/, 'el que pierde la reserva igual lanza');
   assert.match(pedir, /MODELO_OMNI/, 'el clip no va con el Omni (la regla de Martín: una cara que habla, sólo Omni)');
-  const avanzar = codigo.slice(codigo.indexOf('export async function avanzarClipRegalo'));
-  assert.ok(avanzar.indexOf("e: 'guardando'") < avanzar.indexOf('guardarVideo('), 'se baja el video sin tomarlo: dos pestañas lo guardan dos veces');
+  const avanzar = codigo.slice(codigo.indexOf('export async function terminarClipDe'));
+  const toma = avanzar.indexOf("e: 'guardando'");
+  assert.ok(toma > 0 && toma < avanzar.indexOf('guardarVideo('), 'se baja el video sin tomarlo: dos pestañas lo guardan dos veces');
   // anotar el costo no lo liquida contra los MaKo Tokens de nadie
   const uso = fuente('lib/anthropic-usage.ts');
   const f = uso.slice(uso.indexOf('export async function recordCostoDeMedio'));
@@ -174,6 +178,57 @@ test('10. el estimado es el clip de la tabla de costos (US$0,24)', () => {
   assert.equal(Math.round(USD_POR_CLIP * 1000), Math.round(USD_ESTIMADO_CLIP_REGALO * 1000), 'el regalo y la tabla dicen precios distintos');
 });
 
+// ── El cron que termina los clips que nadie vuelve a mirar (app/api/cron/clip-regalo) ─────────────────────────────────
+
+test('11. el cron mira sólo lo que sigue en curso, en las últimas 25 h, y no se le escapa uno a punto de vencer', () => {
+  const ahora = generando();
+  assert.equal(pendienteParaElCron(ahora), true);
+  assert.equal(pendienteParaElCron({ ...ahora, e: 'guardando', desde: iso(T0) }), true);
+  assert.equal(pendienteParaElCron({ e: 'pidiendo', at: iso(T0), intentos: 0, frase: 'a b' }), true, 'un pedido colgado no pasa a revisar si nadie mira');
+  for (const g of [
+    null,
+    { e: 'listo', at: iso(T0), intentos: 1, planId: 'p', url: 'u', usd: 0.24 },
+    { e: 'fallo', at: iso(T0), intentos: 1, porque: 'x' },
+    { e: 'revisar', at: iso(T0), intentos: 1, porque: 'x' },
+  ] as Array<EstadoGuardado | null>) assert.equal(pendienteParaElCron(g), false, `el cron toca un clip ${g?.e ?? 'sin pedir'}`);
+  // La ventana cubre todo lo que todavía se puede bajar (más una corrida de margen), y no arrastra días.
+  assert.ok(VENTANA_CRON_MS > GENERANDO_VENCE_MS + 15 * 60_000, 'un clip a punto de vencer queda fuera de la ventana del cron');
+  assert.ok(VENTANA_CRON_MS <= 26 * 60 * 60_000, 'la ventana arrastra clips que ApiMart ya no guarda');
+  assert.ok(MAX_CLIPS_POR_CORRIDA >= 5 && MAX_CLIPS_POR_CORRIDA <= 50);
+});
+
+test('12. el cron está agendado cada 15 min en vercel.json', () => {
+  const crons = (JSON.parse(fuente('vercel.json')) as { crons: Array<{ path: string; schedule: string }> }).crons;
+  const c = crons.find((x) => x.path === '/api/cron/clip-regalo');
+  assert.ok(c, 'el cron no está en vercel.json: no corre nunca, y los clips que nadie mira se pierden');
+  assert.equal(c!.schedule, SCHEDULE_CRON_CLIP);
+  const [min, ...resto] = SCHEDULE_CRON_CLIP.split(' ');
+  assert.deepEqual(resto, ['*', '*', '*', '*'], 'no corre todas las horas de todos los días');
+  const m = min.split(',').map(Number);
+  assert.equal(m.length, 4);
+  m.forEach((x, i) => assert.equal((m[(i + 1) % 4] - x + 60) % 60, 15, `entre corridas no hay 15 min: ${min}`));
+});
+
+test('13. el cron hace la MISMA vuelta que la tarjeta, negocio por negocio, y nunca lanza un clip', () => {
+  const ruta = fuente('app/api/cron/clip-regalo/route.ts').replace(/^\s*\/\/.*$/gm, '');
+  assert.match(ruta, /const denied = checkCronAuth\(req\);\s*if \(denied\) return denied;/, 'el cron no pide el secreto');
+  assert.match(ruta, /\.eq\('key', CLAVE_CLIP_REGALO\)/, 'el cron no busca la clave del clip');
+  assert.match(ruta, /\.gte\('updated_at', new Date\(t0 - VENTANA_CRON_MS\)/, 'el cron no se limita a la ventana');
+  assert.match(ruta, /pendienteParaElCron\(leerEstado\(/, 'el cron no filtra lo que sigue en curso');
+  assert.match(ruta, /runWithWorkspace\(ws, \(\) => terminarClipDe\(ws, /, 'el cron no corre cada clip en el contexto de SU negocio');
+  assert.match(ruta, /pendientes\.slice\(0, MAX_CLIPS_POR_CORRIDA\)/, 'el cron no tiene tope por corrida');
+  assert.match(ruta, /Date\.now\(\) - t0 > TECHO_MS\) break/, 'el cron no corta antes del maxDuration: muere a la mitad de bajar un video');
+  assert.doesNotMatch(ruta, /generarVideo|pedirClipRegalo|cambiarSettingSi|setSetting\(/, 'el cron lanza clips o escribe por su cuenta: tiene que ser la vuelta de la tarjeta');
+  // La vuelta compartida: sin sesión, se niega fuera de su negocio, y nunca lanza.
+  const clip = fuente('app/ai-avatar/regalo/clip.ts').replace(/^\s*\/\/.*$/gm, '');
+  const avanzar = clip.slice(clip.indexOf('export async function avanzarClipRegalo'), clip.indexOf('export async function terminarClipDe'));
+  assert.match(avanzar, /await puerta\(\)[\s\S]*return terminarClipDe\(pu\.ws, pu\.puedePedir\)/, 'la tarjeta y el cron no hacen la misma vuelta');
+  const terminar = clip.slice(clip.indexOf('export async function terminarClipDe'));
+  const guarda = terminar.indexOf('(await getWorkspaceActual()) !== ws');
+  assert.ok(guarda > 0 && guarda < terminar.indexOf('await leer()'), 'la vuelta lee el clip sin mirar que el contexto sea su negocio');
+  assert.doesNotMatch(terminar, /puerta\(|getUsuarioActual|veAiAvatar|generarVideo/, 'la vuelta del cron depende de una sesión, o lanza un clip');
+});
+
 // PROBADO ROMPIÉNDOLO (20/11/2026, una rotura por vez y restaurada):
 //   · MAX_PALABRAS_CLIP sin chequear en fraseDelClip                                → 1
 //   · el prompt con «The young man» (el de Martín, sin neutralizar)                 → 2
@@ -185,3 +240,16 @@ test('10. el estimado es el clip de la tabla de costos (US$0,24)', () => {
 //   · `candadoDeAiAvatar()` agregado a la puerta del regalo                         → 9
 //   · `generarVideo` antes del compare-and-set                                      → 9
 //   · `reportarCostoReal(costUsd)` agregado a recordCostoDeMedio                    → 9
+// El cron (20/11/2026, con éste + cron-registrado + seguridad-crons-y-publicas; 26 en verde restaurado):
+//   · pendienteParaElCron sin «pidiendo»                                            → 11
+//   · VENTANA_CRON_MS = GENERANDO_VENCE_MS (sin margen)                              → 11
+//   · sin la entrada en vercel.json                                                 → 12 y cron-registrado
+//   · vercel.json con «*/15» (distinto de SCHEDULE_CRON_CLIP)                        → 12
+//   · SCHEDULE_CRON_CLIP cada 20 min                                                → 12
+//   · el cron llama a terminarClipDe sin runWithWorkspace                           → 13
+//   · el cron sin el techo de tiempo / sin el tope por corrida                       → 13 / 13
+//   · el cron sin checkCronAuth                                                     → 13 y seguridad-crons
+//   · el cron con un cambiarSettingSi propio                                        → 13
+//   · terminarClipDe sin mirar que el contexto sea su negocio                       → 13
+//   · avanzarClipRegalo con su propia vuelta (no delega)                            → 13
+//   · terminarClipDe pide la sesión (getUsuarioActual)                              → 13

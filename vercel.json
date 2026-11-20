@@ -73,6 +73,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/clip-regalo",
+      "schedule": "4,19,34,49 * * * *"
+    },
+    {
       "path": "/api/cron/videos-daily",
       "schedule": "35 13 * * *"
     },

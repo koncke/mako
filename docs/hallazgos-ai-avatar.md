@@ -728,6 +728,15 @@ firmado de 2 h. Si ya no se puede bajar, va su foto de referencia (link firmado 
 app/ai-avatar/regalo/clip.ts, `imagenDelClip`. Una prueba de Essential puede no tener personaje: crearlo es de Pro, salvo la vez que el
 reto lo abre (`abreElReto`). Entonces el clip sale con su foto.
 
-**SIN HACER:** el clip se termina SÓLO cuando alguien pregunta (`avanzarClipRegalo`, que llama la tarjeta del día 6). Si la persona no
-vuelve a abrir la tarjeta, ApiMart guarda el video 24 h y se pierde, ya pagado. Lo cerraría un cron que llame a `avanzarClipRegalo` por
-cada negocio con `reto.clip-regalo` en «generando». Vive en app/ai-avatar/regalo/clip.ts.
+**Hecho el 20/11 (era SIN HACER):** el clip se terminaba SÓLO cuando la tarjeta del día 6 preguntaba. Si la persona no la volvía a abrir,
+ApiMart guardaba el video 24 h y se perdía, ya pagado. Ahora lo termina también el cron app/api/cron/clip-regalo, cada 15 min.
+
+**El arreglo obvio era el equivocado:** «un cron que llame a `avanzarClipRegalo` por cada negocio». Esa función empieza por la puerta de
+la tarjeta (`veAiAvatar`, `getUsuarioActual`, `veOnboardingV2`), que necesita la SESIÓN de quien mira. Un cron no tiene: habría contestado
+«lo pide quien administra el negocio» para todos, sin un error en el log. Se vería como «no había clips pendientes».
+
+**La regla:** lo que tienen que hacer la pantalla y un cron se parte en dos. La puerta queda en la acción de la pantalla, y la vuelta queda
+sin sesión y por negocio (`terminarClipDe(ws, …)`). El cron la llama dentro de `runWithWorkspace(ws)`, porque los settings se leen y se
+escriben en el negocio del CONTEXTO (lib/settings.ts). Y la vuelta se niega si el contexto no es su `ws`: un cron que se olvide el
+`runWithWorkspace` escribiría el clip de un negocio en otro. La tarjeta y el cron pasan por el mismo compare-and-set, así que, si caen a la
+vez, el clip lo guarda uno solo.
