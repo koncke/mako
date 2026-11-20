@@ -32,6 +32,7 @@ import { Z_PISO_RECORRIDO, necesitaScroll, posicionTarjeta, recorteDe, type Caja
 import { pasosPara, tutorialDeRuta, type PasoTutorial, type TutorialPestana } from '@/lib/tutoriales';
 import { anotarTiempoFlotante, elChatPresentaElRecorrido, motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
 import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
+import { MS_IRIS, radioA, radioInicial, recorteIris, tocaIris } from './iris';
 import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigueLosPasos, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
@@ -556,6 +557,43 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
     return () => { window.removeEventListener('resize', pedir); document.removeEventListener('scroll', pedir, { capture: true }); ro?.disconnect(); mo.disconnect(); if (cuadro) cancelAnimationFrame(cuadro); };
   }, [medir, el]);
 
+  // 2c. El velo entra con el barrido del sol y la luna (OD-F2, 20/11; las cuentas en ./iris.ts): al APARECER el hueco de una marca
+  //     nueva, un círculo claro que se cierra hacia lo marcado en 720 ms. La tarjeta aparece al terminar. Sin barrido con menos
+  //     movimiento, ni cuando el mismo lugar se vuelve a medir o parpadea un cuadro.
+  const capaRef = useRef<HTMLDivElement>(null);
+  const huecoRef = useRef<HTMLDivElement>(null);
+  const habiaHueco = useRef(false);
+  const barrida = useRef<string | null>(null);
+  const claveMarca = paso ? `${modoVideo ? `v${cierre ? 'cierre' : frase?.t_inicio ?? ''}` : i}|${paso.sel}` : null;
+  const hayHueco = !!geo.hueco;
+  useLayoutEffect(() => {
+    const toca = tocaIris({ habia: habiaHueco.current, hay: hayHueco, clave: claveMarca, barrida: barrida.current, menosMovimiento: !!menosMovimiento() });
+    habiaHueco.current = hayHueco;
+    if (!toca) return;
+    barrida.current = claveMarca;
+    const nodo = huecoRef.current, capa = capaRef.current;
+    if (!nodo || !capa) return;
+    const recorte = (r: number) => {
+      const c = nodo.getBoundingClientRect();
+      nodo.style.clipPath = recorteIris({ x: c.left, y: c.top, ancho: c.width, alto: c.height }, { ancho: window.innerWidth, alto: window.innerHeight }, r);
+    };
+    const c0 = nodo.getBoundingClientRect();
+    const r0 = radioInicial(c0.left + c0.width / 2, c0.top + c0.height / 2, window.innerWidth, window.innerHeight);
+    const t0 = performance.now();
+    let raf = 0;
+    const listo = () => { nodo.style.clipPath = ''; capa.removeAttribute('data-iris'); };
+    const cuadro = (ahora: number) => {
+      const ms = ahora - t0;
+      if (ms >= MS_IRIS) { raf = 0; listo(); return; }
+      recorte(radioA(ms, r0));
+      raf = requestAnimationFrame(cuadro);
+    };
+    capa.setAttribute('data-iris', '');
+    recorte(r0);   // el primer cuadro, ya recortado: nunca un destello de la pantalla entera oscura
+    raf = requestAnimationFrame(cuadro);
+    return () => { if (raf) cancelAnimationFrame(raf); listo(); };
+  }, [hayHueco, claveMarca]);
+
   // 2b. El video chico nunca tapa la tarjeta (en el teléfono se cruzan): si abajo a la derecha la tocaría, va arriba.
   useEffect(() => {
     const t = tarjetaRef.current?.getBoundingClientRect();
@@ -611,7 +649,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   const total = senal.tipo === 'tutorial' ? pasos.length : 1;
 
   return createPortal(
-    <div className="mk-rec mk-tuto" data-tutorial={senal.tipo === 'tutorial' ? senal.tutorial.pestana : 'marca'} style={{ zIndex: z }}>
+    <div ref={capaRef} className="mk-rec mk-tuto" data-tutorial={senal.tipo === 'tutorial' ? senal.tutorial.pestana : 'marca'} style={{ zIndex: z }}>
       <style>{cssRecorrido() + CSS_TUTORIAL}</style>
       {senal.tipo === 'tutorial' && (
         <VideoChico tutorial={senal.tutorial} video={video} vidRef={vidRef} autoplay={!conFrases} manda={soloVideo}
@@ -620,7 +658,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
       )}
       {geo.hueco
         ? <>
-            <div className="mk-rec__hueco" style={{ left: geo.hueco.x, top: geo.hueco.y, width: geo.hueco.ancho, height: geo.hueco.alto }} aria-hidden />
+            <div ref={huecoRef} className="mk-rec__hueco" style={{ left: geo.hueco.x, top: geo.hueco.y, width: geo.hueco.ancho, height: geo.hueco.alto }} aria-hidden />
             {/* Sin tapas en una marca o un paso `libre` (el menú de la foto se cierra si el mouse no llega a él: reto día 2, 20/11). */}
             {!(senal.tipo === 'marca' && senal.libre) && !paso?.libre && <Tapas h={geo.hueco} />}
           </>
@@ -732,7 +770,8 @@ const CSS_TUTORIAL = `
 .mk-tuto { pointer-events: none; }
 .mk-tuto .mk-rec__velo, .mk-tuto .mk-rec__tarjeta, .mk-tuto__video, .mk-tuto__tapa { pointer-events: auto; }
 .mk-tuto__tapa { position: fixed; }
-.mk-tuto .mk-rec__tarjeta { z-index: 3; }
+.mk-tuto .mk-rec__tarjeta { z-index: 3; transition: opacity .2s ease; }
+.mk-tuto[data-iris] .mk-rec__tarjeta { opacity: 0; }
 .mk-tuto__haz { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: var(--fs-sm); font-weight: 650; color: var(--ink); }
 .mk-tuto__punto { width: 9px; height: 9px; border-radius: 999px; background: var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 18%, transparent); flex: none; }
 .mk-tuto__video { position: fixed; z-index: 2; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100vw - 32px)); background: #0E1219; color: #fff; border-radius: var(--r-lg); box-shadow: 0 18px 44px rgba(0,0,0,.35); overflow: hidden; }

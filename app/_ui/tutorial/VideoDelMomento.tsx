@@ -68,7 +68,7 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina }: { clave:
   return (
     <div className="mk-vmom" data-clave={clave} data-estado={estado}>
       <style>{CSS}</style>
-      <div className="mk-vmom__pantalla" onClick={alternar}>
+      <div className={`mk-vmom__pantalla${v.play === 'abajo-derecha' ? ' mk-vmom__pantalla--abajo-derecha' : ''}`} onClick={alternar}>
         <video ref={ref} className="mk-vmom__video" src={v.archivo} poster={v.poster} playsInline preload="metadata"
           onPlay={() => setEstado('reproduciendo')} onPause={(e) => { if (!e.currentTarget.ended) setEstado('pausado'); }}
           onEnded={() => { setEstado('terminado'); onTermina?.(); }} onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
@@ -104,6 +104,8 @@ const CSS = `
 .mk-vmom { width: 400px; max-width: 100%; box-sizing: border-box; border-radius: 14px; overflow: hidden; background: #0E1219; color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.12); margin: 2px 0 4px; }
 .mk-vmom__pantalla { position: relative; aspect-ratio: 16 / 9; display: grid; place-items: center; background: #000; overflow: hidden; cursor: pointer; }
 .mk-vmom__esquina { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 3; padding: 6px 12px; border-radius: 999px; background: rgba(0,0,0,.72); color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; pointer-events: none; }
+/* El play en otra esquina de la portada, cuando el centro no está vacío (lo dice el campo play del manifiesto). */
+.mk-vmom__pantalla--abajo-derecha { place-items: end end; padding: 12px; box-sizing: border-box; }
 .mk-vmom__video, .mk-vmom__portada { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
 .mk-vmom__play { position: relative; z-index: 1; width: 64px; height: 64px; border-radius: 50%; border: 0; background: rgba(0,0,0,.45); color: #fff; display: grid; place-items: center; cursor: pointer; transition: transform .15s ease, background .15s ease; }
 .mk-vmom__play:hover { background: rgba(0,0,0,.6); transform: scale(1.04); }

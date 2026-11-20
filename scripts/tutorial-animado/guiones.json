@@ -13,31 +13,19 @@
     "rol": "gancho"
    },
    {
-    "dice": "Te doy la bienvenida a Máko: desde hoy tienes un equipo entero trabajando para tu negocio.",
+    "dice": "Muchas gracias por sumarte.",
     "rol": "gancho"
    },
    {
-    "dice": "Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho.",
+    "dice": "Ya activaste tu prueba gratuita de siete días, y no quiero que sea como tantas otras que activaste y no aprovechaste.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Por eso creé un reto de siete días: cada día, un paso, con un video mío, para que exprimas esta aplicación.",
     "rol": "cosa"
    },
    {
     "dice": "Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
-    "rol": "cosa"
-   },
-   {
-    "dice": "Una de ellas es tu WhatsApp: es por donde Máko te manda avances sobre tu negocio.",
-    "rol": "cosa"
-   },
-   {
-    "dice": "Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito.",
-    "rol": "cosa"
-   },
-   {
-    "dice": "Máko te contesta con un código, y lo pegas en el chat.",
-    "rol": "cosa"
-   },
-   {
-    "dice": "Y guarda el contacto de Máko en tu teléfono: así esos avances siempre te llegan.",
     "rol": "cierre"
    }
   ]

@@ -7,9 +7,9 @@
    "ruta": "/onboarding",
    "archivo": "/tutoriales/onboarding-bienvenida.mp4",
    "poster": "/tutoriales/onboarding-bienvenida.jpg",
-   "duracion_s": 19.57,
-   "peso_kb": 1043,
-   "guion": "¡Hola! Soy Martín, el creador de MaKo. Te doy la bienvenida a MaKo: desde hoy tienes un equipo entero trabajando para tu negocio. Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho. Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
+   "duracion_s": 24.57,
+   "peso_kb": 1375,
+   "guion": "¡Hola! Soy Martín, el creador de MaKo. Muchas gracias por sumarte. Ya activaste tu prueba gratuita de siete días, y no quiero que sea como tantas otras que activaste y no aprovechaste. Por eso creé un reto de siete días: cada día, un paso, con un video mío, para que exprimas esta aplicación. Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
    "frases": [
     {
      "id": "onboarding-bienvenida-1",
@@ -21,31 +21,40 @@
     {
      "id": "onboarding-bienvenida-2",
      "rol": "gancho",
-     "texto": "Te doy la bienvenida a MaKo: desde hoy tienes un equipo entero trabajando para tu negocio.",
-     "t_inicio": 2.96,
-     "t_fin": 8.1
+     "texto": "Muchas gracias por sumarte.",
+     "t_inicio": 2.92,
+     "t_fin": 4.26
     },
     {
      "id": "onboarding-bienvenida-3",
      "rol": "cosa",
-     "texto": "Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho.",
-     "t_inicio": 8.7,
-     "t_fin": 13.44
+     "texto": "Ya activaste tu prueba gratuita de siete días, y no quiero que sea como tantas otras que activaste y no aprovechaste.",
+     "t_inicio": 4.78,
+     "t_fin": 11.04
     },
     {
      "id": "onboarding-bienvenida-4",
      "rol": "cosa",
+     "texto": "Por eso creé un reto de siete días: cada día, un paso, con un video mío, para que exprimas esta aplicación.",
+     "t_inicio": 11.58,
+     "t_fin": 18.34
+    },
+    {
+     "id": "onboarding-bienvenida-5",
+     "rol": "cierre",
      "texto": "Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
-     "t_inicio": 13.96,
-     "t_fin": 18.98
+     "t_inicio": 18.92,
+     "t_fin": 23.86,
+     "espera_clic": false
     }
    ],
    "pantallas": [],
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "7 → siete (ortografía del transcriptor)",
-   "hecho": "2026-11-20T00:45:11.559Z"
+   "chequeo": "mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-20T03:24:54.137Z",
+   "play": "abajo-derecha"
   },
   {
    "key": "onboarding-bienvenida-whatsapp",

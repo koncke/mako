@@ -186,7 +186,8 @@ test('6. la pantalla del V2: la estrella, la caja del Ops Center, los dos videos
   // En el teléfono (o una pantalla angosta), el final es «Continuar el onboarding desde la PC», como la maqueta (18/11).
   assert.match(v2, /window\.matchMedia\('\(max-width: 640px\)'\)\.matches\) setEnTelefono\(true\)/);
   assert.match(v2, /\{enTelefono\s*\? <button type="button" onClick=\{\(\) => setEnPc\(true\)\} className="arr-link arr-link--principal">Continuar el onboarding desde la PC<\/button>/);
-  assert.match(v2, /\{fase === 'escribe' && <div className="arr-v2__velo" aria-hidden="true" \/>\}/, 'la pantalla oscura');
+  // (20/11, OA-13: con su ref, para centrar el barrido en MaKo escribiendo: tests/onboarding-v2-auditoria.test.ts, el 17.)
+  assert.match(v2, /\{fase === 'escribe' && <div ref=\{velo\} className="arr-v2__velo" aria-hidden="true" \/>\}/, 'la pantalla oscura');
   assert.match(v2, /\{fase === 'escribe' && escribiendo\('arr-escribe', true\)\}/, 'con MaKo escribiendo, a la vista');
   assert.match(v2, /setFase\('escribe'\);/, 'al tocar la entrada');
   assert.match(v2, /<InterruptorModo variante="sitio" \/>/, 'el sol y la luna adentro del bloque');

@@ -340,6 +340,7 @@ acción app/ads-writer/onboarding-actions.ts → cortada (ninguna página acepta
 acción app/agency/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/ai-avatar/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/ai-avatar/cubos/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/ai-avatar/regalo/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/api-mako/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/automations/automatizaciones-del-lead-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/automations/config-automatizacion-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
