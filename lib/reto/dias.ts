@@ -342,6 +342,9 @@ export function diaAbierto(e: EstadoReto, ahora: number): number {
 }
 
 export const claveTarea = (dia: number, id: string) => `${dia}:${id}`;
+/** La marca de una tarea lleva la TAREA, no la pestaña (20/11, f24-04 y R57-F2: «Carga tus clientes en el CRM / Con un CSV…»): la
+ *  última marca (el lugar donde se hace) toma su título y su detalle; las del camino (la foto, Settings) quedan como están. */
+export const marcasDeLaTarea = (t: TareaReto): MarcaReto[] => t.marcas.map((m, i) => (i === t.marcas.length - 1 ? { ...m, titulo: t.titulo, texto: t.detalle } : m));
 /** ¿La dejó para después? (R57-F1) */
 export const tareaDespues = (e: EstadoReto, dia: number, id: string) => !!e.despues?.includes(claveTarea(dia, id));
 /** ¿Terminó el día? Todas sus tareas hechas o dejadas para después (20/11, D1-06, d24-13, R57-07): recién ahí, «¿Adelantas…?». */

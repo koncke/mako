@@ -30,7 +30,7 @@ import { useVideoQueFlota } from '@/app/_ui/tutorial/useVideoQueFlota';
 import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutorial/desde-cero';
 import { claveTarea, diaAbierto, diasDelReto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
 import { RETO_EMPEZAR_DIA1, RETO_INTERES_YA, RETO_MUESTRA, RETO_MUESTRA_FIN, muestrasDe, type MuestraReto } from '@/lib/reto/dias';
-import { diaTerminado, finDelDia, tareaDespues } from '@/lib/reto/dias';
+import { diaTerminado, finDelDia, marcasDeLaTarea, tareaDespues } from '@/lib/reto/dias';
 import { NOTA_PRO_UNA_VEZ, TAREA_PRO } from '@/lib/reto/pro-del-reto';
 
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null;
@@ -114,6 +114,7 @@ export function useAparicion(claves: readonly string[]): { ver: (k: string) => b
   return { ver: (k) => { const i = claves.indexOf(k); return i < 0 || i < corte; }, escribiendo: !!vistos && !!falta, listo: !!vistos };
 }
 
+
 const YA_MARCADA = 'mako.reto.marcada.';
 // Exportadas para el paso de Offer Coach a Funnel Coach (./usePasoAlFunnel.ts): la misma tarea se marca una vez por visita, la
 // marque este chat o el Offer Coach.
@@ -147,7 +148,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     if (!t || yaMarcada(`${dia.n}:${t.id}`)) return;
     anotarMarcada(`${dia.n}:${t.id}`);
     // El día 1 sin «Lo hago después» (auditoría F1: la maqueta no lo tiene); los demás días sí.
-    marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); });
+    marcarTarea(marcasDeLaTarea(t), () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); });
   }, [e, leer, hacer]);
 
 
@@ -210,9 +211,9 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
               </Fragment>
             ))}
             {empezo1 && abiertos.filter((dia) => ap.ver(`dia:${dia.n}`)).map((dia) => (
-              <Dia key={dia.n} dia={dia} e={e} linea={d.linea} hora={horaWa} proUnaVez={!!d.proUnaVez}
+              <Dia key={dia.n} dia={dia} e={e} linea={d.linea} hora={horaWa} proUnaVez={!!d.proUnaVez} hoy={dia.n === d.abierto}
                 onHora={(h) => { setHora(h); void hacer({ accion: 'hora', hora: h }); }}
-                onMarcar={(t) => marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); })}
+                onMarcar={(t) => marcarTarea(marcasDeLaTarea(t), () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); })}
                 onTocadoEnVideo={() => { void leer(); }}
                 onFinVideo={() => marcarLoQueFalta(dia)} />
             ))}
@@ -266,7 +267,7 @@ function Burbuja({ children, ancho = false }: { children: ReactNode; ancho?: boo
   return <FilaDelChat m={null} quien={{ titulo: 'MaKo', aspecto: ASPECTO_MAKO }} marcas={null} hora={null} ancho={ancho}><div className="rt-md">{children}</div></FilaDelChat>;
 }
 
-export function Dia({ dia, e, linea, hora, proUnaVez = false, onHora, onMarcar, onTocadoEnVideo, onFinVideo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; proUnaVez?: boolean; onHora: (h: string) => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void }) {
+export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora, onMarcar, onTocadoEnVideo, onFinVideo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; proUnaVez?: boolean; hoy?: boolean; onHora: (h: string) => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void }) {
   const p = dia.whatsapp;
   const todas = dia.tareas.every((t) => tareaHecha(e, dia.n, t.id));
   const link = p ? linkWaMe(linea, mensajeEscrito(p, hora)) : null;
@@ -279,7 +280,9 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, onHora, onMarcar, 
       </Burbuja>
       <Burbuja ancho>
         <div className="rt-tarjeta" data-recorrido={`sb-reto-dia-${dia.n}`}>
-          <p className="rt-tarjeta__t">Lo que te toca hoy</p>
+          {/* «Día N de 7» y el título del día; en un día pasado, «Lo que te tocó» (20/11, f24-03 y R57-15). */}
+          <p className="rt-tarjeta__t">{dia.titulo}</p>
+          <p className="rt-tarjeta__sub">{hoy ? 'Lo que te toca hoy' : 'Lo que te tocó'}</p>
           <ol className="rt-tareas">
             {dia.tareas.map((t) => {
               const ok = tareaHecha(e, dia.n, t.id);
@@ -453,6 +456,7 @@ export const CSS_RETO = `
 .rt-tarea__txt b { font-size: var(--fs-sm); color: var(--ink); }
 .rt-tarea__txt small { font-size: var(--fs-meta); color: var(--dim); }
 .rt-tarea[data-ok] .rt-tarea__txt b { color: var(--dim); text-decoration: line-through; }
+.rt-tarjeta__sub { margin: -6px 0 0; font-size: var(--fs-meta); color: var(--dim); }
 .rt-tarea__pro { color: var(--ink) !important; font-weight: 600; }
 .rt-tarea__ok { font-size: var(--fs-meta); font-weight: 700; color: var(--good); }
 .rt-tarea__donde { flex: none; border: 0; background: none; padding: 4px 0; font: inherit; font-size: var(--fs-meta); font-weight: 650; color: var(--dim); cursor: pointer; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
