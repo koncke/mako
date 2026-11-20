@@ -3435,4 +3435,13 @@ filas de los coaches tachaban el día 1 entero.
   lo que usa: sólo lee.
 - **Adelantar no corría los días:** el calendario se contaba desde `inicio`, así que adelantar el 2 y el 3 el lunes dejaba el martes
   en el 3. Ahora se guarda `adelantadoEn`.
+- **Abrir una función de Pro en la prueba (Essential, la A del Cerebro) es tocar CINCO tests que fijan el texto exacto de su candado:**
+  replicar-solo-pro, copywriter-replicar-solo-pro, editores-ia-solo-pro, ai-avatar y planes-tres-bloques. El filtro de la punta los
+  frenó de a uno. Antes de tocar un candado, buscar su texto en tests/ (`grep -lF "textoSoloPro('ai-avatar')" tests/*.ts`).
+- **«Una vez» es un uso, no una llamada:** una réplica pasa por el candado varias veces (analizar, generar, guardar). El uso dura una
+  ventana (2 h, lib/reto/pro-del-reto.ts). Anotarlo en la primera llamada habría cortado la réplica a la mitad.
+- **Un «Cómo funciona ${pestaña}» en cualquier pantalla da rojo** (tests/tutorial-sin-presentacion.test.ts: Martín, 20/11, nunca más).
+  El catálogo del reto lo tenía en sus tarjetas.
+- **Cada push a la punta cancela la corrida del anterior en GitHub.** Hoy cinco pushes seguidos dejaron todo «cancelled» y nada llegaba
+  a main. Se juntan los commits, se sube una vez y se espera la corrida.
 - **Lo que quedó sin hacer**, en orden, está en `docs/relevo/reto-tutoriales.md`.
