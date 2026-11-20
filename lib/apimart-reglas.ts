@@ -157,11 +157,19 @@ export const modelosQueRespetanLaEntrada = (): ModeloVideo[] =>
  */
 export type Arranque =
   | { estado: 'aceptado'; taskId: string }
-  | { estado: 'rechazado'; porque: string }
+  /** `sinSaldo`: la cuenta de MaKo en el proveedor se quedó sin crédito. No arrancó, y no lo arregla la persona. */
+  | { estado: 'rechazado'; porque: string; sinSaldo?: true }
   | { estado: 'desconocido'; porque: string; crudo: string };
 
 /** ¿Un error del proveedor dice que NO arrancó? Sólo entonces es seguro reintentar. */
 const RECHAZOS_SEGUROS = /invalid_request|invalid format|not supported|is required|unsupported|bad request/i;
+
+/**
+ * «No hay saldo» también es un NO ARRANCÓ (20/11/2026, el clip de regalo del reto). Sin esto caía en `desconocido` —«puede
+ * estar corriendo y cobrándose»— y el pedido quedaba trabado para siempre por una cuenta sin crédito, que es justo lo que hay
+ * que poder decir claro. El 402 es el código de «pagá primero»; «insufficient» cubre `insufficient_user_quota`.
+ */
+const SIN_SALDO = /insufficient|balance|余额/i;
 
 /**
  * Lee la respuesta de un `POST /v1/videos/generations` y dice en qué quedó.
@@ -179,6 +187,7 @@ export function comoQuedo(cuerpo: unknown, httpStatus: number): Arranque {
   // Un error con forma conocida y texto de «esto está mal pedido»: no arrancó, y se puede corregir y repetir.
   const err = (j?.error ?? j) as Record<string, unknown> | undefined;
   const msg = [err?.message, err?.code, err?.type].filter((x) => typeof x === 'string').join(' ');
+  if (httpStatus === 402 || (msg && SIN_SALDO.test(msg))) return { estado: 'rechazado', porque: String(err?.message ?? (msg || 'sin saldo')), sinSaldo: true };
   if (msg && RECHAZOS_SEGUROS.test(msg)) return { estado: 'rechazado', porque: String(err?.message ?? msg) };
 
   // Cualquier otra cosa —un 500, un timeout, un cuerpo que no entendemos— puede estar corriendo y cobrándose.
@@ -224,5 +233,12 @@ export function cuerpoDePedido(
   const base: Record<string, unknown> = { model: m.id, prompt, duration: Math.max(1, Math.round(segundos)) };
   if (m.campoImagen === 'image_urls') { base.image_urls = [fotoUrl]; base.aspect_ratio = m.formato; }
   else base.first_frame_image = fotoUrl;
+  // EL OMNI (20/11/2026): como se generó el 17/11 (`C:/dev/reel-mentores/omni/omni-fotogramas.mjs`), con la resolución que fija
+  // el precio (US$0,024 por segundo es a 720p) y el vertical pedido: sólo acepta 16:9 o 9:16, y de 3 a 15 s.
+  if (m.id === MODELOS_VIDEO[MODELO_OMNI].id) {
+    base.resolution = '720p';
+    base.aspect_ratio = '9:16';
+    base.duration = Math.min(15, Math.max(3, Math.round(segundos)));
+  }
   return base;
 }

@@ -245,6 +245,24 @@ export async function recordSttUsage(feature: string, model: string, segundos: n
   });
 }
 
+/**
+ * Registra lo que COSTÓ un medio que paga MaKo y NO se le cobra a nadie (20/11/2026: el clip de 10 s que el reto regala el día
+ * 6, por ApiMart). El costo ya viene en dólares, el que dijo el proveedor al terminar (`data.cost`).
+ *
+ * ⚠️ NO AVISA AL MEDIDOR (`reportarCostoReal`), a propósito: eso liquidaría el costo contra los MaKo Tokens de quien tenga el
+ * medidor abierto, y un regalo no se cobra. Esto es la tabla de lo que gastó MaKo, por negocio (`ws`), para que el costo del
+ * regalo se vea en Costs y en el margen de cada cliente. Devuelve si la fila quedó escrita; nunca tira.
+ */
+export async function recordCostoDeMedio(
+  feature: string, model: string, costUsd: number, o: { motivo?: string; provider?: string; ws?: number } = {},
+): Promise<boolean> {
+  return insertUsage({
+    feature: feature || 'medio', motivo: o.motivo?.trim() ? o.motivo.trim().slice(0, 200) : null, model, provider: o.provider ?? 'apimart',
+    cuenta: 1, input_tokens: 0, output_tokens: 0, cache_creation_tokens: 0, cache_read_tokens: 0,
+    cost_usd: Math.max(0, Number(costUsd) || 0),
+  }, o.ws);
+}
+
 // usd = TOTAL acumulado de créditos cargados; setAt = fecha de la PRIMERA carga
 // (el restante se mide desde ahí). cargas = histórico de cada carga (aditivo).
 type Saldo = { usd: number; setAt: string; cargas?: Array<{ usd: number; at: string }> };
