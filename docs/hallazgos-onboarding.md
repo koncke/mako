@@ -3861,6 +3861,35 @@ existía y el test pasaba, pero el camino de la persona se cortaba. El test comp
     salen después del mensaje, con su pausa. Lo que aparece DENTRO de un día ya va por la cola también: la entrada de abajo.
   - La hora de «lo dejé para después» no se guarda: un día cerrado sólo así toma la hora en que se abrió.
 
+## El ida y vuelta entre la app y el onboarding: imposible por construcción, porque no se pudo ver la causa (20/11/2026, chat «onboarding-v2», claude5)
+
+**Síntoma** (el Cerebro, en producción, 2885104c9, ws 3 como administrador, después de «Reiniciar onboarding»): al tocar «Entrar a
+MaKo», la pantalla en blanco y más de 1000 pedidos en segundos alternando `/second-brain?ws=3&_rsc` y `/onboarding?ws=3&_rsc`, casi
+todos ERR_ABORTED, sin errores en la consola. Duró ~7 minutos (18:43 a 18:50 UTC), también con una carga entera, y se fue solo.
+
+- **El diagnóstico obvio era el equivocado:** «/second-brain redirige al chat «Onboarding» porque `hiloChat` no quedó anotado»
+  (`hiloParaQuienYaTermino`, app/second-brain/page.tsx). Mirando como administrador eso no corre: `hiloDelOnboarding` devuelve null
+  con `?ws=` (`estaImpersonando`). Y ese redirect va a `/second-brain?chat=N`, no a /onboarding.
+- **Lo que se midió después, con la sesión de Martín:** `GET /second-brain?ws=3` con `RSC: 1` da 200 sin `NEXT_REDIRECT`. Sólo
+  `/onboarding?ws=3` redirige a `/second-brain`, y está bien: el onboarding está `done`. Ni con `?reto=1`, ni en el teléfono, ni con
+  la misma pestaña del Cerebro se reprodujo. Los logs de Vercel de esos minutos no se pudieron leer: el endpoint de runtime-logs
+  (`/v1/projects/…/deployments/…/runtime-logs`) es un stream que no corta.
+- **La única explicación que encaja:** las dos puntas leían distinto. `guardOnboarding` (lib/tab-access.ts) leía TOLERANTE: un error
+  de Supabase es `null`, y `null` es el estado inicial, «pending». Así manda a /onboarding, y /onboarding, que lee bien, devuelve. Con
+  el diluvio de pedidos, cada error realimenta el ida y vuelta.
+- **El arreglo no depende de la causa** (lib/rebote-onboarding.ts):
+  - las guardas que REDIRIGEN usan `mandarAlOnboarding` (lib/onboarding-state.ts), que lee ESTRICTO y, si no pudo leer, deja pasar y
+    lo anota. `onboardingPendiente` queda para lo que no redirige;
+  - cada redirect entre las dos lleva `?rebote=<segundos>` (`conRebote`). Lo que acaba de rebotar (30 s) no vuelve: la guarda lo deja
+    pasar, y /onboarding, terminado, muestra «Tu onboarding ya está listo» con «Entrar a MaKo» (un toque, nunca otro redirect);
+  - y /second-brain no redirige al chat «Onboarding» si el pedido ya elige chat (`?chat=` o `?reto=`): ese redirect dependía de una
+    escritura que puede fallar.
+- **Trampa de los tests:** con las dos puntas cortando, sacar el corte de UNA queda en verde (la otra corta sola). El test recorre las
+  dos con todas las combinaciones de lo que cada una lee, y además un pedido rebotado contra cada punta por separado
+  (tests/onboarding-sin-ida-y-vuelta.test.ts).
+- **Sin hacer:** no se sabe por qué la guarda leía distinto durante 7 minutos seguidos (errores al azar habrían cortado el bucle
+  antes). La próxima vez: el log `[onboarding] … no pude leer` / `… la guarda lo ve sin terminar` dice cuál de las dos fue.
+
 ## Reiniciar el onboarding sin tocar lo suyo: el estado vive en tres lados, y uno le devuelve a la base lo que se borró (20/11/2026, chat «onboarding-v2», claude5)
 
 Martín: «resetea al usuario de Leila para que pueda hacer todo el onboarding… y una opción en SuperAdmin para resetear sin que pierda su

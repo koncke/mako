@@ -61,7 +61,11 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   // donde fallaba (al esperarlo, más abajo), no antes de la redirección.
   const pMapa: Promise<ReactNode> | null = veMapa && pideElMapa(q) ? mapaDelSecondBrain() : null;
   pMapa?.catch(() => {});
-  const hiloNuevo = await hiloParaQuienYaTermino().catch(() => null);
+  // ⚠️ NUNCA SOBRE UN PEDIDO QUE YA ELIGE CHAT (20/11/2026, el Cerebro: «ninguna redirección puede depender de una escritura que
+  // puede no ocurrir»). El destino trae `?chat=`: si anotar `hiloChat` falló, la vuelta no redirige otra vez. Y «Entrar a MaKo»
+  // (`?reto=1`) llega al reto: el hilo ya lo creó su POST.
+  const eligeChat = !!(q.chat || q.reto);
+  const hiloNuevo = eligeChat ? null : await hiloParaQuienYaTermino().catch(() => null);
   if (hiloNuevo) redirect(await rutaConWs(rutaDelHilo(hiloNuevo)));
   // Los chats de Claude Code (el Cerebro y cada jefe), sólo para quien `puedeOperar`: la guarda va ADENTRO, antes de
   // leer la cola (app/admin/operaciones/datos.ts). Tanda 5: «quiero mandar prompts por MaKo en el Second Brain».

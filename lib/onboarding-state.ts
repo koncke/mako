@@ -10,6 +10,8 @@ import 'server-only';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, OWNER_WS } from './workspace';
 import { capaDef, type PasoOnboarding } from './capas';
+import { pedidoActual } from './pedido-actual';
+import { PARAM_REBOTE, guardiaMandaAlOnboarding, reboteReciente } from './rebote-onboarding';
 import { aplicarCambiosDePaso, estadoDeLoGuardado, estadoInicial, type CambioDePaso, type OnboardingState } from './onboarding-contrato';
 
 // La FORMA del estado y las reglas puras viven en `onboarding-contrato.ts`, sin
@@ -84,6 +86,29 @@ export async function onboardingPendiente(): Promise<boolean> {
   if ((await pasosDeCapaActual()).length === 0) return false;
   const s = await getEstadoOnboarding();
   return s.status !== 'done';
+}
+
+/**
+ * ¿LA GUARDA MANDA A /ONBOARDING? (20/11/2026, lib/rebote-onboarding.ts: el ida y vuelta de ~7 minutos entre la app y el onboarding).
+ * Como `onboardingPendiente`, pero para REDIRIGIR: lee ESTRICTO (si no pudo leer, deja pasar y lo anota: «no pude leer» no es «no
+ * terminó») y no manda un pedido que acaba de rebotar del onboarding (`?rebote=`, que lo vio terminado). `onboardingPendiente` queda
+ * para lo que no redirige (el chat de la oferta, el contexto de la IA).
+ */
+export async function mandarAlOnboarding(): Promise<boolean> {
+  const ws = await getWorkspaceActual();
+  if (ws == null || ws === OWNER_WS) return false;
+  if ((await getRolWsEfectivo()) !== 'admin') return false;
+  if ((await pasosDeCapaActual()).length === 0) return false;
+  let estado: OnboardingState | null = null;
+  try { estado = await getEstadoOnboardingEstricto(); } catch (e) {
+    console.error(`[onboarding] ws ${ws}: no pude leer onboarding.state; dejo pasar sin mandar al onboarding:`, e instanceof Error ? e.message : e);
+  }
+  const rebote = reboteReciente((await pedidoActual().catch(() => null))?.query[PARAM_REBOTE], Date.now());
+  const manda = guardiaMandaAlOnboarding({ lectura: estado ? 'ok' : 'fallo', terminado: estado?.status === 'done', reboteReciente: rebote });
+  if (!manda && estado && estado.status !== 'done' && rebote) {
+    console.warn(`[onboarding] ws ${ws}: la guarda lo ve sin terminar y /onboarding lo vio terminado (rebote): dejo pasar, sin ida y vuelta`);
+  }
+  return manda;
 }
 
 /**
