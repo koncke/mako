@@ -518,9 +518,10 @@ test('un pedido corto sale sin lo que nadie pidió: notas de producción, varian
   assert.ok(leer('lib/copywriter/ia.ts').includes('s.ops = sinExtrasNoPedidos(s.ops, seccionesDeLaPagina, instruccion);'));
 });
 
-test('sin la app de escritorio, las ofertas apagadas de la plantilla dicen por qué (13/11/2026, en producción, ws de prueba)', () => {
+test('sin la app de escritorio, las ofertas de la plantilla andan (20/11/2026: ningún chat la pide)', () => {
+  // Del 13/11 al 20/11/2026 las ofertas que llaman a la IA salían apagadas con «Para que MaKo lo escriba, instala su app».
   const panel = leer('app/copywriter/PanelMaKo.tsx');
-  assert.match(panel, /\{appEscritorio\.bloqueada && pasoIni\.opciones\.some\(\(o\) => llamaALaIA\(o\.valor\)\) && \(\s*<div className="nt-mako-estado">Para que MaKo lo escriba, instala su app: el botón está abajo\.<\/div>/);
+  assert.doesNotMatch(panel, /instala su app|appEscritorio/);
 });
 
 test('las sugerencias genéricas no parpadean antes de la pregunta de una plantilla (13/11/2026, en producción)', () => {

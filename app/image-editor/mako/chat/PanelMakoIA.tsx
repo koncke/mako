@@ -48,7 +48,6 @@ import { ESCRIBIR_PLANTILLA } from '../../ruta';
 /** Lo que pide «Usar plantilla» al abrir (queda en la charla como el pedido de la persona). */
 const PEDIDO_ESCRIBIR_PLANTILLA = 'Escribe esta plantilla entera para mi negocio y mi oferta principal: cada texto de guía, con su texto final. Donde falte un dato, pon [DATO: qué va].';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { SelectorIntencion, useIntencion } from '@/app/_chat/SelectorIntencion';
 import { useKitsDeMarca } from '@/app/_chat/kits-de-marca';
 import { kitElegido } from '@/lib/marca/kits';
@@ -194,8 +193,6 @@ export function PanelMakoIA() {
     'usar-sugerida': () => { usarPlantillaSugerida(editor, familia); },
   };
   const [texto, setTexto] = useState('');
-  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
-  const appEscritorio = useAppDeEscritorio();
   const [alcance, setAlcance] = useState<AlcanceChat>('diseno');
   // «Discutir | Editar» (app/_chat/SelectorIntencion.tsx): la misma preferencia que los otros chats de MaKo.
   const [intencion, elegirIntencion] = useIntencion();
@@ -222,7 +219,7 @@ export function PanelMakoIA() {
   const adj = useAdjuntosDelChat({ puede: !ocupado && !!disenoId, onError: setErrorAdjunto, aceptaDeMas: 'image/svg+xml,image/avif' });
   const cita = useCitaDelChat(disenoId);
   const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal, { dejarCaja = false, archivos = [] as readonly File[], interpretar = true } = {}) => {
-    if (ocupado || (!instruccion.trim() && !archivos.length) || !disenoId || appEscritorio.bloqueada) return;
+    if (ocupado || (!instruccion.trim() && !archivos.length) || !disenoId) return;
     // Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
     if (!dejarCaja) instruccion = cita.con(instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion - cita.reserva), archivos.length > 0);
     void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, archivos, { intencion, kit, interpretar });
@@ -248,7 +245,7 @@ export function PanelMakoIA() {
     : [...(kit ? [APLICAR_MARCA] : []), ...SUGERENCIAS].filter((s) => !s.necesitaSeleccion || elegidos > 0);
   // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale por
   // `enviar`, como lo escrito.
-  const nota = useNotaEnElActo({ clave: `imagen:${disenoId ?? ''}`, puede: !ocupado && !!disenoId && !appEscritorio.bloqueada, mandar: (t) => enviar(t, alcanceReal, { dejarCaja: true }) });
+  const nota = useNotaEnElActo({ clave: `imagen:${disenoId ?? ''}`, puede: !ocupado && !!disenoId, mandar: (t) => enviar(t, alcanceReal, { dejarCaja: true }) });
 
   // «USAR PLANTILLA» ESCRIBE LA PIEZA ENTERA (12/11/2026, memoria `replicar-deja-todo-escrito`; el Cerebro lo marcó en la prueba de
   // Image): abierta con `?escribir=1` (../../ruta.ts), MaKo escribe cada texto de guía para el negocio y su oferta principal, con
@@ -256,7 +253,7 @@ export function PanelMakoIA() {
   // «Restaurar»). La dirección pierde el `escribir` en el acto: recargar no vuelve a escribir encima de lo que ya se cambió.
   const escribirPlantilla = useRef<'no' | 'pedido' | 'hecho'>('no');
   useEffect(() => {
-    if (escribirPlantilla.current !== 'no' || !disenoId || hilo.corriendo || hilo.mensajes.length || appEscritorio.bloqueada) return;
+    if (escribirPlantilla.current !== 'no' || !disenoId || hilo.corriendo || hilo.mensajes.length) return;
     // Escribirla es editar con IA: un Essential no (y mientras no se sabe el plan, se espera).
     if (plan !== false || soloPro) return;
     const url = new URL(window.location.href);
@@ -265,7 +262,7 @@ export function PanelMakoIA() {
     url.searchParams.delete(ESCRIBIR_PLANTILLA);
     window.history.replaceState(window.history.state, '', url.toString());
     void pedirEdicion(editorRef.current, PEDIDO_ESCRIBIR_PLANTILLA, 'diseno', [], { kit, conNegocio: true });
-  }, [disenoId, hilo.corriendo, hilo.mensajes.length, appEscritorio.bloqueada, kit, plan, soloPro]);
+  }, [disenoId, hilo.corriendo, hilo.mensajes.length, kit, plan, soloPro]);
   useEffect(() => {
     if (escribirPlantilla.current !== 'pedido' || hilo.corriendo) return;
     const m = hilo.mensajes.find((x): x is MensajeMako => x.de === 'mako' && x.estado === 'pendiente' && !!x.propuesta);
@@ -386,7 +383,7 @@ export function PanelMakoIA() {
             (`isEditableTarget` de hooks/useKeyboardShortcuts.ts). */}
         <div className="co-caja">
           <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={ocupado || nota.pendientes}
-            apagado={!disenoId} placeholder={intencion === 'discutir' ? 'Pregúntame lo que quieras…' : 'Describe el cambio…'} tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+            apagado={!disenoId} placeholder={intencion === 'discutir' ? 'Pregúntame lo que quieras…' : 'Describe el cambio…'} tituloMandar="Enviar" enterManda onGrabada={nota.onGrabada}
             arriba={cita.arriba} adjuntos={adj.caja} estado={errorAdjunto} topeTexto={TOPES_CHAT_IMAGEN.instruccion - cita.reserva} />
         </div>
       </div>

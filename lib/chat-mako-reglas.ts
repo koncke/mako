@@ -321,8 +321,8 @@ export const ORIGEN_PREGUNTALE = 'Pregúntale a MaKo';
 // con «Instala MaKo para escribir». El 20/11, en la llamada con Leila, Martín lo dio vuelta: «hoy en día utilizamos los MaKo
 // Tokens. Entonces, no pongas la restricción de instalar MaKo para enviar mensajes». Ahora el servidor contesta `tiene` siempre
 // (app/api/mako/chat/route.ts) y MaKo contesta con los MaKo Tokens. La app de escritorio se sigue ofreciendo en «Tus cuentas de IA»,
-// para quien quiere que MaKo trabaje con SU Claude. Los otros dos valores quedan en el tipo mientras las cajas con motor propio
-// sigan montando `useAppDeEscritorio` (inerte desde hoy; tests/app-de-escritorio-todos-los-chats.test.ts dice por qué sigue).
+// para quien quiere que MaKo trabaje con SU Claude. El gancho de las cajas (`useAppDeEscritorio`) se borró el mismo día. Los otros
+// dos valores siguen en el tipo, sin uso: sacarlos es limpieza (docs/hallazgos-chat.md).
 
 /** Lo que el servidor dice de la app de escritorio. Desde el 20/11/2026, siempre `tiene`. */
 export type AppDeEscritorio = 'tiene' | 'bloquea' | 'en-la-computadora';

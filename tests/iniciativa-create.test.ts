@@ -28,7 +28,7 @@ test('1. el primer mensaje del ejemplo pregunta lo mismo que pasoOferta, con la 
   const casos = [[], [{ id: 3, nombre: 'Programa Cierre 90' }], [{ id: 3, nombre: 'Programa Cierre 90' }, { id: 4, nombre: 'Taller' }]];
   for (const ofertas of casos) {
     const m = primerMensajeDeEjemplo('image', 'Casa Norte', ofertas);
-    const paso = pasoOferta({ superficie: 'image', ofertas, conApp: true, antes: quienDelEjemplo('Casa Norte') });
+    const paso = pasoOferta({ superficie: 'image', ofertas, antes: quienDelEjemplo('Casa Norte') });
     assert.equal(m.texto, paso.texto, `${ofertas.length} ofertas: la misma pregunta`);
     assert.deepEqual(m.botones.slice(0, -1), paso.botones.filter((b) => b.tipo !== 'callar').map((b) => b.rotulo));
   }

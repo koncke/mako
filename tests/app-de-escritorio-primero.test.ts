@@ -6,7 +6,7 @@
 // conectada, la caja de todo chat con MaKo se apagaba con «Instala MaKo para escribir». Ahora se escribe y MaKo contesta con los
 // MaKo Tokens. Lo que fija este archivo (las cajas con motor propio, en tests/app-de-escritorio-todos-los-chats.test.ts):
 //   1. el servidor contesta `tiene` siempre (`?app=1` y `?suIA=1`), sin leer la computadora ni el dispositivo;
-//   2. el cliente ya no pregunta: ni el pedido a `?app=1` ni la relectura cada 8 s; el estado es `tiene`;
+//   2. el cliente ya no pregunta: ni el pedido a `?app=1` ni la relectura cada 8 s (las dos piezas que lo hacían se borraron);
 //   3. la caja común (el Ops Center, la estrella de cada tab, el Second Brain, los coaches): sin `bloqueo`, sin la franja del
 //      teléfono, y el envío no mira la app;
 //   4. las aperturas y la guía: ningún paso «Instalar MaKo»; la escalera pregunta sólo por su IA;
@@ -21,7 +21,6 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import * as APP from '../app/_chat/app-de-escritorio';
 import * as OPS from '../lib/aperturas/ops';
 import * as COMUNES from '../lib/aperturas/comunes';
 import * as REGLAS from '../lib/aperturas/reglas';
@@ -41,12 +40,19 @@ test('1. el servidor contesta `tiene` siempre, sin leer la computadora ni el dis
   assert.doesNotMatch(sinComentarios(leer('lib/chat-mako-reglas.ts')), /export function appDeEscritorio\(/, 'la regla del bloqueo se fue');
 });
 
-test('2. el cliente ya no pregunta por la app: el estado es `tiene`', () => {
-  const pura = sinComentarios(leer('app/_chat/app-de-escritorio.ts'));
-  assert.doesNotMatch(pura, /fetch\(|setInterval\(/, 'ni el pedido a `?app=1` ni la relectura cada 8 s');
-  assert.equal(suelto(APP, 'useApp')(), 'tiene');
-  assert.equal(suelto(APP, 'useAppBloqueada')(), false);
-  for (const k of ['FRASE_APP', 'FRASE_INSTALAR', 'FRASE_RESPONDER', 'mirarApp']) assert.equal(suelto(APP, k), undefined, `${k} se fue`);
+test('2. el cliente ya no pregunta por la app: las piezas que lo hacían se borraron', () => {
+  for (const f of ['app/_chat/app-de-escritorio.ts', 'app/_chat/useAppDeEscritorio.tsx']) assert.equal(existsSync(join(RAIZ, f)), false, `${f} volvió`);
+  const preguntan: string[] = [];
+  const recorrer = (d: string) => {
+    for (const n of readdirSync(join(RAIZ, d), { withFileTypes: true })) {
+      if (n.isDirectory()) { if (n.name !== 'node_modules') recorrer(`${d}/${n.name}`); continue; }
+      // Las bitácoras de /admin/dev son historia: nombran las piezas de antes a propósito.
+      if (!/\.(ts|tsx)$/.test(n.name) || n.name === 'bitacora.ts') continue;
+      if (/\/api\/mako\/chat\?app=1|app-de-escritorio'|useAppDeEscritorio/.test(sinComentarios(leer(`${d}/${n.name}`)))) preguntan.push(`${d}/${n.name}`);
+    }
+  };
+  recorrer('app');
+  assert.deepEqual(preguntan, [], 'nadie pregunta `?app=1` ni importa las piezas del bloqueo');
   assert.doesNotMatch(sinComentarios(leer('app/_chat/ModalCuentasIA.tsx')), /mirarApp/, 'cerrar «Tus cuentas de IA» ya no relee la app');
 });
 
@@ -115,7 +121,8 @@ test('6. el Uso: el esqueleto mientras llega el estado; sin ninguna computadora,
 
 // PROBADO ROMPIÉNDOLO (20/11/2026, base 6/0; contra el código de antes 1/5, sólo pasaba el 6), de a una y restaurando:
 //   · `?app=1` contestando `bloquea`                                       → 5/1 (1)
-//   · `useAppBloqueada` devolviendo true                                   → 5/1 (2)
+//   · `useAppBloqueada` devolviendo true                                   → 5/1 (2) (con el gancho borrado, el 2 mira que
+//     nadie pregunte `?app=1`: una pieza que vuelve a preguntar             → 5/1 (2))
 //   · la caja común otra vez con `bloqueo=`                                → 5/1 (3)
 //   · el envío de useChatCliente mirando `app === 'bloquea'`               → 5/1 (3)
 //   · la línea del teléfono con la franja de la app                        → 5/1 (3)

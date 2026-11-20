@@ -19,7 +19,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { useColaDelHilo, usePrimeraVisita } from '@/app/_chat/useColaDelHilo';
 import { CajaChat } from '@/app/_chat/CajaChat';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import '@/app/admin/operaciones/centro.css';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
@@ -65,7 +64,6 @@ export function ArranqueMediaBuyer({ nombre, conectada, cuenta, productos, costo
   const [terminando, setTerminando] = useState(false);
   const [ahora] = useState(() => Date.now());
   const hilo = useRef<HTMLDivElement>(null);
-  const appEscritorio = useAppDeEscritorio();
   const x = { nombre, conectada, r, productos, costoMedido, pilotoPermitido };
   const paso = pasoDeArranque(x);
   const mensajes = useMemo(() => mensajesDeArranque({ nombre, conectada, r, productos, costoMedido, pilotoPermitido }), [nombre, conectada, r, productos, costoMedido, pilotoPermitido]);
@@ -137,7 +135,7 @@ export function ArranqueMediaBuyer({ nombre, conectada, cuenta, productos, costo
           cabecera={{ clave: 'media-buyer-arranque', titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: terminando ? 'trabajando' : 'despierto' }}
           caja={
             <div className="co-caja">
-              <CajaChat texto={texto} onTexto={setTexto} placeholder="Escríbele a MaKo" enterManda ocupado={terminando} bloqueo={appEscritorio.bloqueo}
+              <CajaChat texto={texto} onTexto={setTexto} placeholder="Escríbele a MaKo" enterManda ocupado={terminando}
                 onMandar={() => {
                   const t = texto.trim();
                   if (!t) return;

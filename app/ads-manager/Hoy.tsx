@@ -17,7 +17,6 @@
 import { useState, type ReactNode } from 'react';
 import { Button, ButtonLink } from '@/app/_ui';
 import { CajaChat } from '@/app/_chat/CajaChat';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { Criatura } from '@/app/_components/Criatura';
 import { MiFoto } from '@/app/admin/operaciones/MiFoto';
 import type { Decision } from '@/lib/media-buyer/tipos';
@@ -26,12 +25,11 @@ import '@/app/admin/operaciones/centro.css';
 
 export function CajaDeOrden({ placeholder, onPedir }: { placeholder: string; onPedir: (texto: string) => void }) {
   const [texto, setTexto] = useState('');
-  const appEscritorio = useAppDeEscritorio();
   return (
     <div className="aa-orden">
       <MiFoto size={36} />
       <div className="co-caja">
-        <CajaChat texto={texto} onTexto={setTexto} placeholder={placeholder} enterManda bloqueo={appEscritorio.bloqueo}
+        <CajaChat texto={texto} onTexto={setTexto} placeholder={placeholder} enterManda
           onMandar={() => { const t = texto.trim(); if (!t) return; onPedir(t); setTexto(''); }} />
       </div>
     </div>

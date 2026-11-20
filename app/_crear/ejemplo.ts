@@ -60,6 +60,6 @@ export function primerMensajeDeEjemplo(tab: TabConEjemplo, negocio: string, ofer
       botones: [SEGUNDO_BOTON.offer],
     };
   }
-  const paso = pasoOferta({ superficie: tab, ofertas, conApp: true, antes: quien });
+  const paso = pasoOferta({ superficie: tab, ofertas, antes: quien });
   return { texto: paso.texto, botones: [...paso.botones.filter((b) => b.tipo !== 'callar').map((b) => b.rotulo), SEGUNDO_BOTON[tab]] };
 }

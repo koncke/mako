@@ -66,7 +66,7 @@ test('la pantalla: «Cancelar» deja la marca, al volver lo dice y no larga otro
   assert.match(chat, /onCancelar=\{cancelar\}/);
   assert.match(chat, /e\.stopImmediatePropagation\(\); cancelar\(\); return; \}/, 'Escape también');
   assert.match(chat, /const enServidor = crea && !trabajando && trabajoEnElServidor\(mensajes, ahoraServidor\);/);
-  assert.match(chat, /if \(enServidor\) return origen === 'barra' \? \{ error: null \} : true;\n\s*if \(trabajando \|\| p\.deshabilitado \|\| sinApp\) return/);
+  assert.match(chat, /if \(enServidor\) return origen === 'barra' \? \{ error: null \} : true;\n\s*if \(trabajando \|\| p\.deshabilitado\) return/);
   assert.match(chat, /if \(enServidorRef\.current && !trabajoEnElServidor\(guardados, Date\.now\(\)\)\) \{ window\.location\.reload\(\); return; \}/, 'cuando MaKo contestó, recarga');
   assert.match(chat, /: enServidor \? <EnElServidor \/>/);
   const ruta = sinComentarios('app/api/chat-agent/secuencias/ia/route.ts');

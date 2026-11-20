@@ -68,7 +68,6 @@ import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 
 const RUTA = '/api/crm/analyst';
@@ -114,8 +113,6 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
   const [items, setItems] = useState<ItemHilo[]>([]);
   const [texto, setTexto] = useState('');
   const cita = useCitaDelChat(leadId);
-  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
-  const appEscritorio = useAppDeEscritorio();
   const [adjuntos, setAdjuntos] = useState<Adjunto[]>([]);
   const [procesando, setProcesando] = useState(0);
   const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
@@ -232,7 +229,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
   };
 
   const enviar = (e: Envio) => {
-    if (ocupadoRef.current || !listo || errorCarga || appEscritorio.bloqueada) return;
+    if (ocupadoRef.current || !listo || errorCarga) return;
     ocupadoRef.current = true;
     setError(null);
     const idU = idLocal('u');
@@ -247,7 +244,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
 
   /** Una nota de voz: se dibuja ya, se transcribe y sale como texto (el turno lee texto). */
   const enviarAudio = async (blob: Blob, secs: number) => {
-    if (ocupadoRef.current || !listo || errorCarga || appEscritorio.bloqueada) return;
+    if (ocupadoRef.current || !listo || errorCarga) return;
     ocupadoRef.current = true;
     setError(null);
     const idU = idLocal('u');
@@ -418,7 +415,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
               placeholder={edicion ? `Qué cambiar de ${edicion.nombre || 'esta hoja'}` : `Pregúntale a MaKo por ${quien}`}
               tituloMandar="Mandar (Enter)" enterManda seguir={() => hiloRef.current} onErrorMic={setError}
               adjuntos={adjuntosCaja} voz={{ onAudio: enviarAudio, onError: setError, rotuloEnviar: 'Enviar audio' }} estado={estado}
-              bloqueo={appEscritorio.bloqueo} />
+              />
           </div>
         </>}
         estado="">

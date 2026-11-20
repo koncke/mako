@@ -24,11 +24,20 @@ app/m/_chat/AvisoDeIA.tsx · tests/app-de-escritorio-primero.test.ts y tests/app
   cayó en GitHub, porque el filtro de la PC no llegó a correrlo. Se actualizan las líneas, no se aflojan los tests.
 - **Un cambio que se ve en el teléfono:** antes la escalera del Cerebro («¿Qué IA usas?») callaba ahí (`en-la-computadora`). Ahora
   sale igual que en la computadora, si falta su IA.
-- **⚠️ SIN HACER, a propósito:** las ~20 cajas con motor propio siguen llamando a `useAppDeEscritorio` (ahora inerte: nunca
-  bloquea), con `bloqueo={appEscritorio.bloqueo}` y sus cortes `appEscritorio.bloqueada`, y `pasoOferta` sigue con `conApp`. Se sacan
-  DESPUÉS del parche sin subir de las pestañas («reto-tutoriales», pestanas-sin-subir-20-11), que toca esas mismas líneas en 13 de
-  ellas. Con el cableado se van los valores `bloquea` y `en-la-computadora` del tipo `AppDeEscritorio`, el `sinMandar` de
-  HiloMako/BloqueHilo (ya nadie lo pasa) y las clases `.co-instalar` y `.ch-app-franja`.
+- **El cableado de las ~20 cajas, en dos pasos.** Primero quedó inerte, porque el parche sin subir de las pestañas
+  («reto-tutoriales») tocaba esas mismas líneas en 13 cajas. Con ese parche ya en main (05dac453c) se sacó en un push aparte:
+  - `useAppDeEscritorio` y `app-de-escritorio.ts`, borrados;
+  - los cortes `appEscritorio.bloqueada`, `sinApp` y `puedePedir`;
+  - el `conApp` de `pasoOferta`;
+  - las dos frases de Copywriting «Para que MaKo lo escriba, instala su app».
+- **Trampa: el barrido de las cajas no veía Copywriting.** Su caja es `CajaAgente`, no `CajaChat` ni `CajaPedido`, y su «instala su
+  app» no decía «Instala MaKo». La rotura quedó verde hasta sumar `CajaAgente` y esa frase al barrido.
+- **Queda, a propósito:**
+  - la prop `bloqueo` de CajaChat y CajaPedido, que es de la caja y no de la app;
+  - el `sinMandar` de HiloMako/BloqueHilo, genérico, aunque ya nadie lo pasa;
+  - los valores `bloquea` y `en-la-computadora` del tipo `AppDeEscritorio`, que el servidor ya no manda;
+  - las clases `.co-instalar` y `.ch-app-franja`.
+  Sacarlos arrastra arneses de tests de la caja: es limpieza, no comportamiento.
 - **Y su IA, OPCIONAL (decidido el mismo día por el Cerebro):** la escalera decía «Para escribir por ti uso tu propia IA», el
   teléfono «Conecta tu IA para que MaKo conteste», y el Uso «con eso contesta tu Ops Center». Con los MaKo Tokens, a quien no tiene
   su IA le decían algo falso. «Conectar tu IA» se queda, porque usa su suscripción y gasta menos MaKo Tokens, pero dicho así.

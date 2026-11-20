@@ -32,10 +32,10 @@ export const rotuloDe = (s: string): string => {
 
 /**
  * «¿Para cuál de tus ofertas es?»: con 2 o más, hasta 3 como botones (la principal primero: `listarOfertas` ordena así); con
- * una, «¿Es para «X»?»; con ninguna, «¿Qué vas a vender con esto?» de texto libre. SIN LA APP la caja no escribe: ese paso sale
- * sin el texto libre, con «Cargar una oferta» (plan.md §2.6).
+ * una, «¿Es para «X»?»; con ninguna, «¿Qué vas a vender con esto?» de texto libre. Hasta el 20/11/2026, sin la app de escritorio
+ * salía sin el texto libre (la caja no escribía); ningún chat la pide desde ese día (lib/chat-mako-reglas.ts).
  */
-export function pasoOferta(o: { superficie: string; ofertas: readonly OfertaCorta[]; conApp: boolean; callar?: RotuloCallar; antes?: string }): Apertura {
+export function pasoOferta(o: { superficie: string; ofertas: readonly OfertaCorta[]; callar?: RotuloCallar; antes?: string }): Apertura {
   const id = `${o.superficie}:oferta`;
   const callar = { tipo: 'callar' as const, rotulo: o.callar ?? 'Ahora no' };
   const antes = o.antes ? `${o.antes} ` : '';
@@ -50,12 +50,6 @@ export function pasoOferta(o: { superficie: string; ofertas: readonly OfertaCort
     return {
       id, alcance: 'entidad', texto: `${antes}¿Es para «${x.nombre.trim()}»?`,
       botones: [{ tipo: 'respuesta', rotulo: 'Sí', valor: valorDeOferta(x.id) }, { tipo: 'respuesta', rotulo: 'Para otra cosa', valor: OTRA_COSA }, callar],
-    };
-  }
-  if (!o.conApp) {
-    return {
-      id, alcance: 'entidad', texto: `${antes}Necesito saber qué vendes. ¿Ya está tu oferta en Offer?`,
-      botones: [{ tipo: 'ir', rotulo: 'Cargar una oferta', href: '/offer' }, { tipo: 'callar', rotulo: 'Ahora no' }],
     };
   }
   return {

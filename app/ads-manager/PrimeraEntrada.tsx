@@ -25,7 +25,6 @@ import { useColaDelHilo, usePrimeraVisita } from '@/app/_chat/useColaDelHilo';
 // El router de la casa: «terminar» vuelve a la misma pantalla con su `?ws=` (el super admin mirando a un cliente no cae en la suya).
 import { useRouter } from '@/app/_ui/Link';
 import { CajaChat } from '@/app/_chat/CajaChat';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { anotarEstrellaPropia } from '@/app/_chat/estrella-propia';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import '@/app/admin/operaciones/centro.css';
@@ -121,7 +120,6 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   const [ahora] = useState(() => Date.now());
   const [busca, setBusca] = useState('');
   const hilo = useRef<HTMLDivElement>(null);
-  const appEscritorio = useAppDeEscritorio();
   // El chat de MaKo está a la vista: la estrella de la barra (app/_chat/EstrellaDeLaApp.tsx) no va, como en Create (lib/estrella-rutas.ts →
   // CON_CHAT_A_LA_VISTA). La ruta no sirve: /ads-manager también es Hoy, que sí la lleva. En producción (10/11/2026) la estrella tapaba la caja.
   useEffect(() => anotarEstrellaPropia(), []);
@@ -457,7 +455,7 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
           cabecera={{ clave: 'marketing-copilot-entrada', titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: enCurso ? 'trabajando' : 'despierto' }}
           caja={
             <div className="co-caja">
-              <CajaChat seguir={() => hilo.current} texto={texto} onTexto={setTexto} placeholder="Responde o pregunta" enterManda ocupado={terminando} bloqueo={appEscritorio.bloqueo}
+              <CajaChat seguir={() => hilo.current} texto={texto} onTexto={setTexto} placeholder="Responde o pregunta" enterManda ocupado={terminando}
                 onMandar={() => {
                   const t = texto.trim();
                   if (!t) return;

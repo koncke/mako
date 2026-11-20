@@ -148,18 +148,16 @@ test('3. la memoria: «Ahora no», una vez por día, tres días ignorada, y el p
 });
 
 test('4. los pasos comunes: la oferta (0, 1, varias; sin la app sin texto libre), el objetivo y lo que falta para pedir', () => {
-  const tres = pasoOferta({ superficie: 'copywriter', ofertas: [{ id: 1, nombre: 'Mentoría 90 días' }, { id: 2, nombre: 'Taller' }, { id: 3, nombre: 'Curso' }, { id: 4, nombre: 'VIP' }], conApp: true });
+  const tres = pasoOferta({ superficie: 'copywriter', ofertas: [{ id: 1, nombre: 'Mentoría 90 días' }, { id: 2, nombre: 'Taller' }, { id: 3, nombre: 'Curso' }, { id: 4, nombre: 'VIP' }] });
   assert.equal(tres.texto, '¿Para cuál de tus ofertas es?');
   assert.deepEqual(tres.botones.map((b) => b.rotulo), ['Mentoría 90 días', 'Taller', 'Curso', 'Ahora no'], 'hasta 3 y el de callar');
-  const una = pasoOferta({ superficie: 'copywriter', ofertas: [{ id: 7, nombre: 'Mentoría 90 días' }], conApp: true, callar: 'Lo escribo yo' });
+  const una = pasoOferta({ superficie: 'copywriter', ofertas: [{ id: 7, nombre: 'Mentoría 90 días' }], callar: 'Lo escribo yo' });
   assert.equal(una.texto, '¿Es para «Mentoría 90 días»?');
   assert.deepEqual(una.botones.map((b) => (b.tipo === 'respuesta' ? b.valor : b.rotulo)), [valorDeOferta(7), OTRA_COSA, 'Lo escribo yo']);
-  const ninguna = pasoOferta({ superficie: 'copywriter', ofertas: [], conApp: true });
+  const ninguna = pasoOferta({ superficie: 'copywriter', ofertas: [] });
   assert.equal(ninguna.libre, true);
-  const sinApp = pasoOferta({ superficie: 'copywriter', ofertas: [], conApp: false });
-  assert.equal(sinApp.libre, undefined, 'sin la app la caja no escribe: sin texto libre');
-  assert.equal(sinApp.botones[0].tipo, 'ir');
-  const larga = pasoOferta({ superficie: 'web', ofertas: [{ id: 1, nombre: 'Programa de acompañamiento para inmobiliarias' }, { id: 2, nombre: 'B' }], conApp: true });
+  // Sin la app de escritorio también con texto libre: ningún chat la pide desde el 20/11/2026.
+  const larga = pasoOferta({ superficie: 'web', ofertas: [{ id: 1, nombre: 'Programa de acompañamiento para inmobiliarias' }, { id: 2, nombre: 'B' }] });
   assert.ok(larga.botones[0].rotulo.length <= 28 && larga.botones[0].rotulo.endsWith('…'));
   const obj = pasoObjetivo({ superficie: 'web', delFunnel: 'whatsapp' })!;
   assert.equal(obj.botones[0].rotulo, 'Escribirte por WhatsApp', 'el de su funnel primero');
@@ -169,7 +167,7 @@ test('4. los pasos comunes: la oferta (0, 1, varias; sin la app sin texto libre)
   // tests/chat-su-ia-opcional.test.ts). Queda el pedido pendiente.
   assert.equal(pasoSinIA({ superficie: 'copywriter', pendiente: { texto: 'Adapta esta página', para: 'Mentoría' } })!.botones[0].tipo, 'pedir');
   assert.equal(pasoSinIA({ superficie: 'copywriter' }), null);
-  for (const a of [tres, una, ninguna, sinApp, larga, obj]) {
+  for (const a of [tres, una, ninguna, larga, obj]) {
     assert.deepEqual(problemasDeApertura(a, { primerPaso: true }), [], a.id);
     assert.deepEqual(marcasDeVoseo(textos(a)), [], a.id);
   }

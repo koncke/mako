@@ -26,7 +26,6 @@ import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { ChatItemMenu } from './ChatItemMenu';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import { cuerpoConArchivos, useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDelChat';
 import { ERROR_ADJUNTO, memoriaConArchivos } from '@/lib/mako-adjuntos';
@@ -84,8 +83,6 @@ export function MakoChat({
   // Mientras MaKo piensa, los segundos (el «Trabajando…» del hilo los usa para avisar que puede tardar).
   const [desde, setDesde] = useState<number | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
-  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
-  const appEscritorio = useAppDeEscritorio();
   useEffect(() => {
     if (!pensando) { setDesde(null); return; }
     setDesde(Date.now());
@@ -97,7 +94,7 @@ export function MakoChat({
   // Fotos y PDF con la pregunta (28/10/2026, las cajas unificadas): la ruta los lee y su lectura va con el pedido.
   // Lo juntado es de SU sesión, como lo que lee la caja (`conversacion` abajo): la misma caja atiende todas (28/10/2026).
   const adj = useAdjuntosDelChat({ puede: !pensando && !!sessionId, onError: setErr, conversacion: sessionId ? String(sessionId) : '' });
-  const nota = useNotaEnElActo({ clave: `mako-chat:${endpoint}:${chartKey}:${sessionId ?? 'nuevo'}`, puede: !pensando && !!sessionId && !adj.preparando && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
+  const nota = useNotaEnElActo({ clave: `mako-chat:${endpoint}:${chartKey}:${sessionId ?? 'nuevo'}`, puede: !pensando && !!sessionId && !adj.preparando, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
   // EL HILO SIGUE AL ÚLTIMO (auditoría de chats del 20/11, pestanas-3 y 4; el gancho común app/_chat/useBajarAlUltimo.ts), por la
   // clave de la ÚLTIMA fila que se dibuja: la de `nota.conNotas(items)`, con la nota de voz (antes quedaba al pie, fuera de la vista,
   // porque el scroll miraba la lista propia). Lo que crece (la caja con varias líneas, una foto, un error), mientras está abajo.
@@ -175,7 +172,7 @@ export function MakoChat({
   const enviar = async (texto?: string, { dejarCaja = false } = {}) => {
     const txt = (texto ?? input).trim();
     const conArchivos = texto === undefined && adj.hay;
-    if ((!txt && !conArchivos) || pensando || !sessionId || adj.preparando || appEscritorio.bloqueada) return;
+    if ((!txt && !conArchivos) || pensando || !sessionId || adj.preparando) return;
     const archivos = conArchivos ? adj.tomar() : [];
     if (!dejarCaja) setInput('');
     setMessages((m) => [...m, { role: 'user', content: memoriaConArchivos(txt, archivos.map((f) => f.name)) }]);
@@ -248,7 +245,7 @@ export function MakoChat({
         )}
         <div className="co-caja">
           <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviar(); }} ocupado={pensando || nota.pendientes} apagado={!sessionId || cambiando}
-            placeholder="Pregúntale a MaKo…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+            placeholder="Pregúntale a MaKo…" tituloMandar="Enviar" enterManda onGrabada={nota.onGrabada}
             adjuntos={adj.caja}
             // La misma caja atiende todas las sesiones: lo que lee (un audio, un .pptx) es de SU sesión (28/10/2026).
             conversacion={sessionId ? `mako-chat:${endpoint}:${chartKey}:${sessionId}` : undefined} />
