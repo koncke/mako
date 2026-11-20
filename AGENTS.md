@@ -2576,6 +2576,11 @@ Tres reglas del 17/10/2026, cada una con su guard que barre en positivo (las lis
 - **Una URL que escribe un cliente (o su agente) se baja con `fetchSeguro`** (lib/fetch-seguro.ts):
   `validarDestino` en CADA salto, IP clavada, techo de tamaño. `fetch` sigue los redirects sin mirarlos, y
   validar sólo el primero es el agujero. `tests/landing-analisis-ssrf.test.ts`.
+- **Una puerta nueva por donde entra un lead de un FORMULARIO lo califica antes de inscribirlo** (20/11/2026):
+  `aplicarCalificacion` (lib/calificacion-aplicar.ts) con la clave del formulario (`meta:<form_id>`, `form:<id>` o
+  `web:<página>`, lib/fuentes-formularios.ts), ANTES de `enrolarPorEvento`: si no, un lead que sus reglas mandan a
+  «Descalificado» recibe la secuencia de «lead nuevo». Hoy lo hacen el opt-in, el webhook y el poll de Meta, y Zernio
+  (`tests/crm-fuentes-prospeccion.test.ts`, «la calificación se aplica en las tres puertas»).
 
 # Qué cierra un plan se lee en la PUERTA, nunca en la tabla de /planes
 

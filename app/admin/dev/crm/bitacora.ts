@@ -4324,4 +4324,27 @@ export const BITACORA: Hito[] = [
     revisar: '/crm?ws=13',
     tickets: [121],
   },
+  {
+    fecha: '20 nov', hora: '21:30', chat: 'CRM › Asignar fuentes', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Asignar fuentes» rediseñado: campañas de Meta y formularios, y cada formulario puede ubicar solo a sus leads en su etapa',
+    puntos: [
+      '**Siempre en la primera etapa** (con el logo de Meta) y también en el «⋯» de arriba a la derecha del CRM. Antes no salía en los funnels de Prospección.',
+      '**Dos pestañas: «Campañas de Meta» y «Formularios».** Cada fuente es una fila con un interruptor: prendido, sus leads entran a este funnel. Prender una campaña sigue trayendo los leads que ya tiene (y pregunta sólo si trae alguno).',
+      '**Formularios de los tres tipos:** los de anuncios de Meta (con su página, cuántos leads y el último), los de Web Generator y cualquier página con el Pixel de MaKo (con su página y su último envío). Un formulario de Meta asignado gana a la campaña.',
+      '**Calificación automática por formulario** (lo que pidió Juanfran): reglas en orden, como el «Routing logic» de Calendly. «Si la zona es Fuera de la ciudad → Descalificado», «si cumple al menos 3 de estas 4 → Lead entrante», «al menos 2 → Revisión», y qué pasa si no cumple ninguna. Cada regla puede mandar a cualquier etapa del funnel.',
+      '**Se aplica al llegar el lead** (antes de las automatizaciones: un descalificado no recibe la secuencia de lead nuevo) y queda en su historial qué regla lo movió y por qué. Con **«REAPLICAR»** se pasan por los leads que ya entraron: primero dice cuántos se mueven, y sólo mueve a los que están en la entrada o en una etapa de esas reglas.',
+      '**Una vista previa** dice a qué etapa irían los últimos envíos con las reglas que se están armando.',
+    ],
+    archivos: [
+      'app/crm/FuentesModal.tsx · app/crm/FuentesVista.tsx · app/crm/fuentes-actions.ts — el modal, lo que se ve y sus acciones',
+      'lib/calificacion-formulario.ts (el motor, puro) · lib/fuentes-formularios.ts (el guardado) · lib/calificacion-aplicar.ts (mover y el historial)',
+      'lib/formulario-meta-funnel.ts — los lead forms de Meta y a qué funnel entran · lib/leads.ts (`meta_form_id`)',
+      'app/api/track/optin/route.ts · app/api/webhooks/meta-leads/route.ts · lib/meta-lead-nuevo.ts · lib/meta-leads.ts · lib/zernio-leads.ts — las puertas',
+      'app/crm/menu-contextual-crm.ts · app/crm/CrmBoard.tsx · app/crm/CrmToolbar.tsx · app/crm/page.tsx — los dos «⋯»',
+      'tests/calificacion-formulario.test.ts · tests/crm-fuentes-prospeccion.test.ts (y los que fijaban el menú de antes)',
+      'docs/hallazgos-crm.md · docs/hallazgos.md · AGENTS.md — el artefacto del diseño: https://claude.ai/artifact/G8d4Jbu8mNqXdFDmCRqjKt',
+    ],
+    revisar: '/crm',
+  },
 ];
