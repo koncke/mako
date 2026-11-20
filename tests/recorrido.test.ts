@@ -427,7 +427,10 @@ test('la hoja no tiene ningún backtick adentro (una la cierra a la mitad)', () 
 
 test('la ruta guarda por PERSONA (la sesión) y conserva el resto del perfil', () => {
   const r = sinComentarios(leer('../app/api/recorridos/route.ts'));
-  assert.match(r, /getUsuarioActual\(\)/);
+  // La persona sale de la SESIÓN, por `emailDelOnboarding` (20/11/2026: mirando un negocio, su dueño o nadie; nunca el administrador).
+  assert.match(r, /return emailDelOnboarding\(\);/);
+  const so = sinComentarios(leer('../lib/seguir-en-pc.ts'));
+  assert.match(so.slice(so.indexOf('export async function emailDelOnboarding')), /const s = await getUsuarioActual\(\)/);
   assert.doesNotMatch(r, /getWorkspaceActual|getTenantDb/, 'el recorrido es de quien está frente al teclado, no del workspace que mira');
   assert.match(r, /perfilConVisto\(fila\.perfil, id, ahora\)/, 'el jsonb se arma desde el que había');
   assert.match(r, /\.eq\('updated_at', fila\.updated_at\)/, 'compare-and-set: otro escritor del perfil no se pisa');

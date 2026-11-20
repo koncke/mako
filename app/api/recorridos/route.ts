@@ -34,7 +34,6 @@
 
 import type { NextRequest } from 'next/server';
 import { createHash } from 'node:crypto';
-import { getUsuarioActual } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { idRecorridoValido, perfilConVisto, vistosDePerfil } from '@/lib/recorridos';
 import { emailDelOnboarding, personaDelOnboarding } from '@/lib/seguir-en-pc';
