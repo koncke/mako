@@ -3621,9 +3621,20 @@ filas de los coaches tachaban el día 1 entero.
   siempre: pausarlo la suelta, y si nadie le da play, sale a los 12 s (`MS_SIN_PLAY`).
 - **El video del WhatsApp sigue sin «dale play»**, aunque la verificación lo anotó como detalle. Llega junto a la tarjeta del código, y
   las tapas de la marca no dejarían escribirlo (tests/tutorial-entrada.test.ts, 4).
-- **Sin hacer todavía**: la voz de calendar-4, classroom-4 e image-3 todavía dice «Toca aquí» en frases que ya no esperan el clic. La
-  regrabación espera el OK del Cerebro al guion. Mientras tanto, el motor se recupera si alguien toca (lib/tutoriales/calendar.ts y
-  classroom.ts, `antes`).
+- **«Sigamos en tu computadora» se manda por una constante** (`RUTA_SEGUIR_EN_PC`, lib/onboarding-arranque-server.ts, al lado de
+  `seguirEnPcPendiente`). tests/onboarding-hub-retirado.test.ts no deja que ningún archivo nombre /onboarding, que fue el hub retirado.
+  Sumar a su lista cada archivo que manda ahí la aflojaba; la constante deja UN tolerado, con su porqué.
+- **Un mail real en un test lo para la punta** (tests/sin-mails-reales.test.ts, con las huellas de los de verdad). Los de la revisión
+  se nombran por `EMAILS_REVISION`, nunca escritos.
+- **Si la frase no espera el clic, la voz no dice «toca aquí»** (el Cerebro, 20/11). calendar-4, classroom-4 e image-3 se regrabaron
+  con «Mira aquí» (LA-CONFIG; guiones en scripts/tutorial-animado/guiones.json y C:/dev/tutoriales-video/guiones.json). Los tiempos se
+  midieron otra vez contra voz.mp3 sin usar la alineación del pipeline: los silencios con ffmpeg, y cada t_fin en un silencio y cada
+  t_inicio al salir de uno. **Trampa:** la voz dura menos que el video (32,0 contra 32,5 s), y el t_fin de la última frase cae en la cola
+  muda del video, no en voz.mp3: el último silencio se mide hasta el final del video. Si igual tocan, el motor se recupera
+  (lib/tutoriales/calendar.ts y classroom.ts, `antes`).
+- **Sin hacer** (nota del Cerebro, para la próxima vez que se toque Calendar): en el video de Calendar, «Toca aquí, en Publicaciones,
+  Plan, Ventas o Entregas,» sale con la letra más chica que el resto (el dibujo del pipeline, C:/dev/tutoriales-video).
+
 ## La verificación del 20/11: lo que el reto daba por hecho y no lo estaba (chat «reto-tutoriales», claude5)
 
 Lo que dejó a la vista la verificación independiente del Cerebro (verificacion-pendientes-20-11.md): en todos estos casos el commit

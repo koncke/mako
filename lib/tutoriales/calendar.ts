@@ -19,7 +19,7 @@ export const TUTORIAL_CALENDAR: TutorialPestana = {
       sel: 'a[href="/calendario?vista=llamadas"]',
       titulo: 'Llamadas',
       texto: 'Todas tus llamadas de venta en una lista, una debajo de otra.',
-      sub: 'Toca aquí, en Llamadas, y las ves todas juntas, sin nada alrededor.',
+      sub: 'Mira aquí, en Llamadas: las ves todas juntas, sin nada alrededor.',
       lado: 'abajo',
     },
     {

@@ -20,7 +20,7 @@ export const TUTORIAL_CLASSROOM: TutorialPestana = {
       sel: '[data-recorrido="vista-alumno"]',
       titulo: 'Vista del alumno',
       texto: 'El curso tal como lo ve quien te compró.',
-      sub: 'Toca aquí, en Vista del alumno, para verlo tal como lo ve tu cliente.',
+      sub: 'Mira aquí, Vista del alumno: lo ves tal como lo ve tu cliente.',
       lado: 'abajo',
       soloComputadora: true,
     },
