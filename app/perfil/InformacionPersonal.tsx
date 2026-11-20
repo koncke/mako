@@ -43,6 +43,7 @@ import { zonaCanonica } from '@/lib/zona-negocio-reglas';
 import { NOMBRE_NEGOCIO_MAX, muestraNegocio, type NegocioDelPerfil } from '@/lib/nombre-negocio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { iniciales } from '@/lib/unicode-seguro';
+import { MARCA } from '@/lib/tutoriales/marcas';
 export type { NegocioDelPerfil };
 
 type Campo = 'nombre' | 'cargo' | 'empresa' | 'web' | 'bio';
@@ -249,7 +250,7 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
         {/* Sin «Subir», «Cambiar» ni «Quitar»: la foto MISMA, grande, abre el selector (todo eso está adentro). */}
         <FilaAjustes titulo="Foto" fin={(
           <button type="button" className="aj-foto aj-foto--grande" aria-label={perfil.avatarUrl ? 'Cambiar o quitar la foto' : 'Poner una foto'}
-            aria-haspopup="dialog" aria-expanded={!!fotoAncla}
+            data-recorrido={MARCA.settingsFoto} aria-haspopup="dialog" aria-expanded={!!fotoAncla}
             onClick={(e) => setFotoAncla(fotoAncla ? null : e.currentTarget)}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {perfil.avatarUrl ? <img src={perfil.avatarUrl} alt="" /> : letra}

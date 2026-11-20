@@ -97,6 +97,21 @@ export function volverAlChat(clave: string): number | null {
  */
 let presentaElChat = false;
 export function chatPresentaRecorrido(si: boolean): void { presentaElChat = si; }
+
+// Y EL RETO (20/11, OD-09): mientras el chat «Onboarding» escribe «¡Listo tu onboarding…! Tu reto de 7 días tiene su propio chat»,
+// la marca al reto (app/second-brain/reto/MarcaAlReto.tsx) espera. Con su propio aviso: `useSenal` no cambia con esto.
+let presentaReto = false;
+const oyentesReto = new Set<() => void>();
+export function chatPresentaReto(si: boolean): void {
+  if (presentaReto === si) return;
+  presentaReto = si;
+  for (const f of oyentesReto) f();
+}
+export const elChatPresentaElReto = (): boolean => presentaReto;
+const suscribirReto = (f: () => void) => { oyentesReto.add(f); return () => { oyentesReto.delete(f); }; };
+export function usePresentaReto(): boolean {
+  return useSyncExternalStore(suscribirReto, () => presentaReto, () => false);
+}
 export const elChatPresentaElRecorrido = (): boolean => presentaElChat;
 
 /** Lo que se esté mostrando, fuera. No llama a `alTerminar` (lo cierra quien lo pidió). */
