@@ -2110,7 +2110,7 @@
      "cierra_despues": true
     },
     {
-     "id": "offer-5",
+     "id": "offer-5", "sel": "[aria-label=\"Respuestas rápidas\"] button",
      "rol": "cierre",
      "texto": "Para ir a fondo, toca aquí, en Analicemos mi oferta: te marca qué falta y la mejora, en PDF.",
      "t_inicio": 21.84,
@@ -4089,7 +4089,7 @@
      "espera_clic": false
     },
     {
-     "id": "report-problem-4",
+     "id": "report-problem-4", "sel": "[data-tarjeta=\"ticket\"]",
      "rol": "accion",
      "texto": "Mira aquí, el ticket que arma MaKo: revisa que diga lo que pasó antes de mandarlo.",
      "t_inicio": 15.38,
@@ -4097,7 +4097,7 @@
      "espera_clic": false
     },
     {
-     "id": "report-problem-5",
+     "id": "report-problem-5", "sel": "[data-tarjeta=\"ticket\"] button.co-chip--primario",
      "rol": "cierre",
      "texto": "Cuando esté claro, toca aquí, en Mandárselo al equipo: si te preguntan algo, verás Espera tu respuesta.",
      "t_inicio": 20.74,

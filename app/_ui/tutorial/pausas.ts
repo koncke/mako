@@ -62,6 +62,46 @@ export function alFinSinMarca(cargando: boolean, esperandoMs: number): 'esperar'
   return cargando && esperandoMs < TOPE_CARGA_MS ? 'esperar' : 'saltear';
 }
 
+// «TOCA AQUÍ» SIEMPRE MARCA DÓNDE (20/11, la llamada con Leila, 00:32:37; Martín: «Siempre me lo tiene que marcar, porque si no, la
+// persona no sabe dónde es aquí»). La regla 2 dejaba pasar sin pausa una frase cuya marca no estaba, y la voz decía «toca aquí» sin
+// ningún recuadro: Competitor Spy sin competidores, el cierre de Offer sin sus respuestas rápidas, el de «Report a problem» sin el
+// ticket. Ahora una frase que manda a tocar, sin su lugar en la pantalla y sin nada que lo abra, NO SE DICE: el video salta a su
+// t_fin en el silencio de antes de su voz.
+/** Lo que manda a tocar (el guion lo escribe así: «Toca aquí, en…», «Pruébalo ya: toca aquí, en una pieza…»). Con límites de LETRA:
+ *  `\b` es ASCII y no ve el borde de la «í». */
+export const PIDE_TOCAR = /(?<!\p{L})toca\s+aqu[ií](?!\p{L})/iu;
+/** Cuánto antes de su voz se mira la frase que viene: el silencio entre frases es de 0,3 a 0,5 s y `timeupdate` llega cada ~250 ms. */
+export const ANTES_DE_LA_VOZ_S = 0.45;
+/** La frase que está por sonar (en el silencio de antes, `ANTES_DE_LA_VOZ_S`) o sonando, sin hacer. Nunca una que todavía no llegó. */
+export function fraseQueSuena(frases: readonly FraseVideo[], t: number, hechas: ReadonlySet<string>): FraseVideo | null {
+  for (const f of frases) {
+    if (f.t_inicio - ANTES_DE_LA_VOZ_S > t) return null;
+    if (hechas.has(f.id) || t >= f.t_fin - 0.05) continue;
+    return f;
+  }
+  return null;
+}
+/**
+ * ¿Se salta la frase? Sólo una que manda a tocar, sin su marca en la pantalla, sin nada que la abra (`antes` a la vista, la barra que
+ * se presenta) y con la página quieta: si está cargando, la marca puede llegar mientras suena (regla 1).
+ */
+export function saltarSinMarca(f: FraseVideo, a: { marca: boolean; abre: boolean; cargando: boolean }): boolean {
+  return PIDE_TOCAR.test(f.texto ?? '') && !a.marca && !a.abre && !a.cargando;
+}
+
+// EL VIDEO DE UNA PESTAÑA, LA PRIMERA VEZ, SIN ESPERAS DE MÁS (20/11, la llamada con Leila, 00:32:05: «se tardó bastante en saltarme el
+// video del tutorial», en Competitor Spy). Esperaba el lugar del primer paso hasta 6 s, y el de Spy (las pestañas de un competidor)
+// existe sólo con un competidor abierto: con 0, y con 2 o más hasta que el motor abre uno, eran 6 s sin nada.
+/** Lo más que se espera el primer paso, como antes. */
+export const TOPE_PRIMER_PASO_MS = 6000;
+/** Con la página quieta (sin cargador a la vista) este rato, arranca: lo que falta lo marca el video cuando suena (o no lo dice). */
+export const PAGINA_LISTA_MS = 1200;
+/** ¿Arranca ya? Con el primer lugar, con lo que lo abre (`antes`) a la vista, con la página quieta un rato, o con el tope. */
+export function arrancaLaPrimeraVez(a: { marca: boolean; abre: boolean; cargando: boolean; pasadoMs: number }): boolean {
+  if (a.marca || a.abre || a.pasadoMs >= TOPE_PRIMER_PASO_MS) return true;
+  return !a.cargando && a.pasadoMs >= PAGINA_LISTA_MS;
+}
+
 /** La próxima frase con marca, sin hacer, después de `desde` (la que el clic de `desde` tiene que hacer aparecer). */
 export function siguienteConMarca(frases: readonly FraseVideo[], desde: FraseVideo, hechas: ReadonlySet<string>): FraseVideo | null {
   for (const f of frases) if (f.sel && f.id !== desde.id && !hechas.has(f.id) && f.t_inicio >= desde.t_inicio) return f;

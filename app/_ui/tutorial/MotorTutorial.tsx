@@ -41,7 +41,7 @@ import { barraEntera, mostrarLaBarra, presentaLaBarra } from './barra-oculta';
 import { useLugarALaVista } from './lugarDelVideo';
 import { BarraDelVideo, alternarVideo } from './BarraDelVideo';
 import { CSS_REPRODUCTOR } from './VideoDelMomento';
-import { TOPE_CADENA_MS, TOPE_CARGA_MS, alFinSinMarca, retenerAlFin, comoCadena, navegaA, pasoDeLaCadena, siguienteConMarca, soloEnComputadora, soltarRetencion, type Retencion } from './pausas';
+import { TOPE_CADENA_MS, TOPE_CARGA_MS, alFinSinMarca, arrancaLaPrimeraVez, fraseQueSuena, retenerAlFin, comoCadena, navegaA, pasoDeLaCadena, saltarSinMarca, siguienteConMarca, soloEnComputadora, soltarRetencion, type Retencion } from './pausas';
 
 /**
  * Los tutoriales cuyo video tiene que seguir SUS pasos, en su orden (`sigueLosPasos`): el recorrido aprobado. El «recorrido» de la
@@ -262,7 +262,7 @@ function PrimeraVez({ t }: { t: TutorialPestana }) {
   const onCerrar = useCallback((m: MotivoFin) => { if (ensayo.activo) marcarVistoEnEnsayo(id); else cerrarDeVerdad(m); }, [ensayo.activo, id, cerrarDeVerdad]);
   useEffect(() => {
     if (!abierto || pedido.current || senalAhora()) return;
-    // Espera a que la pestaña pinte su primer paso (los datos llegan después del montaje), hasta 6 s.
+    // Espera a que la pestaña pinte su primer paso (los datos llegan después del montaje), o lo que lo abre, o la página quieta (abajo).
     const telefono = window.innerWidth < ANCHO_TELEFONO;
     const pasos = pasosPara(t, telefono);
     if (!pasos.length) return;
@@ -279,7 +279,11 @@ function PrimeraVez({ t }: { t: TutorialPestana }) {
       // Martín, 18/11, noche: «no es necesario que cada vez que entro en una pestaña me diga cómo funciona… omitir recorrido y
       // empezar… solamente que esté el video abajo a la derecha». Una pestaña abre DIRECTO su video (con sus marcas); el recorrido
       // aprobado del Ops Center sigue con su presentación.
-      if (lugarDe(pasos[0].sel) || Date.now() - desde > 6000) { pedido.current = true; mostrarTutorial(t.pestana === 'ops-center' ? TUTORIAL_RECORRIDO : t, { alTerminar: onCerrar, ...(t.pestana === 'ops-center' ? {} : { directo: true }) }); return; }
+      // Sin esperas de más (./pausas.ts, `arrancaLaPrimeraVez`; la llamada con Leila: Competitor Spy tardaba 6 s): con el primer lugar,
+      // con lo que lo abre a la vista, o con la página quieta un rato. Lo que falta lo marca el video cuando suena (o no lo dice).
+      const p0 = pasos[0];
+      const abre0 = typeof p0.antes === 'string' ? !!lugarDe(p0.antes) : !!p0.antes?.some((s) => !!lugarDe(s));
+      if (arrancaLaPrimeraVez({ marca: !!lugarDe(p0.sel), abre: abre0, cargando: cargandoAhora(), pasadoMs: Date.now() - desde })) { pedido.current = true; mostrarTutorial(t.pestana === 'ops-center' ? TUTORIAL_RECORRIDO : t, { alTerminar: onCerrar, ...(t.pestana === 'ops-center' ? {} : { directo: true }) }); return; }
       window.setTimeout(mirar, 250);
     };
     const id = window.setTimeout(mirar, 600);
@@ -553,6 +557,15 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
       if (porCerrar.current && cierraYa(frases, porCerrar.current, t)) { porCerrar.current = null; cerrarLoAbierto(); cerrandoHasta.current = Date.now() + MS_CIERRE; return; }
       // Mientras se cierra, nada se marca encima (lo mismo que espera el cierre del video).
       if (Date.now() < cerrandoHasta.current) return;
+      // «TOCA AQUÍ» SIEMPRE MARCA (./pausas.ts, `saltarSinMarca`; la llamada con Leila): la frase que manda a tocar algo que no está
+      // en la pantalla, y que nada abre, no se dice. Se mira en el silencio de antes de su voz, y el video salta a su t_fin.
+      const q = fraseQueSuena(frases, t, hechas.current);
+      if (q) {
+        const pq = q.sel ? pasoDeFrase(q, pasos) : null;
+        const antes = pq?.antes;
+        const abre = !!pq && (presentaLaBarra(pq.sel) || (typeof antes === 'string' ? !!lugarDe(antes) : !!antes?.some((s) => !!lugarDe(s))));
+        if (saltarSinMarca(q, { marca: !!pq && !!lugarDe(pq.sel), abre, cargando: cargandoAhora() })) { hechas.current.add(q.id); v.currentTime = q.t_fin; return; }
+      }
       const f = fraseParaMarcar(frases, t, hechas.current);
       if (!f) return;
       // En el teléfono, la frase de un paso `soloComputadora` ni se busca: su control no existe en MaKo Mobile.
