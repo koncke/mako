@@ -8234,6 +8234,20 @@ reparto) · `lib/mako-doer-in.ts` (`claudeDelGrupo`, el turno del grupo)
   - lo gastó otra clave de esas mismas organizaciones, porque **el saldo es de la ORGANIZACIÓN, no de la clave**.
 
   El saldo no se lee con la clave: sólo en platform.claude.com → Billing, con la sesión de cada cuenta.
+- **Volvió solo, las dos cuentas la misma noche (20/11/2026).** La cuenta 1 falló por última vez a las 21:10 UTC del 19 y
+  cobró bien a las 09:11 UTC del 20; la cuenta 2, a las 12:31 UTC del 20. Nadie cargó saldo: eso inclina la balanza hacia
+  «venció el ciclo y se renovó», con el ciclo de esas dos organizaciones cambiando el 20. Es un indicio, no una prueba: hay que
+  confirmarlo en Billing antes de cargar `diaDeCobro: 20`. El primer turno de un cliente afectado (Código, 12:31 UTC) salió con
+  Claude: ningún grupo recibió el cartel de «conecta tu IA» durante el corte.
+- ⚠️ **El «sin crédito» no se borraba al volver.** `resumenCredito` marcaba `sinCreditoAt` con cualquier corte del ciclo, y el
+  ciclo sin `diaDeCobro` es el mes: el Uso y el aviso iban a decir «sin crédito» hasta fin de mes, y una cuenta que sí paga
+  quedaba fuera de «con qué sigue MaKo». Ahora una llamada COBRADA (costo > 0) después del corte lo borra; una falla en 0 no
+  prueba nada. Test: tests/credito-vigia.test.ts, el 4 (V8).
+- ⚠️ **Trampa: la columna `cuenta` de `anthropic_usage` vale 1 cuando no se sabe.** Lo hace `recordUsage` (lib/anthropic-usage.ts,
+  `cuenta && cuenta > 1 ? cuenta : 1`). Las fallas de la clave PROPIA de Leila (ws 11, «clave de Anthropic del negocio · falló:
+  sin crédito», desde las 14:31 del 19) quedan con `cuenta = 1` y parecen cortes del crédito de la cuenta 1. Un `where cuenta = 1`
+  NO es «el crédito de la cuenta 1»: hay que filtrar por el motivo («crédito de Claude de la plataforma (cuenta N)»), como hace
+  `creditoQuePago`.
 - ⚠️ **El aviso mentía por mirar una cuenta sola.** «Sigue con las otras cuentas» salía siempre, aunque no quedara ninguna. Ahora
   `avisosDelCredito` arma «con qué sigue» con TODAS las filas: las vinculadas, legibles, sin «sin crédito» y bajo US$200. Y cada
   aviso dice, en líneas:
