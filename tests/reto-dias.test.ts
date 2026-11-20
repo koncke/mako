@@ -283,6 +283,26 @@ test('el fin de cada día: «¿Adelantas…?» recién al terminarlo, «Lo hago 
   assert.ok(ruta.includes("body.accion === 'despues'") && ruta.includes("body.accion === 'manana'"), 'la API guarda los dos');
 });
 
+test('Essential en prueba: el reto abre UNA vez cada cosa de Pro de los días 4 a 6, y lo dice sin vender (20/11, R57-03, la A)', async () => {
+  const { decidirProDelReto, VENTANA_MS } = await import('../lib/reto/pro-del-reto');
+  const ahora = h('2026-11-22T15:00:00Z');
+  const e = { ...base, adelantado: 5 };
+  assert.deepEqual(decidirProDelReto(e, 'replicar-guion', { enPrueba: false, ahora }), { abre: false, nuevo: null }, 'fuera de la prueba, el candado de siempre');
+  assert.equal(decidirProDelReto(e, 'ai-avatar', { enPrueba: true, ahora }).abre, false, 'el día 6 todavía no se abrió');
+  const r = decidirProDelReto(e, 'replicar-guion', { enPrueba: true, ahora });
+  assert.equal(r.abre, true); assert.ok(r.nuevo, 'la primera vez se anota');
+  const usado = { ...e, pro: { 'replicar-guion': r.nuevo! } };
+  assert.deepEqual(decidirProDelReto(usado, 'replicar-guion', { enPrueba: true, ahora: ahora + 60_000 }), { abre: true, nuevo: null }, 'el mismo uso (analizar, generar, guardar)');
+  assert.deepEqual(decidirProDelReto(usado, 'replicar-guion', { enPrueba: true, ahora: ahora + VENTANA_MS + 1 }), { abre: false, nuevo: null }, 'la segunda vez, candado');
+  for (const [f, fn] of [['lib/editor-landing/replicar-candado.ts', 'replicar-landing'], ['lib/copywriter/replica-candado.ts', 'replicar-guion'], ['lib/editores-ia-pro.ts', 'ia-editores'], ['app/ai-avatar/acceso.ts', 'ai-avatar']]) {
+    assert.ok(readFileSync(new URL('../' + f, import.meta.url), 'utf8').includes(`abreElReto('${fn}'`), `${f} pregunta al reto`);
+  }
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.ok(chat.includes('NOTA_PRO_UNA_VEZ') && !/Pasar a Pro/.test(chat), 'la tarjeta lo dice, sin «Pasar a Pro»');
+  const { NOTA_PRO_UNA_VEZ } = await import('../lib/reto/pro-del-reto');
+  assert.equal(NOTA_PRO_UNA_VEZ, 'Esto es de Pro: en tu prueba lo usas una vez.');
+});
+
 test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, sin clip de regalo, sin la tab AI Avatar', () => {
   const texto = JSON.stringify(DIAS_RETO);
   assert.doesNotMatch(texto, /integramos|lo hacemos por ti|nuestro equipo/i, 'nada que prometa un equipo: Martín no tiene');

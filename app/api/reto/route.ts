@@ -69,10 +69,20 @@ async function intereses(): Promise<string[]> {
   try { const a = JSON.parse((await getSetting('onboarding.arranque')) ?? 'null') as { intereses?: unknown } | null; return Array.isArray(a?.intereses) ? a.intereses.filter((x): x is string => typeof x === 'string') : []; } catch { return []; }
 }
 
+/** ¿Es una prueba de MaKo Essential? (20/11, R57-03): ahí lo de Pro de los días 4 a 6 se usa una vez, y la tarjeta lo dice. */
+async function essentialEnPrueba(): Promise<boolean> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return false;
+    const [{ estadoDePrueba }, { esEsencialDe }] = await Promise.all([import('@/lib/prueba-uso'), import('@/lib/plan-esencial')]);
+    return (await estadoDePrueba(ws)).enPrueba && (await esEsencialDe(ws));
+  } catch { return false; }
+}
+
 async function respuesta(e: EstadoReto | null, numero: string | null) {
   const { abierto, dias, hechos } = estadoDeLosDias(e, Date.now());
-  const [f, i] = await Promise.all([funnel(), intereses()]);
-  return Response.json({ ok: true, ve: true, estado: e, abierto, dias, hechos, linea: numero, funnel: f, intereses: i });
+  const [f, i, unaVez] = await Promise.all([funnel(), intereses(), essentialEnPrueba()]);
+  return Response.json({ ok: true, ve: true, estado: e, abierto, dias, hechos, linea: numero, funnel: f, intereses: i, proUnaVez: unaVez });
 }
 
 export async function GET() {

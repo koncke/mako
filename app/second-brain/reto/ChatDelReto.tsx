@@ -31,12 +31,15 @@ import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutori
 import { claveTarea, diaAbierto, diasDelReto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
 import { RETO_EMPEZAR_DIA1, RETO_INTERES_YA, RETO_MUESTRA, RETO_MUESTRA_FIN, muestrasDe, type MuestraReto } from '@/lib/reto/dias';
 import { diaTerminado, finDelDia, tareaDespues } from '@/lib/reto/dias';
+import { NOTA_PRO_UNA_VEZ, TAREA_PRO } from '@/lib/reto/pro-del-reto';
 
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null;
   /** El funnel que eligió en Funnel Coach: arma los días 4 a 6 (`diasDelReto`, 20/11). */
   funnel?: string | null;
   /** Lo que eligió en «¿Qué te gustaría que MaKo resuelva primero?» (D1-02). */
-  intereses?: string[] };
+  intereses?: string[];
+  /** Una prueba de MaKo Essential: lo de Pro de los días 4 a 6 se usa una vez (R57-03). */
+  proUnaVez?: boolean };
 
 /** Lo del ensayo «desde cero» (app/_ui/tutorial/desde-cero.ts): el mismo cálculo que /api/reto, con el estado en el navegador. */
 function datosDelEnsayo(base: DatosReto | null, e: EstadoReto | null): DatosReto {
@@ -207,7 +210,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
               </Fragment>
             ))}
             {empezo1 && abiertos.filter((dia) => ap.ver(`dia:${dia.n}`)).map((dia) => (
-              <Dia key={dia.n} dia={dia} e={e} linea={d.linea} hora={horaWa}
+              <Dia key={dia.n} dia={dia} e={e} linea={d.linea} hora={horaWa} proUnaVez={!!d.proUnaVez}
                 onHora={(h) => { setHora(h); void hacer({ accion: 'hora', hora: h }); }}
                 onMarcar={(t) => marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); })}
                 onTocadoEnVideo={() => { void leer(); }}
@@ -263,7 +266,7 @@ function Burbuja({ children, ancho = false }: { children: ReactNode; ancho?: boo
   return <FilaDelChat m={null} quien={{ titulo: 'MaKo', aspecto: ASPECTO_MAKO }} marcas={null} hora={null} ancho={ancho}><div className="rt-md">{children}</div></FilaDelChat>;
 }
 
-export function Dia({ dia, e, linea, hora, onHora, onMarcar, onTocadoEnVideo, onFinVideo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; onHora: (h: string) => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void }) {
+export function Dia({ dia, e, linea, hora, proUnaVez = false, onHora, onMarcar, onTocadoEnVideo, onFinVideo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; proUnaVez?: boolean; onHora: (h: string) => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void }) {
   const p = dia.whatsapp;
   const todas = dia.tareas.every((t) => tareaHecha(e, dia.n, t.id));
   const link = p ? linkWaMe(linea, mensajeEscrito(p, hora)) : null;
@@ -282,10 +285,13 @@ export function Dia({ dia, e, linea, hora, onHora, onMarcar, onTocadoEnVideo, on
               const ok = tareaHecha(e, dia.n, t.id);
               // Hecha, dice lo que MaKo LEYÓ (20/11, auditoría d24-12: «Leí 134 contactos en tu CRM.»), no el detalle de la tarea.
               const leido = ok ? e.leidas?.[claveTarea(dia.n, t.id)] : undefined;
+              // En una prueba de Essential, lo de Pro se usa una vez y se dice sin vender (R57-03): ningún botón que venda el plan acá.
+              const pro = TAREA_PRO[claveTarea(dia.n, t.id)];
+              const nota = !ok && proUnaVez && pro && !(e.pro?.[pro] && Date.now() > Date.parse(e.pro[pro]!.hasta)) ? NOTA_PRO_UNA_VEZ : null;
               return (
                 <li key={t.id} className="rt-tarea" data-ok={ok ? '' : undefined}>
                   <span className="rt-tarea__check" aria-hidden>{ok ? '✓' : ''}</span>
-                  <span className="rt-tarea__txt"><b>{t.titulo}</b><small>{leido ?? t.detalle}</small></span>
+                  <span className="rt-tarea__txt"><b>{t.titulo}</b><small>{leido ?? t.detalle}</small>{nota && <small className="rt-tarea__pro">{nota}</small>}</span>
                   {/* Sin «Hacerlo» (18/11): dice DÓNDE es, y tocarlo marca ese lugar con el tutorial (no lleva a ningún lado). */}
                   {ok ? <span className="rt-tarea__ok">Listo</span>
                     : tareaDespues(e, dia.n, t.id) ? <button type="button" className="rt-tarea__donde" onClick={() => onMarcar(t)} title="Te marco dónde está">◐ Después</button>
@@ -298,6 +304,7 @@ export function Dia({ dia, e, linea, hora, onHora, onMarcar, onTocadoEnVideo, on
       </Burbuja>
       {/* Lo que hizo durante el video ya cuenta (el Cerebro, 18/11): si hizo todo, la felicita y pasa a la prueba por WhatsApp. */}
       {todas && dia.n === 2 && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!{p ? ' Te queda la prueba por WhatsApp.' : ''}</p></Burbuja>}
+      {dia.n === 6 && <ClipDelReto />}
       {/* La prueba por WhatsApp va al FINAL del día (f24-02); la hora del día 2 es un paso del día. */}
       {p && (dia.n === 2 || diaTerminado(e, dia)) && (
         <Burbuja ancho>
@@ -317,6 +324,16 @@ export function Dia({ dia, e, linea, hora, onHora, onMarcar, onTocadoEnVideo, on
       )}
     </>
   );
+}
+
+/**
+ * EL CLIP DE REGALO DEL DÍA 6 (20/11, R57-02; el Cerebro: «sí, por ApiMart», UN clip por prueba, lo que cuesta anotado y, si ApiMart
+ * falla o no hay saldo, se dice claro y no se cobra nada). Lo hace la sesión de AI Avatar, dueña de ese código; el contrato propuesto:
+ * app/ai-avatar/clip-del-reto.ts → `estadoDelClipDelRetoAction()` y `pedirClipDelRetoAction(guion?)`. Hasta que exista, el lugar no
+ * dibuja nada: el reto no promete un regalo que la app todavía no da.
+ */
+function ClipDelReto() {
+  return null;
 }
 
 /** El video del día: el del manifiesto (`reto-dia-<n>`), o en la revisión su lugar marcado. Nunca otro video. */
@@ -436,6 +453,7 @@ export const CSS_RETO = `
 .rt-tarea__txt b { font-size: var(--fs-sm); color: var(--ink); }
 .rt-tarea__txt small { font-size: var(--fs-meta); color: var(--dim); }
 .rt-tarea[data-ok] .rt-tarea__txt b { color: var(--dim); text-decoration: line-through; }
+.rt-tarea__pro { color: var(--ink) !important; font-weight: 600; }
 .rt-tarea__ok { font-size: var(--fs-meta); font-weight: 700; color: var(--good); }
 .rt-tarea__donde { flex: none; border: 0; background: none; padding: 4px 0; font: inherit; font-size: var(--fs-meta); font-weight: 650; color: var(--dim); cursor: pointer; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
 .rt-tarea__donde:hover { color: var(--ink); }

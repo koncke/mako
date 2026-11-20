@@ -272,7 +272,7 @@ test('la puerta es la de toda tab (no una tab escondida), y adentro el candado d
   assert.match(acceso, /await requireRolWs\(\[\], \{ nav: 'ai-avatar' \}\);/, 'las pantallas sin la puerta de toda tab');
   assert.match(acceso, /\(await getRolWsEfectivo\(\)\) !== 'admin'\) return false;/, 'las actions dejan pasar a quien no es admin');
   // El candado, en UN lugar (`candadoDeAiAvatar`) y usado por cada función que GENERA, más el cartel de cada pantalla.
-  assert.match(acceso, /return \(await esEsencialDeLaSesion\(\)\) \? textoSoloPro\('ai-avatar'\) : null;/, 'sin el candado de Pro');
+  assert.ok(acceso.includes("return (await esEsencialDeLaSesion()) && !(await abreElReto('ai-avatar', { usar: true })) ? textoSoloPro('ai-avatar') : null;"), 'sin el candado de Pro (la prueba del reto lo abre una vez, 20/11)');
   assert.match(fuenteDe('app/ai-avatar/actions.ts'), /const pro = await candadoDeAiAvatar\(\);\n\s*if \(pro\) return \{ ok: false, error: pro \};/,
     'las actions sin el candado: un Essential generaba desde una pestaña ya abierta');
   for (const rel of ['app/ai-avatar/page.tsx', 'app/m/ai-avatar/page.tsx']) {

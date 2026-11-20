@@ -278,6 +278,8 @@ export type EstadoReto = { v: 1; inicio: string; adelantado: number; hechas: Rec
   despues?: string[];
   /** Eligió «Mañana» al terminar el día N-1: guarda N (20/11, D1-06): la respuesta queda en el chat. */
   manana?: number;
+  /** Lo de Pro que el reto le abrió una vez en la prueba (lib/reto/pro-del-reto.ts): cuándo, para sumar su gasto. */
+  pro?: Partial<Record<string, { desde: string; hasta: string }>>;
   /** El último día del que salió el correo «Día N del reto de MaKo» (lib/reto/correos.ts): uno por día, una vez. */
   avisado?: number };
 
@@ -305,8 +307,13 @@ export function leerEstado(crudo: unknown): EstadoReto | null {
   const muestras = Array.isArray(e.muestras) ? [...new Set(e.muestras.filter((x): x is string => typeof x === 'string' && /^[a-z-]{2,30}$/.test(x)))].slice(0, 11) : [];
   const despues = Array.isArray(e.despues) ? [...new Set(e.despues.filter((x): x is string => typeof x === 'string' && /^\d:[a-z-]+$/.test(x)))] : [];
   const manana = Number.isInteger(e.manana) ? Math.max(2, Math.min(7, Number(e.manana))) : undefined;
+  const pro: Record<string, { desde: string; hasta: string }> = {};
+  for (const [k, v] of Object.entries(e.pro && typeof e.pro === 'object' ? e.pro : {})) {
+    const u = v as { desde?: unknown; hasta?: unknown } | undefined;
+    if (/^[a-z-]{2,30}$/.test(k) && typeof u?.desde === 'string' && typeof u?.hasta === 'string' && !Number.isNaN(Date.parse(u.desde)) && !Number.isNaN(Date.parse(u.hasta))) pro[k] = { desde: u.desde, hasta: u.hasta };
+  }
   return { v: 1, inicio: e.inicio, adelantado, hechas: confiables, leidas, ...(dia1Desde ? { dia1Desde } : {}), ...(muestras.length ? { muestras } : {}),
-    ...(despues.length ? { despues } : {}), ...(manana ? { manana } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}) };
+    ...(despues.length ? { despues } : {}), ...(manana ? { manana } : {}), ...(Object.keys(pro).length ? { pro } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}) };
 }
 
 /** La hora de Argentina (la de MaKo), UTC−3. */
