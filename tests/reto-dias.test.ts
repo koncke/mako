@@ -230,6 +230,14 @@ test('«¿Qué hacemos ahora?»: lo elegido en el onboarding, con su «Muéstram
   assert.ok(ruta.includes("body.accion === 'dia1'") && ruta.includes("body.accion === 'muestra'"), 'la API guarda lo elegido');
 });
 
+test('el desplegable del reto: «El reto de 7 días de MaKo», el video de cada día abierto, el ícono y la flecha (20/11, V2, D1-17, R57-F6)', () => {
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.ok(chat.includes("const RETO_TITULO_DESPLEGABLE = 'El reto de 7 días de MaKo';") && chat.includes('{RETO_TITULO_DESPLEGABLE}</p>'), 'el título de la maqueta');
+  assert.ok(chat.includes('{!futuro && <VideoEnElMenu dia={dia} />}'), 'cada día abierto o hecho, con su video');
+  assert.ok(chat.includes('adelántalo al terminar el día de hoy'), 'el texto de la maqueta');
+  assert.ok(chat.includes('className="rt-btn__ico"') && chat.includes('className="rt-btn__flecha"'), 'el ícono de la lista y la flecha');
+});
+
 test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, sin clip de regalo, sin la tab AI Avatar', () => {
   const texto = JSON.stringify(DIAS_RETO);
   assert.doesNotMatch(texto, /integramos|lo hacemos por ti|nuestro equipo/i, 'nada que prometa un equipo: Martín no tiene');

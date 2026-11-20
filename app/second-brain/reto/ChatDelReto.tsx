@@ -283,6 +283,23 @@ function VideoDelDia({ dia, onTocado, onFin }: { dia: DiaReto; onTocado?: (sel: 
   return <div className="rt-video rt-video--lugar" role="note"><b>Tu video del día {dia.n}</b><span>Todavía no está grabado: va aquí.</span></div>;
 }
 
+/** El título del desplegable (la maqueta, RETO_T; auditoría D1-14, d24-18 y R57-F6). El chat sigue llamándose «Reto de 7 días». */
+const RETO_TITULO_DESPLEGABLE = 'El reto de 7 días de MaKo';
+const mmss = (s?: number) => (s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : '');
+
+/** El video de un día, en el desplegable (20/11, auditoría V2, D1-08 y R57-14): su título y su duración, y lo reproduce como en el
+ *  chat: con sus marcas en los días que las tienen. Sin video en el manifiesto, nada (nunca un hueco). */
+function VideoEnElMenu({ dia }: { dia: DiaReto }) {
+  const v = useVideoTutorial(dia.video);
+  if (!v) return null;
+  return (
+    <button type="button" className="rt-menu__video" onClick={() => mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true })}>
+      <span className="rt-menu__play" aria-hidden>▶</span>
+      <span><b>El video del día {dia.n}</b><small>Video{v.duracion_s ? ` · ${mmss(v.duracion_s)}` : ''}</small></span>
+    </button>
+  );
+}
+
 /** EL DESPLEGABLE DEL RETO, en la cabecera del chat. */
 export function DesplegableReto({ d, abierto, onAbrir }: { d: DatosReto; abierto: boolean; onAbrir: (si: boolean) => void }) {
   const [diaAbierto, setDiaAbierto] = useState<number | null>(null);
@@ -293,12 +310,14 @@ export function DesplegableReto({ d, abierto, onAbrir }: { d: DatosReto; abierto
   return (
     <div className="rt-btn-wrap">
       <button type="button" className="rt-btn" aria-expanded={abierto} aria-haspopup="dialog" onClick={() => onAbrir(!abierto)} data-recorrido="sb-reto">
+        <svg className="rt-btn__ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
         <span className="rt-btn__txt"><b>{RETO_TITULO}</b><span className="rt-segs" aria-hidden>{d.dias.map((x, i) => <i key={i} data-e={x} />)}</span></span>
         <span className="rt-btn__dia">{d.hechos === 7 ? 'Completo' : `Día ${actual} de 7`}</span>
+        <svg className="rt-btn__flecha" viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
       {abierto && (
         <div className="rt-menu" role="dialog" aria-label={RETO_TITULO}>
-          <header className="rt-menu__cab"><div><p className="rt-menu__t">{RETO_TITULO}</p><p className="rt-menu__sub">{RETO_SUB}</p></div><span className="rt-menu__cuenta"><b>{d.hechos}</b> de 7</span></header>
+          <header className="rt-menu__cab"><div><p className="rt-menu__t">{RETO_TITULO_DESPLEGABLE}</p><p className="rt-menu__sub">{RETO_SUB}</p></div><span className="rt-menu__cuenta"><b>{d.hechos}</b> de 7</span></header>
           <div className="rt-menu__segs" aria-hidden>{d.dias.map((x, i) => <i key={i} data-e={x} />)}</div>
           <p className="rt-menu__ley"><span><i data-e="hecho" />Listo</span><span><i data-e="hoy" />Hoy</span><span><i data-e="medias" />A medias</span><span><i />Por venir</span></p>
           <ol className="rt-menu__lista">
@@ -315,7 +334,8 @@ export function DesplegableReto({ d, abierto, onAbrir }: { d: DatosReto; abierto
                   </button>
                   {abre && (
                     <div className="rt-menu__cuerpo">
-                      {futuro && <p className="rt-menu__luego">Su video llega {dia.n === actual + 1 ? `mañana a las ${hora}` : `ese día a las ${hora}`}. Si quieres, adelántalo al terminar el de hoy.</p>}
+                      {futuro && <p className="rt-menu__luego">Su video llega {dia.n === actual + 1 ? `mañana a las ${hora}` : `ese día a las ${hora}`}. Si quieres, adelántalo al terminar el día de hoy.</p>}
+                      {!futuro && <VideoEnElMenu dia={dia} />}
                       <p className="rt-menu__rot">Lo que te toca</p>
                       <ol className="rt-menu__tareas">
                         {dia.tareas.map((t) => {
@@ -404,6 +424,13 @@ export const CSS_RETO = `
 .rt-menu__dia[data-e="hecho"] .rt-menu__q small { color: var(--good); }
 .rt-menu__dia[data-e="medias"] .rt-menu__q small { color: var(--warn); }
 .rt-menu__cuerpo { padding: 0 10px 12px 48px; display: flex; flex-direction: column; gap: 8px; }
+.rt-btn__ico, .rt-btn__flecha { flex: none; color: var(--dim); }
+.rt-btn[aria-expanded="true"] .rt-btn__flecha { transform: rotate(180deg); }
+.rt-menu__video { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.rt-menu__video:hover { border-color: var(--border-strong); }
+.rt-menu__video b { display: block; font-size: 12.5px; }
+.rt-menu__video small { display: block; font-size: 11px; color: var(--dim); }
+.rt-menu__play { flex: none; width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; background: var(--ink); color: var(--surface); font-size: 10px; }
 .rt-menu__luego { margin: 0; font-size: 12px; line-height: 1.45; color: var(--dim); }
 .rt-menu__rot { margin: 2px 0 0; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
 .rt-menu__tareas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
