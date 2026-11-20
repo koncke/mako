@@ -318,18 +318,19 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
       {todas && dia.n === 2 && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!{p ? ' Te queda la prueba por WhatsApp.' : ''}</p></Burbuja>}
       {dia.n === 6 && <ClipDelReto />}
       {/* La prueba por WhatsApp va al FINAL del día (f24-02); la hora del día 2 es un paso del día: su tarjeta (wa-08, TarjetaHora). */}
-      {p && dia.n === 2 && <TarjetaHora p={p} guardada={e.horaWa ?? null} linea={linea} hora={hora} onHora={onHora} onConfirmar={onConfirmarHora ?? (() => {})} />}
-      {p && dia.n !== 2 && diaTerminado(e, dia) && (
-        <Burbuja ancho>
-          <div className="rt-tarjeta rt-wa">
-            <p className="rt-tarjeta__t">{p.texto}</p>
-            <p className="rt-wa__ej">Por ejemplo: {p.ejemplo}</p>
-            {link
-              ? <a className="rt-wa__btn" href={link} target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>
-              : <p className="rt-wa__ej">No tengo el número de MaKo a mano: vuelve a intentarlo en un rato.</p>}
-          </div>
-        </Burbuja>
-      )}
+      {p && (dia.n === 2 || diaTerminado(e, dia)) && (dia.n === 2
+        ? <TarjetaHora p={p} guardada={e.horaWa ?? null} linea={linea} hora={hora} onHora={onHora} onConfirmar={onConfirmarHora ?? (() => {})} />
+        : (
+          <Burbuja ancho>
+            <div className="rt-tarjeta rt-wa">
+              <p className="rt-tarjeta__t">{p.texto}</p>
+              <p className="rt-wa__ej">Por ejemplo: {p.ejemplo}</p>
+              {link
+                ? <a className="rt-wa__btn" href={link} target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>
+                : <p className="rt-wa__ej">No tengo el número de MaKo a mano: vuelve a intentarlo en un rato.</p>}
+            </div>
+          </Burbuja>
+        ))}
     </>
   );
 }
