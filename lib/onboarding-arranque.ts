@@ -174,6 +174,9 @@ export type HechosArranque = {
   conCrm: boolean;
   /** La capa tiene el paso del teléfono ('tabs'). */
   conTelefono: boolean;
+  /** V2: los dígitos de la línea de MaKo a la que le escribe (la del link `wa.me` de «Abrir WhatsApp», `numeroLinea` de la
+   *  verificación). El mensaje del código dice ESE número (20/11/2026, la llamada con Leila). Sin ella, el del sitio. */
+  lineaMaKo?: string | null;
   /** El onboarding ya está cerrado. */
   terminado: boolean;
   /** El paso de los avisos aplica (lib/avisos-telefono.ts). Sin esto, no existe: mirando a otro, o con el push apagado, no se traba a nadie. */
@@ -1855,7 +1858,19 @@ export const V2_TELEFONO = (n: string): string => `Un gusto, ${n}. ¿A qué What
 // De una pieza: con espacios que no cortan y el guion pegado (U+2060), el número no se parte en dos renglones (la captura a 1440
 // lo mostraba «2505-» arriba y «2605» abajo).
 const NUMERO_MAKO_ENTERO = WHATSAPP_MAKO.visible.replace(/ /g, '\u00a0').replace(/-/g, '-\u2060');
-export const V2_CODIGO = `Para confirmar tu WhatsApp, toca «Abrir WhatsApp» y mándale el mensaje a MaKo (${NUMERO_MAKO_ENTERO}). Te contesto con un código y lo pegas aquí abajo.`;
+/**
+ * El mensaje del código (20/11/2026, la llamada con Leila: «¿tienes que mandar el código? … Esto es el grupo, ¿verdad?»): dice que va al
+ * CHAT PRIVADO de MaKo, no a su grupo, y con el número de la línea que abre «Abrir WhatsApp» (`lineaMaKo`). El del sitio
+ * (`WHATSAPP_MAKO`) y el de la línea podían no coincidir. De una pieza: el número no se parte en dos renglones.
+ */
+export function v2Codigo(lineaMaKo?: string | null): string {
+  const d = (lineaMaKo ?? '').replace(/\D/g, '');
+  const numero = !d || d === WHATSAPP_MAKO.numero
+    ? NUMERO_MAKO_ENTERO
+    : telefonoVisible(`+${d}`).replace(/ /g, '\u00a0').replace(/-/g, '-\u2060');
+  return `Para confirmar tu WhatsApp, toca «Abrir WhatsApp» y mándale el mensaje al chat privado de MaKo (${numero}), no a tu grupo. Te contesto con un código y lo pegas aquí abajo.`;
+}
+export const V2_CODIGO = v2Codigo();
 export const V2_AGENDADO = '¿Guardaste el contacto de MaKo?';
 export const V2_AGENDADO_OPCIONES = ['Sí', 'No'] as const;
 export const V2_AGENDADO_NO = 'Guárdalo cuando puedas: es la tarjeta que te mandé con el código. Si no estoy en tus contactos, WhatsApp puede frenar lo que te mando, como los avances de tu negocio.';
@@ -1928,7 +1943,7 @@ export function mensajesDeArranqueV2(e: EstadoArranque, h: HechosArranque): Mens
       mako('ya-confirmado', V2_YA_CONFIRMADO(e.telefonoVisto || (e.telefonoNumero ? telefonoVisible(e.telefonoNumero) : '')), { tarjeta: 'contacto' });
       mako('guarda-contacto', V2_GUARDAME);
     } else {
-      mako('codigo', V2_CODIGO, etapa === 'codigo' ? { tarjeta: 'codigo' } : {});
+      mako('codigo', v2Codigo(h.lineaMaKo), etapa === 'codigo' ? { tarjeta: 'codigo' } : {});
       if (etapa === 'codigo') return out;
       yo('codigo', CODIGO_CARGADO);
     }

@@ -443,14 +443,19 @@ export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Pr
     getSetting(CLAVE_GUARDIA).then(parseGuardia).catch(() => ({}) as ReturnType<typeof parseGuardia>),
     getSesionAdmin().catch(() => null),
   ]);
-  const { antes, despues } = mensajesDeArranque(e, h);
+  const etapa = etapaDeArranque(e, h);
+  // El pedido del WhatsApp (la tarjeta del código) se lee ANTES de armar la conversación: su `numeroLinea` es la línea que abre «Abrir
+  // WhatsApp» (el link `wa.me`), y el mensaje del código dice ESE número (20/11/2026, la llamada con Leila: `v2Codigo`).
+  const whatsapp = etapa === 'codigo' && e.telefonoEntrante
+    ? await getWorkspaceActual().then((ws) => (ws == null ? null : estadoVerificacionEntrante(ws))).catch(() => null)
+    : null;
+  const { antes, despues } = mensajesDeArranque(e, { ...h, lineaMaKo: whatsapp?.numeroLinea ?? null });
   // Con el onboarding ya terminado anota sólo el POST que lo cierra (`'cierre'`): el congelado del historial depende de que
   // el cierre quede anotado, y un POST viejo con todo terminado no tiene nada nuevo que contar (segunda revisión, 22/10).
   if (estricto && (o.anotar === 'cierre' || !h.terminado) && (await hechosConfirmados(h))) {
     await anotarHistorial({ antes, despues }, { primeroDeOffer: primeroDeOffer(h) })
       .catch((err) => console.error('[arranque] historial:', err instanceof Error ? err.message : err));
   }
-  const etapa = etapaDeArranque(e, h);
   return {
     modo: h.modo,
     v2: !!h.v2,
@@ -467,9 +472,7 @@ export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Pr
     avisosQr: etapa === 'avisos' ? await QRCode.toDataURL(linkApp(RUTA_APP, null), { margin: 1, width: 336 }).catch(() => null) : null,
     telefonoNumero: e.telefonoNumero ?? '',
     telefonoDelPago: etapa === 'telefono' ? await telefonoDeLaTarjeta() : '',
-    whatsapp: etapa === 'codigo' && e.telefonoEntrante
-      ? await getWorkspaceActual().then((ws) => (ws == null ? null : estadoVerificacionEntrante(ws))).catch(() => null)
-      : null,
+    whatsapp,
     crmTipo: e.crmTipo ?? null,
     crmPropuesta: e.crmPropuesta ?? null,
     canal: h.canalNegocio,

@@ -64,11 +64,12 @@ test('2. los textos de la maqueta, en su orden', () => {
   const mako = mensajesDeArranque(e, H).antes.filter((m) => m.de === 'mako').map((m) => m.texto);
   // Sin «Soy MaKo» (Martín, 19/11), y el WhatsApp dice A QUÉ NÚMERO va el mensaje: el de MaKo, el del sitio.
   assert.equal(V2_NOMBRE, '¡Hola! Para empezar, ¿cómo te llamas?');
-  assert.match(V2_CODIGO.replace(/\u00a0/g, ' ').replace(/\u2060/g, ''), /mándale el mensaje a MaKo \(\+54 9 11 2505-2605\)/);
+  // Al CHAT PRIVADO de MaKo, no a su grupo (20/11, la llamada con Leila: «Esto es el grupo, ¿verdad?»; tests/whatsapp-codigo-chat-privado).
+  assert.match(V2_CODIGO.replace(/\u00a0/g, ' ').replace(/\u2060/g, ''), /mándale el mensaje al chat privado de MaKo \(\+54 9 11 2505-2605\), no a tu grupo/);
   assert.match(V2_CODIGO, /\(\+54\u00a09\u00a011\u00a02505-\u20602605\)/, 'el número, de una pieza: no se corta en dos renglones');
   assert.deepEqual(mako, [V2_NOMBRE, V2_TELEFONO('Valentina'), V2_CODIGO, V2_AGENDADO, V2_NEGOCIO, '¿Cómo llegaste a MaKo, Valentina?', V2_INTERES]);
   assert.equal(V2_TELEFONO('Valentina'), 'Un gusto, Valentina. ¿A qué WhatsApp te escribo con los avisos y los reportes?');
-  assert.match(V2_CODIGO, /toca «Abrir WhatsApp» y mándale el mensaje a MaKo \([^)]+\)\. Te contesto con un código y lo pegas aquí abajo\./);
+  assert.match(V2_CODIGO, /toca «Abrir WhatsApp» y mándale el mensaje al chat privado de MaKo \([^)]+\), no a tu grupo\. Te contesto con un código y lo pegas aquí abajo\./);
   assert.equal(V2_NEGOCIO, 'Listo, tu WhatsApp quedó confirmado. ¿Cómo se llama tu negocio?');
   // Qué resolver primero: las 11 de la maqueta, hasta 3, en el recuadro.
   const interes = mensajesDeArranque(e, H).antes.at(-1)!;
