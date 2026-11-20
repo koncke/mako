@@ -2023,7 +2023,16 @@ con ciclo propio (Leila) manda al grupo de MaKo se aplica SÓLO si el pago está
   - **nada se aplica solo**.
 
   El cron del pago sin captura (lib/binance-sin-captura.ts, también del 20/11) lee la misma API y queda igual de ciego.
-  Sin arreglar: hace falta otra salida, por ejemplo la función en otra región o un proxy. Es una decisión, no un parche.
+  **La causa:** vercel.json pone el proyecto entero en `pdx1` (Portland, EE. UU.), y Binance bloquea EE. UU. No era la clave ni la firma: desde la PC
+  (Argentina) la misma lectura contesta 200.
+  **El arreglo (20/11, noche):** la cuenta se lee desde São Paulo. Una ruta interna, sólo de lectura, `/api/cron/binance-pagos` (`preferredRegion =
+  'gru1'`, el secreto del cron, sin agenda en Vercel), lee directo (`leerDeBinanceDirecto`); desde cualquier otra región, `pagosRecibidosEnBinance` le
+  pide los pagos a ella (lib/binance-pay-region.ts, `caminoDeBinance` + `leerPorLaRuta`); desde la PC, directo. El resto del proyecto sigue en `pdx1`,
+  cerca de la base. El plan del equipo es **Pro** (medido en la API de Vercel): deja una región por función. ⚠️ En la documentación de Next la
+  opción `preferredRegion` figura como deprecada y Vercel documenta el `functions.regions` de vercel.json; el Next 16.2.6 del repo SÍ la lee y la pasa
+  como región de la función (node_modules/next/dist/build/index.js). Si algún día deja de respetarse, la ruta lo dice: devuelve `region`
+  (`VERCEL_REGION`), y la falla de Binance llega con «(desde pdx1)». Una respuesta de la ruta sin la lista nunca es «cero pagos»: es falla.
+  tests/binance-pay-region.test.ts (7 casos, roto 10 veces).
 - **Medido el 19/11 contra la cuenta real (sólo lectura):** el 16/11 reenviado → «no entró» (no se cuenta dos veces); el 11/11 ya anotado → a Martín; un pago de 426
   que no se hizo → «no entró». **No probado de punta a punta con un comprobante real** (el próximo es el de Leila, el 26/11).
 - **Sin hacer:** la verificación contra Mercado Pago (transferencias al CVU) y el checkout de «Transferencia o Binance» con el calce (sigue oculto, el setting
