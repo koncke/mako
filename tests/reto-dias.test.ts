@@ -249,13 +249,14 @@ test('el desplegable del reto: «El reto de 7 días de MaKo», el video de cada 
 
 test('los tres puntitos: cada mensaje del reto llega después de que MaKo escribe, de a uno (20/11, D1-10 y d24-11)', () => {
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
-  // Con lo visto de ESTE reto (20/11, ~13:00): lo visto en otro negocio no los deja salir juntos.
-  assert.ok(chat.includes("const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');"), 'los mensajes pasan por la aparición');
-  assert.ok(chat.indexOf("const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');") < chat.indexOf("ap.escribiendo ? 'escribe' : ''"), 'ap se declara antes de usarlo en la clave del scroll');
+  // Desde el 20/11 (auditoría de chats, reto-3, reto-4 y reto-8), con la COLA DE SALIDA compartida (app/_chat/useColaDeSalida.ts), con
+  // lo visto de ESTE reto: lo visto en otro negocio no los deja salir juntos.
+  assert.ok(chat.includes('const cola = useColaDeSalida(filas, {'), 'los mensajes pasan por la cola');
+  assert.ok(chat.indexOf('const cola = useColaDeSalida(filas, {') < chat.indexOf("cola.escribiendo ? 'escribe' : ''"), 'la cola se declara antes de usarla en la clave del scroll');
   // El cierre de HOY espera su turno (`verFin`); los de días anteriores ya se vieron (reto-6).
-  for (const k of ["ap.ver('hola')", "ap.ver('interes')", 'ap.ver(`dia:${dia.n}`)', 'verFin(`fin:${dia.n}`)']) assert.ok(chat.includes(k), `${k} espera su turno`);
+  for (const k of ["ver('hola')", "ver('interes')", 'ver(`dia:${dia.n}`)', 'verFin(`fin:${dia.n}`)']) assert.ok(chat.includes(k), `${k} espera su turno`);
   assert.ok(chat.includes('co-trabajando__puntos'), 'los puntitos del Ops Center');
-  assert.ok(chat.includes('!empezo1 && !muestraPendiente && ap.listo && !ap.escribiendo'), 'las opciones, recién cuando MaKo terminó de escribir');
+  assert.ok(chat.includes('!empezo1 && !muestraPendiente && ver(`pregunta:${vistas.length}`)'), 'las opciones, recién cuando la cola las soltó');
 });
 
 test('el catálogo «Tutoriales de MaKo»: para empezar, el reto con los días cerrados y cada pestaña con video (20/11, V1 y D1-07)', async () => {

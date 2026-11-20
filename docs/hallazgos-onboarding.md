@@ -3856,6 +3856,8 @@ existía y el test pasaba, pero el camino de la persona se cortaba. El test comp
   persona en el video del mensaje lo puso rojo. Los controles del reproductor viven en app/_ui/tutorial/BarraDelVideo.tsx
   (`alternarVideo`), no en el motor.
 - **Lo que quedó sin hacer:**
-  - reto-3, reto-4 y reto-8 (las tarjetas y recuadros que salen juntos, la muestra sin puntitos, la duración fija) esperan la cola
-    de salida compartida que arma el chat del onboarding. Ahí entra también el QR del día 2 después del video, con su pausa.
+  - reto-3, reto-4 y reto-8 ya van por la cola de salida compartida (`useColaDeSalida`, con la llegada primero): el saludo, «Me
+    dijiste que…», el recuadro, las muestras, los cierres y «¿Adelantas…?» salen de a uno. La tarjeta del día y el QR del día 2
+    salen después del mensaje, con su pausa. Lo que aparece DENTRO de un día (la extensión, las integraciones, la hora, el perfil, la
+    prueba por WhatsApp) todavía sale sin puntitos: queda para otra tanda.
   - La hora de «lo dejé para después» no se guarda: un día cerrado sólo así toma la hora en que se abrió.

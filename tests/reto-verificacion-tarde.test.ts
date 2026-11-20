@@ -109,7 +109,7 @@ test('D1-06: «¿Adelantas el día N?» con el tema «Tu reto», la respuesta de
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   const adel = chat.slice(chat.indexOf('export function AdelantarDia('));
   assert.ok(adel.indexOf('<span className="co-preg__tema">Tu reto</span>') > 0 && adel.indexOf('<span className="co-preg__tema">Tu reto</span>') < adel.indexOf('¿Adelantas el día {n}?</p>'));
-  assert.ok(chat.includes('{mananaDia && sig && <DeLaPersona texto="Mañana" />}'), 'con el cierre de su día (reto-6)');
+  assert.ok(chat.includes('{mananaDia && sig && verFin(`yo-manana:${sig.n}`) && <DeLaPersona texto="Mañana" />}'), 'con el cierre de su día (reto-6), en su turno de la cola');
   assert.ok(chat.includes('{e.adelantados?.includes(dia.n) && <DeLaPersona texto={`Adelantar al día ${dia.n}`} />}'));
   assert.ok(fuente('../app/api/reto/route.ts').includes('adelantados: [...new Set([...(e.adelantados ?? []), dia])]'), 'se guarda qué días adelantó');
   const e = leerEstado(JSON.stringify({ inicio: '2026-11-18T15:00:00Z', adelantado: 3, hechas: {}, adelantados: [2, 3, 3, 9, 'x'] }))!;
@@ -176,7 +176,7 @@ test('la entrada al reto (20/11, ~13:00): el nombre del onboarding del negocio, 
   assert.ok(fuente('../app/second-brain/page.tsx').includes('const nombrePersona = retoV2 ? await nombreDelReto(sesion?.nombre) :'), 'el Ops Center');
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(chat.includes('const e = d?.estado ?? null;\n  fijarAmbitoDelReto(e?.inicio);'), 'el chat fija de qué reto es lo visto');
-  assert.ok(chat.includes("const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');"), 'cada mensaje con sus puntitos, en cada reto');
+  assert.ok(chat.includes("const amb = e?.inicio ? `${e.inicio}|` : '';") && chat.includes('alMostrar: (id) => { if (amb) anotarVistoEnCola(amb + id); },'), 'cada mensaje con sus puntitos, en cada reto');
   assert.ok(chat.includes('localStorage.getItem(VISTO + ambito + k)'), 'lo visto, del reto');
   assert.ok(chat.includes('const fase = useEntrada(delReto(`reto-dia-${dia.n}`), hoy && nuevo);'), 'la entrada del día, del reto');
 });
@@ -211,7 +211,7 @@ test('auditoría de chats (reto-2, reto-6 y reto-7): un solo hilo por hora, el c
   assert.ok(fuente('../app/second-brain/PiezasCliente.tsx').includes('const items = tramo ?? k.items;'), 'un tramo de la charla');
   // reto-6: el cierre de cada día que terminó, debajo de ese día (no sólo el del último).
   assert.ok(chat.includes("piezas.push({ t: tFin, key: `fin:${dia.n}`, nodo: ("), 'cada día con su cierre');
-  assert.ok(chat.includes('const verFin = (k2: string) => !esHoy || ap.ver(k2);'), 'los de antes, ya vistos, como están');
+  assert.ok(chat.includes('const verFin = (k2: string) => !esHoy || ver(k2);'), 'los de antes, ya vistos, como están');
   // reto-7: a la hora en que se abre el que sigue, se relee.
   const { proximaApertura } = await import('../lib/reto/dias');
   const e: EstadoReto = { v: 1, inicio: '2026-11-18T15:00:00.000Z', adelantado: 1, hechas: {}, horaWa: '9:00' };
@@ -236,4 +236,23 @@ test('auditoría de chats (reto-1, reto-5, reto-9, reto-10 y reto-11): el scroll
   assert.ok(chat.includes("if (!arranco.current && dalePlayCerrado(dia.video)) { anotarVisto(`video:${dia.n}`); onFin?.(); }"));
   // reto-11: los puntitos de la carga, sólo la primera vez.
   assert.ok(chat.includes('!d || !e ? (primeraVez ? <Burbuja>'));
+});
+
+test('la entrada y la cola de salida (auditoría de chats, reto-3, reto-4 y reto-8; la memoria, «20/11, ~13:00»)', () => {
+  const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
+  // La llegada (el video del recorrido) primero; lo del reto, recién con el recorrido visto (terminado u omitido).
+  const iLlegada = chat.indexOf('<LlegadaAlReto nombre={nombre} listo={listo} onMostrada={() => setLlegadaMostrada(true)} />');
+  assert.ok(iLlegada > 0 && iLlegada < chat.indexOf("{ver('hola') && <Burbuja>"), 'la llegada, arriba de todo');
+  assert.ok(chat.includes('const puerta = llegadaMostrada && recorridoVisto;') && chat.includes('retenido: () => historia !== amb || !amb || !puerta,'), 'retenido hasta la llegada y el recorrido');
+  // Cada mensaje con su texto (los puntitos según el largo); el recuadro y la muestra, como filas de la cola.
+  assert.ok(chat.includes("{ id: 'hola', de: 'mako', texto: RETO_HOLA(nombre) },"));
+  assert.ok(chat.includes('...(muestraPendiente ? [{ id: `muestra:${muestraPendiente.pestana}`, de: \'mako\', texto: RETO_MUESTRA(muestraPendiente) }] : []),'), 'la muestra pedida, con su clave desde el clic');
+  assert.ok(chat.includes("{ id: 'piloto', de: 'mako', texto: RETO_PILOTO(d.funnel), pieza: !!x.whatsapp }"), 'la tarjeta del audio, después del piloto');
+  assert.ok(chat.includes("dia.whatsapp && cola.conPieza('piloto') && <TarjetaPrueba"));
+  // reto-3: la tarjeta del día (y el QR del día 2) después del mensaje, con su pausa.
+  assert.ok(chat.includes('const t = window.setTimeout(() => setConPieza(true), MS_PAUSA_PIEZA);'));
+  assert.ok(chat.indexOf('{conPieza && <>') < chat.indexOf('{esperaApp && qrApp && <TarjetaQrApp'), 'el QR, después del mensaje');
+  // reto-8: el mensaje de vuelta al reto, con los puntitos según su largo.
+  const vuelta = fuente('../app/second-brain/reto/MensajeVueltaAlReto.tsx');
+  assert.ok(vuelta.includes('msEscribiendo(RETO_LISTO)') && !vuelta.includes('MS_ESCRIBE)'));
 });
