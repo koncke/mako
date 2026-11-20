@@ -6,9 +6,12 @@
 // Como WhatsApp: abre en lo primero sin leer y, si no hay, abajo. Lo nuevo baja el hilo sólo si ya estabas abajo o lo escribiste tú; si estabas leyendo arriba, no te mueve: cuenta
 // cuántos llegaron y lo dice un botón. Lo mide por el scroll de lo que escrolea: `.co-hilo` en la computadora y el cuerpo de la hoja en el teléfono, que se monta y se mide después
 // del primer pintado (el mismo cuidado que ChatClienteM.tsx).
+// Y LO QUE CRECE (20/11/2026; Martín: «siempre se haga scroll automático hacia el último mensaje»): una foto o un video que cargan después
+// de montarse su mensaje lo mantienen abajo mientras estaba abajo. El mismo mecanismo que el resto de los chats (app/_chat/useBajarAlUltimo.ts).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { estaAbajo } from '@/lib/centro-caja';
+import { bajarAlCrecer } from '@/app/_chat/useBajarAlUltimo';
 import type { MensajeDelHilo } from '@/lib/grupo-reglas';
 
 const CERCA_DE_ABAJO_PX = 90;
@@ -30,6 +33,8 @@ export function useSeguirElHilo({ contenedor, mensajes, pendientes, conError = 0
   const ultimoVisto = useRef(0);
   const pendientesAntes = useRef(0);
   const erroresAntes = useRef(0);
+  /** Los hijos del hilo cambian con los mensajes: lo que crece los vuelve a mirar con cada uno. */
+  const mirarHijos = useRef<(() => void) | null>(null);
 
   const bajar = useCallback(() => {
     const el = contenedor();
@@ -42,6 +47,7 @@ export function useSeguirElHilo({ contenedor, mensajes, pendientes, conError = 0
   useEffect(() => {
     if (!visible || !listo) return;
     let el: HTMLElement | null = null;
+    let crece: ReturnType<typeof bajarAlCrecer> | null = null;
     const alMover = () => {
       if (!el) return;
       const a = estaAbajo(el, CERCA_DE_ABAJO_PX);
@@ -49,13 +55,19 @@ export function useSeguirElHilo({ contenedor, mensajes, pendientes, conError = 0
       setAbajo(a);
       if (a) setNuevos(0);
     };
-    const t = window.setTimeout(() => { el = contenedor(); el?.addEventListener('scroll', alMover, { passive: true }); alMover(); }, MS_HOJA_MEDIDA + 40);
-    return () => { window.clearTimeout(t); el?.removeEventListener('scroll', alMover); };
+    const t = window.setTimeout(() => {
+      el = contenedor();
+      el?.addEventListener('scroll', alMover, { passive: true });
+      alMover();
+      if (el) { crece = bajarAlCrecer(el, () => estabaAbajo.current); mirarHijos.current = crece.mirarHijos; }
+    }, MS_HOJA_MEDIDA + 40);
+    return () => { window.clearTimeout(t); el?.removeEventListener('scroll', alMover); crece?.soltar(); mirarHijos.current = null; };
   }, [visible, listo, contenedor]);
 
   const ultimo = mensajes[mensajes.length - 1]?.id ?? 0;
   useEffect(() => {
     if (!listo || !visible) return;
+    mirarHijos.current?.();
     if (primera.current) {
       primera.current = false;
       ultimoVisto.current = ultimo;

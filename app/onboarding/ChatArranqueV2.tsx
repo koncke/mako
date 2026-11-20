@@ -23,7 +23,7 @@
 
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
@@ -42,7 +42,10 @@ import { SeguirEnPc } from './ChatArranque';
 import { tarjetaConNumero } from './arranque-ui';
 import { iniciales } from '@/lib/unicode-seguro';
 import { esconderLaBarra } from '@/app/_ui/tutorial/barra-oculta';
-import { senalAhora, soltarSenal } from '@/app/_ui/tutorial/store';
+import { senalAhora, senalarDondeTocar, soltarSenal } from '@/app/_ui/tutorial/store';
+import { MS_SIN_PLAY, useMensajeDelVideo } from '@/app/_ui/tutorial/useMensajeDelVideo';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
+import { MOMENTO_AGENDADO, MOMENTO_CODIGO, MOMENTO_NOMBRE } from '@/lib/onboarding-v2/momentos';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean; whatsapp?: VistaArranque['whatsapp'] };
 
@@ -64,11 +67,7 @@ const PH: Partial<Record<EtapaArranque, string>> = {
 };
 /** Cuánto dura la pantalla oscura con MaKo escribiendo, antes de su primer mensaje (el video). */
 const MS_ESCRIBE = 1800;
-/** MaKo escribiendo antes de su primera pregunta, y cuánto se espera al video antes de soltarla sin él. */
-const MS_PRIMERO = 1400;
-const MS_SIN_VIDEO = 2500;
-/** Con el video quieto (nadie le dio play), cuánto se espera antes de soltar la primera pregunta igual. */
-const MS_SIN_PLAY = 12_000;
+// Los puntitos antes de un mensaje que espera su video, la espera sin video y sin play: app/_ui/tutorial/useMensajeDelVideo.ts.
 /** Con los 6 números en el campo del código, cuánto se espera para confirmarlo solo (la maqueta, `programarCodigo`). */
 const MS_CODIGO_SOLO = 900;
 /** La clave del video de bienvenida (public/tutoriales, el chat de los videos). */
@@ -77,7 +76,14 @@ const VIDEO_BIENVENIDA = 'onboarding-bienvenida';
  *  («Tu WhatsApp es por donde MaKo…»; scripts/tutorial-animado/pantallas-onboarding/frase-nueva.mjs).
  *  Va como mensaje de MaKo justo antes del paso del código, donde está «Abrir WhatsApp». No es `onboarding-whatsapp` (el de la pantalla vieja). */
 const VIDEO_WHATSAPP = 'onboarding-bienvenida-whatsapp';
-const MENSAJE_DEL_CODIGO = 'arr-codigo';
+const MENSAJE_DEL_CODIGO = MOMENTO_CODIGO.mensaje;
+const MENSAJE_AGENDADO = MOMENTO_AGENDADO.mensaje;
+/** «Abrir WhatsApp», marcado con el velo del tutorial cuando llega su mensaje (el Cerebro, 20/11: «igual que en el recorrido»). */
+const SEL_ABRIR_WHATSAPP = '[data-abrir-whatsapp]';
+const PASO_ABRIR_WHATSAPP = {
+  sel: SEL_ABRIR_WHATSAPP, titulo: 'Abrir WhatsApp', lado: 'derecha' as const, haz: 'Toca «Abrir WhatsApp»',
+  texto: 'Manda el mensaje que ya va escrito: MaKo te contesta con un código y lo pegas aquí.',
+};
 
 const horaDe = (d: Date) => d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false });
 
@@ -184,7 +190,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
     const t = texto.trim();
     if (!t || ocupado || etapa === 'listo' || etapa === 'cierre') return;
     setTexto('');
-    setPrimero('listo');
+    primeroListo();
     // El teléfono y el código escritos en la caja valen igual que los de su tarjeta (la ruta los reconoce).
     void responder({ texto: t }, t).then((ok) => { if (!ok) setTexto(t); });
   };
@@ -224,29 +230,50 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
     v.style.setProperty('--iris-y', `${Math.round(r.top + r.height / 2)}px`);
   }, [fase]);
   // EL PRIMER MENSAJE, A SU TIEMPO (Martín, 19/11: «no está bueno de que apenas se me manda el video y automáticamente se me manda el
-  // mensaje de abajo… que salga cuando corresponda, con los tres puntitos»). Al empezar, el video va solo; la primera pregunta sale
-  // cuando el video termina o la persona toca la caja, lo primero que pase (sin video, después de un momento), con MaKo escribiendo
-  // antes. Quien vuelve a mitad del onboarding lo ve todo de una.
-  // (20/11, la verificación de OA-02) Quien vuelve con el nombre TODAVÍA sin contestar, igual que la primera vez: el video solo y la
-  // pregunta a su tiempo. La suelta también pausar el video, y un video que nadie pone a correr (no arranca solo: el «dale play» lo
-  // invita) no la retiene para siempre: sale a los MS_SIN_PLAY.
-  const [primero, setPrimero] = useState<'espera' | 'escribe' | 'listo'>(inicial.etapa === 'nombre' ? 'espera' : 'listo');
-  const soltarPrimero = useCallback(() => { setPrimero((p) => (p === 'espera' ? 'escribe' : p)); }, []);
+  // mensaje de abajo… que salga cuando corresponda, con los tres puntitos»). Al empezar, el video va solo. Quien vuelve a mitad del
+  // onboarding lo ve todo de una; quien vuelve con el nombre TODAVÍA sin contestar, igual que la primera vez (OA-02).
+  // TODO MENSAJE QUE NOMBRA ALGO DEL VIDEO SALE CUANDO LA VOZ LLEGA AHÍ (20/11, tarde: el Cerebro, con lo que vio Martín; la regla y sus
+  // desvíos en app/_ui/tutorial/useMensajeDelVideo.ts, los momentos en lib/onboarding-v2/momentos.ts). Con MaKo escribiendo antes; y
+  // si el video no corre (sin play a los MS_SIN_PLAY, pausado, terminado, con error o sin video), sale igual:
+  //   · la primera pregunta, cuando la bienvenida dice «unas preguntas cortas…» (tocar la caja también la suelta);
+  //   · el mensaje del código, cuando el video del WhatsApp dice «toca Abrir WhatsApp» (antes salía junto con el video);
+  //   · «¿Guardaste el contacto de MaKo?», si el video sigue corriendo, cuando dice «guarda el contacto» (si no corre, enseguida).
+  const filaBienvenida = useRef<HTMLDivElement>(null);
+  const filaWhatsapp = useRef<HTMLDivElement>(null);
+  const yaEstaba = (id: string) => inicial.antes.some((m) => m.id === id);
+  const { fase: primero, soltar: soltarPrimero, listo: primeroListo } = useMensajeDelVideo({
+    lugar: filaBienvenida, activo: fase === 'chat', inicial: inicial.etapa === 'nombre' ? 'espera' : 'listo',
+    clave: VIDEO_BIENVENIDA, dice: MOMENTO_NOMBRE.dice, esperaPlay: MS_SIN_PLAY,
+  });
+  const { fase: codigoFase } = useMensajeDelVideo({
+    lugar: filaWhatsapp, activo: mensajes.some((m) => m.id === MENSAJE_DEL_CODIGO), inicial: yaEstaba(MENSAJE_DEL_CODIGO) ? 'listo' : 'espera',
+    clave: VIDEO_WHATSAPP, dice: MOMENTO_CODIGO.dice, esperaPlay: MS_SIN_PLAY,
+  });
+  const { fase: agendadoFase } = useMensajeDelVideo({
+    lugar: filaWhatsapp, activo: mensajes.some((m) => m.id === MENSAJE_AGENDADO), inicial: yaEstaba(MENSAJE_AGENDADO) ? 'listo' : 'espera',
+    clave: VIDEO_WHATSAPP, dice: MOMENTO_AGENDADO.dice, esperaPlay: 0,
+  });
+  // Con el mensaje del código, el velo del tutorial marca «Abrir WhatsApp» (como en el recorrido). Sólo cuando llega ahora (quien vuelve
+  // ya lo vio) y sólo si el botón está: sin link va «Volver a intentarlo», y una marca sin lugar espera para siempre. Se va al tocarlo,
+  // con «Lo hago después», o cuando el paso termina.
+  const marcaWa = useRef(0);
+  const codigoEnVivo = useRef(!yaEstaba(MENSAJE_DEL_CODIGO));
   useEffect(() => {
-    if (primero !== 'escribe') return;
-    const t = window.setTimeout(() => setPrimero('listo'), MS_PRIMERO);
-    return () => window.clearTimeout(t);
-  }, [primero]);
-  const hayVideo = useRef(false);
-  hayVideo.current = !!videoBienvenida;
-  const arranco = useRef(false);
-  const empezoVideo = useCallback(() => { arranco.current = true; }, []);
+    if (codigoFase !== 'listo' || etapa !== 'codigo' || !codigoEnVivo.current) return;
+    const r = window.requestAnimationFrame(() => {
+      if (!codigoEnVivo.current || !document.querySelector(SEL_ABRIR_WHATSAPP)) return;
+      codigoEnVivo.current = false;
+      const fuera = () => { marcaWa.current = 0; };
+      marcaWa.current = senalarDondeTocar(PASO_ABRIR_WHATSAPP, fuera, { alOmitir: fuera });
+    });
+    return () => window.cancelAnimationFrame(r);
+  }, [codigoFase, etapa]);
   useEffect(() => {
-    if (fase !== 'chat' || primero !== 'espera') return;
-    const t = window.setTimeout(() => { if (!hayVideo.current) soltarPrimero(); }, MS_SIN_VIDEO);
-    const sinPlay = window.setTimeout(() => { if (!arranco.current) soltarPrimero(); }, MS_SIN_PLAY);
-    return () => { window.clearTimeout(t); window.clearTimeout(sinPlay); };
-  }, [fase, primero, soltarPrimero]);
+    if (etapa === 'codigo' || !marcaWa.current) return;
+    soltarSenal(marcaWa.current);
+    marcaWa.current = 0;
+  }, [etapa]);
+  useEffect(() => () => { if (marcaWa.current) soltarSenal(marcaWa.current); }, []);
   // Con todo contestado, se cierra el onboarding (por detrás, como siempre).
   const cerrando = useRef(false);
   useEffect(() => {
@@ -291,16 +318,16 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
   };
   const hilo = useRef<HTMLDivElement>(null);
   const cuantos = mensajes.length + (pendiente ? 1 : 0) + (ocupado ? 1 : 0);
-  useEffect(() => {
-    const h = hilo.current;
-    if (h) h.scrollTo({ top: h.scrollHeight, behavior: 'smooth' });
-  }, [cuantos, fase]);
+  const seguirHilo = useCallback(() => hilo.current, []);
+  // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11: «para que el usuario sepa dónde están las cosas»): con cada mensaje y sus puntitos, y
+  // cuando lo último crece (el video que carga después). Si subió a leer, lo que crece no la arrastra (app/_chat/useBajarAlUltimo.ts).
+  useBajarAlUltimo(seguirHilo, `${cuantos}|${fase}|${primero}|${codigoFase}|${agendadoFase}`, { suave: true });
 
   // La inicial con `iniciales` (lib/unicode-seguro.ts): la primera letra suelta de «🔥 Alex» es media pieza de un emoji y tira la pantalla al hidratar.
   const letra = iniciales(persona?.nombre || vista.nombre, 1, '·');
   const estrella = (r: Reaccion = 'escucha') => <span className="arr-v2__foto" aria-hidden="true"><CriaturaMako size={26} reaccion={r} /></span>;
-  const filaMako = (key: string, cuerpo: ReactNode, o: { conHora?: boolean; resaltar?: boolean } = {}) => (
-    <div key={key} className={`co-el-wa co-wa${o.resaltar ? ' arr-v2__resalte' : ''}`}>
+  const filaMako = (key: string, cuerpo: ReactNode, o: { conHora?: boolean; resaltar?: boolean; lugar?: Ref<HTMLDivElement> } = {}) => (
+    <div key={key} ref={o.lugar} className={`co-el-wa co-wa${o.resaltar ? ' arr-v2__resalte' : ''}`}>
       <div className="co-el">{estrella()}<div className="co-el__cuerpo">{cuerpo}{o.conHora !== false && <p className="co-el__rotulo" suppressHydrationWarning>{horaDel(key)}</p>}</div></div>
     </div>
   );
@@ -339,7 +366,8 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
   };
 
   const progreso = Math.max(0, PASOS.indexOf(etapa)) / (PASOS.length - 1);
-  const enRecuadro = fase === 'chat' && !ocupado && ultimoMako?.opciones?.length && ultimoMako.recuadro ? ultimoMako : null;
+  const enRecuadro = fase === 'chat' && !ocupado && ultimoMako?.opciones?.length && ultimoMako.recuadro
+    && !(ultimoMako.id === MENSAJE_AGENDADO && agendadoFase !== 'listo') ? ultimoMako : null;
   // La segunda pregunta del contacto («Guárdalo cuando puedas…») no se contesta con sí o no (20/11, OA-F2: la maqueta, «Ya lo guardé»).
   const enAgendadoNo = etapa === 'agendado' && mensajes.some((m) => m.id === 'arr-agendado-no');
   const placeholder = etapa === 'listo' ? (enTelefono ? 'Toca «Continuar el onboarding desde la PC»' : 'Toca «Entrar a MaKo»') : enAgendadoNo ? 'Ya lo guardé' : PH[etapa] ?? 'Escribe a MaKo';
@@ -368,14 +396,19 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
               {fase === 'chat' && (
                 <>
                   {/* UN solo video, el de la bienvenida, como primer mensaje (Martín, 19/11). Al bajar, sigue chiquito abajo a la derecha. */}
-                  {videoBienvenida && filaMako('arr-video', <VideoDelMomento clave={VIDEO_BIENVENIDA} titulo="Bienvenida a MaKo" revision={false} onTermina={soltarPrimero} onPausa={soltarPrimero} onEmpieza={empezoVideo} dalePlay />)}
+                  {videoBienvenida && filaMako('arr-video', <VideoDelMomento clave={VIDEO_BIENVENIDA} titulo="Bienvenida a MaKo" revision={false} dalePlay />, { lugar: filaBienvenida })}
                   {primero === 'escribe' && escribiendo('arr-primero')}
                   {primero === 'listo' && mensajes.map((m) => {
                     if (m.de === 'yo') return filaYo(m.id, m.texto);
                     const t = tarjeta(m);
                     const fila = filaMako(m.id, <><div className="ch-md"><p>{m.texto}</p></div>{t && <div className="arr-v2__en-mensaje">{t}</div>}</>);
-                    // El video del WhatsApp, su propio mensaje, antes del paso del código (Martín, 19/11: «que tenga cortes como los pasos»).
-                    if (m.id === MENSAJE_DEL_CODIGO && videoWhatsapp) return [filaMako('arr-video-whatsapp', <VideoDelMomento clave={VIDEO_WHATSAPP} titulo="Tu WhatsApp con MaKo" revision={false} />), fila];
+                    // El video del WhatsApp, su propio mensaje, antes del paso del código (Martín, 19/11: «que tenga cortes como los pasos»). El
+                    // mensaje del código, a su momento, con sus puntitos (useMensajeDelVideo, arriba).
+                    if (m.id === MENSAJE_DEL_CODIGO) {
+                      const video = videoWhatsapp ? filaMako('arr-video-whatsapp', <VideoDelMomento clave={VIDEO_WHATSAPP} titulo="Tu WhatsApp con MaKo" revision={false} />, { lugar: filaWhatsapp }) : null;
+                      return [video, codigoFase === 'listo' ? fila : codigoFase === 'escribe' ? escribiendo('arr-codigo-escribe') : null];
+                    }
+                    if (m.id === MENSAJE_AGENDADO && agendadoFase !== 'listo') return agendadoFase === 'escribe' ? escribiendo('arr-agendado-escribe') : null;
                     return fila;
                   })}
                   {pendiente && filaYo('arr-pendiente', pendiente)}
@@ -482,7 +515,7 @@ function TarjetaCodigo({ vista, ocupado, reescribir, resaltarWa, onConfirmar, on
       {sinLink
         ? <><span className="arr-tarjeta__nota">No pude armar el mensaje.</span>
           <Button variant="primary" size="sm" loading={ocupado} disabled={ocupado} onClick={onReintentar}>Volver a intentarlo</Button></>
-        : <a className={`arr-v2__wa${resaltarWa ? ' arr-v2__wa--resalta' : ''}`} href={w.link!} target="_blank" rel="noopener noreferrer"><Icon name="whatsapp" size={18} />Abrir WhatsApp</a>}
+        : <a className={`arr-v2__wa${resaltarWa ? ' arr-v2__wa--resalta' : ''}`} href={w.link!} target="_blank" rel="noopener noreferrer" data-abrir-whatsapp=""><Icon name="whatsapp" size={18} />Abrir WhatsApp</a>}
       {/* Su mensaje llegó y MaKo no pudo contestarle (20/11, wa-04; el servidor es del chat de WhatsApp: lib/verificacion-entrante.ts →
           avisoDelPedidoV2): una nota arriba del campo, debajo de «Abrir WhatsApp» (nunca encima). Se va sola cuando MaKo le contesta. */}
       {w?.aviso && <p className="arr-v2__aviso-wa" role="status" data-aviso-wa="">{w.aviso}</p>}

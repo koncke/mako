@@ -6,7 +6,8 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 ## Los avisos del reto: un correo diario no podía cumplir el «te escribo a las {hora}» (20/11/2026, claude5)
 
 **Vive en:** `lib/reto/avisos.ts` (qué sale) · `lib/reto/avisos-salida.ts` (la vuelta) · `app/api/cron/reto-avisos` (cada hora, a los
-:02) · `lib/reto/respuestas.ts` (la hora y BAJA que llegan por WhatsApp, desde el webhook). Test: `tests/reto-avisos.test.ts`.
+:02) · `lib/reto/respuestas.ts` (lo que llega por WhatsApp, desde el webhook: la hora, BAJA y las pruebas de los días 3, 4, 5 y 7) ·
+`lib/reto/pruebas-whatsapp.ts` y `-servidor.ts` (los días 3, 4 y 5). Tests: `tests/reto-avisos.test.ts`, `tests/reto-pruebas-whatsapp.test.ts`.
 
 - **Síntoma:** el chat del reto promete «mañana a las 18:00 te escribo» y lo único que salía era un correo a las 10:00 de Argentina.
   **Causa:** el correo colgaba del cron diario de aviso-fin-de-prueba, «para no sumar otro cron». Con una hora de las 12:00 en
@@ -44,11 +45,27 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
   Se reclama antes en `reto.avisos` (`cierre`): con dos líneas de la misma cuenta, el audio llega dos veces. Si no le llegó a Martín, se
   suelta el reclamo y no se le dice nada.
-- **Lo que quedó sin hacer:** las respuestas de los días 3, 4 y 5 (el lead del audio en el CRM, la competencia, el guion) usan las
-  herramientas del bot y del doer en el chat privado. `manejarEntranteBot` sólo corre en `mako.bot.instancia`, que apunta a la línea
-  vieja, no a la que recibe; y `lib/mako-salida.ts` saca los mensajes privados por esa misma instancia, con la ventana de 24 horas.
-  Hasta que el bot pase a la línea que recibe (pide la frase de Martín), MaKo se calla en esos días. Cuando conteste, que llame
-  `pruebaRespondida(ws, dia, leido)` (con el día 5 marca también la tarea del guion).
+- **Los días 3, 4 y 5 tampoco necesitaban mover el bot** (el Cerebro, 20/11 a la tarde). El diagnóstico «esperan la frase de Martín
+  para `mako.bot.instancia`» daba por hecho que había que correr el TURNO entero del doer. Su salida a un chat privado está atada a la
+  puerta del bot (`enviarAlChat`: sale por `mako.bot.instancia`, con la ventana de `mako_bot_contactos`). Lo que hacía falta eran sus
+  PIEZAS, y ésas no dependen de la línea. Se contestan en `responderAlReto` (lib/reto/pruebas-whatsapp*.ts, test
+  `tests/reto-pruebas-whatsapp.test.ts`) y salen por `enviarAPersonaMaKo`, la línea que recibió:
+  - día 3: `transcribirAudio` con las opciones de la nota de voz del bot; la IA barata saca los datos con la descripción de
+    `proponer_lead`, y la propuesta la deja esa herramienta del doer (`crearRunnerAcciones`);
+  - día 4: lo que guardó Competitor Spy, sin IA: los anuncios por días al aire, después lo publicado por su múltiplo;
+  - día 5: las operaciones del Copywriter de la API (`crear_documento_copywriter` y `editar_documento_copywriter`), con preparar y
+    ejecutar seguidos, sin la confirmación del chat.
+
+  **Trampa:** el lead queda para confirmar aunque la maqueta diga «cargué». Nada que llega por un canal escribe en el CRM
+  (app/api/agente/lead/route.ts), así que MaKo contesta «te dejé los datos… confírmalos aquí».
+  **Trampa:** una página vacía cuenta como guion escrito para la señal `'5:guion'` (mira sólo `actualizado >= inicio`). Si «Editar»
+  falla, la página va a la Papelera.
+  **Trampa:** con dos líneas de la misma cuenta el mensaje llega dos veces, y con IA serían dos guiones. Se reclama el id del
+  mensaje en `reto.avisos.probando`, con compare-and-set.
+  - Con el 3 y el 5 pendientes, los dos son audios: decide lo que dice el audio (`diaDelAudio`). Mientras una prueba de audio esté
+    pendiente, todo audio a la línea de MaKo se toma como esa prueba (en esa línea no hay bot que lo conteste de otra forma).
+  - Sin probar en el uso: en producción no hay ningún reto. La transcripción, la IA que saca el lead y «Editar» no se corrieron;
+    sólo se probó cómo se conectan.
 - **Distinto de la maqueta, a propósito:** el saludo cambia con la hora (a las 18:00, «¡Buenas tardes»); la noche dice «Mañana te lo
   dejo primero.» porque ninguna tarea sabe cuántos minutos lleva.
 
@@ -3646,6 +3663,26 @@ filas de los coaches tachaban el día 1 entero.
   (lib/tutoriales/calendar.ts y classroom.ts, `antes`).
 - **Sin hacer** (nota del Cerebro, para la próxima vez que se toque Calendar): en el video de Calendar, «Toca aquí, en Publicaciones,
   Plan, Ventas o Entregas,» sale con la letra más chica que el resto (el dibujo del pipeline, C:/dev/tutoriales-video).
+
+## El mensaje que nombra algo del video sale cuando la voz llega ahí (20/11/2026, tarde, chat «onboarding-v2», claude5)
+
+- **El síntoma (Martín, en producción):** en el paso del WhatsApp salían juntos el video y el mensaje con «Abrir WhatsApp» y la caja
+  del código: dos mensajes de MaKo de golpe, y el botón antes de que la voz lo nombrara.
+- **Qué quedó:** app/_ui/tutorial/useMensajeDelVideo.ts. El mensaje espera el t_inicio de la frase que lo nombra (los momentos, en
+  lib/onboarding-v2/momentos.ts, buscados en el texto de las frases del manifiesto). Después, los tres puntitos y el mensaje. Así salen
+  la primera pregunta («unas preguntas cortas…», 18,92 s), el mensaje del código («toca Abrir WhatsApp», 3,98 s), con el velo del
+  tutorial sobre el botón, y «¿Guardaste el contacto?» («guarda el contacto», 12,28 s, sólo si el video sigue corriendo).
+- **Nadie queda trabado:** si nadie le da play, sale a los 12 s; si falla, lo pausan o termina, sale; si ya se vio o no hay video,
+  también. Medido en el navegador (el componente de verdad en un bundle con el motor): los puntitos en el segundo 4,0, el código con
+  la marca, sin play a los 13,4 s, y el hilo a 0 px del final en cada paso.
+- **Trampa:** los eventos de un `<video>` (play, pause, timeupdate, ended, error) NO burbujean. Se oyen en CAPTURA desde la fila del
+  mensaje, sin tocar el reproductor (VideoDelMomento lo tocan otros chats).
+- **Trampa:** el globo del velo «abajo» tapaba el campo del código. Va a la «derecha»: a 1440 entra al lado del botón, y a 375 el motor
+  lo pasa abajo solo.
+- **Si una frase se regraba y deja de decirlo,** el mensaje saldría recién al terminar el video: tests/onboarding-mensaje-del-video.test.ts
+  lee el manifiesto de verdad y lo marca.
+- **Visto de paso, sin tocar:** el «dale play» del video de bienvenida (V5) pone sus tapas. Quien vuelve al onboarding en otro navegador
+  (con el video sin ver en ese navegador) no puede tocar la tarjeta del teléfono hasta darle play o cerrarlo (Escape o su X).
 
 ## La segunda verificación: el arreglo cumplía en el caso feliz, no en el de al lado (20/11/2026, tarde, chat «onboarding-v2», claude5)
 

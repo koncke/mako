@@ -17,6 +17,7 @@ import { useRecorrido } from '@/app/_ui/Recorrido';
 import { marcarVistoEnEnsayo, useEnsayo, vistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
 import { chatPresentaRecorrido, chatPresentaReto, mostrarTutorial, senalAhora } from '@/app/_ui/tutorial/store';
 import { esconderLaBarra } from '@/app/_ui/tutorial/barra-oculta';
+import { avisarMensajeNuevo } from '@/app/_chat/useBajarAlUltimo';
 import { barrer } from '@/app/_ui/tutorial/iris';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { useDalePlay } from '@/app/_ui/tutorial/useDalePlay';
@@ -109,6 +110,10 @@ export function BienvenidaOpsCenter({ nombre, retoEmpezo = false }: { nombre: st
     if (!hayHueco || !nodo || menosMovimiento()) return;
     return barrer(nodo);
   }, [hayHueco]);
+
+  // Cada mensaje de la llegada (los puntitos, el video del recorrido, el del reto) es un mensaje NUEVO del chat: lo baja al último
+  // (Martín, 20/11: «siempre se haga scroll automático hacia el último mensaje»; app/_chat/useBajarAlUltimo.ts).
+  useEffect(() => { if (toca || cierra) avisarMensajeNuevo(); }, [toca, cierra, fase, cierre]);
 
   // Quieto, «Tu recorrido por MaKo: dale play» (V5; la maqueta, r4-invita). Su play arranca el recorrido, que toma el motor.
   const play = useRef<HTMLButtonElement>(null);

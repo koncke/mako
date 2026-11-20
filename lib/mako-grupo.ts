@@ -32,7 +32,7 @@ import { agenciasAprobadasDe } from './agencia';
 import { KEY_VOZ_INSTANCIA } from './linea-plataforma';
 import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
 import { MINUTOS_ENTRANTE, codigoDelTexto, codigoNuevo, decidirCodigoTipeado, decidirLlegada, linkWaMe, textoParaMandar, vistaDeEntrante, type EstadoVerificacion, type VistaEntrante } from './verificacion-entrante';
-import { E_REESCRIBIR_V2, E_SIN_CODIGO_V2, KEY_LID_SIN_NUMERO, MAKO_SIN_LINEA_V2, sumarLidSinNumero, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, errorDelTelefono, escribioDesdeElOtro, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, renovarCodigoV2, respuestaOtroNumeroV2, unicaEsperandoV2 } from './verificacion-entrante';
+import { E_REESCRIBIR_V2, KEY_LID_SIN_NUMERO, MAKO_SIN_LINEA_V2, sumarLidSinNumero, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, errorDelTelefono, escribioDesdeElOtro, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, renovarCodigoV2, respuestaOtroNumeroV2, unicaEsperandoV2 } from './verificacion-entrante';
 import { chatDelMensaje, esSuTelefono } from './mako-bot-reglas';
 import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, leEscribioEnLasFilas, pausaDeEscritura, puedeEscribirleAPersona, type FilaQuienEscribio } from './mako-salida-reglas';
 import { respondiendoA } from './respuesta-en-curso';
@@ -1124,22 +1124,17 @@ async function yaConfirmoV2(telefono: string): Promise<boolean | null> {
   return ((data ?? []) as Array<{ value: string }>).some((f) => { const v = parseVerificacion(f.value); return !!v && [v.telefono, v.destino].some((t) => !!t && esSuTelefono(t, telefono)); });
 }
 
-/** «Reenviar el código» (V2): sólo si MaKo ya le contestó (si no, todavía no le escribió: que toque «Abrir WhatsApp»). Manda uno
- *  NUEVO, con su plazo y sus intentos de cero: es la salida de un código vencido o de muchos equivocados (los errores lo nombran). */
+/**
+ * «REENVIAR EL CÓDIGO» (V2) ABRE SIEMPRE WHATSAPP CON EL PEDIDO ESCRITO, como la maqueta (`abrirWhatsapp()`). Lo decidió el Cerebro el
+ * 20/11 a la tarde (wa-f3): «ellos escriben primero, siempre», nada de mandarlo directo dentro de las 24 h. Por eso no manda nada:
+ * devuelve E_REESCRIBIR_V2 y la tarjeta (app/onboarding/ChatArranqueV2.tsx, `reenviarAbreWhatsapp`) abre el link con el mensaje. Cuando
+ * ella lo manda, `responderPedidoV2` le contesta, con un código NUEVO si el anterior venció o se le acabaron los intentos (19/11).
+ * Ya confirmado, no hay nada que reenviar.
+ */
 export async function reenviarCodigoV2(ws: number): Promise<{ ok: true } | { ok: false; error: string }> {
   const v = await getVerificacion(ws);
-  if (!v?.v2 || !v.respondido || !v.destino) return { ok: false, error: E_SIN_CODIGO_V2 };
-  if (v.verificado) return { ok: true };
-  // Ellos escriben primero (wa-f3): pasadas 24 horas de su último mensaje, que vuelva a escribir ella; MaKo le contesta con uno nuevo.
-  if (!reenviarDirecto(v, Date.now())) return { ok: false, error: E_REESCRIBIR_V2 };
-  // Nunca el vencido (19/11/2026): con el código vencido o el tope lleno se arma uno NUEVO, se guarda y recién ahí se manda. Si se guardara
-  // después, el que llega no sería el que la app espera.
-  const aMandar = hayQueRenovarV2(v, Date.now()) ? renovarCodigoV2(v, Date.now(), codigoNumerico()) : v;
-  if (aMandar !== v) await guardarVerificacion(ws, aMandar);
-  const r = await mandarCodigoV2(aMandar, soloDigitos(v.destino));
-  if (r.ok) return { ok: true };
-  // Si MaKo no le puede escribir (no encuentra que le haya escrito), que lo pida desde su WhatsApp; si es la línea, que es de nuestro lado.
-  return { ok: false, error: r.error === NO_LE_ESCRIBE_PRIMERO ? E_REESCRIBIR_V2 : MAKO_SIN_LINEA_V2 };
+  if (v?.verificado) return { ok: true };
+  return { ok: false, error: E_REESCRIBIR_V2 };
 }
 
 /** El código PEGADO en la app (V2). Bien: el número queda probado y guardado como el del dueño, SIN grupo. */
