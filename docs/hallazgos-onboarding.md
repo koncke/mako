@@ -3,6 +3,21 @@
 El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-state.ts`) y
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
+## La llamada con Leila: lo que sigue lo marca la barra (20/11/2026, noche, claude5, chat «reto-tutoriales»)
+
+Lo pedido por Martín (Fathom 205366178, 00:29:00): al terminar el video del día 1 se marca Offer Coach en la barra, y sin la tarjeta
+«Tu siguiente paso» abajo. La decisión está en la memoria (onboarding-16-11-decisiones, «20/11, la llamada con Leila»).
+- **Por qué no se marcaba:** el video avisa que terminó (`onFinVideo`) con su propia señal todavía puesta en el motor, y `marcar`
+  empieza con `if (!e || senalAhora()) return;`. Con el motor «ocupado» por el mismo video que acababa de terminar, no se marcaba
+  nada. Y en la misma pestaña tampoco: lo marcado se anota en sessionStorage (`yaMarcada`).
+- **Ahora:** el fin del video queda anotado (`finDelVideo`) y corre apenas el motor se libera (`useSenal`), con `siempre`, que salta
+  `yaMarcada`. La marca es la de la tarea, «Tu día 1 sigue en Offer Coach» sobre la fila de la barra (lib/reto/dias.ts).
+- **Regla:** algo que reacciona al fin de una señal del motor no puede preguntar `senalAhora()` en ese mismo momento. Tiene que esperar
+  a que se libere.
+- **«Tu siguiente paso» (rt-sigue) salió entera**, con `SIGUIENTE_DE_TAREA`. Al volver al reto, lo que toca lo marca `tocaHoy`.
+- **El ícono de videos, lo último a la derecha de la cabecera** (00:31:46). Gana sobre el orden de la maqueta, que tenía un test.
+- **Sin probar en el uso:** nada se abrió en un navegador. Está probado por el código y por los tests, rompiendo cada arreglo.
+
 ## Los avisos del reto: un correo diario no podía cumplir el «te escribo a las {hora}» (20/11/2026, claude5)
 
 **Vive en:** `lib/reto/avisos.ts` (qué sale) · `lib/reto/avisos-salida.ts` (la vuelta) · `app/api/cron/reto-avisos` (cada hora, a los

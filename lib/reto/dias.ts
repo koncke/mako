@@ -272,14 +272,6 @@ export const VIDEOS_PARA_EMPEZAR: ReadonlyArray<[string, string]> = [['onboardin
 export const RETO_D2_RECORDATORIO = '¿Pudiste escanear el QR? Es tu siguiente paso: con la app te enteras al instante de todo lo que pasa en tu negocio.';
 /** El mensaje en el chat de Funnel Coach al completar el día 1, antes de marcar el reto (la maqueta, RETO_LISTO; D1-05). */
 export const RETO_LISTO = 'Tu día 1 está completo. Con tu funnel armé los días 4, 5 y 6 de tu reto. Vuelve a tu reto para seguir.';
-/** Lo que espera, en palabras, para «Tu siguiente paso: …» arriba de la caja (la maqueta, sigueHtml; d24-08). */
-export const SIGUIENTE_DE_TAREA: Readonly<Record<string, string>> = {
-  offer: 'abre Offer Coach', funnel: 'abre Funnel Coach', app: 'escanea el QR con tu teléfono', extension: 'agrega la extensión a Chrome',
-  integraciones: 'mira las integraciones que te tocan', perfil: 'abre tu perfil', contactos: 'carga tus clientes en el CRM',
-  automatizacion: 'arma tu primera automatización', calendar: 'conecta Google Calendar', spy: 'agrega a 3 competidores', web: 'replica una página que ya vende',
-  carrusel: 'replica un carrusel', guion: 'escribe tu guion', personaje: 'crea tu personaje con IA', clip: 'pide tu clip de regalo',
-  copilot: 'abre tu Marketing CoPilot', semana: 'mira tu semana en el Plan',
-};
 export const VIDEOS_DEL_RETO: ReadonlyArray<[string, string]> = [['offer-coach', 'Día 1 · Offer Coach'], ['funnel-coach', 'Día 1 · Funnel Coach'], ...[1, 2, 3, 4, 5, 6, 7].map((n): [string, string] => [`reto-dia-${n}`, `Día ${n} del reto`])];
 
 // ── Los días 4 a 6, según el funnel (20/11/2026, auditoría d24-14 y R57-01) ─────────────────────────────────────────────────

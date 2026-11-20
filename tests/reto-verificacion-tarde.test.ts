@@ -52,7 +52,7 @@ test('V4 y R57-21: el video del día corre en su mensaje (el motor lo dibuja enc
   store.cerrarTutorial();
 });
 
-test('D1-03: el video del día 1 que termina en la esquina (o se cierra ahí) avisa, y «Tu siguiente paso» marca la fila real', async () => {
+test('D1-03: el video del día 1 que termina en la esquina (o se cierra ahí) avisa, y al terminar siempre se marca lo que falta (la llamada con Leila)', async () => {
   const store = await import('../app/_ui/tutorial/store');
   const avisos: string[] = [];
   store.reproducirFlotante('reto-dia-1', 'Día 1', 4, (m) => avisos.push(m));
@@ -69,8 +69,13 @@ test('D1-03: el video del día 1 que termina en la esquina (o se cierra ahí) av
   assert.deepEqual(avisos, ['fin', 'omitido'], 'volver a su mensaje no es terminar');
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(chat.includes('onTermina={alFin} onTerminaFuera={alFin}'), 'en el chat o en la esquina');
-  assert.ok(chat.includes('if (sigue.t && !senalAhora()) correr(sigue.t, sigue.n);'), 'sin su fila en el hilo, marca la tarea');
   assert.ok(chat.includes('if (primera && !document.querySelector(primera.sel)) return;'), 'nunca una marca esperando algo que no está');
+  // 20/11, la llamada con Leila: al terminar el video, SIEMPRE se marca lo que falta (el día 1: Offer Coach en la barra), también con
+  // el motor ocupado (espera a que se libere) y también en la misma pestaña; y sin la tarjeta «Tu siguiente paso» abajo.
+  assert.ok(chat.includes('onFinVideo={() => setFinDelVideo(dia)}'), 'el fin del video queda anotado');
+  assert.ok(chat.includes('if (!finDelVideo || senal) return;\n    setFinDelVideo(null);\n    marcarLoQueFalta(finDelVideo, [], true);'), 'con el motor ocupado no marcaba nada: espera a que se libere');
+  assert.ok(chat.includes('if (!t || (!siempre && yaMarcada(`${dia.n}:${t.id}`))) return;'), 'en la misma pestaña no volvía a marcar');
+  assert.ok(!chat.includes('rt-sigue') && !chat.includes('Tu siguiente paso: <b>'), 'sin la tarjeta «Tu siguiente paso» arriba de la caja');
   assert.ok(fuente('../app/_ui/tutorial/useVideoQueFlota.ts').includes('reproducirFlotante(clave, titulo, t, (m) => aviso.current?.(m));'));
 });
 
@@ -186,11 +191,12 @@ test('la carga del reto y su cabecera, como la maqueta (20/11, la captura de Mar
   // La columna del hilo, a todo el ancho: con margin-inline: auto adentro de la del panel, se achicaba y centraba la burbuja de carga.
   assert.ok(chat.includes('<div className="co-hilo__col rt-hilo" data-recorrido="sb-reto-hilo">'));
   assert.ok(chat.includes('.rt-hilo { width: 100%; margin-inline: 0; }'));
-  // A la derecha (la maqueta, .mq-arriba: margin-left: auto) y en su orden: el desplegable, el catálogo y los fijados.
+  // A la derecha (la maqueta, .mq-arriba: margin-left: auto): el desplegable, los fijados y, LO ÚLTIMO, el ícono de videos (20/11, la
+  // llamada con Leila, 00:31:46: «el icono de video siempre a la derecha»; gana sobre el orden de la maqueta, que lo ponía antes del pin).
   assert.ok(fuente('../app/second-brain/reto/CatalogoTutoriales.tsx').includes('.rt-acciones { margin-left: auto; flex: none;'));
   const acc = chat.slice(chat.indexOf('<span className="rt-acciones">'));
   const i = (s: string) => acc.indexOf(s);
-  assert.ok(i('<DesplegableReto ') >= 0 && i('<DesplegableReto ') < i('<BotonTutoriales ') && i('<BotonTutoriales ') < i('<PinDelReto '), 'el orden de la maqueta');
+  assert.ok(i('<DesplegableReto ') >= 0 && i('<DesplegableReto ') < i('<PinDelReto ') && i('<PinDelReto ') < i('<BotonTutoriales '), 'el ícono de videos, lo último a la derecha');
   assert.ok(chat.includes('.rt-menu { position: absolute; top: calc(100% + 8px); right: 0;'), 'el menú abre desde la derecha');
   assert.ok(chat.includes('@media (max-width: 480px) { .rt-btn__txt { position: absolute; width: 1px;'), 'a 375 entra: «Día N de 7», el catálogo y los fijados');
 });

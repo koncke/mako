@@ -39,7 +39,7 @@ import { BarraFijados } from '@/app/admin/operaciones/MensajeWA';
 import { Icon } from '@/app/_components/icons';
 import { FAMILIAS, itemsDe } from '@/app/_components/nav';
 import { anotarTutorialVisto, mostrarEnSuPestana } from './enSuPestana';
-import { RETO_D2_RECORDATORIO, SIGUIENTE_DE_TAREA, dejaParaDespues } from '@/lib/reto/dias';
+import { RETO_D2_RECORDATORIO, dejaParaDespues } from '@/lib/reto/dias';
 import { useManifiestoListo, useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { cerrarDalePlay, dalePlayCerrado, tituloDalePlay } from '@/app/_ui/tutorial/entrada';
 // V5 (20/11): la entrada de cada día (el velo y MaKo escribiendo) y el «dale play», las piezas del chat del onboarding (no otras).
@@ -260,21 +260,33 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     // El día 1 sin «Lo hago después» (auditoría F1: la maqueta no lo tiene); los demás días sí.
     marcarTarea(marcasDeLaTarea(t), dejaParaDespues(t) ? dejar : () => { void leer(); }, n === 1 ? undefined : dejar);
   }, [leer, hacer]);
-  const marcarLoQueFalta = useCallback(function marcar(dia: DiaReto, saltar: readonly string[] = []) {
+  const marcarLoQueFalta = useCallback(function marcar(dia: DiaReto, saltar: readonly string[] = [], siempre = false) {
     if (!e || senalAhora()) return;
     // Lo dejado para después no se vuelve a marcar en la misma visita: sigue la próxima (`saltar` lleva lo que se dejó recién).
     // El perfil del día 2 espera la hora (verificación OD-11; la maqueta): la cadena terminaba las integraciones y seguía con el perfil
     // con la tarjeta de la hora pendiente y sin el mensaje del perfil. Arranca solo después de RETO_D2_PERFIL (`perfil2`, abajo).
     const esperaLaHora = (x: TareaReto) => dia.n === 2 && x.id === 'perfil' && !e.horaWa && !tareaDespues(e, 2, 'hora');
     const t = dia.tareas.find((x) => !tareaHecha(e, dia.n, x.id) && !tareaDespues(e, dia.n, x.id) && !saltar.includes(x.id) && !esperaLaHora(x));
-    if (!t || yaMarcada(`${dia.n}:${t.id}`)) return;
+    // `siempre`: al terminar el video, aunque ya se haya marcado en esta pestaña (la llamada con Leila: «cada vez»).
+    if (!t || (!siempre && yaMarcada(`${dia.n}:${t.id}`))) return;
     // Sólo con su primer lugar en la pantalla (D1-03): el video del día 1 que termina en la esquina con la persona en otra pestaña no
-    // deja una marca esperando algo que no está (y el motor ocupado). Queda «Tu siguiente paso», que la marca al volver.
+    // deja una marca esperando algo que no está (y el motor ocupado). Al volver al reto, la marca `tocaHoy` (abajo).
     const primera = marcasDeLaTarea(t)[0];
     if (primera && !document.querySelector(primera.sel)) return;
     anotarMarcada(`${dia.n}:${t.id}`);
     correr(t, dia.n, () => window.setTimeout(() => marcar(dia, [...saltar, t.id]), 400));
   }, [e, correr]);
+  // AL TERMINAR EL VIDEO DEL DÍA, SIEMPRE SE MARCA LO QUE FALTA (20/11, la llamada con Leila: «Acá debería marcarme que tengo que
+  // irme al chat de Hormozi»). El video avisa que terminó con su propia señal todavía puesta, y `marcar` cortaba con el motor
+  // ocupado: no se marcaba nada. Y en la misma pestaña tampoco (`yaMarcada`, en sessionStorage). Ahora el fin queda anotado y
+  // corre apenas el motor se libera (`useSenal`), cada vez que termina el video.
+  const senal = useSenal();
+  const [finDelVideo, setFinDelVideo] = useState<DiaReto | null>(null);
+  useEffect(() => {
+    if (!finDelVideo || senal) return;
+    setFinDelVideo(null);
+    marcarLoQueFalta(finDelVideo, [], true);
+  }, [finDelVideo, senal, marcarLoQueFalta]);
 
 
   // Los días 4 a 6, armados para su funnel (20/11, auditoría d24-14 y R57-01).
@@ -402,20 +414,9 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     // Sin la pestaña en la barra (una pantalla angosta): el video ahí mismo, como antes.
     if (t) { anotarTutorialVisto(t); mostrarTutorial(t, { video: m.pestana, directo: true, alTerminar: vista }); } else vista();
   };
-  // «Tu siguiente paso: …» arriba de la caja (d24-08; la maqueta, sigueHtml): lo que espera el día de hoy. Tocarlo lleva hasta su tarjeta.
-  const sigue = !d || !e || !actual || !empezo1 || termino || catalogo ? null : (() => {
-    if (actual.n === 2 && actual.tareas.slice(0, 3).every((t) => tareaHecha(e, 2, t.id) || tareaDespues(e, 2, t.id)) && !e.horaWa && !tareaDespues(e, 2, 'hora')) return { k: '2:hora', txt: 'elige a qué hora te escribe MaKo', t: null, n: 2 };
-    const t = actual.tareas.find((x) => !tareaHecha(e, actual.n, x.id) && !tareaDespues(e, actual.n, x.id));
-    return t && SIGUIENTE_DE_TAREA[t.id] ? { k: `${actual.n}:${t.id}`, txt: SIGUIENTE_DE_TAREA[t.id], t, n: actual.n } : null;
-  })();
-  // Tocarlo lleva a su fila; sin fila en el hilo (el día 1 no lleva tarjeta, F2), marca el lugar REAL: «abre Offer Coach» marca la fila
-  // de Offer Coach en el Ops Center (verificación D1-03: buscaba [data-tarea="1:offer"], que el día 1 no dibuja, y no hacía nada).
-  const irAlSiguiente = () => {
-    if (!sigue) return;
-    const fila = document.querySelector(`[data-tarea="${sigue.k}"]`);
-    if (fila) { fila.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-    if (sigue.t && !senalAhora()) correr(sigue.t, sigue.n);
-  };
+  // SIN «TU SIGUIENTE PASO» ARRIBA DE LA CAJA (20/11, la llamada con Leila, 00:29:00; decidido por el Cerebro con las palabras de
+  // Martín: «Acá debería marcarme que tengo que irme al chat de Hormozi, no ponerme acá abajo Tu siguiente paso»). Lo que sigue lo
+  // marca la barra: al terminar el video del día (`finDelVideo`, arriba) y cada paso que aparece (`tocaHoy`, abajo).
   // CADA PASO QUE APARECE, CON SU MARCA (auditoría de chats, reto-9; la maqueta marca sola cada tarea que sigue, cuerpo.html
   // :2031-2093). Antes se marcaba sólo la primera, después del video; hecha ésa, la que seguía había que ir a tocarla. Ahora, la que
   // toca HOY se marca sola una vez por visita, con el motor libre, recién después del video del día (D1-03) y con su fila ya en el hilo.
@@ -479,7 +480,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
             qrApp={d.qrApp ?? null} integraciones={d.integraciones ?? []}
             onDespues={(id) => { void hacer({ accion: 'despues', dia: dia.n, id }); }}
             onDespuesDe={(n, id) => { void hacer({ accion: 'despues', dia: n, id }); }}
-            onFinVideo={() => marcarLoQueFalta(dia)}
+            onFinVideo={() => setFinDelVideo(dia)}
             ver={ver} conPiezaDe={cola.conPieza} onListo={diaListo} />
         </>
       ) });
@@ -536,16 +537,12 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   return (
     <PanelDeChat hilo={hilo}
       cabecera={{ clave: 'reto-7-dias', titulo: RETO_TITULO, aspecto: ASPECTO_MAKO, animo: 'despierto', onVolver,
-        // Al lado del desplegable, los tutoriales y lo fijado del chat (D1-17 y d24-17; la maqueta, pinsHtml): sus videos y sus mensajes.
-        // A la DERECHA y en el orden de la maqueta (cuerpo.html, `pins`: retoArribaHtml, catalogoBotonHtml y pinsHtml en .mq-arriba,
-        // con margin-left: auto; la captura de Martín del 20/11 los mostraba pegados al título, con los videos primero).
-        acciones: d && e ? <span className="rt-acciones"><DesplegableReto d={d} abierto={menu} onAbrir={setMenu} /><BotonTutoriales activo={catalogo} onClick={() => setCatalogo((x) => !x)} /><PinDelReto dias={empezo1 ? abiertos : []} fijados={k.marcas.fijados.length} /></span> : undefined }}
+        // Al lado del desplegable, lo fijado del chat y los tutoriales (D1-17 y d24-17; la maqueta, pinsHtml): sus mensajes y sus videos,
+        // a la DERECHA (margin-left: auto). EL ÍCONO DE VIDEOS, LO ÚLTIMO (20/11, la llamada con Leila, 00:31:46: «el icono de video
+        // siempre a la derecha»): gana sobre el orden de la maqueta, que lo ponía antes del pin.
+        acciones: d && e ? <span className="rt-acciones"><DesplegableReto d={d} abierto={menu} onAbrir={setMenu} /><PinDelReto dias={empezo1 ? abiertos : []} fijados={k.marcas.fijados.length} /><BotonTutoriales activo={catalogo} onClick={() => setCatalogo((x) => !x)} /></span> : undefined }}
       arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={RETO_TITULO} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
-      caja={<>{sigue && listo && !cola.escribiendo && (
-        <button type="button" className="rt-sigue" onClick={irAlSiguiente}>
-          <span aria-hidden>↓</span><span>Tu siguiente paso: <b>{sigue.txt}</b></span>
-        </button>
-      )}{d && e && !empezo1 && !muestraPendiente && ver(`pregunta:${vistas.length}`)
+      caja={<>{d && e && !empezo1 && !muestraPendiente && ver(`pregunta:${vistas.length}`)
         ? <QueHacemos titulo={vistas.length ? '¿Seguimos?' : '¿Qué hacemos ahora?'} quedan={quedan} onDia1={empezarDia1} onMostrar={(m) => setEnCurso(m)} />
         : pregunta && siguiente && ver(`adelantar:${siguiente.n}`)
         ? <AdelantarDia n={siguiente.n} onAdelantar={() => void hacer({ accion: 'adelantar', dia: siguiente.n })} onManana={() => void hacer({ accion: 'manana', dia: siguiente.n })} />
@@ -1071,8 +1068,6 @@ export const CSS_RETO = `
 .rt-tarea__ops { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .rt-tarea__luego { border: 0; background: none; padding: 2px 0; font: inherit; font-size: var(--fs-meta); color: var(--dim); cursor: pointer; }
 .rt-tarea__luego:hover { color: var(--ink); }
-.rt-sigue { display: flex; align-items: center; gap: 8px; width: 100%; margin: 0 0 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-meta); text-align: left; cursor: pointer; }
-.rt-sigue:hover { background: var(--surface-2, rgba(0,0,0,.04)); }
 .rt-menu__flecha { flex: none; margin-left: auto; color: var(--dim); transition: transform .15s; }
 .rt-menu__dia[data-abierto] .rt-menu__flecha { transform: rotate(180deg); }
 .rt-pin { position: relative; display: inline-flex; }
