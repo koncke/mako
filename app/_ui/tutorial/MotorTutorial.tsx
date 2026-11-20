@@ -39,7 +39,7 @@ import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
 import { barraEntera, mostrarLaBarra, presentaLaBarra } from './barra-oculta';
 import { useLugarALaVista } from './lugarDelVideo';
-import { BarraDelVideo } from './BarraDelVideo';
+import { BarraDelVideo, alternarVideo } from './BarraDelVideo';
 import { CSS_REPRODUCTOR } from './VideoDelMomento';
 import { TOPE_CADENA_MS, TOPE_CARGA_MS, alFinSinMarca, retenerAlFin, comoCadena, navegaA, pasoDeLaCadena, siguienteConMarca, soloEnComputadora, soltarRetencion, type Retencion } from './pausas';
 
@@ -842,7 +842,7 @@ function VideoChico({ tutorial, video, vidRef, autoplay, manda, sub, revision, a
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
           </button></header>}
         <div className="mk-vmom" data-estado="reproduciendo">
-          <div className="mk-vmom__pantalla" onClick={() => { const v = vidRef.current; if (!v) return; if (v.paused || v.ended) void v.play().catch(() => {}); else v.pause(); }}>
+          <div className="mk-vmom__pantalla" onClick={() => alternarVideo(vidRef)}>
             <video ref={vidRef} className="mk-vmom__video" src={video.archivo} poster={video.poster} playsInline preload="metadata" />
           </div>
           <BarraDelVideo vidRef={vidRef} archivo={video.archivo} durManifiesto={video.duracion_s ?? 0} />

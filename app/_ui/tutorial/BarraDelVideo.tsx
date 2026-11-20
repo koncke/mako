@@ -10,6 +10,14 @@ import { useEffect, useState, type MouseEvent, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
 
 const VELOCIDADES = [1, 1.25, 1.5, 2] as const;
+
+/** El clic de la persona en la pantalla del video (como el reproductor de la maqueta): play o pausa. Vive con los controles, no en el
+ *  motor: los play() del motor pasan por `reproducir` (tests/tutorial-pausas.test.ts). */
+export function alternarVideo(vidRef: RefObject<HTMLVideoElement | null>): void {
+  const x = vidRef.current;
+  if (!x) return;
+  if (x.paused || x.ended) void x.play().catch(() => {}); else x.pause();
+}
 const mmss = (s: number) => { const t = Math.max(0, Math.round(s || 0)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 
 export function BarraDelVideo({ vidRef, archivo, durManifiesto = 0 }: { vidRef: RefObject<HTMLVideoElement | null>; archivo: string; durManifiesto?: number }) {
