@@ -50,7 +50,8 @@ import {
   urlDeVozDelChat, escucharNotaDelChat,
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
-import { CONTEXTO_SECOND_BRAIN, ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, appDeEscritorio, referenteDeTab, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
+import { CONTEXTO_SECOND_BRAIN, ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, ORIGEN_RETO, appDeEscritorio, referenteDeTab, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
+import { contextoDelReto } from '@/lib/reto/contexto';
 import {
   HERRAMIENTAS_DEL_COACH, HERRAMIENTAS_DEL_FUNNEL_COACH_V2, HERRAMIENTAS_DEL_OFFER_COACH, contextoDeReferente, contextoDelFunnelCoach, contextoDelFunnelCoachV2,
   contextoDelOfferCoach,
@@ -165,6 +166,9 @@ async function contextoDelChat(quien: PersonaChat, desde: Desde | null): Promise
     // Con los prompts editables vigentes (/configuraciones → Marketing CoPilot): lib/media-buyer/copiloto-contexto-vigente.ts.
     return { contexto: await contextoDelCopilotoVigente(perfil), referente: perfil.referente ?? null, propias: HERRAMIENTAS_DEL_COPILOTO };
   }
+  // EL CHAT «RETO DE 7 DÍAS» (20/11/2026, auditoría D1-09): el MaKo del Ops Center, con el contexto del reto (en qué día va, lo que le
+  // falta y lo que eligió). La respuesta va en su conversación (TAB_RETO). No toca cómo se eligen los coaches.
+  if (desde?.tab === ORIGEN_RETO) return { contexto: `${CONTEXTO_SECOND_BRAIN}\n\n${await contextoDelReto(quien.ws)}` };
   const tab = desde?.tab;
   if (tab !== ORIGEN_FUNNEL_COACH && tab !== ORIGEN_OFFER_COACH) return { contexto: CONTEXTO_SECOND_BRAIN };
   // UN SOLO COACH (4/11/2026): el Funnel Coach también trabaja la oferta, con el referente que tenía cualquiera de los dos coaches.

@@ -314,6 +314,27 @@ test('la marca de cada tarea lleva la tarea, y la tarjeta del día su título (2
   assert.ok(chat.includes("{hoy ? 'Lo que te toca hoy' : 'Lo que te tocó'}") && chat.includes('<p className="rt-tarjeta__t">{dia.titulo}</p>'));
 });
 
+test('la caja del reto le escribe al MaKo del Ops Center con el contexto del reto, en su conversación (20/11, D1-09 y R57-13)', async () => {
+  const { contextoDelRetoDe } = await import('../lib/reto/contexto');
+  const e = { ...base, adelantado: 3, hechas: { '3:contactos': 'x' }, leidas: { '3:contactos': 'Leí 134 contactos en tu CRM.' }, despues: ['3:calendar'] };
+  const c = contextoDelRetoDe(e, { funnel: 'anuncios-a-whatsapp', intereses: ['Armar mi landing'], ahora: h('2026-11-18T23:00:00Z') });
+  assert.match(c, /Va en el día 3 de 7: «Tus contactos y tu primera automatización»/);
+  assert.ok(c.includes('Ya hizo hoy: Leí 134 contactos en tu CRM.'), 'lo que MaKo leyó');
+  assert.ok(c.includes('Le falta hoy: Tu primera automatización de mensajes (en Automations).'));
+  assert.ok(c.includes('Dejó para después: Conecta tu calendario (en Calendar).'));
+  assert.match(c, /armar tu landing/);
+  assert.doesNotMatch(c, /nuestro equipo|lo integramos/i, 'sin prometer un equipo');
+  assert.match(contextoDelRetoDe(null, {}), /Todavía no empezó su reto/);
+  const { TABS_CON_CHAT_PROPIO, TAB_RETO, ORIGEN_RETO, origenDeClave } = await import('../lib/chat-mako-reglas');
+  assert.ok(TABS_CON_CHAT_PROPIO.includes(TAB_RETO), 'su conversación propia');
+  assert.equal(origenDeClave(`mako-movil:u7:${TAB_RETO}`), ORIGEN_RETO, 'y su fila fija');
+  const ruta = readFileSync(new URL('../app/api/mako/chat/route.ts', import.meta.url), 'utf8');
+  assert.ok(ruta.includes(String.raw`if (desde?.tab === ORIGEN_RETO) return { contexto: ` + '`${CONTEXTO_SECOND_BRAIN}' + String.raw`\n\n` + '${await contextoDelReto(quien.ws)}` };'), 'una rama mínima en contextoDelChat');
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.ok(chat.includes('<CajaDelCliente k={k} campo={campo}') && chat.includes('tab: TAB_RETO'), 'la caja de siempre (adjuntos y voz), en la conversación del reto');
+  assert.ok(!chat.includes('Para preguntarle algo a MaKo, el Ops Center'), 'sin el texto fijo de antes');
+});
+
 test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, sin clip de regalo, sin la tab AI Avatar', () => {
   const texto = JSON.stringify(DIAS_RETO);
   assert.doesNotMatch(texto, /integramos|lo hacemos por ti|nuestro equipo/i, 'nada que prometa un equipo: Martín no tiene');
