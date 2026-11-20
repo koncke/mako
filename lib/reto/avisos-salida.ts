@@ -21,13 +21,29 @@ import { crearNotificacion } from '../notificaciones';
 import { enviarPush } from '../push';
 import { enviarAPersonaMaKo } from '../mako-grupo';
 import { PARA_TODOS, WS_REVISION_V2, veOnboardingV2 } from '../onboarding-v2/revision';
-import { CLAVE_RETO, correoDelDia, diasDelReto, leerEstado } from './dias';
+import { CLAVE_RETO, correoDelDia, diasDelReto, leerEstado, type EstadoReto } from './dias';
+import { leerTareasDelReto } from './senales';
+import { rutaChatsDeVista } from '../chats-links';
 import {
-  CLAVE_AVISOS, PREHEADER_DIA, RUTA_RETO, avisoDeLaNoche, avisoDelDia, hayQueGuardar, horaEnSuZona, leerAvisos, queMandar,
-  whatsappDeAbandono, whatsappDelDia,
+  CLAVE_AVISOS, PREHEADER_DIA, RUTA_RETO, avisoDeAtendidos, avisoDeLaNoche, avisoDelDia, conAtendidos, conLoLeido, hayQueGuardar,
+  horaEnSuZona, inicioDelDia, leerAvisos, paraDecidir, queMandar, quiereAtendidos, whatsappDeAbandono, whatsappDelDia,
 } from './avisos';
 
 const KEY_VERIFICACION = 'mako.contacto.verificacion';
+
+/**
+ * Cuántos clientes atendió MaKo HOY (desde las 0:00 de SU zona) por WhatsApp: chats distintos con un saliente automático
+ * (`wa_mensajes.automatico`, mig 0396: lo marca quien manda solo; Chats y un borrador aprobado son de una persona). Sin los grupos.
+ * null si no se pudo leer: entonces no se dice nada.
+ */
+async function atendidosHoy(ws: number, e: EstadoReto, ahora: number): Promise<number | null> {
+  try {
+    const { data, error } = await getSupabaseServer().from('wa_mensajes').select('chat_jid').eq('workspace_id', ws).eq('from_me', true)
+      .eq('automatico', true).gte('created_at', new Date(inicioDelDia(ahora, e.zona)).toISOString()).not('chat_jid', 'like', '%@g.us').limit(5000);
+    if (error) return null;
+    return new Set(((data ?? []) as Array<{ chat_jid: string }>).map((f) => f.chat_jid)).size;
+  } catch { return null; }
+}
 /** El plan de Funnel Coach: su funnel principal arma los días 4 a 6 (`diasDelReto`). */
 const KEY_PLAN_FUNNEL = 'funnel_coach.plan';
 
@@ -83,7 +99,17 @@ export async function avisarDelReto(opts: { ahoraMs?: number; enSeco?: boolean }
       const crudoAvisos = valor(ws, CLAVE_AVISOS);
       const a = leerAvisos(crudoAvisos, e);
       const v2 = delV2(valor(ws, KEY_VERIFICACION));
-      const plan = queMandar({ e, a, ahora, ultimaVisita: visitas.length ? Math.max(...visitas) : null, porWhatsApp: !!v2 && retoPorWhatsApp(ws) });
+      const datos = { a, ahora, ultimaVisita: visitas.length ? Math.max(...visitas) : null, porWhatsApp: !!v2 && retoPorWhatsApp(ws) };
+      let plan = queMandar({ e, ...datos });
+      // ANTES DE «TE FALTA…», LO HECHO SE RELEE (d24-04, lib/reto/avisos.ts): sólo cuando hay algo que decir, son lecturas de su negocio.
+      let leido = e;
+      // Lo que no se pudo leer (sin su sesión: la app, la foto; o una lectura que falló) no se nombra: «no lo sé» no es «falta».
+      if (plan.noche || plan.abandono) {
+        const lectura = await runWithWorkspace(ws, () => leerTareasDelReto(e, ahora, { sinSesion: true })).catch(() => null);
+        leido = conLoLeido(e, lectura?.hechas ?? {}, ahora);
+        plan = queMandar({ e: paraDecidir(e, lectura, ahora), ...datos });
+      }
+      if (quiereAtendidos(leido, a, plan)) plan = conAtendidos(plan, await atendidosHoy(ws, leido, ahora));
       if (!hayQueGuardar(a, plan.avisos)) continue;
       if (opts.enSeco) { contar(r, plan); continue; }
       // Primero se guarda: de dos vueltas a la vez, la que no gana no manda nada.
@@ -108,6 +134,12 @@ export async function avisarDelReto(opts: { ahoraMs?: number; enSeco?: boolean }
         }
       }
       if (plan.noche) {
+        // Primero lo que MaKo hizo por ella, después lo que falta (el orden de la maqueta).
+        if (plan.atendidos) {
+          const t = avisoDeAtendidos(plan.atendidos), ruta = rutaChatsDeVista('mako');
+          await crearNotificacion({ ws, tipo: 'reto-atendidos', titulo: t.titulo, descripcion: t.texto, link: ruta, entityType: 'reto', entityId: 'atendidos' });
+          await enviarPush(ws, { tipo: 'reto-atendidos', titulo: t.titulo, cuerpo: t.texto, ruta, tag: 'reto-atendidos', soloAdmins: true });
+        }
         const n = avisoDeLaNoche(plan.noche.tarea);
         await crearNotificacion({ ws, tipo: 'reto-falta', titulo: n.titulo, descripcion: n.texto, link: RUTA_RETO, entityType: 'reto', entityId: String(plan.noche.dia) });
         await enviarPush(ws, { tipo: 'reto-falta', titulo: n.titulo, cuerpo: n.texto, ruta: RUTA_RETO, tag: 'reto-falta', soloAdmins: true });

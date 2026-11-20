@@ -34,6 +34,16 @@
 //   P1 cualquier mensaje, no sólo un audio · P2 desde el día 6 · P3 con la prueba ya respondida · P4 sin «uno solo» (`cierre`)
 //   P5 el reclamo no se lee de vuelta (`leerAvisos`) · P6 el «¡Gracias!» aunque a Martín no le llegó · P7 sin soltar el reclamo si
 //   no salió · P8 el audio al grupo de SuperAdmin como imagen · P9 un audio no llega a mirarse.
+// La noche con lo que de verdad pasó (20/11, d24-04), cada una → falla «la noche, con lo que de verdad pasó»:
+//   A1 no relee antes de «Te falta» · A2 relee y no vuelve a decidir · A3 lo leído no entra como hecho · A4 lo leído pisa la fecha
+//   de lo ya guardado · A5 los atendidos sin la automatización hecha · A6 los atendidos todas las noches · A7 «atendió a 0
+//   clientes» · A8 sin guardar que ya se dijo · A9 `leerAvisos` pierde `atendio` · A10 las 0:00 de Argentina para todos
+//   · A11 los grupos cuentan como clientes · A12 «Atiende MaKo» no se abre con el link.
+// «No lo sé» no es «falta» (20/11, el ajuste del Cerebro a d24-04), cada una → falla «lo que no se puede leer no se nombra»:
+//   N1 lo ilegible cuenta como falta (`paraDecidir` no lo saca) · N2 sin poder leer nada, «Te falta» igual · N3 la vuelta lee
+//   con la sesión (`sinSesion` fuera) · N4 la app y la foto se intentan sin la persona · N5 una lectura que falla da «falta»
+//   (`catch` → null) · N6 un conteo que falla da «falta» (`contar` → 0) · N7 el símbolo cuenta como hecha (`!!v`)
+//   · N8 «no aplica» (sin la persona) en la app da «falta».
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -41,6 +51,7 @@ import { HORAS_WA, diaAbierto, type EstadoReto } from '../lib/reto/dias';
 import {
   queMandar, leerAvisos, horaEnSuZona, diaEnSuZona, whatsappDelDia, whatsappDeAbandono, avisoDelDia, avisoDeLaNoche, esBaja, CLAVE_AVISOS,
   horaDelMensaje, respuestaDeLaHora, esElAudioDelCierre, audioParaMartin, GRACIAS_DIA_7, LEIDO_DIA_7,
+  conLoLeido, inicioDelDia, quiereAtendidos, conAtendidos, avisoDeAtendidos, paraDecidir,
   type AvisosReto,
 } from '../lib/reto/avisos';
 import { fuenteSinComentarios } from './_fuente-sin-comentarios';
@@ -302,4 +313,87 @@ test('el día 7: su audio le llega a Martín, la prueba queda respondida y MaKo 
   const g = fuenteSinComentarios('lib/mako-grupo.ts');
   assert.ok(g.includes("const esAudio = !!o.archivo?.mime.startsWith('audio/');"));
   assert.ok(g.includes("const partes: PartePreparada[] | null = o.archivo && esAudio\n    ? [{ tipo: 'texto', texto }, { tipo: 'audio', base64: o.archivo.base64, mime: o.archivo.mime }]"));
+});
+
+test('la noche, con lo que de verdad pasó: relee lo hecho antes de «Te falta…», y «MaKo atendió a N clientes por ti» una vez (d24-04)', async () => {
+  const { DIAS_RETO } = await import('../lib/reto/dias');
+  const { vistaDeLink, rutaChatsDeVista } = await import('../lib/chats-links');
+  // 1) Relee: el día 1 a las 20:02, sin nada guardado, «le falta» lo primero; con lo que las señales leen, no le falta nada.
+  const e = reto({ horaWa: '9:00' });
+  const a = nuevos(e);
+  const noche1 = h('2026-11-19T23:02:00Z');
+  assert.ok(queMandar({ e, a, ahora: noche1, ...activo(noche1) }).noche, 'sin releer, «Te falta…»');
+  const leidas = Object.fromEntries(DIAS_RETO[0].tareas.map((t) => [`1:${t.id}`, 'Leído.']));
+  const leido = conLoLeido(e, leidas, noche1);
+  assert.equal(queMandar({ e: leido, a, ahora: noche1, ...activo(noche1) }).noche, undefined, 'con lo leído, no le falta nada');
+  assert.equal(conLoLeido(e, {}, noche1), e, 'sin nada leído, el mismo estado');
+  const guardado = reto({ hechas: { '1:offer': INICIO } });
+  assert.equal(conLoLeido(guardado, { '1:offer': 'Leído.', '1:funnel': 'Leído.' }, noche1).hechas['1:offer'], INICIO, 'lo ya guardado no se toca');
+  // 2) Los atendidos: con la automatización hecha y la noche, una vez, con el número de hoy (0: nada; sin poder contar: nada).
+  const conAuto = reto({ horaWa: '9:00', hechas: { '3:automatizacion': INICIO } });
+  const noche3 = h('2026-11-21T23:02:00Z'); // el 21/11 a las 20:02 de Argentina, día 3
+  const p = queMandar({ e: conAuto, a: nuevos(conAuto), ahora: noche3, ...activo(noche3) });
+  assert.ok(p.noche);
+  assert.equal(quiereAtendidos(conAuto, nuevos(conAuto), p), true);
+  assert.equal(quiereAtendidos(e, a, queMandar({ e, a, ahora: noche3, ...activo(noche3) })), false, 'sin la automatización hecha, no');
+  assert.equal(quiereAtendidos(conAuto, { ...nuevos(conAuto), atendio: 1 }, p), false, 'una sola vez');
+  const con4 = conAtendidos(p, 4);
+  assert.equal(con4.atendidos, 4);
+  assert.equal(con4.avisos.atendio, p.avisos.noche, 'se guarda el día: no se repite');
+  assert.equal(conAtendidos(p, 0), p, 'con 0, nada (otra noche)');
+  assert.equal(conAtendidos(p, null), p, 'sin poder contar, nada');
+  assert.equal(leerAvisos(JSON.stringify({ v: 1, dia: 3, atendio: 20413 }), conAuto).atendio, 20413, 'se lee de vuelta');
+  assert.deepEqual(avisoDeAtendidos(4), { titulo: 'MaKo atendió a 4 clientes por ti', texto: 'Míralo en Chats, en «Atiende MaKo».' });
+  assert.equal(avisoDeAtendidos(1).titulo, 'MaKo atendió a 1 cliente por ti');
+  // 3) «Hoy» es el de SU zona.
+  assert.equal(new Date(inicioDelDia(noche3)).toISOString(), '2026-11-21T03:00:00.000Z', 'Argentina');
+  assert.equal(new Date(inicioDelDia(noche3, 'America/Mexico_City')).toISOString(), '2026-11-21T06:00:00.000Z', 'México');
+  assert.equal(new Date(inicioDelDia(noche3, 'Europe/Madrid')).toISOString(), '2026-11-21T23:00:00.000Z', 'Madrid: ya es el 22');
+  // 4) La vuelta: relee y vuelve a decidir ANTES de guardar; cuenta los chats de hoy sin los grupos; avisa primero lo que hizo MaKo.
+  const v = fuenteSinComentarios('lib/reto/avisos-salida.ts');
+  const relee = v.indexOf('if (plan.noche || plan.abandono) {\n        const lectura = await runWithWorkspace(ws, () => leerTareasDelReto(e, ahora, { sinSesion: true })).catch(() => null);');
+  const decide = v.indexOf('plan = queMandar({ e: paraDecidir(e, lectura, ahora), ...datos });');
+  const cuenta = v.indexOf('if (quiereAtendidos(leido, a, plan)) plan = conAtendidos(plan, await atendidosHoy(ws, leido, ahora));');
+  const guarda = v.indexOf('if (!hayQueGuardar(a, plan.avisos)) continue;');
+  assert.ok(relee > 0 && decide > relee && cuenta > decide && guarda > cuenta, 'relee, decide y cuenta antes de guardar');
+  for (const x of [".eq('workspace_id', ws)", ".eq('from_me', true)", ".eq('automatico', true)", 'new Date(inicioDelDia(ahora, e.zona)).toISOString()', ".not('chat_jid', 'like', '%@g.us')"]) assert.ok(v.includes(x), x);
+  const noche = v.slice(v.indexOf('if (plan.noche) {'));
+  assert.ok(noche.indexOf('avisoDeAtendidos(plan.atendidos)') > 0 && noche.indexOf('avisoDeAtendidos(plan.atendidos)') < noche.indexOf('avisoDeLaNoche('), 'primero lo que hizo MaKo');
+  assert.equal(rutaChatsDeVista('mako'), '/chats?vista=mako');
+  assert.equal(vistaDeLink('mako'), 'mako', '«Atiende MaKo» se abre con el link');
+});
+
+test('lo que no se puede leer no se nombra: «Te falta…» sólo con lo que falta de verdad, y si todo es ilegible, nada (d24-04)', async () => {
+  // El día 2 a las 20:02, con el día 1 hecho: le quedan la app, la extensión, las integraciones y la foto.
+  const hechas: Record<string, string> = { '1:onboarding': INICIO, '1:offer': INICIO, '1:funnel': INICIO };
+  const e = reto({ horaWa: '9:00', hechas });
+  const a = nuevos(e);
+  const noche2 = h('2026-11-20T23:02:00Z');
+  const sin = (lectura: Parameters<typeof paraDecidir>[1]) => queMandar({ e: paraDecidir(e, lectura, noche2), a, ahora: noche2, ...activo(noche2) }).noche;
+  const todo = sin({ hechas: {}, noSeLeen: [] });
+  const { DIAS_RETO: dias } = await import('../lib/reto/dias');
+  const app = dias[1].tareas.find((t) => t.id === 'app')!.titulo;
+  assert.equal(todo?.tarea, app, 'todo leído y nada hecho: «Te falta…» la primera, la app');
+  // La app no se puede leer sin la persona: la noche nombra la siguiente que falta de verdad, nunca la app.
+  const n1 = sin({ hechas: {}, noSeLeen: ['2:app'] });
+  assert.ok(n1 && n1.tarea !== app && n1.dia === 2, 'nombra otra, no la que no sabe');
+  // La app y la foto no se leen, la extensión y las integraciones están hechas: no le falta nada que se sepa → no sale.
+  assert.equal(sin({ hechas: { '2:extension': 'Leído.', '2:integraciones': 'Leído.' }, noSeLeen: ['2:app', '2:perfil'] }), undefined, 'todo lo que queda es ilegible: nada');
+  assert.equal(sin(null), undefined, 'sin poder leer nada, nada');
+  // Lo ilegible vale sólo para decidir: lo que se cuenta como hecho (la automatización de los atendidos) es lo leído de verdad.
+  assert.equal(conLoLeido(e, {}, noche2).hechas['2:app'], undefined);
+  // Las señales: «no se pudo leer» es un tercer estado, no un «no».
+  const sg = fuenteSinComentarios('lib/reto/senales.ts');
+  assert.ok(sg.includes("export const PIDEN_LA_PERSONA: readonly string[] = ['2:app', '2:perfil'];"));
+  assert.ok(sg.includes('[k, o.sinSesion && PIDEN_LA_PERSONA.includes(k) ? NO_SE_LEE : await LECTURAS[k](e).catch((): Leida => NO_SE_LEE)]'), 'sin la persona, ni se intenta; y un error no es «falta»');
+  assert.ok(sg.includes("hechas: Object.fromEntries(leidas.filter((x): x is readonly [string, string] => typeof x[1] === 'string')),"), 'el símbolo no cuenta como hecha');
+  assert.ok(sg.includes('noSeLeen: leidas.filter(([, v]) => v === NO_SE_LEE).map(([k]) => k),'));
+  assert.ok(sg.includes('return error ? null : count ?? 0;\n  } catch { return null; }'), 'un conteo que falla no es 0');
+  assert.ok(sg.includes('if (!a.aplica) return NO_SE_LEE;'), 'la app sin la persona: no se sabe');
+  const lecturas = sg.slice(sg.indexOf('const LECTURAS: Record<string'), sg.indexOf('export const TAREAS_CON_LECTURA'));
+  assert.ok(!lecturas.includes('catch { return null; }'), 'ninguna lectura convierte un error en «falta»');
+  assert.ok(sg.includes('return (await leerTareasDelReto(e, ahora)).hechas;'), 'el chat del reto sigue igual: lo hecho');
+  // La vuelta lee SIN la sesión y decide con lo que se sabe.
+  const v = fuenteSinComentarios('lib/reto/avisos-salida.ts');
+  assert.ok(v.includes('leerTareasDelReto(e, ahora, { sinSesion: true })') && v.includes('queMandar({ e: paraDecidir(e, lectura, ahora), ...datos })'));
 });
