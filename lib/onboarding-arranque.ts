@@ -1878,6 +1878,8 @@ export const V2_AGENDADO_NO = 'Guárdalo cuando puedas: es la tarjeta que te man
 // dice con el número, y sigue con su contacto: la tarjeta en el chat (no hubo mensaje de WhatsApp que la trajera) y el texto de la
 // maqueta (`WA_AGENDAR`). Antes salía el mensaje del código sin su caja y una burbuja «Listo, ya lo cargué.» que ella nunca escribió.
 export const V2_YA_CONFIRMADO = (telefono: string): string => `Tu WhatsApp ${telefono} ya está confirmado.`;
+/** La tarjeta del contacto de MaKo como texto: lo que queda en el chat «Onboarding» (en la pantalla se dibuja sólo la tarjeta). */
+export const V2_CONTACTO = `MaKo · ${WHATSAPP_MAKO.visible}`;
 export const V2_GUARDAME = 'Guárdame en tus contactos para que pueda mandarte avances de tu negocio. Si no estoy guardado, WhatsApp puede frenar mis mensajes.';
 export const V2_AGENDADO_NO_YA = 'Guárdalo cuando puedas: es la tarjeta de arriba. Si no estoy en tus contactos, WhatsApp puede frenar lo que te mando, como los avances de tu negocio.';
 export const V2_NEGOCIO_YA = '¿Cómo se llama tu negocio?';
@@ -1940,7 +1942,9 @@ export function mensajesDeArranqueV2(e: EstadoArranque, h: HechosArranque): Mens
     if (etapa === 'telefono') return out;
     yo('telefono', e.telefonoVisto || (e.telefonoNumero ? telefonoVisible(e.telefonoNumero) : 'Mi WhatsApp'));
     if (yaConfirmado) {
-      mako('ya-confirmado', V2_YA_CONFIRMADO(e.telefonoVisto || (e.telefonoNumero ? telefonoVisible(e.telefonoNumero) : '')), { tarjeta: 'contacto' });
+      // Tres mensajes, cada uno en su burbuja (20/11/2026, Martín: la confirmación, la tarjeta y «Guárdame…» separados).
+      mako('ya-confirmado', V2_YA_CONFIRMADO(e.telefonoVisto || (e.telefonoNumero ? telefonoVisible(e.telefonoNumero) : '')));
+      mako('contacto', V2_CONTACTO, { tarjeta: 'contacto' });
       mako('guarda-contacto', V2_GUARDAME);
     } else {
       mako('codigo', v2Codigo(h.lineaMaKo), etapa === 'codigo' ? { tarjeta: 'codigo' } : {});

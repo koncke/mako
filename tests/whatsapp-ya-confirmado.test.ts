@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CODIGO_CARGADO, V2_AGENDADO, V2_AGENDADO_NO, V2_AGENDADO_NO_YA, V2_CODIGO, V2_GUARDAME, V2_NEGOCIO, V2_NEGOCIO_YA, V2_YA_CONFIRMADO,
+  CODIGO_CARGADO, V2_AGENDADO, V2_CONTACTO, V2_AGENDADO_NO, V2_AGENDADO_NO_YA, V2_CODIGO, V2_GUARDAME, V2_NEGOCIO, V2_NEGOCIO_YA, V2_YA_CONFIRMADO,
   etapaDeArranqueV2, mensajesDeArranqueV2, type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
 
@@ -27,7 +27,8 @@ test('1. ya confirmado: MaKo lo dice con el número, la tarjeta de su contacto y
     'yo: Leila',
     'mako: Un gusto, Leila. ¿A qué WhatsApp te escribo con los avisos y los reportes?',
     'yo: +52 1 55 5555 0101',
-    `mako: ${V2_YA_CONFIRMADO('+52 1 55 5555 0101')} [contacto]`,
+    `mako: ${V2_YA_CONFIRMADO('+52 1 55 5555 0101')}`,
+    `mako: ${V2_CONTACTO} [contacto]`,
     `mako: ${V2_GUARDAME}`,
     `mako: ${V2_AGENDADO}`,
   ]);
@@ -65,6 +66,8 @@ test('3. la ruta: con `yaVerificado` en el V2 marca `telefonoYa` y NO escribe «
 test('4. la tarjeta del contacto queda en la conversación (no sólo en el último mensaje), con «Guardar contacto»', () => {
   const ui = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
   assert.match(ui, /if \(m\.tarjeta === 'contacto'\) return <TarjetaContactoMako \/>;\n\s*if \(m\.id !== ultimoMako\?\.id\) return null;/);
+  // En SU burbuja (20/11, Martín: la confirmación, la tarjeta y «Guárdame…» separados): sin el texto, sólo la tarjeta.
+  assert.match(ui, /if \(m\.tarjeta === 'contacto'\) return t \? filaMako\(m\.id, <div className="arr-v2__en-mensaje">\{t\}<\/div>\) : null;/);
   const tarjeta = sinComentarios(leer('app/onboarding/TarjetaContactoMako.tsx'));
   assert.match(tarjeta, /download="MaKo\.vcf"/);
   assert.match(tarjeta, /TEL;TYPE=CELL;waid=\$\{WHATSAPP_MAKO\.numero\}/);

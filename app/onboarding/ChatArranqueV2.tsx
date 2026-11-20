@@ -467,6 +467,8 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
                     const m = f.m!;
                     if (m.de === 'yo') return filaYo(m.id, m.texto);
                     const t = cola.conPieza(m.id) ? tarjeta(m) : null;
+                    // La tarjeta del contacto de MaKo es SU mensaje (20/11/2026: en su propia burbuja): sin el texto, sólo la tarjeta.
+                    if (m.tarjeta === 'contacto') return t ? filaMako(m.id, <div className="arr-v2__en-mensaje">{t}</div>) : null;
                     return filaMako(m.id, <><div className="ch-md"><p>{m.texto}</p></div>{t && <div className="arr-v2__en-mensaje">{t}</div>}</>);
                   })}
                   {pendiente && filaYo('arr-pendiente', pendiente)}
