@@ -20,7 +20,7 @@ import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 import { Icon } from '@/app/_components/icons';
 // Directo y no desde el índice de app/_ui (ver app/_ui/CargandoMako.tsx).
 import { CargandoMako } from '@/app/_ui/CargandoMako';
-import { ASPECTO_GRUPO, ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { ASPECTO_APP_MAKO, ASPECTO_GRUPO } from '@/lib/centro-munecos';
 import { SIN_MARCAS } from '@/lib/centro-mensajes';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { FRASES_DEL_GRUPO, itemsDelGrupo, mensajePorIdDeFila, quePuede } from './pantalla';
@@ -28,7 +28,9 @@ import type { HiloDelGrupoK } from './useHiloDelGrupo';
 import '@/app/_chat/chat.css';
 import './grupo.css';
 
-const QUIEN = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
+// MaKo en el grupo habla como SU LÍNEA de WhatsApp: sus burbujas llevan el ícono de la app (la foto de la línea), no la criatura, que es
+// sólo del Ops Center (20/11/2026, el Cerebro).
+const QUIEN = { nombre: 'MaKo', aspecto: ASPECTO_APP_MAKO };
 const SIN_EN_EL_MENU = ['reenviar', 'info', 'destacar', 'fijar', 'eliminar', 'transcripcion'] as const;
 
 /** Lo de arriba de un mensaje de MaKo: «Aviso» si lo es, su nombre y lo que trae. El texto lo dibuja el hilo. */

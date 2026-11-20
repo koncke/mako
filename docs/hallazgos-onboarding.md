@@ -48,8 +48,9 @@ Lo pedido por Martín (Fathom 205366178, 00:29:00): al terminar el video del dí
     el del reto va como FONDO CSS del propio `<svg>` (`border-radius: 50%` + `background: linear-gradient(…)`), sin ningún id.
   - El teléfono tenía SU foto del grupo (`FotoDelGrupo`) aparte de la de la computadora: cambiar sólo `FilasDelGrupo` dejaba dos
     avatares distintos para el mismo grupo. Ahora `FotoDelGrupo` dibuja `AvatarDelGrupo`.
-  Lo que quedó sin hacer: las burbujas de MaKo DENTRO del grupo (`QUIEN`, app/_chat/grupo/HiloDelGrupo.tsx) siguen con la
-  criatura, porque ahí MaKo habla como un miembro más. Si el Cerebro decide que también cambian, es esa línea.
+  ADENTRO del grupo, las burbujas de MaKo (`QUIEN`, app/_chat/grupo/HiloDelGrupo.tsx) llevan el ícono de la app
+  (`ASPECTO_APP_MAKO`, `icono: 'app'`: la baldosa con la chispa, la foto de su línea de WhatsApp). Eso vuelve a traer la baldosa
+  que el reto dejó, ahora como un `icono` más.
   - El test lo prueba sobre lo dibujado (renderToStaticMarkup), no sobre el texto: tests/reto-icono-app.test.ts.
 - **«Toca aquí» siempre marca** (00:32:37). Las reglas de las pausas del 20/11 dejaban pasar, sin pausar, una frase cuya marca no
   estaba. La voz decía «toca aquí» sin recuadro en dos casos:

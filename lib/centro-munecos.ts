@@ -41,10 +41,10 @@ const DE_SIEMPRE = { formas: FORMAS.slice(0, 7), caras: CARAS.slice(0, 6) } as c
 export type CaraMuneco = (typeof CARAS)[number];
 /** `retrato`: un referente (lib/asesores/catalogo.ts): se dibuja su retrato (app/admin/operaciones/Retratos.tsx) en vez del cuerpo y
  *  la cara. No se elige con las piezas ni se guarda acá: `sanearAspecto` no lo deja pasar. `icono`: un avatar que NO es una criatura
- *  (el del reto o el del grupo, abajo), con la misma regla. */
+ *  (el del reto, el del grupo o el de la app, abajo), con la misma regla. */
 export type Aspecto = { forma: Forma; color: Color; cara: CaraMuneco; retrato?: IdAsesor; icono?: IconoDeChat };
 /** Los avatares que no son criaturas: los dibuja `Muneco` (app/admin/operaciones/Muneco.tsx) en vez del cuerpo y la cara. */
-export type IconoDeChat = 'reto' | 'grupo';
+export type IconoDeChat = 'reto' | 'grupo' | 'app';
 export type MunecosElegidos = Record<string, Aspecto>;
 /** La criatura de MaKo: la estrella dorada, sonriendo. Desde el 20/11 (la llamada con Leila, 00:39:14: «la criatura de Mako está
  *  reservada únicamente para Ops Center»), sólo para el Ops Center. */
@@ -57,6 +57,10 @@ export const ASPECTO_RETO: Aspecto = { ...ASPECTO_MAKO, icono: 'reto' };
 /** EL AVATAR DEL GRUPO «MaKo <> negocio» (20/11/2026, el Cerebro): el de un grupo de WhatsApp sin foto, un círculo gris claro con
  *  siluetas blancas. En la fila de la lista y en la cabecera de ese chat, sin la criatura. */
 export const ASPECTO_GRUPO: Aspecto = { ...ASPECTO_MAKO, icono: 'grupo' };
+/** EL ÍCONO DE LA APP DE MAKO (20/11/2026, el Cerebro): la baldosa oscura con la chispa dorada, la foto de la línea de MaKo en WhatsApp
+ *  (MakoLogo, app/_components/MakoBrand.tsx). Lo llevan las burbujas de MaKo DENTRO del grupo, donde MaKo habla como su línea: la
+ *  criatura es sólo del Ops Center. */
+export const ASPECTO_APP_MAKO: Aspecto = { ...ASPECTO_MAKO, icono: 'app' };
 /** La criatura de un chat con un referente al frente: su caricatura. */
 export const aspectoDeReferente = (retrato: IdAsesor): Aspecto => ({ forma: 'circulo', color: '--grafo-voz', cara: 'sonrisa', retrato });
 

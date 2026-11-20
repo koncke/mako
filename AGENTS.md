@@ -2437,7 +2437,8 @@ código nuevo:
     (`ASPECTO_RETO`: el círculo con el degradé amarillo a naranja y la hoja de calendario con «7 días») en la fila, la cabecera,
     las burbujas, los puntitos, la entrada de cada día y la llegada. El grupo «MaKo <> negocio» lleva el de un grupo de WhatsApp
     (`ASPECTO_GRUPO`: siluetas blancas en un círculo gris, que en oscuro baja de gris) en la fila, la cabecera, la portada y la
-    foto del teléfono (`FotoDelGrupo`). Un chat nuevo que no es «hablar con MaKo» NO toma `ASPECTO_MAKO`: lleva un `icono` propio
+    foto del teléfono (`FotoDelGrupo`). ADENTRO del grupo, las burbujas de MaKo llevan el ícono de la app (`ASPECTO_APP_MAKO`: la
+    baldosa con la chispa, la foto de su línea de WhatsApp). Un chat nuevo que no es «hablar con MaKo» NO toma `ASPECTO_MAKO`: lleva un `icono` propio
     (`IconoDeChat`, lib/centro-munecos.ts), que `Muneco` dibuja antes de mirar el título, porque un «MaKo» sería la criatura.
     Estos avatares son SVG en línea, sin hooks y sin `id`: un degradé va como fondo CSS del propio SVG, nunca un
     `<linearGradient id>`. Lo fija `tests/reto-icono-app.test.ts`.

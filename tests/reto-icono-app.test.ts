@@ -8,6 +8,8 @@
 //     grande y «días» chico. En la fila de la lista, la cabecera, las burbujas, los puntitos, la entrada de cada día y la llegada.
 //   · el GRUPO «MaKo <> negocio» (ASPECTO_GRUPO): el de un grupo de WhatsApp sin foto, un círculo gris claro con siluetas blancas, en
 //     claro y en oscuro. En la fila de la lista y en la cabecera (y la portada) de ese chat; en el teléfono, la misma foto.
+//   · ADENTRO del grupo, las burbujas de MaKo (ASPECTO_APP_MAKO): el ícono de la app, la baldosa oscura con la chispa, que es la foto
+//     de la línea de MaKo en WhatsApp.
 // Los dos son SVG en línea, sin hooks y sin ids. Se prueba lo DIBUJADO (`Muneco` con renderToStaticMarkup): con el título «MaKo»,
 // `aspectoDe` devolvería la criatura.
 //
@@ -20,8 +22,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Muneco } from '../app/admin/operaciones/Muneco';
-import { ASPECTO_GRUPO, ASPECTO_MAKO, ASPECTO_RETO, sanearAspecto } from '../lib/centro-munecos';
-import * as munecos from '../lib/centro-munecos';
+import { ASPECTO_APP_MAKO, ASPECTO_GRUPO, ASPECTO_MAKO, ASPECTO_RETO, sanearAspecto } from '../lib/centro-munecos';
 
 const fuente = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const dibujo = (aspecto: typeof ASPECTO_MAKO, size = 26) => renderToStaticMarkup(createElement(Muneco, { titulo: 'MaKo', aspecto, animo: 'despierto', size }));
@@ -65,7 +66,7 @@ test('3. la criatura sigue igual para el Ops Center; los avatares no se eligen n
   assert.equal(sanearAspecto(ASPECTO_RETO), null, 'la estrella de debajo tampoco se guarda');
   assert.equal(sanearAspecto({ forma: 'circulo', color: '--grafo-voz', cara: 'risa', icono: 'reto' })?.icono, undefined);
   assert.equal(sanearAspecto({ forma: 'circulo', color: '--grafo-voz', cara: 'risa', icono: 'grupo' })?.icono, undefined);
-  assert.ok(!('ASPECTO_APP_MAKO' in munecos), 'la baldosa de la app ya no es el avatar del reto');
+  assert.equal(sanearAspecto({ forma: 'circulo', color: '--grafo-voz', cara: 'risa', icono: 'app' })?.icono, undefined);
   // Muneco mira el ícono ANTES del título («MaKo» sería la criatura).
   const m = fuente('app/admin/operaciones/Muneco.tsx');
   const icono = m.indexOf('if (aspecto?.icono) { const Icono = ICONOS[aspecto.icono]; return <Icono size={size} style={style} />; }');
@@ -103,9 +104,23 @@ test('5. el grupo, sin la criatura: la fila de la lista (y su espera), la cabece
   assert.doesNotMatch(m, /name="users"/, 'el ícono verde de antes');
 });
 
-// ⚠️ PROBADO ROMPIÉNDOLO (20/11/2026, base 5/0; al restaurar, 5/0). Cada rotura, de a una, cae:
+test('6. dentro del grupo, las burbujas de MaKo llevan el ícono de la app (la foto de su línea de WhatsApp), no la criatura', () => {
+  const svg = dibujo(ASPECTO_APP_MAKO);
+  assert.match(svg, /class="mun mun--app"/);
+  assert.match(svg, /<rect [^>]*rx="10\.8" fill="#211D16"/, 'la baldosa oscura');
+  assert.match(svg, /<path d="M0 -11 C1 -4 4 -1 11 0 [^"]+" fill="var\(--mako\)"/, 'la chispa dorada de MakoLogo');
+  assert.doesNotMatch(svg, /mun-cuerpo/, 'sin la criatura');
+  assert.doesNotMatch(svg, / id="|<linearGradient|url\(#/, 'sin ids de SVG');
+  const hilo = fuente('app/_chat/grupo/HiloDelGrupo.tsx');
+  assert.ok(hilo.includes("const QUIEN = { nombre: 'MaKo', aspecto: ASPECTO_APP_MAKO };"), 'las burbujas de MaKo (y sus puntitos)');
+  assert.ok(hilo.includes('<HiloMako items={items} quien={QUIEN}'), 'el hilo del grupo dibuja a MaKo con QUIEN');
+  assert.doesNotMatch(hilo, /\bASPECTO_MAKO\b/, 'HiloDelGrupo: volvió la criatura');
+});
+
+// ⚠️ PROBADO ROMPIÉNDOLO (20/11/2026, base 6/0; al restaurar, 6/0). Cada rotura, de a una, cae:
 //   - Muneco sin mirar el ícono (`if (aspecto?.icono) …` borrado): el reto y el grupo vuelven a ser la criatura → 1, 2 y 3
 //   - el reto con un <linearGradient id> en vez del fondo CSS → 1
 //   - el reto sin el naranja (el degradé sólo dorado) → 1
 //   - el grupo sin su gris en oscuro → 2
 //   - las burbujas, la fila del reto, la cabecera del grupo o la foto del teléfono de vuelta a lo de antes (cada una por separado) → 4 o 5
+//   - las burbujas de MaKo en el grupo con la criatura (QUIEN con ASPECTO_MAKO) → 6; el ícono de la app sin su lugar en ICONOS → 6
