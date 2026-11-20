@@ -66,6 +66,12 @@ leads, 13 o 14 cumplían» y el inmobiliario los marcaba no calificados). La ref
   de la bitácora **su `sesion`** (`$CLAUDE_CODE_HOST_SESSION_ID`). Y un test de Zernio que lee el texto `if (!c.nuevo) return;`:
   una rama nueva se escribe al lado, no envolviéndolo. Por eso la lógica quedó en `lib/fuentes-crm-server.ts` y la pantalla y la
   API son dos puertas finas sobre ella.
+- **El segundo rojo: cinco operaciones nuevas del área CRM le robaron lugar a otras en el chat.** El chat elige sus herramientas
+  por relevancia con un tope de 12.000 caracteres (`PRESUPUESTO_REGISTRO_CHARS`, lib/doer-herramientas.ts), y descripciones con
+  «leads», «anuncios» y «Meta» ganaban en pedidos que no eran de formularios: «¿qué anuncio tiene el mejor costo por lead?» dejó de
+  traer `ver_rendimiento_anuncios` (tests/ops-center-bateria.test.ts) y un seguimiento dejó de traer `recomendar_mensajes_whatsapp`
+  (tests/doer-hilo.test.ts). Van sólo por HTTP (`canales: ['http']`, como `migrar_contactos`). **La regla:** una operación nueva
+  con palabras de todos los días en su descripción se prueba contra esas dos baterías ANTES de subir, o va sólo por HTTP.
 
 **Sin hacer** (y dónde iría): el lead que YA existía y llena otro formulario de Meta no se califica al llegar
 (`alNacerLeadDeMeta` corre sólo al crear; `lib/leads.ts`, rama `existing`); el opt-in que queda como propuesta (duplicado ambiguo)

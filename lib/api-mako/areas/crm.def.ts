@@ -543,6 +543,9 @@ export const DEFS: readonly OperacionDef[] = [
   },
   // «Asignar fuentes» → «Formularios» (20/11/2026): los formularios de anuncios de Meta, los de Web Generator y cualquier página
   // con el Pixel, y sus reglas de calificación automática. Las MISMAS funciones que la pantalla (lib/fuentes-crm-server.ts).
+  // ⚠️ SÓLO POR LA API (`http`), como migrar_contactos: en el chat, sus descripciones («leads», «anuncios», «Meta») le ganaban
+  //    lugar en el presupuesto de herramientas a otras (el segundo rojo de punta/fuentes-crm, 20/11: dejaron de llegar
+  //    ver_rendimiento_anuncios y recomendar_mensajes_whatsapp; tests/ops-center-bateria y doer-hilo). La pantalla y HTTP alcanzan.
   {
     id: 'listar_formularios', area: 'crm', tipo: 'lectura',
     titulo: 'Formularios que traen leads a un CRM',
@@ -550,7 +553,7 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de ver_campanas_funnels). Sin él, el del negocio.' },
     ],
-    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+    salida: 'json', canales: ['http'], costo: 'gratis', gating: TAB,
   },
   {
     id: 'asignar_formulario', area: 'crm', tipo: 'accion', confirmacion: 'chat',
@@ -562,7 +565,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de ver_campanas_funnels). Sin él, el del negocio.' },
       { nombre: 'nombre', tipo: 'string', max: 160, descripcion: 'el nombre del formulario, para mostrarlo.' },
     ],
-    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    canales: ['http'], costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'guarda a qué CRM entran los leads de ese formulario (meta.formularios, landing.piezas o landing.config, según el tipo)',
   },
   {
@@ -573,7 +576,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'clave', tipo: 'string', obligatorio: true, max: 520, descripcion: 'la clave del formulario (de listar_formularios).' },
       { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de ver_campanas_funnels). Sin él, el del negocio.' },
     ],
-    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+    salida: 'json', canales: ['http'], costo: 'gratis', gating: TAB,
   },
   {
     id: 'guardar_reglas_formulario', area: 'crm', tipo: 'accion', confirmacion: 'chat',
@@ -607,7 +610,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de ver_campanas_funnels). Sin él, el del negocio.' },
       { nombre: 'nombre', tipo: 'string', max: 160, descripcion: 'el nombre del formulario, para el historial de los leads.' },
     ],
-    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    canales: ['http'], costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'guarda las reglas de calificación de ese formulario en ese CRM (el setting crm.reglas_formulario); los leads nuevos de ese formulario se mueven solos a su etapa',
   },
   {
@@ -618,7 +621,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'clave', tipo: 'string', obligatorio: true, max: 520, descripcion: 'la clave del formulario (de listar_formularios).' },
       { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de ver_campanas_funnels). Sin él, el del negocio.' },
     ],
-    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    canales: ['http'], costo: 'gratis', gating: TAB_ADMIN,
     reversible: false, escribe: 'mueve de etapa a los leads de ese formulario que sus reglas mandan a otra, y lo deja en el historial de cada uno',
   },
 
