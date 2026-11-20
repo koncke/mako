@@ -274,6 +274,10 @@ export type EstadoReto = { v: 1; inicio: string; adelantado: number; hechas: Rec
   dia1Desde?: string;
   /** Las pestañas que ya le mostró por «Muéstrame…» (`MuestraReto.pestana`). */
   muestras?: string[];
+  /** Las tareas que dejó con «Lo hago después» (claves «3:calendar»; 20/11, R57-F1): el día termina igual, y quedan marcadas. */
+  despues?: string[];
+  /** Eligió «Mañana» al terminar el día N-1: guarda N (20/11, D1-06): la respuesta queda en el chat. */
+  manana?: number;
   /** El último día del que salió el correo «Día N del reto de MaKo» (lib/reto/correos.ts): uno por día, una vez. */
   avisado?: number };
 
@@ -299,7 +303,10 @@ export function leerEstado(crudo: unknown): EstadoReto | null {
   const confiables = e.leidas && typeof e.leidas === 'object' ? Object.fromEntries(Object.entries(hechas).filter(([k]) => leidas[k])) : {};
   const dia1Desde = typeof e.dia1Desde === 'string' && !Number.isNaN(Date.parse(e.dia1Desde)) ? e.dia1Desde : undefined;
   const muestras = Array.isArray(e.muestras) ? [...new Set(e.muestras.filter((x): x is string => typeof x === 'string' && /^[a-z-]{2,30}$/.test(x)))].slice(0, 11) : [];
-  return { v: 1, inicio: e.inicio, adelantado, hechas: confiables, leidas, ...(dia1Desde ? { dia1Desde } : {}), ...(muestras.length ? { muestras } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}) };
+  const despues = Array.isArray(e.despues) ? [...new Set(e.despues.filter((x): x is string => typeof x === 'string' && /^\d:[a-z-]+$/.test(x)))] : [];
+  const manana = Number.isInteger(e.manana) ? Math.max(2, Math.min(7, Number(e.manana))) : undefined;
+  return { v: 1, inicio: e.inicio, adelantado, hechas: confiables, leidas, ...(dia1Desde ? { dia1Desde } : {}), ...(muestras.length ? { muestras } : {}),
+    ...(despues.length ? { despues } : {}), ...(manana ? { manana } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}) };
 }
 
 /** La hora de Argentina (la de MaKo), UTC−3. */
@@ -328,6 +335,26 @@ export function diaAbierto(e: EstadoReto, ahora: number): number {
 }
 
 export const claveTarea = (dia: number, id: string) => `${dia}:${id}`;
+/** ¿La dejó para después? (R57-F1) */
+export const tareaDespues = (e: EstadoReto, dia: number, id: string) => !!e.despues?.includes(claveTarea(dia, id));
+/** ¿Terminó el día? Todas sus tareas hechas o dejadas para después (20/11, D1-06, d24-13, R57-07): recién ahí, «¿Adelantas…?». */
+export const diaTerminado = (e: EstadoReto, d: DiaReto) => d.tareas.every((t) => tareaHecha(e, d.n, t.id) || tareaDespues(e, d.n, t.id));
+
+/** El cierre de cada día (la maqueta, FIN_DIA y FIN_DIA1). `falta`: lo que dejó para después. Sin «te escribo»: el aviso por WhatsApp
+ *  de cada mañana todavía no existe (auditoría D1-04, es del chat de WhatsApp); lo cierto es que el día se abre a esa hora, aquí. */
+/** Lo que falta, dicho para «te falta…» (la maqueta, `falta` de cada tarea): el título es una orden («Conecta tu calendario»). */
+const FALTA_TAREA: Readonly<Record<string, string>> = {
+  app: 'instalar la app de MaKo en tu teléfono', extension: 'la extensión para Chrome', integraciones: 'conectar tus integraciones',
+  perfil: 'tu perfil y tu foto', contactos: 'cargar tus clientes en el CRM', automatizacion: 'tu primera automatización',
+  calendar: 'conectar tu calendario', spy: 'agregar a tus competidores', web: 'tu página', carrusel: 'tu carrusel', guion: 'tu guion',
+  personaje: 'tu personaje con IA', clip: 'tu primer clip', copilot: 'abrir tu Marketing CoPilot', semana: 'tu semana en el Plan',
+};
+/** `falta`: los ids de las tareas que dejó para después. */
+export function finDelDia(d: DiaReto, siguiente: DiaReto | undefined, hora: string, nombre: string, falta: string[]): string {
+  if (d.n === 1) return `¡Terminaste tu día 1${nombre ? `, ${nombre}` : ''}! Tu oferta y tu sistema de adquisición ya están. El día 2 es conectar todo: si quieres, lo adelantas ahora.`;
+  const sigue = siguiente ? ` Mañana a las ${hora} sigue el día ${siguiente.n}: ${siguiente.titulo.charAt(0).toLowerCase()}${siguiente.titulo.slice(1)}.` : '';
+  return falta.length ? `Tu día ${d.n} quedó casi listo: te falta ${falta.map((id) => FALTA_TAREA[id] ?? id).join(' y ')}.${sigue}` : `¡Listo tu día ${d.n}!${sigue}`;
+}
 export const tareaHecha = (e: EstadoReto, dia: number, id: string) => !!e.hechas[claveTarea(dia, id)];
 
 // ── El paso de Offer Coach a Funnel Coach (18/11/2026) ────────────────────────────────────────────────────────────────────────

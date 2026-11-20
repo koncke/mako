@@ -21,7 +21,7 @@ import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { linkWaMe } from '@/lib/verificacion-entrante';
 import { PARA_TODOS } from '@/lib/onboarding-v2/revision';
 import {
-  DIAS_RETO, HORAS_WA, RETO_HOLA, RETO_SUB, RETO_TITULO, mensajeEscrito, tareaHecha,
+  HORAS_WA, RETO_HOLA, RETO_SUB, RETO_TITULO, mensajeEscrito, tareaHecha,
   type DiaReto, type EstadoDia, type EstadoReto, type MarcaReto, type TareaReto,
 } from '@/lib/reto/dias';
 import { mostrarTutorial, senalAhora, senalarDondeTocar } from '@/app/_ui/tutorial/store';
@@ -30,6 +30,7 @@ import { useVideoQueFlota } from '@/app/_ui/tutorial/useVideoQueFlota';
 import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutorial/desde-cero';
 import { claveTarea, diaAbierto, diasDelReto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
 import { RETO_EMPEZAR_DIA1, RETO_INTERES_YA, RETO_MUESTRA, RETO_MUESTRA_FIN, muestrasDe, type MuestraReto } from '@/lib/reto/dias';
+import { diaTerminado, finDelDia, tareaDespues } from '@/lib/reto/dias';
 
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null;
   /** El funnel que eligió en Funnel Coach: arma los días 4 a 6 (`diasDelReto`, 20/11). */
@@ -49,6 +50,8 @@ function hacerEnEnsayo(e: EstadoReto | null, c: { accion?: unknown; dia?: unknow
   if (c.accion === 'adelantar' && Number(c.dia) === diaAbierto(e, ahora) + 1) return { ...e, adelantado: Number(c.dia), adelantadoEn: new Date(ahora).toISOString() };
   if (c.accion === 'hecha') return { ...e, hechas: { ...e.hechas, [claveTarea(Number(c.dia), String(c.id))]: new Date(ahora).toISOString() } };
   if (c.accion === 'hora' && (HORAS_WA as readonly string[]).includes(String(c.hora))) return { ...e, horaWa: String(c.hora) };
+  if (c.accion === 'despues') return { ...e, despues: [...new Set([...(e.despues ?? []), claveTarea(Number(c.dia), String(c.id))])] };
+  if (c.accion === 'manana') return { ...e, manana: Number(c.dia) };
   if (c.accion === 'dia1') return { ...e, dia1Desde: e.dia1Desde ?? new Date(ahora).toISOString() };
   if (c.accion === 'muestra') return { ...e, muestras: [...new Set([...(e.muestras ?? []), String((c as { pestana?: unknown }).pestana ?? '')])] };
   return e;
@@ -120,7 +123,6 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   const [menu, setMenu] = useState(false);
   // El catálogo «Tutoriales de MaKo» (V1, D1-07): el ícono de videos cambia los mensajes por todos los videos, con «Volver al chat».
   const [catalogo, setCatalogo] = useState(false);
-  const [manana, setManana] = useState<number | null>(null);
   const [hora, setHora] = useState<string | null>(null);
 
   // Al abrirlo por primera vez, el reto empieza (el día 1, ahora).
@@ -142,8 +144,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     if (!t || yaMarcada(`${dia.n}:${t.id}`)) return;
     anotarMarcada(`${dia.n}:${t.id}`);
     // El día 1 sin «Lo hago después» (auditoría F1: la maqueta no lo tiene); los demás días sí.
-    marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => {});
-  }, [e, leer]);
+    marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); });
+  }, [e, leer, hacer]);
 
 
   // Los días 4 a 6, armados para su funnel (20/11, auditoría d24-14 y R57-01).
@@ -154,14 +156,23 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   const vistas = muestras.filter((m) => e?.muestras?.includes(m.pestana));
   const quedan = muestras.filter((m) => !e?.muestras?.includes(m.pestana));
   const empezo1 = !!d && !!e && (!!e.dia1Desde || !muestras.length || d.abierto > 1 || Object.keys(e.hechas).length > 0);
+  // EL FIN DEL DÍA (20/11, D1-06, d24-13, R57-07): recién cuando el día abierto terminó (todo hecho o dejado para después), su
+  // cierre (FIN_DIA) y, en el recuadro de opciones, «¿Adelantas el día N?». «Mañana» queda guardado y su respuesta, en el chat.
+  const actual = abiertos[abiertos.length - 1];
+  const siguiente = actual ? diasDelReto(d?.funnel).find((x) => x.n === actual.n + 1) : undefined;
+  const termino = !!e && !!actual && empezo1 && diaTerminado(e, actual);
+  const falta = e && actual ? actual.tareas.filter((t) => !tareaHecha(e, actual.n, t.id) && tareaDespues(e, actual.n, t.id)).map((t) => t.id) : [];
+  const eligioManana = !!e && !!siguiente && e.manana === siguiente.n;
+  const pregunta = termino && !!siguiente && !eligioManana;
   // El orden en que llegan los mensajes (las claves de useAparicion).
   const claves = !d || !e ? [] : [
     'hola', ...(muestras.length ? ['interes'] : []), ...vistas.flatMap((m) => [`muestra:${m.pestana}`, `muestrafin:${m.pestana}`]),
     ...(empezo1 ? abiertos.map((x) => `dia:${x.n}`) : []),
-    ...(empezo1 && d.abierto < 7 ? [`adelantar:${d.abierto}`] : []),
+    ...(termino && actual ? [`fin:${actual.n}`] : []),
+    ...(termino && eligioManana && siguiente ? [`manana:${siguiente.n}`] : []),
   ];
   const ap = useAparicion(claves);
-  useEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [d?.abierto, d?.hechos, manana, ap.escribiendo]);
+  useEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [d?.abierto, d?.hechos, ap.escribiendo]);
   const empezarDia1 = () => {
     const d1 = diasDelReto(d?.funnel)[0];
     // La marca de Offer Coach sale recién al elegir «Empezar mi día 1» (D1-03), no sola al abrir el chat.
@@ -179,6 +190,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
         acciones: d && e ? <span className="rt-acciones"><BotonTutoriales activo={catalogo} onClick={() => setCatalogo((x) => !x)} /><DesplegableReto d={d} abierto={menu} onAbrir={setMenu} /></span> : undefined }}
       caja={d && e && !empezo1 && ap.listo && !ap.escribiendo
         ? <QueHacemos titulo={vistas.length ? '¿Seguimos?' : '¿Qué hacemos ahora?'} quedan={quedan} onDia1={empezarDia1} onMostrar={mostrar} />
+        : pregunta && siguiente && ap.listo && !ap.escribiendo
+        ? <AdelantarDia n={siguiente.n} onAdelantar={() => void hacer({ accion: 'adelantar', dia: siguiente.n })} onManana={() => void hacer({ accion: 'manana', dia: siguiente.n })} />
         : <p className="rt-caja">Cada día te escribo aquí, con su video. Para preguntarle algo a MaKo, el Ops Center.</p>}
       estado="">
       <style>{CSS_RETO + CSS_CATALOGO}</style>
@@ -196,23 +209,12 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
             {empezo1 && abiertos.filter((dia) => ap.ver(`dia:${dia.n}`)).map((dia) => (
               <Dia key={dia.n} dia={dia} e={e} linea={d.linea} hora={horaWa}
                 onHora={(h) => { setHora(h); void hacer({ accion: 'hora', hora: h }); }}
-                onMarcar={(t) => marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => {})}
+                onMarcar={(t) => marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); })}
                 onTocadoEnVideo={() => { void leer(); }}
                 onFinVideo={() => marcarLoQueFalta(dia)} />
             ))}
-            {empezo1 && d.abierto < 7 && ap.ver(`adelantar:${d.abierto}`) && (
-              <Burbuja>
-                {manana === d.abierto + 1
-                  ? <p>Perfecto: mañana a las {horaWa} te escribo con el día {d.abierto + 1}.</p>
-                  : <>
-                      <p>{d.dias[d.abierto - 1] === 'hecho' ? `¡Listo tu día ${d.abierto}!` : `Tu día ${d.abierto} sigue abierto.`} ¿Adelantas el día {d.abierto + 1}: {DIAS_RETO[d.abierto].titulo.toLowerCase()}?</p>
-                      <div className="rt-opciones">
-                        <button type="button" className="co-chip co-chip--primario" onClick={() => void hacer({ accion: 'adelantar', dia: d.abierto + 1 })}>Adelantar al día {d.abierto + 1}</button>
-                        <button type="button" className="co-chip" onClick={() => setManana(d.abierto + 1)}>Mañana</button>
-                      </div>
-                    </>}
-              </Burbuja>
-            )}
+            {termino && actual && ap.ver(`fin:${actual.n}`) && <Burbuja><p>{finDelDia(actual, siguiente, horaWa, nombre, falta)}</p></Burbuja>}
+            {termino && eligioManana && siguiente && ap.ver(`manana:${siguiente.n}`) && <Burbuja><p>Perfecto: mañana a las {horaWa} se abre tu día {siguiente.n}, aquí en el reto.</p></Burbuja>}
             {ap.escribiendo && <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo"><span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></span></Burbuja>}
             {d.abierto === 7 && d.hechos === 7 && <Burbuja><p>¡Terminaste tu reto de 7 días, {nombre || 'genial'}! Tu negocio ya está armado en MaKo.</p></Burbuja>}
           </>
@@ -233,6 +235,24 @@ export function QueHacemos({ titulo, quedan, onDia1, onMostrar }: { titulo: stri
         {quedan.map((m, i) => (
           <li key={m.pestana}><button type="button" className="co-preg__op" onClick={() => onMostrar(m)}><span className="co-preg__num" aria-hidden>{i + 2}</span>
             <span className="co-preg__op-txt"><span className="co-preg__titulo">Muéstrame {m.nombre}</span></span></button></li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/** «¿Adelantas el día N?», en el recuadro de opciones (D1-06, d24-13, R57-07): sólo al día 2 se le recomienda «Adelantar»; desde
+ *  el 3, «Mañana» va primero y sin recomendada. */
+export function AdelantarDia({ n, onAdelantar, onManana }: { n: number; onAdelantar: () => void; onManana: () => void }) {
+  const ops = n === 2 ? [{ t: `Adelantar al día ${n}`, rec: true, f: onAdelantar }, { t: 'Mañana', rec: false, f: onManana }]
+    : [{ t: 'Mañana', rec: false, f: onManana }, { t: `Adelantar al día ${n}`, rec: false, f: onAdelantar }];
+  return (
+    <div className="co-preg co-preg--chat rt-preg" role="group" aria-label={`¿Adelantas el día ${n}?`} data-recorrido="sb-reto-adelantar">
+      <p className="co-preg__texto">¿Adelantas el día {n}?</p>
+      <ol className="co-preg__ops">
+        {ops.map((o, i) => (
+          <li key={o.t}><button type="button" className="co-preg__op" onClick={o.f}><span className="co-preg__num" aria-hidden>{i + 1}</span>
+            <span className="co-preg__op-txt"><span className="co-preg__titulo">{o.t}{o.rec && <span className="co-preg__rec"> (Recomendada)</span>}</span></span></button></li>
         ))}
       </ol>
     </div>
@@ -268,6 +288,7 @@ export function Dia({ dia, e, linea, hora, onHora, onMarcar, onTocadoEnVideo, on
                   <span className="rt-tarea__txt"><b>{t.titulo}</b><small>{leido ?? t.detalle}</small></span>
                   {/* Sin «Hacerlo» (18/11): dice DÓNDE es, y tocarlo marca ese lugar con el tutorial (no lleva a ningún lado). */}
                   {ok ? <span className="rt-tarea__ok">Listo</span>
+                    : tareaDespues(e, dia.n, t.id) ? <button type="button" className="rt-tarea__donde" onClick={() => onMarcar(t)} title="Te marco dónde está">◐ Después</button>
                     : <button type="button" className="rt-tarea__donde" onClick={() => onMarcar(t)} title="Te marco dónde está">{t.donde}</button>}
                 </li>
               );
@@ -276,8 +297,9 @@ export function Dia({ dia, e, linea, hora, onHora, onMarcar, onTocadoEnVideo, on
         </div>
       </Burbuja>
       {/* Lo que hizo durante el video ya cuenta (el Cerebro, 18/11): si hizo todo, la felicita y pasa a la prueba por WhatsApp. */}
-      {todas && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!{p ? ' Te queda la prueba por WhatsApp.' : ''}</p></Burbuja>}
-      {p && (
+      {todas && dia.n === 2 && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!{p ? ' Te queda la prueba por WhatsApp.' : ''}</p></Burbuja>}
+      {/* La prueba por WhatsApp va al FINAL del día (f24-02); la hora del día 2 es un paso del día. */}
+      {p && (dia.n === 2 || diaTerminado(e, dia)) && (
         <Burbuja ancho>
           <div className="rt-tarjeta rt-wa">
             <p className="rt-tarjeta__t">{p.texto}</p>

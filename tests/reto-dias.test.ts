@@ -181,7 +181,7 @@ test('lo tocado durante el video del día cuenta como hecho: la tarea cuya últi
   // 20/11 (D1-03, d24-09 y R57-12): nada se marca solo a los 0,9 s; lo que falta, al terminar o cerrar el video del día.
   assert.ok(!chat.includes('}, 900)'), 'sin la marca automática a los 900 ms');
   assert.ok(chat.includes('alTerminar: () => onFin?.()') && chat.includes('onEnded={() => onFin?.()}'), 'la marca de lo que falta sale al terminar el video');
-  assert.ok(chat.includes("marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => {})"), 'el día 1 sin «Lo hago después» (F1)');
+  assert.ok(chat.includes("marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); })"), 'el día 1 sin «Lo hago después» (F1)');
   assert.match(chat, /¡Hiciste todo lo del día \{dia\.n\}!/, 'con todo hecho, la felicita y pasa a WhatsApp');
 });
 
@@ -242,7 +242,7 @@ test('los tres puntitos: cada mensaje del reto llega después de que MaKo escrib
   const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
   assert.ok(chat.includes('const ap = useAparicion(claves);'), 'los mensajes pasan por la aparición');
   assert.ok(chat.indexOf('const ap = useAparicion(claves);') < chat.indexOf('ap.escribiendo]'), 'ap se declara antes de usarlo en un efecto');
-  for (const k of ["ap.ver('hola')", "ap.ver('interes')", 'ap.ver(`dia:${dia.n}`)', 'ap.ver(`adelantar:${d.abierto}`)']) assert.ok(chat.includes(k), `${k} espera su turno`);
+  for (const k of ["ap.ver('hola')", "ap.ver('interes')", 'ap.ver(`dia:${dia.n}`)', 'ap.ver(`fin:${actual.n}`)']) assert.ok(chat.includes(k), `${k} espera su turno`);
   assert.ok(chat.includes('co-trabajando__puntos'), 'los puntitos del Ops Center');
   assert.ok(chat.includes('!empezo1 && ap.listo && !ap.escribiendo'), 'las opciones, recién cuando MaKo terminó de escribir');
 });
@@ -260,6 +260,27 @@ test('el catálogo «Tutoriales de MaKo»: para empezar, el reto con los días c
   assert.deepEqual(g2[0].tarjetas.map((t) => t.titulo), ['Cómo funciona Calendar', 'Cómo funciona Classroom › Calendar'], 'sin AI Avatar, y sin dos «Calendar»');
   const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
   assert.ok(chat.includes('<BotonTutoriales activo={catalogo}') && chat.includes('catalogo && d ? <CatalogoTutoriales'), 'el ícono en la cabecera cambia el hilo por el catálogo');
+});
+
+test('el fin de cada día: «¿Adelantas…?» recién al terminarlo, «Lo hago después» y «Mañana» guardados (20/11, D1-06, d24-13, R57-07, R57-F1, R57-F4)', async () => {
+  const { diaTerminado, finDelDia, leerEstado: leer } = await import('../lib/reto/dias');
+  const d3 = DIAS_RETO[2], d4 = DIAS_RETO[3];
+  const e = { ...base, adelantado: 3, hechas: { '3:contactos': 'x', '3:automatizacion': 'x' }, leidas: {} };
+  assert.equal(diaTerminado(e, d3), false, 'con una tarea sin hacer ni dejar, el día sigue');
+  assert.equal(diaTerminado({ ...e, despues: ['3:calendar'] }, d3), true, 'dejada para después, el día termina');
+  assert.equal(finDelDia(d3, d4, '9:00', 'Ana', ['calendar']), 'Tu día 3 quedó casi listo: te falta conectar tu calendario. Mañana a las 9:00 sigue el día 4: copia lo que le funciona a tu competencia.');
+  assert.equal(finDelDia(d3, d4, '9:00', 'Ana', []), '¡Listo tu día 3! Mañana a las 9:00 sigue el día 4: copia lo que le funciona a tu competencia.');
+  assert.match(finDelDia(DIAS_RETO[0], DIAS_RETO[1], '9:00', 'Ana', []), /^¡Terminaste tu día 1, Ana!/);
+  assert.doesNotMatch(finDelDia(d3, d4, '9:00', 'Ana', []), /te escribo/, 'sin prometer el WhatsApp de cada mañana, que todavía no existe');
+  assert.deepEqual(leer({ inicio: '2026-11-18T15:00:00Z', despues: ['3:calendar', 'raro'], manana: 4 }), { ...leer({ inicio: '2026-11-18T15:00:00Z' }), despues: ['3:calendar'], manana: 4 });
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.ok(chat.includes("const pregunta = termino && !!siguiente && !eligioManana;"), 'la pregunta, recién con el día terminado');
+  assert.ok(chat.includes('<AdelantarDia n={siguiente.n}'), 'en el recuadro de opciones, no en la burbuja');
+  assert.ok(chat.includes("{ void hacer({ accion: 'despues', dia: dia.n, id: t.id }); }"), '«Lo hago después» se guarda');
+  assert.ok(chat.includes('{todas && dia.n === 2 && <Burbuja>'), '«¡Hiciste todo…!» sólo en el día 2');
+  assert.ok(chat.includes("{p && (dia.n === 2 || diaTerminado(e, dia)) && ("), 'la prueba por WhatsApp, al final del día');
+  const ruta = readFileSync(new URL('../app/api/reto/route.ts', import.meta.url), 'utf8');
+  assert.ok(ruta.includes("body.accion === 'despues'") && ruta.includes("body.accion === 'manana'"), 'la API guarda los dos');
 });
 
 test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, sin clip de regalo, sin la tab AI Avatar', () => {

@@ -107,6 +107,16 @@ export async function POST(req: NextRequest) {
     const p = String((body as { pestana?: unknown }).pestana ?? '');
     if (!/^[a-z-]{2,30}$/.test(p)) return Response.json({ ok: false, error: 'Esa pestaña no es del reto.' }, { status: 400 });
     e = { ...e, muestras: [...new Set([...(e.muestras ?? []), p])] };
+  } else if (body.accion === 'despues') {
+    // «Lo hago después» (R57-F1): queda guardado; el día termina igual y la tarea sigue marcada como pendiente.
+    const k = `${Number(body.dia)}:${String(body.id ?? '')}`;
+    if (!/^\d:[a-z-]+$/.test(k)) return Response.json({ ok: false, error: 'Esa tarea no es del reto.' }, { status: 400 });
+    e = { ...e, despues: [...new Set([...(e.despues ?? []), k])] };
+  } else if (body.accion === 'manana') {
+    // «Mañana» (D1-06): la respuesta queda en el chat.
+    const dia = Number(body.dia);
+    if (!Number.isInteger(dia) || dia < 2 || dia > 7) return Response.json({ ok: false, error: 'Ese día no es del reto.' }, { status: 400 });
+    e = { ...e, manana: dia };
   } else if (body.accion === 'hora') {
     const hora = String(body.hora ?? '');
     if (!(HORAS_WA as readonly string[]).includes(hora)) return Response.json({ ok: false, error: 'Esa hora no está entre las del reto.' }, { status: 400 });
