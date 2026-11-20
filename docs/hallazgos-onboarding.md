@@ -3504,3 +3504,7 @@ filas de los coaches tachaban el día 1 entero.
 - **La frase va escrita con el gancho del guion del día 5**, con los pedidos de lectura del Copywriter (`pedirListar` y `pedirAbrir`):
   lo que está bajo el título de sección «GANCHO» (o el primer párrafo, si el guion no tiene secciones). Si no entra en 25 palabras,
   su primera oración; si tampoco, entero, y la cuenta le dice cuánto sobra: nunca se corta en silencio. No pisa lo que ya escribió.
+- **La tarjeta dio rojo en GitHub por dos guardianes que en la PC no corrí** (corrida 44681702296): un `<textarea>` en un archivo que
+  le habla a MaKo cuenta como «otra caja de chat» (tests/chat-unico.test.ts), aunque sea un formulario; y todo `role="alert"` lleva
+  `<ReportarASoporte />` (tests/reportar-a-soporte.test.ts). Un formulario dentro de un chat va en su propio archivo
+  (app/second-brain/reto/ClipDelReto.tsx). Antes de subir algo con un campo de texto o un aviso de error, correr esos dos.

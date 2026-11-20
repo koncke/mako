@@ -403,7 +403,12 @@ test('el clip de regalo del día 6 (20/11, R57-02): cada estado de AI Avatar tie
   }
 
   // El componente: llama a las acciones de AI Avatar, pregunta cada 10 s SÓLO mientras se genera, y al quedar listo relee el reto.
-  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  // La tarjeta vive en ClipDelReto.tsx (un formulario, no otra caja de chat: tests/chat-unico.test.ts); el día 6 y el releer, en el chat.
+  const soloChat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const clip = readFileSync(new URL('../app/second-brain/reto/ClipDelReto.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const chat = soloChat + clip;
+  assert.ok(!/<textarea/.test(soloChat), 'el chat del reto no arma otra caja');
+  assert.ok(clip.includes('role="alert">{error}<ReportarASoporte /></p>'), 'el error, con «Reportar a Soporte» (tests/reportar-a-soporte.test.ts)');
   assert.ok(chat.includes("import { clipDeRegaloAction, pedirClipDeRegaloAction } from '@/app/ai-avatar/regalo/actions';"), 'las acciones del contrato');
   assert.ok(chat.includes('{dia.n === 6 && <ClipDelReto onListo={onClipListo} />}'), 'en el día 6');
   assert.ok(chat.includes('onClipListo={() => { void leer(); }}'), 'listo, relee el reto: la tarea del clip se marca sola');
@@ -433,7 +438,7 @@ test('el clip de regalo trae escrita la frase: el gancho de su guion más nuevo,
   assert.deepEqual(guionMasNuevo([{ id: 'a', actualizado: '2026-11-19T10:00:00Z' }, { id: 'b', actualizado: '2026-11-20T10:00:00Z', papelera: '2026-11-20T11:00:00Z' }, { id: 'c', actualizado: '2026-11-19T12:00:00Z' }])?.id, 'c', 'el más nuevo fuera de la papelera');
   assert.equal(guionMasNuevo([]), null);
 
-  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const chat = readFileSync(new URL('../app/second-brain/reto/ClipDelReto.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   assert.ok(chat.includes('setFrase((f) => (f.trim() ? f : g))'), 'nunca le pisa lo que escribió');
   assert.ok(chat.includes("import { pedirAbrir, pedirListar } from '@/app/copywriter/cliente';"), 'con los pedidos de lectura del Copywriter');
   assert.ok(chat.includes('if (!conFormulario || prellenada.current) return;'), 'una sola vez, y sólo con el formulario a la vista');
