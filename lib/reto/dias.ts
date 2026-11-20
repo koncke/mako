@@ -221,6 +221,10 @@ export const RETO_MUESTRA = (m: MuestraReto) => `Te muestro dónde ${m.hacer}, e
 // La maqueta dice «Cuando quieras lo armamos juntos»: «juntos» marca género (la regla de los textos neutros).
 export const RETO_MUESTRA_FIN = (m: MuestraReto) => `Listo: ya sabes dónde ${m.hacer}. Cuando quieras, lo armamos; tu reto te espera.`;
 
+// ── Los videos del catálogo «Tutoriales de MaKo» que son del onboarding y del reto (20/11, V1): [key del manifiesto, título] ──
+export const VIDEOS_PARA_EMPEZAR: ReadonlyArray<[string, string]> = [['onboarding-bienvenida', 'Bienvenida a MaKo'], ['onboarding-whatsapp', 'Tu WhatsApp con MaKo'], ['recorrido', 'Tu recorrido por MaKo']];
+export const VIDEOS_DEL_RETO: ReadonlyArray<[string, string]> = [['offer-coach', 'Día 1 · Offer Coach'], ['funnel-coach', 'Día 1 · Funnel Coach'], ...[1, 2, 3, 4, 5, 6, 7].map((n): [string, string] => [`reto-dia-${n}`, `Día ${n} del reto`])];
+
 // ── Los días 4 a 6, según el funnel (20/11/2026, auditoría d24-14 y R57-01) ─────────────────────────────────────────────────
 // Martín, 15/11: «el reto tiene que servir a CADA funnel». La tabla es la de la maqueta (C:/dev/artefactos-onboarding/cuerpo.html,
 // POR_FUNNEL): qué mira en Competitor Spy, qué página arma, qué carrusel y qué guion, y para qué es el clip. Los funnels de la app

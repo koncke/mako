@@ -13,13 +13,13 @@ import { useState } from 'react';
 import { TUTORIALES } from '@/lib/tutoriales';
 import { useManifiesto } from '@/app/_ui/tutorial/useVideoTutorial';
 import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
+// Los videos del reto viven en lib/reto/dias.ts: el nombre de los coaches sólo se escribe ahí (tests/coaches-ops-center.test.ts, 14).
+import { VIDEOS_PARA_EMPEZAR as PARA_EMPEZAR, VIDEOS_DEL_RETO as DEL_RETO } from '@/lib/reto/dias';
 
 type Video = { key: string; pestana?: string; duracion_s?: number };
 export type Tarjeta = { key: string; titulo: string; dur?: number; cerrado?: string };
 export type Grupo = { titulo: string; tarjetas: Tarjeta[] };
 
-export const PARA_EMPEZAR: ReadonlyArray<[string, string]> = [['onboarding-bienvenida', 'Bienvenida a MaKo'], ['onboarding-whatsapp', 'Tu WhatsApp con MaKo'], ['recorrido', 'Tu recorrido por MaKo']];
-export const DEL_RETO: ReadonlyArray<[string, string]> = [['offer-coach', 'Día 1 · Offer Coach'], ['funnel-coach', 'Día 1 · Funnel Coach'], ...[1, 2, 3, 4, 5, 6, 7].map((n) => [`reto-dia-${n}`, `Día ${n} del reto`] as [string, string])];
 
 /** Los grupos del catálogo, con lo que hay en el manifiesto. Puro: lo prueba tests/reto-dias.test.ts. */
 export function gruposDelCatalogo(videos: readonly Video[], diaAbierto: number): Grupo[] {
