@@ -184,6 +184,21 @@ function syncDe(proyectoId: string): Sync {
 
 type RespuestaHilo = { ok: true; hilo: { mensajes: unknown; version: number } | null } | { ok: false; sinTabla?: boolean; error?: string };
 
+/**
+ * ¿Ya se intentó leer el hilo guardado de este proyecto, saliera como saliera? (auditoría de chats del 20/11, pestanas-9 en el
+ * Video Editor). El hilo llega del servidor DESPUÉS de abrir el panel: hasta acá, la cola del panel no suelta nada, y lo guardado
+ * sale de una, sin puntitos. Con un error también: si no, lo nuevo quedaría retenido para siempre.
+ */
+const leidos = new Set<string>();
+export function hiloLeido(proyectoId: string): boolean {
+	return leidos.has(proyectoId);
+}
+function marcarLeido(proyectoId: string) {
+	if (leidos.has(proyectoId)) return;
+	leidos.add(proyectoId);
+	for (const o of oyentes) o();
+}
+
 /** Lee el hilo guardado de un proyecto (una vez por pestaña) y lo une con lo que ya hay. `nombre`: el del proyecto. */
 export async function cargarHilo(proyectoId: string, nombre?: string | null): Promise<void> {
 	if (nombre) nombres.set(proyectoId, nombre);
@@ -200,6 +215,7 @@ export async function cargarHilo(proyectoId: string, nombre?: string | null): Pr
 	if (!r || !r.ok) {
 		// Sin la tabla, no se insiste. Un error de red vuelve a intentar la próxima vez que se abra el chat.
 		s.estado = r && "sinTabla" in r && r.sinTabla ? "sin-tabla" : "sin-cargar";
+		marcarLeido(proyectoId);
 		return;
 	}
 	s.estado = "listo";
@@ -212,6 +228,7 @@ export async function cargarHilo(proyectoId: string, nombre?: string | null): Pr
 		// guarda (abajo), unido.
 		cambiarHilo(proyectoId, (h) => ({ ...h, mensajes: unirConServidor(h.mensajes, guardados, proyectoId) }), { guardar: false });
 	}
+	marcarLeido(proyectoId);
 	if (s.sucio || (leerHilo(proyectoId).mensajes.length && !r.hilo)) programarGuardado(proyectoId);
 }
 

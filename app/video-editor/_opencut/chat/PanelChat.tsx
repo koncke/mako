@@ -67,7 +67,7 @@ import { fasesDesde } from "@/app/_ui/armado-en-vivo";
 import { aceptarPropuesta, deshacerPropuesta } from "./aplicar";
 import { agentesDeOperaciones, mostrarCursores, sumarTiempo, tareasDeOperaciones } from "@/app/video-editor/_opencut/enjambre/cursores-sueltos";
 import { datosDeLinea, disponiblesChat } from "./contexto";
-import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
+import { cambiarHilo, cambiarMensaje, cargarHilo, conId, hiloLeido, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
 import { marcarCerrada, resolverEnServidor, traerPropuestas } from "./propuestas";
 import { useChatAbierto } from "./estado";
 import { esConfirmacion, propuestaQueConfirma } from "./confirmar";
@@ -493,17 +493,11 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	// vieja en vez de quedarse abajo, donde está lo nuevo (revisión del 20/10).
 	useEffect(() => () => useChatAbierto.getState().setFoco(null), []);
 
-	// ⚠️ DESPUÉS de bajar: la propuesta del link (`?propuesta=`, chat/propuestas.ts) se busca, se centra y se resalta
-	// unos segundos. Si todavía no está en el hilo, espera a que llegue (depende de la cantidad de mensajes).
 	const foco = useChatAbierto((s) => s.foco);
-	useEffect(() => {
-		if (!foco) return;
-		const el = hiloRef.current?.querySelector<HTMLElement>(`[data-mensaje="${CSS.escape(foco)}"]`);
-		if (!el) return;
-		el.scrollIntoView({ block: "center" });
-		const t = setTimeout(() => useChatAbierto.getState().setFoco(null), 4000);
-		return () => clearTimeout(t);
-	}, [foco, hilo.mensajes.length]);
+	/** La propuesta del link que ya se centró: mientras sigue enfocada, el «baja solo» se queda quieto (el foco gana). */
+	const [centrada, setCentrada] = useState<string | null>(null);
+	// ¿Ya llegó el hilo guardado? (chat/hilo.ts). Hasta ahí la cola no suelta nada, y lo guardado sale de una, sin puntitos.
+	const leido = useSyncExternalStore(suscribir, () => (proyectoId ? hiloLeido(proyectoId) : true), () => false);
 
 	/** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
 	// Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): sólo los de la caja (`op.archivos`).
@@ -688,10 +682,26 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	// LA COLA DE SALIDA (auditoría de chats del 20/11, pestanas-7 y 8; app/_chat/useColaDelHilo.ts, sobre la cola compartida): los mensajes
 	// nuevos de MaKo salen de a uno, con sus puntitos, y su tarjeta o sus botones (`enMensaje.abajo`) después del texto, con su pausa.
 	// Antes un solo setState los dibujaba juntos. Lo que ya estaba al abrir sale de una.
-	const cola = useColaDelHilo(nota.conNotas(items), { ocupado: hilo.corriendo });
+	const cola = useColaDelHilo(nota.conNotas(items), { ocupado: hilo.corriendo, cargado: leido });
 	const filasDelHilo = cola.items;
 	const enMensajeConCola = (x: Extract<ItemHilo, { k: "msg" }>): EnMensaje | null => { const e = enMensaje(x); return e && !cola.conPieza(x.id) ? { ...e, abajo: null } : e; };
-	useBajarAlUltimo(seguirHilo, `${filasDelHilo[filasDelHilo.length - 1]?.id ?? ""}|${cola.escribiendo ? "escribe" : ""}|${hilo.corriendo ? "trabaja" : ""}`);
+	// Con la propuesta del link centrada, quieto: ni un mensaje nuevo, ni los puntitos, ni lo que crece la bajan. Al soltarse el
+	// foco no salta al final: baja con el próximo mensaje.
+	useBajarAlUltimo(seguirHilo, `${filasDelHilo[filasDelHilo.length - 1]?.id ?? ""}|${cola.escribiendo ? "escribe" : ""}|${hilo.corriendo ? "trabaja" : ""}`, { quieto: !!foco && centrada === foco });
+
+	// ⚠️ DESPUÉS de bajar: la propuesta del link (`?propuesta=`, chat/propuestas.ts) se busca, se centra y se resalta
+	// unos segundos. El «baja solo» es el gancho de arriba, un useLayoutEffect: este useEffect corre después y no lo pisa; ya
+	// centrada, el gancho se queda quieto hasta que se suelta. Si la propuesta todavía no está dibujada, espera a que la cola la
+	// suelte (depende de las filas que salieron, no de los mensajes: lo guardado llega del servidor y sale en el cuadro siguiente).
+	useEffect(() => {
+		if (!foco) return;
+		const el = hiloRef.current?.querySelector<HTMLElement>(`[data-mensaje="${CSS.escape(foco)}"]`);
+		if (!el) return;
+		el.scrollIntoView({ block: "center" });
+		setCentrada(foco);
+		const t = setTimeout(() => useChatAbierto.getState().setFoco(null), 4000);
+		return () => clearTimeout(t);
+	}, [foco, filasDelHilo.length]);
 
 	return (
 		// Un <section> y no un <aside>: con la barra de la agencia, `[data-barra-agencia] aside` (app/globals.css) le fuerza a todo <aside> el alto de la ventana, y la caja quedaba fuera de la vista (medido el 22/10/2026).

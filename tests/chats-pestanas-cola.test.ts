@@ -153,6 +153,21 @@ test('pestanas-9: Automations con puntitos mientras arma en el servidor; la nota
   assert.match(s, /finally \{ if \(sigue\(\)\) setChatLeido\(true\); \}/);
 });
 
+// El rojo de la punta del 20/11 (corrida 1943) llevó acá: el hilo del Video Editor también llega del servidor después de abrir el
+// panel. Sin `cargado`, lo guardado salía de a uno con puntitos, y la propuesta del link no estaba dibujada cuando la buscaba el foco.
+test('pestanas-9 (Video Editor): lo guardado, de una al leerse, también con error; el foco espera a que la cola lo suelte', () => {
+  const p = leer('app/video-editor/_opencut/chat/PanelChat.tsx');
+  assert.match(p, /const leido = useSyncExternalStore\(suscribir, \(\) => \(proyectoId \? hiloLeido\(proyectoId\) : true\), \(\) => false\);/);
+  assert.match(p, /useColaDelHilo\(nota\.conNotas\(items\), \{ ocupado: hilo\.corriendo, cargado: leido \}\)/);
+  assert.match(p, /\}, \[foco, filasDelHilo\.length\]\);/);
+  const h = leer('app/video-editor/_opencut/chat/hilo.ts');
+  const carga = h.slice(h.indexOf('export async function cargarHilo'), h.indexOf('export async function guardarHiloAhora'));
+  assert.equal(carga.split('marcarLeido(proyectoId);').length - 1, 2, 'con error o sin él: si no, lo nuevo queda retenido para siempre');
+  assert.ok(carga.indexOf('marcarLeido(proyectoId);\n\t\treturn;') > 0, 'el error también marca leído');
+  assert.ok(carga.lastIndexOf('marcarLeido(proyectoId);') > carga.indexOf('cambiarHilo(proyectoId'), 'leído recién con los mensajes ya puestos');
+  assert.match(h, /function marcarLeido\(proyectoId: string\) \{\n\tif \(leidos\.has\(proyectoId\)\) return;\n\tleidos\.add\(proyectoId\);\n\tfor \(const o of oyentes\) o\(\);/);
+});
+
 test('pestanas-10: el gráfico lee su charla con el cargador de la casa, no con los puntitos de MaKo', () => {
   const s = leer('app/_components/MakoChat.tsx');
   assert.match(s, /\{cargando && <CargandoMako que="la conversación" \/>\}/);
@@ -183,7 +198,10 @@ test('pestanas-13: la charla de la apertura del Image Editor la sigue el gancho 
   assert.match(leer('app/_chat/useBajarAlUltimo.ts'), /mirarHijos\(\)/);
 });
 
-// ⚠️ PROBADO ROMPIÉNDOLO (20/11/2026, base 12/0; al restaurar, 12/0 otra vez). Cada rotura, de a una:
+// ⚠️ PROBADO ROMPIÉNDOLO (20/11/2026, base 12/0; al restaurar, 12/0 otra vez; con el test del Video Editor, base 13/0 y cada rotura
+// un rojo más). Cada rotura, de a una:
+//   - pestanas-9 (Video Editor): sin `cargado: leido` → 12/1; el error de red sin `marcarLeido` → 12/1; el foco con
+//     `[foco, hilo.mensajes.length]` → 12/1
 //   - el adaptador sin la pieza de MaKo (`pieza: false`) → 10/2; con la tarjeta suelta de una (`'ya'` en vez de `'pieza'`) → 10/2
 //   - pestanas-1: Automations por la cuenta de ítems (`${cola.items.length}`) → 11/1
 //   - pestanas-2: Analyst con una clave que no cambia (`ultimaFila.k`) → 11/1; con su `estaAbajo` de vuelta → 11/1

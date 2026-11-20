@@ -586,6 +586,20 @@ adaptador fino para los hilos de ítems, app/_chat/useColaDelHilo.ts. Lo prueba 
 - **Trampa: el chat que carga después, otra vez.** Automations lee su chat guardado con un GET al montarse: sin `cargado`, lo
   guardado salía de a uno con puntitos (la trampa de la entrada de abajo). ChatMako pasa `cargado={chatLeido}`; con un pedido de
   afuera no lee nada y arranca leído.
+- **Y una tercera vez, en el Video Editor; el diagnóstico obvio era el equivocado.** La punta dio rojo en
+  tests/video-editor-propuesta-link.test.ts: buscaba `el.scrollTop = el.scrollHeight`, que ya no existe. Parecía bastar con poner
+  el test al día. Pero el test cuidaba que el foco de la propuesta del link corra después del «baja solo», y mirando eso apareció
+  el hueco real: el hilo (`cargarHilo`, chat/hilo.ts) llega del servidor después de abrir el panel, y la cola no lo sabía. Lo
+  guardado salía de a uno con puntitos, y el foco buscaba la propuesta antes de que la cola la dibujara, sin volver a buscarla.
+  Ahora:
+  - `hiloLeido` marca el hilo leído también con un error de red; si no, lo nuevo quedaría retenido para siempre;
+  - el panel le pasa `cargado: leido` a la cola;
+  - el foco va después del gancho y vuelve a buscar con `filasDelHilo.length`;
+  - ya centrada la propuesta, el gancho se queda quieto (`useBajarAlUltimo(…, { quieto })`), porque los puntitos o un mensaje
+    nuevo la bajaban igual. `quieto` no está en las dependencias, así que al soltarse el foco no salta al final: baja con el
+    próximo mensaje. Sirve a cualquier chat que lleve a un mensaje de más arriba.
+  **Regla:** antes de poner al día un test que se rompió con un cambio tuyo, lee qué cuidaba. **Sin hacer:** con el panel abierto y
+  otro proyecto elegido sin desmontarlo, lo guardado del segundo proyecto sale con puntitos (la cola lee `cargado` una vez).
 - **Un hilo guionado (función pura del perfil) no se anima desde adentro.** Media Buyer, CoPilot y Newsletter recalculan el hilo entero
   en un set. La cola va POR FUERA, sobre lo que se dibuja, y las pastillas dependen de `conPieza` del último mensaje. Las preguntas
   guionadas del Copywriter ni siquiera están en el hilo (son estado derivado, `pasoIni` y `pasoActual`): tienen una cola de una fila
