@@ -1,0 +1,316 @@
+// =============================================================================
+// fuentes-crm-server — los formularios de «Asignar fuentes» y sus reglas de calificación: UNA implementación (server, 20/11/2026)
+// =============================================================================
+// Martín, 20/11/2026: «formularios deberían poder ser de páginas web (creadas en MaKo o creadas en cualquier lado… Para eso
+// tenemos el pixel de MaKo), o formularios de Meta, de anuncios. Y para lo que necesita Juanfran, que se pueda asignar los
+// "calificados" o "descalificados" y que caigan correspondientemente en su etapa».
+//
+// Lo llaman las dos puertas, con las MISMAS funciones: la pantalla (app/crm/fuentes-actions.ts, que pone la sesión y el rol) y
+// la API de MaKo (lib/api-mako/areas/crm.run.ts: listar_formularios, asignar_formulario, ver_reglas_formulario,
+// guardar_reglas_formulario y reaplicar_reglas_formulario). «Todo MaKo se debe poder usar por API» (Martín, 25/10/2026).
+// Acá no se mira quién llama: eso es de cada puerta.
+//
+// `funnelId` = el funnel, por su id REAL; `null` = el del negocio (así lo manda la pantalla).
+// =============================================================================
+
+import 'server-only';
+import { revalidatePath, updateTag } from 'next/cache';
+import { getTenantDb } from './workspace';
+import { TAG } from './cache';
+import { getSettingEstricto, setSetting } from './settings';
+import { productosAsignables } from './landing-funnel';
+import { CONFIG_KEY as CLAVE_LANDINGS, MAX_LANDINGS, conLanding, landingDe, parsearConfig } from './landing-config';
+import { normalizarUrl } from './landing-paginas';
+import { asignacionesDelNegocio, asignarPieza, landingsConPiezas } from './piezas-web';
+import { claveValida } from './editor-landing/piezas';
+import { claveMeta, claveWeb, claveFuenteValida, conReglas, reglasDe, tipoDeClave, alternarFormularioMeta } from './fuentes-formularios';
+import { REGLAS_VACIAS, sanearReglas, preguntasDeEnvios, type ReglasFormulario, type PreguntaVista } from './calificacion-formulario';
+import { leerMapaReglas, leerMapaReglasEstricto, guardarMapaReglas, enviosDeFormulario, aplicarCalificacion, type EnvioDeFormulario } from './calificacion-aplicar';
+import {
+  formulariosDeMeta, leerAsignacionesMeta, leerAsignacionesMetaEstricto, guardarAsignacionesMeta, leadIdsDeFormularioMeta, preguntasDeFormularioMeta,
+} from './formulario-meta-funnel';
+
+/** Lo que cambió el CRM: la caché de leads y la página. En try/catch: lo que se movió ya se movió, y la caché vence sola. */
+function refrescar(): void {
+  try { updateTag(TAG.leads); } catch { /* fuera de una acción del servidor: vence por TTL */ }
+  try { revalidatePath('/crm'); } catch { /* idem */ }
+}
+
+/** El id REAL del funnel (`null` = el del negocio) y su nombre, contra los vivos. */
+export async function funnelReal(funnelId: number | null): Promise<{ id: number; nombre: string } | null> {
+  const vivos = await productosAsignables();
+  const f = funnelId == null ? vivos.find((x) => x.esDefault) : vivos.find((x) => x.id === funnelId);
+  return f ? { id: f.id, nombre: f.nombre } : null;
+}
+
+export type FormularioFila = {
+  clave: string;
+  tipo: 'meta' | 'wg' | 'web';
+  nombre: string;
+  /** La página: la de Facebook (Meta) o la URL. */
+  pagina: string | null;
+  /** Cuántos leads o envíos tiene, si se sabe. */
+  leads: number | null;
+  /** El último envío (ISO), si se sabe. */
+  ultimo: string | null;
+  prendido: boolean;
+  /** Los OTROS funnels a los que entra. */
+  otros: string[];
+  /** Sus reglas en este funnel. */
+  reglas: { activa: boolean; n: number } | null;
+  /** ¿Trae respuestas que calificar? La agenda y el pago de Web Generator no. */
+  califica: boolean;
+  /** Qué pieza es, si no es un formulario («Agenda», «Pago», «Encuesta», «Quiz»). */
+  rotulo?: string;
+};
+
+export type EstadoFormularios = {
+  ok: true;
+  funnel: { id: number; nombre: string };
+  meta: FormularioFila[] | null;
+  /** `sin-meta` = el negocio no conectó Meta; otro texto = Meta no contestó. */
+  metaError: string | null;
+  web: FormularioFila[];
+};
+
+/** Los formularios de los tres tipos, para la pestaña «Formularios». Ninguna lectura tumba a las otras. */
+export async function formulariosDelFunnel(funnelId: number | null): Promise<EstadoFormularios | { ok: false; error: string }> {
+  try {
+    const f = await funnelReal(funnelId);
+    if (!f) return { ok: false, error: 'Ese funnel ya no existe.' };
+    const [vivos, mapa, meta, asigMeta, landings, asigPiezas, paginas, envios] = await Promise.all([
+      productosAsignables(), leerMapaReglas(), formulariosDeMeta().catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'Meta no contestó' })),
+      leerAsignacionesMeta(), landingsConPiezas().catch(() => []), asignacionesDelNegocio().catch(() => ({})),
+      paginasConEnvios(), enviosPorFormularioWeb(),
+    ]);
+    const nombreDe = (id: number) => vivos.find((x) => x.id === id)?.nombre ?? 'otro funnel';
+    const reglasFila = (clave: string) => {
+      const r = reglasDe(mapa, f.id, clave);
+      return r ? { activa: r.activa, n: r.rutas.length } : null;
+    };
+
+    const filasMeta: FormularioFila[] | null = meta.ok
+      ? meta.formularios.map((x) => {
+        const funnels = asigMeta[x.id]?.funnels ?? [];
+        return {
+          clave: claveMeta(x.id), tipo: 'meta', nombre: x.nombre, pagina: meta.pagina, leads: x.leads, ultimo: x.ultimo,
+          prendido: funnels.includes(f.id), otros: funnels.filter((id) => id !== f.id).map(nombreDe), reglas: reglasFila(claveMeta(x.id)), califica: true,
+        };
+      })
+      : null;
+
+    // Los de Web Generator: formularios, encuestas y quizzes, y también la agenda y el pago de una página (el modal de antes las
+    // asignaba; no traen respuestas, así que van sin calificación).
+    const web: FormularioFila[] = [];
+    const urlsWg = new Set<string>();
+    for (const l of landings) {
+      if (l.url) { const u = normalizarUrl(l.url); if (u) urlsWg.add(u); }
+      for (const p of l.piezas) {
+        const califica = p.tipo === 'formulario' || p.tipo === 'encuesta' || p.tipo === 'quiz';
+        const asignados = (asigPiezas as Record<string, number[]>)[p.clave] ?? [];
+        const e = p.formularioId ? envios?.get(p.formularioId) : undefined;
+        web.push({
+          clave: p.clave, tipo: 'wg', nombre: p.nombre, pagina: l.url, leads: califica && envios ? e?.n ?? 0 : null, ultimo: e?.ultimo ?? null,
+          prendido: asignados.includes(f.id), otros: asignados.filter((id) => id !== f.id).map(nombreDe),
+          reglas: califica ? reglasFila(p.clave) : null, califica, ...(p.tipo !== 'formulario' ? { rotulo: p.rotulo } : {}),
+        });
+      }
+    }
+    // Las páginas de afuera con el Pixel: las que ya mandaron algo, y las declaradas en /integraciones aunque no.
+    const config = parsearConfig(await getSettingEstricto(CLAVE_LANDINGS).catch(() => null));
+    const externas = new Map<string, { n: number; ultimo: string | null }>();
+    for (const [pag, e] of paginas) if (!urlsWg.has(pag)) externas.set(pag, e);
+    for (const c of config) if (!urlsWg.has(c.url) && !externas.has(c.url)) externas.set(c.url, { n: 0, ultimo: null });
+    for (const [pag, e] of [...externas].sort((a, b) => String(b[1].ultimo ?? '').localeCompare(String(a[1].ultimo ?? '')))) {
+      const asignados = landingDe(config, pag)?.funnelIds ?? [];
+      web.push({
+        clave: claveWeb(pag), tipo: 'web', nombre: pag.replace(/^https?:\/\//, '').replace(/\/$/, ''), pagina: pag, leads: e.n, ultimo: e.ultimo,
+        prendido: asignados.includes(f.id), otros: asignados.filter((id) => id !== f.id).map(nombreDe), reglas: reglasFila(claveWeb(pag)), califica: true,
+      });
+    }
+    return { ok: true, funnel: f, meta: filasMeta, metaError: meta.ok ? null : meta.error, web };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo leer' };
+  }
+}
+
+/** Las páginas de las que llegaron leads por el Pixel (`leads.pagina_registro`), con cuántos y el último. */
+async function paginasConEnvios(): Promise<Map<string, { n: number; ultimo: string | null }>> {
+  const out = new Map<string, { n: number; ultimo: string | null }>();
+  try {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('leads').select('pagina_registro, created_at').not('pagina_registro', 'is', null)
+      .order('created_at', { ascending: false }).limit(5000);
+    if (error) throw new Error(error.message);
+    for (const r of (data ?? []) as Array<{ pagina_registro: string | null; created_at: string | null }>) {
+      const p = r.pagina_registro ? normalizarUrl(r.pagina_registro) : null;
+      if (!p) continue;
+      const e = out.get(p);
+      if (e) e.n += 1; else out.set(p, { n: 1, ultimo: r.created_at });
+    }
+  } catch (e) {
+    console.error('[fuentes] no se pudieron leer las páginas con envíos:', e instanceof Error ? e.message : e);
+  }
+  return out;
+}
+
+/** Envíos por formulario de Web Generator (`lead_formularios`, mig 0415). `null` = la tabla no está: no se sabe. */
+async function enviosPorFormularioWeb(): Promise<Map<string, { n: number; ultimo: string | null }> | null> {
+  try {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('lead_formularios').select('formulario_id, created_at').not('formulario_id', 'is', null)
+      .order('created_at', { ascending: false }).limit(5000);
+    // Sin la tabla (la 0415 sin aplicar) o con la lectura caída: no se sabe cuántos, y la fila lo dice sin número.
+    if (error) return null;
+    const out = new Map<string, { n: number; ultimo: string | null }>();
+    for (const r of (data ?? []) as Array<{ formulario_id: string; created_at: string }>) {
+      const e = out.get(r.formulario_id);
+      if (e) e.n += 1; else out.set(r.formulario_id, { n: 1, ultimo: r.created_at });
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/** Prende o apaga UN formulario en este funnel: sus leads entran (o dejan de entrar) a su etapa de entrada. */
+export async function alternarFormulario(funnelId: number | null, fuente: { clave: string; nombre?: string }, prendido: boolean): Promise<{ ok: true; funnel: string } | { ok: false; error: string }> {
+  const clave = String(fuente?.clave ?? '');
+  if (!claveFuenteValida(clave)) return { ok: false, error: 'Ese formulario no existe.' };
+  try {
+    const f = await funnelReal(funnelId);
+    if (!f) return { ok: false, error: 'Ese funnel ya no existe.' };
+    const tipo = tipoDeClave(clave);
+    if (tipo === 'meta') {
+      // Lectura ESTRICTA: con una caída leída como «nada», guardar borraría los otros formularios asignados.
+      const antes = await leerAsignacionesMetaEstricto();
+      await guardarAsignacionesMeta(alternarFormularioMeta(antes, clave.slice('meta:'.length), String(fuente.nombre ?? ''), f.id, prendido === true));
+    } else if (tipo === 'wg') {
+      if (!claveValida(clave)) return { ok: false, error: 'Ese formulario no existe.' };
+      await asignarPieza(clave, f.id, prendido === true);
+    } else {
+      const pagina = normalizarUrl(clave.slice('web:'.length));
+      if (!pagina) return { ok: false, error: 'Esa página no es una dirección válida.' };
+      const actuales = parsearConfig(await getSettingEstricto(CLAVE_LANDINGS));
+      const base = landingDe(actuales, pagina);
+      if (!base && actuales.length >= MAX_LANDINGS) return { ok: false, error: `Ya tienes ${MAX_LANDINGS} páginas con el Pixel asignadas: quita una en Integraciones.` };
+      const antes = base?.funnelIds ?? [];
+      const funnelIds = prendido ? (antes.includes(f.id) ? antes : [...antes, f.id]) : antes.filter((x) => x !== f.id);
+      const nueva = conLanding(actuales, base?.url ?? pagina, { funnelIds });
+      if (!nueva) return { ok: false, error: 'Esa página no es una dirección válida.' };
+      await setSetting(CLAVE_LANDINGS, JSON.stringify(nueva));
+    }
+    refrescar();
+    return { ok: true, funnel: f.nombre };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar' };
+  }
+}
+
+export type EstadoReglas = {
+  ok: true;
+  reglas: ReglasFormulario;
+  preguntas: PreguntaVista[];
+  etapas: Array<{ key: string; label: string; color: string }>;
+  entrada: string;
+  /** Lo que contestaron los últimos (hasta 200), para la vista previa en el navegador. */
+  envios: Array<Record<string, string | string[]>>;
+  /** Cuántos leads de este formulario hay en total (lo que «REAPLICAR» recorre). */
+  total: number;
+};
+
+/** Los envíos de un formulario, con lo que hace falta para encontrarlos (los ids de Meta, la página de una landing). */
+async function enviosDe(clave: string): Promise<EnvioDeFormulario[]> {
+  const tipo = tipoDeClave(clave);
+  if (tipo === 'meta') return enviosDeFormulario(clave, { leadIdsMeta: await leadIdsDeFormularioMeta(clave.slice('meta:'.length), 2000) });
+  if (tipo === 'wg') {
+    const landing = (await landingsConPiezas().catch(() => [])).find((l) => l.piezas.some((p) => p.clave === clave));
+    return enviosDeFormulario(clave, { pagina: landing?.url ? normalizarUrl(landing.url) : null });
+  }
+  return enviosDeFormulario(clave);
+}
+
+/** Lo que necesita el editor de reglas de un formulario en este funnel. */
+export async function reglasDelFormulario(funnelId: number | null, clave: string): Promise<EstadoReglas | { ok: false; error: string }> {
+  if (!claveFuenteValida(clave)) return { ok: false, error: 'Ese formulario no existe.' };
+  try {
+    const f = await funnelReal(funnelId);
+    if (!f) return { ok: false, error: 'Ese funnel ya no existe.' };
+    const { etapasDeProducto } = await import('./lead-funnel');
+    const { etapaDeEntrada } = await import('./lead-funnel-reglas');
+    const [mapa, etapas, envios] = await Promise.all([leerMapaReglas(), etapasDeProducto(f.id), enviosDe(clave)]);
+    let preguntas = preguntasDeEnvios(envios.slice(0, 500).map((e) => e.respuestas));
+    if (!preguntas.length && tipoDeClave(clave) === 'meta') {
+      preguntas = (await preguntasDeFormularioMeta(clave.slice('meta:'.length))).map((p) => ({ pregunta: p.pregunta, rotulo: p.rotulo, respuestas: p.opciones.map((o) => ({ valor: o, veces: 0 })) }));
+    }
+    return {
+      ok: true,
+      reglas: reglasDe(mapa, f.id, clave) ?? REGLAS_VACIAS,
+      preguntas,
+      etapas: etapas.map((s) => ({ key: s.key, label: s.label, color: s.dot ?? '#8A93A3' })),
+      entrada: etapaDeEntrada(etapas) ?? 'lead',
+      envios: envios.slice(0, 200).map((e) => e.respuestas as Record<string, string | string[]>),
+      total: envios.length,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo leer' };
+  }
+}
+
+/** Guarda las reglas de un formulario en este funnel (saneadas contra las etapas que el funnel tiene HOY). */
+export async function guardarReglasDeFormulario(funnelId: number | null, clave: string, nombre: string, reglas: unknown): Promise<{ ok: true; reglas: ReglasFormulario; funnel: string } | { ok: false; error: string }> {
+  if (!claveFuenteValida(clave)) return { ok: false, error: 'Ese formulario no existe.' };
+  try {
+    const f = await funnelReal(funnelId);
+    if (!f) return { ok: false, error: 'Ese funnel ya no existe.' };
+    const { etapasDeProducto } = await import('./lead-funnel');
+    const etapas = await etapasDeProducto(f.id);
+    const limpias = sanearReglas(reglas, etapas.map((s) => s.key));
+    if (!limpias) return { ok: false, error: 'Esas reglas no se pueden leer.' };
+    // ESTRICTA: con una lectura caída leída como «nada», guardar borraría las reglas de los demás formularios.
+    const mapa = await leerMapaReglasEstricto();
+    const vacias = !limpias.rutas.length && limpias.siNinguna == null;
+    await guardarMapaReglas(conReglas(mapa, f.id, clave, vacias ? null : { ...limpias, nombre: String(nombre ?? '').slice(0, 160) }));
+    return { ok: true, reglas: limpias, funnel: f.nombre };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar' };
+  }
+}
+
+/** Tope de leads por pasada: cada uno son unas pocas lecturas, y una acción corta al minuto. */
+const TOPE_REAPLICAR = 400;
+
+export type ResultadoReaplicar =
+  | { ok: true; revisados: number; cambian: number; porEtapa: Array<{ etapa: string; label: string; n: number }>; tope: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Pasa las reglas GUARDADAS por los leads que ya entraron por este formulario y están en este funnel. Con `simular`, sólo
+ * cuenta (la pregunta dice el número). Mueve sólo a los que están en la entrada o en una etapa que las reglas reparten.
+ */
+export async function reaplicarReglasDeFormulario(funnelId: number | null, clave: string, simular: boolean): Promise<ResultadoReaplicar> {
+  if (!claveFuenteValida(clave)) return { ok: false, error: 'Ese formulario no existe.' };
+  try {
+    const f = await funnelReal(funnelId);
+    if (!f) return { ok: false, error: 'Ese funnel ya no existe.' };
+    const mapa = await leerMapaReglasEstricto();
+    if (!reglasDe(mapa, f.id, clave)?.activa) return { ok: false, error: 'Prende la calificación automática y guarda las reglas primero.' };
+    const envios = await enviosDe(clave);
+    const lote = envios.slice(0, TOPE_REAPLICAR);
+    const cuenta = new Map<string, { label: string; n: number }>();
+    const cache = new Map<number, Array<{ key: string; label: string; kind?: string | null }>>();
+    let cambian = 0;
+    for (const e of lote) {
+      const movs = await aplicarCalificacion(e.leadId, [clave], e.respuestas, { mapa, soloFunnel: f.id, simular: simular === true, cacheEtapas: cache });
+      for (const m of movs) {
+        cambian += 1;
+        const c = cuenta.get(m.etapa);
+        if (c) c.n += 1; else cuenta.set(m.etapa, { label: m.etiqueta, n: 1 });
+      }
+    }
+    if (!simular && cambian) refrescar();
+    return { ok: true, revisados: lote.length, cambian, porEtapa: [...cuenta].map(([etapa, x]) => ({ etapa, ...x })), tope: envios.length > TOPE_REAPLICAR };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo reaplicar' };
+  }
+}

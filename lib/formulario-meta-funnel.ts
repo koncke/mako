@@ -118,7 +118,9 @@ export async function leadIdsDeFormularioMeta(formId: string, tope = 1000): Prom
   let url: string | null = `${GRAPH}/${META_GRAPH_VERSION}/${formId}/leads?fields=id&limit=100&access_token=${cred.token}`;
   let paginas = 0;
   while (url && out.length < tope && paginas++ < 20) {
-    const r = await graph<{ data?: Array<{ id?: string }>; paging?: { next?: string } }>(url);
+    // ⚠️ CON EL TIPO ESCRITO EN `r`: sin él, `url` (que sale de `r`) y `r` (que sale de `graph(url)`) se infieren en círculo y el
+    // tsc de la punta da TS7022 (20/11/2026, corrida 1977) — `tsx` no lo ve.
+    const r: { data?: Array<{ id?: string }>; paging?: { next?: string } } = await graph<{ data?: Array<{ id?: string }>; paging?: { next?: string } }>(url);
     for (const l of r.data ?? []) if (l.id) out.push(String(l.id));
     url = r.paging?.next ?? null;
   }

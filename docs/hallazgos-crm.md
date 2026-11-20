@@ -57,6 +57,15 @@ leads, 13 o 14 cumplían» y el inmobiliario los marcaba no calificados). La ref
   entrada, va en la primera (`esPrimeraEtapa`, la misma regla que `etapaDeEntrada`).
 - **El artefacto:** el `.mk-modal__fondo` de la app anima con `mkFade` y en Chromium headless quedaba en `opacity: 0` (la captura
   salía sin modal). En las páginas del artefacto va `animation: none`. El dibujante: `C:/dev/artefactos-fuentes/` (fuera del repo).
+- **El primer rojo de la punta (corrida 1977) fueron cinco cosas que los tests de la PC no ven:** un TS7022 (`const r = await
+  graph<T>(url)` adentro de un `while (url)` que reasigna `url` desde `r`: se infieren en círculo; `tsx` lo corre perfecto y sólo el
+  tsc entero lo caza — se arregla escribiendo el tipo de `r`), y cuatro guardas de repo que mira GitHub: una acción del servidor
+  nueva pide **su operación en la API de MaKo** (`lib/api-mako/cobertura.ts`, la DEUDA no crece; con su ruta REST en
+  `lib/api-mako/rest.ts`, un parámetro `object` con sus `campos`, y `node --import tsx scripts/generar-api-doc.mjs`), **su clase
+  para la cuenta de revisión de las tiendas** (`MAKO_REGENERAR_SNAPSHOT=1 … tests/cuenta-revision-escrituras.test.ts`), y el hito
+  de la bitácora **su `sesion`** (`$CLAUDE_CODE_HOST_SESSION_ID`). Y un test de Zernio que lee el texto `if (!c.nuevo) return;`:
+  una rama nueva se escribe al lado, no envolviéndolo. Por eso la lógica quedó en `lib/fuentes-crm-server.ts` y la pantalla y la
+  API son dos puertas finas sobre ella.
 
 **Sin hacer** (y dónde iría): el lead que YA existía y llena otro formulario de Meta no se califica al llegar
 (`alNacerLeadDeMeta` corre sólo al crear; `lib/leads.ts`, rama `existing`); el opt-in que queda como propuesta (duplicado ambiguo)

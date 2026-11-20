@@ -95,11 +95,9 @@ export async function cargarLeadDeZernio(l: LeadDeZernio, ahora: Date = new Date
  */
 export async function alNacerLeadDeZernio(ws: number, c: LeadCargado, l: LeadDeZernio): Promise<void> {
   if (c.conversion) await conversionDelLead(ws, c, l);
-  if (!c.nuevo) {
-    // Uno creado que no se anuncia (un rescate viejo) igual se CALIFICA (20/11/2026): ubicarlo no le escribe a nadie.
-    if (c.creado) await calificarLeadDeMeta(c.leadId, l.formularioId, l.fieldData.length ? l.fieldData : null);
-    return;
-  }
+  // Uno creado que no se anuncia (un rescate viejo) igual se CALIFICA (20/11/2026): ubicarlo no le escribe a nadie.
+  if (c.creado && !c.nuevo) await calificarLeadDeMeta(c.leadId, l.formularioId, l.fieldData.length ? l.fieldData : null);
+  if (!c.nuevo) return;
   try {
     await alNacerLeadDeMeta(ws, { id: c.leadId, nombre: c.nombre, telefono: c.telefono }, {
       fieldData: l.fieldData.length ? l.fieldData : null, campana: null, formId: l.formularioId,

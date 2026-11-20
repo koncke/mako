@@ -145,6 +145,13 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/curso-al-ganar', 'ver_curso_al_ganar'],
   ['PUT', '/crm/curso-al-ganar', 'cambiar_curso_al_ganar'],
   ['PUT', '/crm/campanas/funnels', 'asignar_campana_funnels'],
+  // «Asignar fuentes» → Formularios (20/11/2026). La clave del formulario va en el CUERPO (o en la query del GET): la de una
+  // página con el Pixel es una URL con barras. PUT porque FIJAN (prendido o apagado; las reglas enteras).
+  ['GET', '/crm/formularios', 'listar_formularios'],
+  ['PUT', '/crm/formularios/funnel', 'asignar_formulario'],
+  ['GET', '/crm/formularios/reglas', 'ver_reglas_formulario'],
+  ['PUT', '/crm/formularios/reglas', 'guardar_reglas_formulario'],
+  ['POST', '/crm/formularios/reglas/reaplicaciones', 'reaplicar_reglas_formulario'],
   // Un CRM nuevo por su tipo (14/10/2026): crea el embudo y devuelve su embudoId.
   ['POST', '/crm/embudos', 'crear_crm'],
   ['PUT', '/crm/entradas', 'declarar_entradas_funnel'],

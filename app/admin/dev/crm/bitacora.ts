@@ -4325,7 +4325,7 @@ export const BITACORA: Hito[] = [
     tickets: [121],
   },
   {
-    fecha: '20 nov', hora: '21:30', chat: 'CRM › Asignar fuentes', cuenta: 'claude5',
+    fecha: '20 nov', hora: '21:30', chat: 'CRM › Asignar fuentes', sesion: 'local_f50ef160-90ec-4f5d-9ce5-856a4d08656f', cuenta: 'claude5',
     actor: 'claude', tipo: 'implementacion',
     titulo: '«Asignar fuentes» rediseñado: campañas de Meta y formularios, y cada formulario puede ubicar solo a sus leads en su etapa',
     puntos: [
@@ -4335,9 +4335,11 @@ export const BITACORA: Hito[] = [
       '**Calificación automática por formulario** (lo que pidió Juanfran): reglas en orden, como el «Routing logic» de Calendly. «Si la zona es Fuera de la ciudad → Descalificado», «si cumple al menos 3 de estas 4 → Lead entrante», «al menos 2 → Revisión», y qué pasa si no cumple ninguna. Cada regla puede mandar a cualquier etapa del funnel.',
       '**Se aplica al llegar el lead** (antes de las automatizaciones: un descalificado no recibe la secuencia de lead nuevo) y queda en su historial qué regla lo movió y por qué. Con **«REAPLICAR»** se pasan por los leads que ya entraron: primero dice cuántos se mueven, y sólo mueve a los que están en la entrada o en una etapa de esas reglas.',
       '**Una vista previa** dice a qué etapa irían los últimos envíos con las reglas que se están armando.',
+      '**También por la API de MaKo** (y el chat): listar_formularios, asignar_formulario, ver_reglas_formulario, guardar_reglas_formulario y reaplicar_reglas_formulario, con las mismas funciones que la pantalla.',
     ],
     archivos: [
       'app/crm/FuentesModal.tsx · app/crm/FuentesVista.tsx · app/crm/fuentes-actions.ts — el modal, lo que se ve y sus acciones',
+      'lib/fuentes-crm-server.ts — la implementación de las dos puertas · lib/api-mako/areas/crm.def.ts y crm.run.ts · lib/api-mako/cobertura.ts',
       'lib/calificacion-formulario.ts (el motor, puro) · lib/fuentes-formularios.ts (el guardado) · lib/calificacion-aplicar.ts (mover y el historial)',
       'lib/formulario-meta-funnel.ts — los lead forms de Meta y a qué funnel entran · lib/leads.ts (`meta_form_id`)',
       'app/api/track/optin/route.ts · app/api/webhooks/meta-leads/route.ts · lib/meta-lead-nuevo.ts · lib/meta-leads.ts · lib/zernio-leads.ts — las puertas',

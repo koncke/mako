@@ -29,7 +29,7 @@
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_hojas_general` · `crear_hoja_general` · `editar_hoja_general_con_ia` · `agregar_bloque_general` · `configurar_bloque_general`
 - **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `ver_repriorizacion_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `cambiar_fecha_tarea_plan` · `mover_tarea_plan` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `cerrar_tareas_plan` · `proponer_ampliar_tareas`
-- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `ver_campanas_funnels` · `asignar_campana_funnels` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `crear_pagina_reserva` · `editar_pagina_reserva` · `cambiar_tipo_etapa` · `renombrar_etapa` · `agregar_etapa` · `eliminar_etapa` · `ordenar_etapas` · `plazo_etapa` · `columna_nutricion_crm` · `ver_curso_al_ganar` · `cambiar_curso_al_ganar` · `ver_cobro_etapa` · `vincular_cobro_etapa` · `cuentas_cobro_etapa` · `desvincular_cobro_etapa` · `pasar_en_bloque_otra_columna` · `pasar_en_bloque_otro_funnel` · `mandar_en_bloque_a_papelera` · `ver_papelera_crm` · `ver_nombres_del_crm` · `marcar_palabra_no_nombre` · `ver_bajas_de_leads` · `recuperar_de_papelera_crm` · `agregar_en_bloque_a_crm` · `tiempo_primer_contacto` · `migrar_contactos` · `armar_tab_ficha`
+- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `ver_campanas_funnels` · `asignar_campana_funnels` · `listar_formularios` · `asignar_formulario` · `ver_reglas_formulario` · `guardar_reglas_formulario` · `reaplicar_reglas_formulario` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `crear_pagina_reserva` · `editar_pagina_reserva` · `cambiar_tipo_etapa` · `renombrar_etapa` · `agregar_etapa` · `eliminar_etapa` · `ordenar_etapas` · `plazo_etapa` · `columna_nutricion_crm` · `ver_curso_al_ganar` · `cambiar_curso_al_ganar` · `ver_cobro_etapa` · `vincular_cobro_etapa` · `cuentas_cobro_etapa` · `desvincular_cobro_etapa` · `pasar_en_bloque_otra_columna` · `pasar_en_bloque_otro_funnel` · `mandar_en_bloque_a_papelera` · `ver_papelera_crm` · `ver_nombres_del_crm` · `marcar_palabra_no_nombre` · `ver_bajas_de_leads` · `recuperar_de_papelera_crm` · `agregar_en_bloque_a_crm` · `tiempo_primer_contacto` · `migrar_contactos` · `armar_tab_ficha`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar` · `ver_media_buyer` · `lanzar_decision_media_buyer` · `deshacer_decision_media_buyer` · `descartar_decision_media_buyer` · `reabrir_decision_media_buyer` · `calificar_decision_media_buyer` · `hooks_al_video_media_buyer` · `analizar_cuenta_media_buyer` · `modo_media_buyer` · `topes_media_buyer` · `metas_media_buyer` · `cuenta_media_buyer` · `ver_automatizaciones_media_buyer` · `ver_campanas_media_buyer` · `automatizacion_media_buyer` · `modo_agente_media_buyer` · `agente_media_buyer` · `borrar_agente_media_buyer` · `ver_copiloto_media_buyer` · `copiloto_media_buyer` · `ver_comunicacion_copiloto` · `guardar_comunicacion_copiloto` · `metodo_campanas_copiloto` · `ver_biblioteca_media_buyer` · `zona_media_buyer` · `hasta_media_buyer` · `proponer_crear_campana` · `preparar_subida_media_buyer` · `subir_creativos_media_buyer`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `ver_newsletter` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `configurar_newsletter` · `crear_edicion_newsletter` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email` · `conectar_dominio_email` · `fijar_remitente_email` · `conectar_seguimiento_email`
@@ -1499,7 +1499,7 @@ curl -L \
 
 ## CRM — `crm`
 
-Tab **CRM** (`/crm`). 37 lecturas · 57 acciones.
+Tab **CRM** (`/crm`). 39 lecturas · 60 acciones.
 
 ### `GET /api/v1/crm/busqueda/leads` — Buscar leads por texto
 
@@ -2347,6 +2347,160 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/crm/campanas/funnels" \
   -d '{"tipo":"campana","id":"ID","embudos":[]}'
+```
+
+### `GET /api/v1/crm/formularios` — Formularios que traen leads a un CRM
+
+Los formularios del negocio que pueden traer leads a un CRM: los de anuncios de Meta (con su página, cuántos leads y el último), los de Web Generator (formularios, encuestas, quizzes, agenda y pago) y las páginas con el Pixel de MaKo (con su último envío). De cada uno: su clave, si sus leads entran a ese CRM, a qué otros CRM entran y si tiene reglas de calificación. Sin embudoId, el CRM del negocio. Paso previo a asignar_formulario y ver_reglas_formulario.
+
+- **Ruta por operación:** `GET /api/v1/crm/listar_formularios`
+- **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `embudoId` | number | no | el CRM, por el id de su embudo (de ver_campanas_funnels). Sin él, el del negocio. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/formularios"
+```
+
+### `PUT /api/v1/crm/formularios/funnel` — Asignar un formulario a un CRM
+
+PROPONE prender o apagar un formulario en un CRM (queda pendiente hasta el «sí»): prendido, los leads nuevos de ese formulario entran a su etapa de entrada. Un formulario de Meta asignado gana a la campaña. Los que ya entraron no se mueven. La clave sale de listar_formularios. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/asignar_formulario`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** guarda a qué CRM entran los leads de ese formulario (meta.formularios, landing.piezas o landing.config, según el tipo)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `clave` | string | sí | la clave del formulario (de listar_formularios): meta:…, form:…, agenda:…, pago:… o web:…. |
+| `prendido` | boolean | sí | true para que sus leads entren a ese CRM; false para que dejen de entrar. |
+| `embudoId` | number | no | el CRM (de ver_campanas_funnels). Sin él, el del negocio. |
+| `nombre` | string | no | el nombre del formulario, para mostrarlo. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/formularios/funnel" \
+  -d '{"clave":"CLAVE","prendido":true}'
+```
+
+### `GET /api/v1/crm/formularios/reglas` — Reglas de calificación de un formulario
+
+Las reglas de calificación automática de un formulario en un CRM: rutas en orden (la primera que se cumple gana), cada una con sus condiciones sobre las respuestas («pregunta es / no es / contiene / mayor / menor… respuesta»), cuántas tienen que cumplirse (todas, alguna o al menos N) y la etapa a la que va el lead; y la etapa si no cumple ninguna. Trae también las preguntas con sus respuestas más comunes, las etapas del CRM y cuántos leads entraron por ese formulario. Paso previo a guardar_reglas_formulario.
+
+- **Ruta por operación:** `GET /api/v1/crm/ver_reglas_formulario`
+- **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `clave` | string | sí | la clave del formulario (de listar_formularios). |
+| `embudoId` | number | no | el CRM (de ver_campanas_funnels). Sin él, el del negocio. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/formularios/reglas?clave=CLAVE"
+```
+
+### `PUT /api/v1/crm/formularios/reglas` — Guardar las reglas de un formulario
+
+PROPONE guardar las reglas de calificación automática de un formulario en un CRM (queda pendiente hasta el «sí»): desde ahí cada lead nuevo de ese formulario va a su etapa según lo que contestó, y queda en su historial qué regla lo movió. Reemplaza las que tenía. reglas = { activa, rutas: [{ modo: todas|alguna|al_menos, minimo, condiciones: [{ pregunta, op: es|no_es|contiene|no_contiene|mayor|menor|responde|no_responde, valores: [] }], etapa }], siNinguna }. Las preguntas y las etapas salen de ver_reglas_formulario. Para los que ya entraron, reaplicar_reglas_formulario. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/guardar_reglas_formulario`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** guarda las reglas de calificación de ese formulario en ese CRM (el setting crm.reglas_formulario); los leads nuevos de ese formulario se mueven solos a su etapa
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `clave` | string | sí | la clave del formulario (de listar_formularios). |
+| `reglas` | object | sí | las reglas completas, con la forma de ver_reglas_formulario. |
+| `reglas.activa` | boolean | no | true para que los leads nuevos se muevan solos; false las guarda apagadas. |
+| `reglas.rutas` | object[] | no | las rutas, en orden: gana la primera que se cumple. |
+| `reglas.rutas.modo` | string (todas \\| alguna \\| al_menos) | no | cuántas condiciones tienen que cumplirse: todas, alguna o al menos «minimo». |
+| `reglas.rutas.minimo` | number | no | con al_menos: cuántas. |
+| `reglas.rutas.condiciones` | object[] | no | las condiciones sobre las respuestas. |
+| `reglas.rutas.condiciones.pregunta` | string | no | la pregunta, como la nombra el formulario (de ver_reglas_formulario). |
+| `reglas.rutas.condiciones.op` | string (es \\| no_es \\| contiene \\| no_contiene \\| mayor \\| menor \\| responde \\| no_responde) | no | la condición. |
+| `reglas.rutas.condiciones.valores` | string[] | no | las respuestas (con es, alcanza con una); con mayor o menor, un número; con responde o no_responde, ninguna. |
+| `reglas.rutas.etapa` | string | no | key de la etapa a la que va el lead (de ver_reglas_formulario). |
+| `reglas.siNinguna` | string | no | key de la etapa si no cumple ninguna ruta; vacío = se queda donde entró. |
+| `embudoId` | number | no | el CRM (de ver_campanas_funnels). Sin él, el del negocio. |
+| `nombre` | string | no | el nombre del formulario, para el historial de los leads. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/formularios/reglas" \
+  -d '{"clave":"CLAVE","reglas":{}}'
+```
+
+### `POST /api/v1/crm/formularios/reglas/reaplicaciones` — Reaplicar las reglas a los que ya entraron
+
+PROPONE pasar las reglas guardadas de un formulario por los leads que ya entraron por él a un CRM (queda pendiente hasta el «sí»; la propuesta dice cuántos se mueven y a qué etapa). Sólo mueve a los que están en la etapa de entrada o en una etapa que esas reglas reparten: los que ya avanzaron no se tocan. Deja en el historial de cada uno qué regla lo movió. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/reaplicar_reglas_formulario`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** mueve de etapa a los leads de ese formulario que sus reglas mandan a otra, y lo deja en el historial de cada uno
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `clave` | string | sí | la clave del formulario (de listar_formularios). |
+| `embudoId` | number | no | el CRM (de ver_campanas_funnels). Sin él, el del negocio. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/formularios/reglas/reaplicaciones" \
+  -d '{"clave":"CLAVE"}'
 ```
 
 ### `PUT /api/v1/crm/leads/{leadId}/etapa` — Mover un lead de etapa

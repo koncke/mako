@@ -541,6 +541,86 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'guarda a qué funnels entran los leads nuevos de esa campaña o conjunto (el setting meta.campanas)',
   },
+  // «Asignar fuentes» → «Formularios» (20/11/2026): los formularios de anuncios de Meta, los de Web Generator y cualquier página
+  // con el Pixel, y sus reglas de calificación automática. Las MISMAS funciones que la pantalla (lib/fuentes-crm-server.ts).
+  {
+    id: 'listar_formularios', area: 'crm', tipo: 'lectura',
+    titulo: 'Formularios que traen leads a un CRM',
+    descripcion: 'Los formularios del negocio que pueden traer leads a un CRM: los de anuncios de Meta (con su página, cuántos leads y el último), los de Web Generator (formularios, encuestas, quizzes, agenda y pago) y las páginas con el Pixel de MaKo (con su último envío). De cada uno: su clave, si sus leads entran a ese CRM, a qué otros CRM entran y si tiene reglas de calificación. Sin embudoId, el CRM del negocio. Paso previo a asignar_formulario y ver_reglas_formulario.',
+    parametros: [
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de ver_campanas_funnels). Sin él, el del negocio.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'asignar_formulario', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Asignar un formulario a un CRM',
+    descripcion: 'PROPONE prender o apagar un formulario en un CRM (queda pendiente hasta el «sí»): prendido, los leads nuevos de ese formulario entran a su etapa de entrada. Un formulario de Meta asignado gana a la campaña. Los que ya entraron no se mueven. La clave sale de listar_formularios. Solo el administrador.',
+    parametros: [
+      { nombre: 'clave', tipo: 'string', obligatorio: true, max: 520, descripcion: 'la clave del formulario (de listar_formularios): meta:…, form:…, agenda:…, pago:… o web:….' },
+      { nombre: 'prendido', tipo: 'boolean', obligatorio: true, descripcion: 'true para que sus leads entren a ese CRM; false para que dejen de entrar.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de ver_campanas_funnels). Sin él, el del negocio.' },
+      { nombre: 'nombre', tipo: 'string', max: 160, descripcion: 'el nombre del formulario, para mostrarlo.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda a qué CRM entran los leads de ese formulario (meta.formularios, landing.piezas o landing.config, según el tipo)',
+  },
+  {
+    id: 'ver_reglas_formulario', area: 'crm', tipo: 'lectura',
+    titulo: 'Reglas de calificación de un formulario',
+    descripcion: 'Las reglas de calificación automática de un formulario en un CRM: rutas en orden (la primera que se cumple gana), cada una con sus condiciones sobre las respuestas («pregunta es / no es / contiene / mayor / menor… respuesta»), cuántas tienen que cumplirse (todas, alguna o al menos N) y la etapa a la que va el lead; y la etapa si no cumple ninguna. Trae también las preguntas con sus respuestas más comunes, las etapas del CRM y cuántos leads entraron por ese formulario. Paso previo a guardar_reglas_formulario.',
+    parametros: [
+      { nombre: 'clave', tipo: 'string', obligatorio: true, max: 520, descripcion: 'la clave del formulario (de listar_formularios).' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de ver_campanas_funnels). Sin él, el del negocio.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'guardar_reglas_formulario', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Guardar las reglas de un formulario',
+    descripcion: 'PROPONE guardar las reglas de calificación automática de un formulario en un CRM (queda pendiente hasta el «sí»): desde ahí cada lead nuevo de ese formulario va a su etapa según lo que contestó, y queda en su historial qué regla lo movió. Reemplaza las que tenía. reglas = { activa, rutas: [{ modo: todas|alguna|al_menos, minimo, condiciones: [{ pregunta, op: es|no_es|contiene|no_contiene|mayor|menor|responde|no_responde, valores: [] }], etapa }], siNinguna }. Las preguntas y las etapas salen de ver_reglas_formulario. Para los que ya entraron, reaplicar_reglas_formulario. Solo el administrador.',
+    parametros: [
+      { nombre: 'clave', tipo: 'string', obligatorio: true, max: 520, descripcion: 'la clave del formulario (de listar_formularios).' },
+      {
+        nombre: 'reglas', tipo: 'object', obligatorio: true, descripcion: 'las reglas completas, con la forma de ver_reglas_formulario.',
+        campos: [
+          { nombre: 'activa', tipo: 'boolean', descripcion: 'true para que los leads nuevos se muevan solos; false las guarda apagadas.' },
+          {
+            nombre: 'rutas', tipo: 'object[]', max: 20, descripcion: 'las rutas, en orden: gana la primera que se cumple.',
+            campos: [
+              { nombre: 'modo', tipo: 'string', enum: ['todas', 'alguna', 'al_menos'], descripcion: 'cuántas condiciones tienen que cumplirse: todas, alguna o al menos «minimo».' },
+              { nombre: 'minimo', tipo: 'number', entero: true, minimo: 1, descripcion: 'con al_menos: cuántas.' },
+              {
+                nombre: 'condiciones', tipo: 'object[]', max: 20, descripcion: 'las condiciones sobre las respuestas.',
+                campos: [
+                  { nombre: 'pregunta', tipo: 'string', max: 300, descripcion: 'la pregunta, como la nombra el formulario (de ver_reglas_formulario).' },
+                  { nombre: 'op', tipo: 'string', enum: ['es', 'no_es', 'contiene', 'no_contiene', 'mayor', 'menor', 'responde', 'no_responde'], descripcion: 'la condición.' },
+                  { nombre: 'valores', tipo: 'string[]', max: 30, descripcion: 'las respuestas (con es, alcanza con una); con mayor o menor, un número; con responde o no_responde, ninguna.' },
+                ],
+              },
+              { nombre: 'etapa', tipo: 'string', max: 80, descripcion: 'key de la etapa a la que va el lead (de ver_reglas_formulario).' },
+            ],
+          },
+          { nombre: 'siNinguna', tipo: 'string', max: 80, descripcion: 'key de la etapa si no cumple ninguna ruta; vacío = se queda donde entró.' },
+        ],
+      },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de ver_campanas_funnels). Sin él, el del negocio.' },
+      { nombre: 'nombre', tipo: 'string', max: 160, descripcion: 'el nombre del formulario, para el historial de los leads.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda las reglas de calificación de ese formulario en ese CRM (el setting crm.reglas_formulario); los leads nuevos de ese formulario se mueven solos a su etapa',
+  },
+  {
+    id: 'reaplicar_reglas_formulario', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Reaplicar las reglas a los que ya entraron',
+    descripcion: 'PROPONE pasar las reglas guardadas de un formulario por los leads que ya entraron por él a un CRM (queda pendiente hasta el «sí»; la propuesta dice cuántos se mueven y a qué etapa). Sólo mueve a los que están en la etapa de entrada o en una etapa que esas reglas reparten: los que ya avanzaron no se tocan. Deja en el historial de cada uno qué regla lo movió. Solo el administrador.',
+    parametros: [
+      { nombre: 'clave', tipo: 'string', obligatorio: true, max: 520, descripcion: 'la clave del formulario (de listar_formularios).' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de ver_campanas_funnels). Sin él, el del negocio.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'mueve de etapa a los leads de ese formulario que sus reglas mandan a otra, y lo deja en el historial de cada uno',
+  },
 
   // ── Acciones heredadas ─────────────────────────────────────────────────────────
   {
