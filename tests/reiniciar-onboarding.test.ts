@@ -16,7 +16,7 @@ import {
 } from '../lib/reiniciar-onboarding';
 import { CLAVES_DEL_NAVEGADOR, CLAVE_LIMPIADO, CLAVE_REINICIO, reinicioDelPerfil, scriptDelReinicio } from '../lib/reinicio-en-el-navegador';
 import { estadoDeLoGuardado } from '../lib/onboarding-contrato';
-import { carpetaDeRespaldos, escribirRespaldo, repoQueLaContiene } from '../lib/respaldo-fuera-del-repo';
+import { CARPETA_RESPALDOS_WINDOWS, carpetaDeRespaldos, escribirRespaldo, repoQueLaContiene } from '../lib/respaldo-fuera-del-repo';
 
 const RAIZ = new URL('..', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -154,7 +154,7 @@ test('6. el botón, al lado de RESET en la vista de administrador: dice que no b
 
 test('7. el respaldo va FUERA de cualquier repo (el primero, el de Leila, quedó en la raíz sin que git lo ignorara)', () => {
   // La carpeta: la pasada, MAKO_RESPALDOS, o la de la máquina.
-  assert.equal(carpetaDeRespaldos({ env: {}, plataforma: 'win32' }), resolve('C:/dev/respaldos'));
+  assert.equal(carpetaDeRespaldos({ env: {}, plataforma: 'win32' }), CARPETA_RESPALDOS_WINDOWS);
   assert.equal(carpetaDeRespaldos({ env: {}, plataforma: 'linux', home: '/h' }), join('/h', 'mako-respaldos'));
   assert.equal(carpetaDeRespaldos({ env: { MAKO_RESPALDOS: '/r' }, plataforma: 'win32' }), resolve('/r'));
   assert.equal(carpetaDeRespaldos({ pasada: '/p', env: { MAKO_RESPALDOS: '/r' } }), resolve('/p'));

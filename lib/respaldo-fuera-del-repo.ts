@@ -19,7 +19,7 @@ export const CARPETA_RESPALDOS_WINDOWS = 'C:/dev/respaldos';
 export function carpetaDeRespaldos(o: { pasada?: string | null; env?: Record<string, string | undefined>; plataforma?: string; home?: string } = {}): string {
   const elegida = o.pasada || (o.env ?? process.env).MAKO_RESPALDOS;
   if (elegida) return resolve(elegida);
-  return (o.plataforma ?? process.platform) === 'win32' ? resolve(CARPETA_RESPALDOS_WINDOWS) : join(o.home ?? homedir(), 'mako-respaldos');
+  return (o.plataforma ?? process.platform) === 'win32' ? CARPETA_RESPALDOS_WINDOWS : join(o.home ?? homedir(), 'mako-respaldos');
 }
 
 /** El repo de git que contiene `carpeta` (el primer `.git`, carpeta o archivo, hacia arriba), o null si no hay ninguno. */
