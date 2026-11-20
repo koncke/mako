@@ -25,6 +25,7 @@ import { cifrasSinFuente } from '../copywriter/ia-reglas';
 import { altoEnElEditor, comoSeDibuja, medidorReal } from './medir-letra';
 import { partirEnRenglones, sinSuperponer, type Caja, type FuenteTexto } from './tipografia-medida';
 import type { Bloque } from './plancha-local';
+import type { ParteDelCopy } from './copy-pegado';
 import { esSaturacion, esTimeout, esTopeDeTamano } from '../fallo-ia-texto';
 import { ANCHO_CARRUSEL, ALTO_CARRUSEL, altoEstimado, esOscuro, familia, rect, texto, type Marca } from './documento';
 import type { EstiloCarrusel } from './tipos';
@@ -66,6 +67,12 @@ export type TextoReplica = {
    */
   acentos?: ReadonlyArray<readonly [number, number]>;
   acento?: string | null;
+  /**
+   * Es el COPY del dueño, tal cual (20/11/2026, ./copy-pegado.ts): sus cortes de renglón se respetan y no se pasa a mayúsculas.
+   * Con `altoMax` (px), puede crecer hacia abajo hasta el texto siguiente en vez de achicarse al alto del original.
+   */
+  copy?: boolean;
+  altoMax?: number;
 };
 export type FotoReplica = { x: number; y: number; ancho: number; alto: number; persona: boolean; descripcion: string };
 /**
@@ -175,7 +182,34 @@ export type PedidoReplica = {
    * (`escritas`) para que siga el mismo hilo. Con esto, `laminas` y `vistas` son 1.
    */
   unaDe?: { n: number; de: number; escritas: string } | null;
+  /**
+   * EL COPY DEL DUEÑO (20/11/2026, ./copy-pegado.ts): el texto de cada lámina, ya escrito. La IA sólo lee el diseño y pone los
+   * renglones de cada parte en sus textos; el código lo controla y, si no es el copy tal cual, lo reparte él. `laminaDe[k]` es la
+   * lámina del original (0 a n-1) con cuyo diseño va la parte k.
+   */
+  copy?: { partes: readonly ParteDelCopy[]; laminaDe: readonly number[] } | null;
 };
+
+/**
+ * El bloque del COPY para el prompt: qué parte va en cada lámina del original, tal cual. Las partes que se repiten con el diseño
+ * de una lámina del medio no van (las arma el código con la misma lámina). Las láminas del original sin parte, como el original.
+ */
+export function bloqueDelCopy(c: NonNullable<PedidoReplica['copy']>, n: number): string {
+  const lineas: string[] = [
+    'EL TEXTO YA LO ESCRIBIÓ EL DUEÑO y va PALABRA POR PALABRA: no lo cambies, no lo resumas, no lo traduzcas, no le agregues nada (ni signos, ni emojis, ni mayúsculas que no tenga). Tu trabajo es el DISEÑO de cada lámina; el texto es éste.',
+    'Lámina por lámina del original, la parte del copy que va en ella:',
+    '<<<COPY',
+  ];
+  for (let i = 0; i < n; i++) {
+    const k = c.laminaDe.indexOf(i);
+    if (k < 0) { lineas.push(`LÁMINA ${i + 1}: (no va en la versión del dueño; escribe sus textos como en el original)`); continue; }
+    const p = c.partes[k];
+    lineas.push(`LÁMINA ${i + 1} → PARTE ${k + 1}:`, ...p.lineas, ...(p.abajo ? [`(abajo, el texto chico de la lámina: ${p.abajo})`] : []));
+  }
+  lineas.push('COPY>>>');
+  lineas.push('En "texto" de cada texto de una lámina van renglones de SU parte, en orden de lectura: el primero arriba (donde el original tiene su titular o su etiqueta), después los que siguen. Un renglón no se parte entre dos textos. Si la parte tiene más renglones que textos el original, los que sobran van JUNTOS en el último texto, con "\\n" entre ellos. Si tiene menos, los textos que sobran van con "texto": "". Lo de «abajo» va en el texto chico de abajo de la lámina.');
+  return lineas.join('\n').slice(0, 9_000);
+}
 
 /** Lo de una oferta que le sirve a la IA para escribir (las columnas de `ofertas`, lib/oferta-modelo.ts). */
 export type OfertaDelPrompt = {
@@ -306,7 +340,9 @@ export function promptDeReplica(p: PedidoReplica): string {
   const n = Math.max(1, Math.min(LAMINAS_MAX, Math.round(p.laminas) || 1));
   const vistas = Math.max(0, Math.min(n, p.vistas));
   const que = p.anuncio ? 'un anuncio de imagen' : `un carrusel de Instagram de ${n} ${n === 1 ? 'lámina' : 'láminas'}`;
-  const tema = bloqueDelTema(p.pedido);
+  // Con el COPY del dueño (20/11/2026), el tema no se usa: el texto ya está escrito (./copy-pegado.ts).
+  const copy = p.copy?.partes.length && !p.unaDe ? bloqueDelCopy(p.copy, n) : '';
+  const tema = copy ? '' : bloqueDelTema(p.pedido);
   const una = p.unaDe ?? null;
   return [
     una
@@ -315,11 +351,14 @@ export function promptDeReplica(p: PedidoReplica): string {
       ? `No tienes sus láminas: sólo el tema y el pie de ${que} que funcionó (abajo). Vas a ARMAR la versión para el negocio de abajo: ${n === 1 ? 'una lámina' : `${n} láminas`}, con la estructura que sugiere el pie (gancho, desarrollo y una acción al final), el diseño pensado por ti (tipografía y color, sin fotos) y los TEXTOS escritos para este negocio.`
       : `Te muestro ${vistas === n ? (n === 1 ? 'la imagen' : `sus ${n} láminas, en orden`) : `sólo ${vistas === 1 ? 'su portada' : `sus primeras ${vistas} láminas`}`} de ${que} que funcionó. Vas a REPLICAR su DISEÑO para el negocio de abajo: misma cantidad de láminas, mismo lugar, tamaño, color y peso de cada texto, mismo color de fondo y mismo lugar de cada foto, con los TEXTOS escritos para este negocio.`,
     vistas > 0 && vistas < n ? `De las láminas que no ves, continúa el mismo estilo de las que ves y la misma estructura (la última pide la acción).` : '',
+    copy ? `\n${copy}` : '',
     tema ? `\n${tema}` : '',
     una?.escritas.trim() ? `\nLas otras láminas de tu versión, ya escritas (DATOS: no las repitas; ésta sigue su hilo):\n<<<ESCRITAS\n${una.escritas.trim().slice(0, 3_000)}\nESCRITAS>>>` : '',
     '',
     'Reglas:',
-    '- Copia el patrón (cómo abre, cuántas ideas por lámina, cómo cierra), NUNCA sus frases: cada texto lo escribes tú para este negocio, con un largo parecido al original para que entre en el mismo lugar.',
+    copy
+      ? '- Los textos son los del COPY de arriba, tal cual. De la lámina original copias el diseño: el lugar, el tamaño, el color, la letra y el papel de cada texto.'
+      : '- Copia el patrón (cómo abre, cuántas ideas por lámina, cómo cierra), NUNCA sus frases: cada texto lo escribes tú para este negocio, con un largo parecido al original para que entre en el mismo lugar.',
     '- Y tampoco sus HECHOS. Si el original cuenta algo que le pasó a su autor (una anécdota, un premio, un familiar, una fecha, un lugar, una cifra), eso no le pasó a este negocio: usa la misma estructura con lo que sabes del negocio de abajo, y si no sabes nada que contar ahí, escribe la idea sin la anécdota. Nunca cuentes como propio del negocio algo que le pasó a otra persona.',
     // 13/11/2026, el Cerebro mirando @lifeofarjav: «La voz de MaKo, sus 3 libros» (los libros eran de Hormozi) y «MaKo + Claude =
     // 100M Business». Adaptar no es buscar y reemplazar el nombre del gurú por el del negocio: es contar lo mismo con lo que el negocio
@@ -342,7 +381,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     // no se nombra (memoria «prompt corto gana al técnico»).
     vistas > 0 ? '- PRIMERO LEE la composición de ESTAS láminas y escríbela en "lectura" (en español, 1 a 3 frases): cuántos cuadros de imagen tiene cada una, dónde están y qué muestran, y dónde va cada texto, de qué tamaño y sobre qué (el fondo, una foto, una pastilla o una caja de color). Describe sólo lo que ves: si no hay fotos, dilo. Después copia ESA composición, lámina por lámina.' : '',
     vistas > 0
-      ? '- "cuadros": cada imagen de la lámina, en el MISMO lugar y del MISMO tamaño que en el original; si una lámina tiene dos fotos, son dos cuadros. "tipo": "escena" si es una foto de un lugar (con o sin alguien adentro), "retrato" si es la persona sola, recortada o en primer plano, como parte del diseño (también la foto de perfil de un tuit). "forma": "circulo" si la foto es redonda, "redondeado" si tiene las esquinas curvas, "rect" si no. "busqueda": de 3 a 6 palabras EN INGLÉS para buscar una foto PARECIDA de lo que muestra, sin gente. Si la lámina es sólo tipografía, "cuadros": [].'
+      ? '- "cuadros": cada imagen de la lámina, en el MISMO lugar y del MISMO tamaño que en el original; si una lámina tiene dos fotos, son dos cuadros. "tipo": "escena" si es una foto de un lugar (con o sin alguien adentro), "retrato" si es la persona sola, recortada o en primer plano, como parte del diseño (también la foto de perfil de un tuit). "forma": "circulo" si la foto es redonda, "redondeado" si tiene las esquinas curvas, "rect" si no. "busqueda": de 3 a 6 palabras EN INGLÉS para buscar una foto que vaya con lo que dice TU texto de esa lámina, con el encuadre y el clima de la del original, sin gente. Cada lámina con SU búsqueda: dos láminas no comparten la misma. Si la lámina es sólo tipografía, "cuadros": [].'
       : '- Sin las láminas no hay cuadros: "cuadros": [] y la lámina es tipografía y color.',
     vistas > 0 ? '- "formas": el MARCO de la lámina, en su lugar: cada línea divisoria ("tipo": "linea") y cada tarjeta, franja o recuadro de color que va detrás de textos o fotos ("tipo": "caja", con su "color", su "borde" o null, "radio" de 0 a 0.5 si tiene las esquinas curvas y "sombra"). Los textos del marco (el @, el número de lámina como «02 / 06», el pie) van en "textos" con su papel ("firma" o "rotulo"), en cada lámina que los tenga. Sin marco, "formas": [].' : '',
     vistas > 0 ? '- "original": cada texto como se lee en la lámina original, con "\\n" donde corta el renglón. Lista TODOS los textos de cada lámina EN ORDEN DE LECTURA (de arriba a abajo y, en una misma franja, de izquierda a derecha): también la etiqueta o pastilla («STEP 1» va como «PASO 1»), los del marco (el ©, el @, el número «01 / 06») y el PIE de abajo, en CADA lámina que los tenga aunque se repitan. De adentro de una captura de pantalla o de una tarjeta con letra chica (una ventana, un formulario, un chat, un documento), sólo su título, adaptado; el resto no va.' : '',
@@ -1232,10 +1271,13 @@ function laminaFiel(l: LaminaReplica, plancha: PlanchaDeLamina, o: { W: number; 
     else if (alinear === 'right') { const fin = b.caja.x + b.caja.ancho; left = Math.max(fin - tope, margen); width = fin - left; }
     else { left = b.caja.x; width = Math.min(Math.max(b.caja.ancho, W - margen - b.caja.x), tope); }
     // Que entre en el ancho y en el alto del original (los mismos renglones; un 6 % de aire).
-    const permitido = altoEnElEditor(Math.max(1, b.renglones), tam, interlineado) * 1.06;
+    // El COPY del dueño (20/11/2026) puede bajar hasta el texto siguiente (`altoMax`): achicarlo al alto del original dejaba un
+    // párrafo de ocho renglones en letra de 12 px.
+    const permitido = Math.max(altoEnElEditor(Math.max(1, b.renglones), tam, interlineado) * 1.06, t.copy ? t.altoMax ?? 0 : 0);
     // Los cortes de renglón de la IA no pueden dar MÁS renglones que el original (el titular «Tell it How to Act», de uno, salía
-    // «Dale tus / Instrucciones» encima del subtítulo): con más, se juntan y el ancho decide dónde cortar.
-    const contenido = t.texto.split('\n').length > Math.max(1, b.renglones) ? t.texto.replace(/\n/g, ' ') : t.texto;
+    // «Dale tus / Instrucciones» encima del subtítulo): con más, se juntan y el ancho decide dónde cortar. Los del copy, no: los
+    // puso el dueño («Publica todos los días» / «Si no escalas, te quedas atrás» son dos renglones a propósito).
+    const contenido = !t.copy && t.texto.split('\n').length > Math.max(1, b.renglones) ? t.texto.replace(/\n/g, ' ') : t.texto;
     let renglones: string[] = [];
     for (let i = 0; i < 16; i++) {
       const fuente: FuenteTexto = { familia: fam, peso, italica: false, tam, espaciado };
@@ -1279,8 +1321,11 @@ export function documentoDeReplica(o: {
   replica: Replica; estilo: EstiloCarrusel; marca: Marca; foto: FotoDelCliente | null; nuevoId: () => string; notas?: string; conFuentesDeMarca?: boolean;
   /** La lámina original sin letras, por lámina (null = se arma como antes). Ver ./plancha-local.ts. */
   planchas?: ReadonlyArray<PlanchaDeLamina | null>;
-  /** La escena PARECIDA de cada cuadro de tipo «escena», por su `busqueda` (el banco de fotos, ya en nuestro bucket). */
-  escenas?: ReadonlyMap<string, FotoDelCliente>;
+  /**
+   * Las escenas PARECIDAS de los cuadros de tipo «escena», por su `busqueda` (el banco de fotos, ya en nuestro bucket): una o varias
+   * por búsqueda, en orden. Cada cuadro toma la siguiente que no se usó: NINGUNA FOTO DOS VECES en el documento (20/11/2026).
+   */
+  escenas?: ReadonlyMap<string, FotoDelCliente | readonly FotoDelCliente[]>;
   /**
    * ¿El dueño quiere una persona donde el original tiene una? (el `conAvatar` del pedido, como `lugarDePersona` de la plancha).
    * Sin la foto del negocio (que ya no se pega), el lugar del retrato queda MARCADO para generarla con IA. Sin esto, nada.
@@ -1290,9 +1335,18 @@ export function documentoDeReplica(o: {
   const { ancho: W, alto: H } = medidasDe(o.replica.proporcion);
   // Una miniatura NO se reacomoda para «llenar»: su diseño es justamente dónde va el texto grande y dónde la cara.
   const reacomodar = !esMiniatura(o.replica.proporcion);
-  // Una escena que la búsqueda no trajo lleva otra de la misma réplica (12/11/2026): un hueco del color de fondo del tamaño de la
-  // foto se ve roto; una foto parecida de otra lámina, no.
-  const otraEscena = o.escenas ? [...o.escenas.values()][0] : undefined;
+  // ⛔ NINGUNA FOTO DOS VECES (20/11/2026, la llamada con Leila: «te repetí dos imágenes que nada que ver»). Hasta acá, una escena
+  // que la búsqueda no trajo llevaba la primera de la réplica (12/11/2026), y una búsqueda repetida en dos láminas, la misma foto:
+  // en su carrusel, la foto de la lámina 7 salió en cuatro. Cada cuadro toma la SIGUIENTE foto de su búsqueda que nadie usó; si no
+  // queda ninguna, el cuadro va sin foto (y una lámina sin fotos se arma como tipografía: `libre`).
+  const usadas = new Set<string>();
+  const escenaPara = (busqueda: string | undefined): FotoDelCliente | undefined => {
+    const e = busqueda ? o.escenas?.get(busqueda) : undefined;
+    const lista: readonly FotoDelCliente[] = !e ? [] : Array.isArray(e) ? e : [e as FotoDelCliente];
+    const libre = lista.find((f) => !usadas.has(f.url));
+    if (libre) usadas.add(libre.url);
+    return libre;
+  };
   // La cara de marca entra si se eligió, aunque la IA no haya marcado ningún retrato (12/11/2026: @vilmanunez salió sin él).
   const laminas = o.foto ? conLaCara(o.replica.laminas, o.replica.proporcion === '16:9') : o.replica.laminas;
   const pages = laminas.map((l, i) => {
@@ -1339,7 +1393,7 @@ export function documentoDeReplica(o: {
         objetos.push({ ...rect(o.nuevoId(), PERSONA_A_GENERAR, { ...caja, fill: 'rgba(0,0,0,0.035)', radio: 28 }), stroke: '#9AA0A6', strokeWidth: 3, strokeDashArray: [16, 12] });
         puesta();
       } else {
-        const escena = (c.busqueda ? o.escenas?.get(c.busqueda) : undefined) ?? (c.tipo === 'escena' ? otraEscena : undefined);
+        const escena = c.tipo === 'escena' || c.busqueda ? escenaPara(c.busqueda) : undefined;
         if (escena) { objetos.push({ ...fotoQueCubre(o.nuevoId(), escena, caja), ...recorte, name: 'Foto: escena parecida' }); puesta(); }
       }
     }

@@ -8,6 +8,38 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## La llamada con Leila (20/11/2026): el copy pegado se inventaba, las láminas agregadas salían «en blanco» y las fotos se repetían
+
+**El síntoma** (Fathom 205366178, 00:49:31–00:53:42): «le pegué el copy que quería… y las que salen del máximo que tenía el
+template, ya directamente hizo lo que…», «es página 9 en blanco», «te repetí dos imágenes que nada que ver». Medido en producción
+(ws 11, diseño `14331b1a`, y su hilo en `image_editor_chats`): la referencia tenía 7 láminas y su copy, 10.
+
+**El diagnóstico obvio era el equivocado.** Parecía que la IA no obedecía el copy. No le llegaba: lo escrito en la caja del guiado
+se APLANABA (`\s+` → un espacio) y se cortaba en 300 letras (`TOPE_LIBRE`, lib/carruseles/guiado.ts) antes de llegar como «tema»
+(600, `TOPE_TEMA`). La IA recibía la portada y media lámina 2 y escribía el resto. Y la «página en blanco» no estaba en blanco:
+`agregar_pagina` sin `duplicar` creaba una página BLANCA (#ffffff) y la IA le ponía los textos con la tinta crema del diseño
+(#f3eee2), contraste 1,1. Las fotos: una por búsqueda, y un cuadro sin la suya llevaba «otra escena de la réplica».
+
+**La regla que queda:** un copy pegado NO es un tema. Va TAL CUAL, una parte por lámina, y la cantidad de láminas la decide el copy.
+- `lib/carruseles/copy-pegado.ts`: `partesDelCopy` (marcas «Slide N», «Lámina N», «N/M», «---»; el pie «(abajo: …)» aparte),
+  `laminaParaCadaParte` (portada con portada, cierre con cierre, las del medio en orden y repetidas si sobran), `conElCopy` (la
+  réplica y sus planchas repartidas; un texto del copy puede bajar hasta el siguiente: `altoMax`). Lo que escribió la IA vale sólo
+  si es el copy tal cual (`repartirEnLosTextos`); si reescribió, reparte el código.
+- El guiado guarda `copy` aparte de los extras, entero (8.000) y con sus renglones; la caja queda abierta con el armado andando y
+  pegar un copy lo rehace.
+- En un carrusel, `agregar_pagina` sin `duplicar` copia el DISEÑO de una lámina de contenido (`paginaDeContenido`) y lleva los
+  renglones dictados en `textos` (`conLosTextos`). El prompt del chat ya no pide «cada página su fondo».
+- Ninguna foto dos veces: `escenasParecidas` trae tantas fotos como cuadros tiene cada búsqueda, distintas entre búsquedas, y
+  `documentoDeReplica` no repite una URL; un cuadro sin foto propia va sin foto. La búsqueda se escribe para el texto NUEVO.
+- tests/carruseles-copy-pegado.test.ts (10 casos, con el copy de Leila tal cual). Contra origin/main fallan los tres que se pueden
+  correr allá (el copy aplanado, f1/f2 repetidas, la lámina blanca).
+
+**Trampas:**
+- ⚠️ `AperturaMako` no dibuja la charla cuando no hay pregunta abierta (`if (!a) return null`): con «Editar» por defecto, lo que se
+  escribe no aparece en el hilo. Lo que llegó se dice en la línea de estado del panel.
+- ⚠️ Un test que exige una línea del código palabra por palabra (tests/thumbnails-verticales.test.ts, 4) se rompe con cualquier
+  cambio de nombre: se actualizó con el nombre nuevo.
+
 ## «Editar» se cortaba a los 4 minutos: el modelo por defecto de Gemini NO llega, y nadie medía el tiempo de la corrida (19/11/2026, ticket 119)
 
 **El síntoma** (Leila, ws 11, 17:04 UTC): «Tu IA tardó más de 4 minutos en escribir la versión y se cortó: es la demora del
