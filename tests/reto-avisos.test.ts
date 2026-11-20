@@ -26,12 +26,16 @@
 //   X3 el mensaje escrito con 9:00 fijo                                       → falla «la tarjeta de la hora»
 //   F1 el correo con los días genéricos (sin su funnel)                       → falla «el correo del día lleva lo de SU funnel»
 //   F2 `correoDelDia` ignora los días que recibe                              → falla «el correo del día lleva lo de SU funnel»
+// La zona de la persona (`reto.estado.zona`, 20/11), cada una → falla «la noche y el WhatsApp de Martín, a la hora de SU zona»:
+//   Z1 la hora de la noche y del mediodía en Argentina · Z2 «una noche por día» con el día de Argentina · Z3 los 21 días desde el
+//   inicio contados en Argentina · Z4 el reloj de la hora ignora la zona · Z5 el del día también · Z6 el saludo del WhatsApp con la
+//   hora de Argentina.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { HORAS_WA, diaAbierto, type EstadoReto } from '../lib/reto/dias';
 import {
-  queMandar, leerAvisos, horaAr, diaAr, whatsappDelDia, whatsappDeAbandono, avisoDelDia, avisoDeLaNoche, esBaja, CLAVE_AVISOS,
+  queMandar, leerAvisos, horaEnSuZona, diaEnSuZona, whatsappDelDia, whatsappDeAbandono, avisoDelDia, avisoDeLaNoche, esBaja, CLAVE_AVISOS,
   horaDelMensaje, respuestaDeLaHora,
   type AvisosReto,
 } from '../lib/reto/avisos';
@@ -82,16 +86,17 @@ test('desde el correo de antes: lo que ya avisó (`avisado`) no se repite', () =
   assert.deepEqual(leerAvisos('basura', null), { v: 1, dia: 1 });
 });
 
-/** La vuelta de cada hora, a los :02, durante días: lo que sale y a qué hora de Argentina. */
+/** La vuelta de cada hora, a los :02, durante días: lo que sale y a qué hora de SU zona (de Argentina sin zona), y en UTC. */
 function simular(e: EstadoReto, dias: number, o: { ultimaVisita?: number | null; porWhatsApp?: boolean; a?: AvisosReto } = {}) {
   let a = o.a ?? nuevos(e);
-  const salio: Array<{ que: string; dia: number; hora: number; fecha: number; wa?: boolean }> = [];
+  const salio: Array<{ que: string; dia: number; hora: number; fecha: number; utc: number; wa?: boolean }> = [];
   const desde = Date.parse(INICIO) + 2 * 60_000;
   for (let t = desde; t < desde + dias * 24 * HORA; t += HORA) {
     const p = queMandar({ e, a, ahora: t, ultimaVisita: o.ultimaVisita === undefined ? t : o.ultimaVisita, porWhatsApp: o.porWhatsApp ?? true });
-    if (p.manana) salio.push({ que: 'manana', dia: p.manana.dia, hora: Math.floor(horaAr(t)), fecha: diaAr(t), wa: p.manana.whatsapp });
-    if (p.noche) salio.push({ que: 'noche', dia: p.noche.dia, hora: Math.floor(horaAr(t)), fecha: diaAr(t) });
-    if (p.abandono) salio.push({ que: 'abandono', dia: p.abandono.dia, hora: Math.floor(horaAr(t)), fecha: diaAr(t), wa: p.manana?.whatsapp });
+    const cuando = { hora: Math.floor(horaEnSuZona(t, e.zona)), fecha: diaEnSuZona(t, e.zona), utc: new Date(t).getUTCHours() };
+    if (p.manana) salio.push({ que: 'manana', dia: p.manana.dia, ...cuando, wa: p.manana.whatsapp });
+    if (p.noche) salio.push({ que: 'noche', dia: p.noche.dia, ...cuando });
+    if (p.abandono) salio.push({ que: 'abandono', dia: p.abandono.dia, ...cuando, wa: p.manana?.whatsapp });
     a = p.avisos;
   }
   return salio;
@@ -131,7 +136,7 @@ test('con la hora de las 20:00, el día nuevo sale a las 20:00 y no le «falta»
   const salio = simular(reto({ horaWa: '20:00' }), 9);
   assert.deepEqual(salio.filter((x) => x.que === 'manana').map((x) => x.hora), [20, 20, 20, 20, 20, 20]);
   const noches = salio.filter((x) => x.que === 'noche');
-  assert.ok(noches.every((x) => x.fecha === diaAr(Date.parse(INICIO))), 'sólo la primera noche, antes del día 2');
+  assert.ok(noches.every((x) => x.fecha === diaEnSuZona(Date.parse(INICIO))), 'sólo la primera noche, antes del día 2');
 });
 
 test('el abandono: a los 2 días sin entrar, al mediodía, uno por semana, nunca con el de la mañana a la vez', () => {
@@ -148,6 +153,28 @@ test('el abandono: a los 2 días sin entrar, al mediodía, uno por semana, nunca
   assert.equal(simular(e, 10, { ultimaVisita: null }).filter((x) => x.que === 'abandono').length, 0, 'sin saber cuándo entró, no');
   assert.equal(simular(e, 10, { ultimaVisita: nunca, porWhatsApp: false }).filter((x) => x.que === 'abandono').length, 0, 'sin el WhatsApp del V2, no');
   assert.equal(simular(e, 10).filter((x) => x.que === 'abandono').length, 0, 'entrando cada día, nunca');
+});
+
+test('la noche y el WhatsApp de Martín, a la hora de SU zona (`reto.estado.zona`); sin zona, la de Argentina', () => {
+  const nunca = Date.parse(INICIO);
+  // [zona, la mañana de las 9:00, las 20:00 y el mediodía, en UTC]. México: UTC−6 (sin horario de verano desde 2022). Madrid: UTC+1
+  // en noviembre. Medido en UTC, no con el reloj de avisos.ts: así un reloj que ignore la zona no se da la razón a sí mismo.
+  const casos: Array<[string | undefined, number, number, number]> = [[undefined, 12, 23, 15], ['America/Mexico_City', 15, 2, 18], ['Europe/Madrid', 8, 19, 11]];
+  for (const [zona, manana, noche, mediodia] of casos) {
+    const donde = zona ?? 'sin zona (Argentina)';
+    const salio = simular(reto({ horaWa: '9:00', ...(zona ? { zona } : {}) }), 10, { ultimaVisita: nunca });
+    assert.deepEqual(salio.filter((x) => x.que === 'manana').map((x) => x.utc), Array(6).fill(manana), `la mañana, ${donde}`);
+    assert.deepEqual(salio.filter((x) => x.que === 'noche').map((x) => x.utc), Array(6).fill(noche), `las 20:00, una por noche, ${donde}`);
+    assert.deepEqual(salio.filter((x) => x.que === 'abandono').map((x) => x.utc), [mediodia, mediodia], `el mediodía, uno por semana, ${donde}`);
+  }
+  // Los 21 días se cuentan en SU zona: empezó a las 22:00 de México, que en Argentina ya es la 01:00 del día siguiente.
+  const tarde = reto({ horaWa: '9:00', zona: 'America/Mexico_City', inicio: '2026-11-20T04:00:00.000Z' });
+  const deMartin = (iso: string) => queMandar({ e: tarde, a: nuevos(tarde), ahora: h(iso), ultimaVisita: Date.parse(tarde.inicio), porWhatsApp: true }).abandono;
+  assert.ok(deMartin('2026-12-10T18:02:00Z'), 'el día 21 en México, al mediodía: todavía');
+  assert.equal(deMartin('2026-12-11T18:02:00Z'), undefined, 'el 22 en México ya no (contado en Argentina serían 21)');
+  // El saludo del WhatsApp de la mañana («¡Buenas tardes»), con la hora de SU zona; y ningún reloj de Argentina fijo en los avisos.
+  assert.ok(fuenteSinComentarios('lib/reto/avisos-salida.ts').includes('whatsappDelDia(v2.nombre, dia, Math.floor(horaEnSuZona(ahora, e.zona)))'));
+  assert.doesNotMatch(fuenteSinComentarios('lib/reto/avisos.ts'), /HORA_AR|horaAr|diaAr/);
 });
 
 test('BAJA: ningún WhatsApp más del reto (la app y el correo siguen)', () => {

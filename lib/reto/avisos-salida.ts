@@ -23,7 +23,7 @@ import { enviarAPersonaMaKo } from '../mako-grupo';
 import { PARA_TODOS, WS_REVISION_V2, veOnboardingV2 } from '../onboarding-v2/revision';
 import { CLAVE_RETO, correoDelDia, diasDelReto, leerEstado } from './dias';
 import {
-  CLAVE_AVISOS, PREHEADER_DIA, RUTA_RETO, avisoDeLaNoche, avisoDelDia, hayQueGuardar, horaAr, leerAvisos, queMandar,
+  CLAVE_AVISOS, PREHEADER_DIA, RUTA_RETO, avisoDeLaNoche, avisoDelDia, hayQueGuardar, horaEnSuZona, leerAvisos, queMandar,
   whatsappDeAbandono, whatsappDelDia,
 } from './avisos';
 
@@ -103,7 +103,7 @@ export async function avisarDelReto(opts: { ahoraMs?: number; enSeco?: boolean }
           if (!c.enviado) console.warn(`[reto] no salió el correo del día ${dia} a ${to} (ws ${ws}): ${c.error ?? 'sin detalle'}`);
         }
         if (plan.manana.whatsapp && v2) {
-          const w = await enviarAPersonaMaKo(v2.destino, whatsappDelDia(v2.nombre, dia, Math.floor(horaAr(ahora))));
+          const w = await enviarAPersonaMaKo(v2.destino, whatsappDelDia(v2.nombre, dia, Math.floor(horaEnSuZona(ahora, e.zona))));
           if (w.ok) r.whatsapp++; else { r.errores++; console.warn(`[reto] no salió el WhatsApp del día ${dia} (ws ${ws}): ${w.error}`); }
         }
       }
