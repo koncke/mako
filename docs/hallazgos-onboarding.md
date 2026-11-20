@@ -3556,8 +3556,11 @@ filas de los coaches tachaban el día 1 entero.
 - **Una página de /m que devuelve algo antes de su `PantallaM` da rojo** (tests/movil-refrescar.test.ts: sin ella no se refresca
   tirando hacia abajo). «Sigamos en tu computadora» del reto salía antes de los desvíos y sin envolver (corrida 44687986156).
 - **La zona horaria del reto se guarda sólo al empezar** (`reto.estado.zona`, la del navegador): cambiarla a mitad del reto puede
-  cerrar un día ya abierto (de Argentina a México, a las 10:00 de Argentina el día vuelve atrás). Sin zona, Argentina. El aviso de la
-  mañana la sigue solo (usa `diaAbierto`); el de la noche y el de Martín siguen con `horaAr` (lib/reto/avisos.ts, del chat de WhatsApp).
+  cerrar un día ya abierto (de Argentina a México, a las 10:00 de Argentina el día vuelve atrás). Sin zona, Argentina. Todos los avisos
+  la siguen: la mañana por `diaAbierto`; la noche, el de Martín y el saludo del WhatsApp por `horaEnSuZona`/`diaEnSuZona`
+  (lib/reto/avisos.ts, el mismo `desfaseHoras`). Los 21 días del abandono también se cuentan en su zona: quien empieza a las 22:00 de
+  México ya está en el día siguiente de Argentina. **Un reloj se prueba en UTC**, no con el mismo reloj que se prueba: si el test mide
+  la hora con `horaEnSuZona` y la función ignora la zona, los dos se equivocan igual y da verde (tests/reto-avisos.test.ts).
 - **El día 1 es el primero de la prueba** (`inicioConLaPrueba`: el primer cobro menos 7 días). Quien abre el reto tarde ve abiertos los
   días que ya corrieron, y el aviso de la mañana no los reenvía: sólo avisa un día que se abrió hace poco (`recien`, avisos.ts).
 - **Sin hacer**: el reto como proyecto del Plan (d24-22: toca el Plan, otra área), el video con marcas dentro del mensaje (d24-10,

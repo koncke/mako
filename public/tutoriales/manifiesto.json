@@ -3169,6 +3169,61 @@
    "hecho": "2026-11-18T14:18:38.313Z"
   },
   {
+   "key": "chats-vacio",
+   "pestana": "Chats",
+   "ruta": "/chats",
+   "archivo": "/tutoriales/chats-vacio.mp4",
+   "poster": "/tutoriales/chats-vacio.jpg",
+   "duracion_s": 24.2,
+   "peso_kb": 1371,
+   "guion": "WhatsApp, Instagram, Messenger y email, en una sola bandeja. Te doy la bienvenida a Chats: aquí lees los mensajes de tus clientes, escriban por donde escriban. Todavía no conectaste ninguno: por eso la ves vacía. Empieza por WhatsApp: es por donde más te escriben, y ahí MaKo te sugiere qué contestar. Toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.",
+   "frases": [
+    {
+     "id": "chats-vacio-1",
+     "rol": "gancho",
+     "texto": "WhatsApp, Instagram, Messenger y email, en una sola bandeja.",
+     "t_inicio": 0.08,
+     "t_fin": 4.56
+    },
+    {
+     "id": "chats-vacio-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a Chats: aquí lees los mensajes de tus clientes, escriban por donde escriban.",
+     "t_inicio": 4.74,
+     "t_fin": 10.94
+    },
+    {
+     "id": "chats-vacio-3",
+     "rol": "cosa",
+     "texto": "Todavía no conectaste ninguno: por eso la ves vacía.",
+     "t_inicio": 11.14,
+     "t_fin": 14.11
+    },
+    {
+     "id": "chats-vacio-4",
+     "rol": "cosa",
+     "texto": "Empieza por WhatsApp: es por donde más te escriben, y ahí MaKo te sugiere qué contestar.",
+     "t_inicio": 14.36,
+     "t_fin": 19.49
+    },
+    {
+     "id": "chats-vacio-5",
+     "rol": "cierre",
+     "texto": "Toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.",
+     "t_inicio": 19.68,
+     "t_fin": 23.85,
+     "sel": "[data-recorrido=\"tour-chats-whatsapp\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-20T06:44:37.126Z"
+  },
+  {
    "key": "classroom-community",
    "pestana": "Community",
    "ruta": "/classroom/community",

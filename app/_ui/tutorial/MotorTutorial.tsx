@@ -37,7 +37,7 @@ import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigueLosPasos, 
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
 import { barraEntera, mostrarLaBarra, presentaLaBarra } from './barra-oculta';
-import { alFinSinMarca, navegaA, siguienteConMarca, soloEnComputadora, soltarRetencion, type Retencion } from './pausas';
+import { TOPE_CADENA_MS, alFinSinMarca, comoCadena, navegaA, pasoDeLaCadena, siguienteConMarca, soloEnComputadora, soltarRetencion, type Retencion } from './pausas';
 
 /**
  * Los tutoriales cuyo video tiene que seguir SUS pasos, en su orden (`sigueLosPasos`): el recorrido aprobado. El «recorrido» de la
@@ -122,6 +122,28 @@ function navegaAlTocar(el: HTMLElement): boolean {
 }
 
 /**
+ * Toca el `antes` de un paso. Uno solo, como siempre. Una CADENA (20/11: «Canal › Conectar un canal», «las hojas › Nueva hoja»):
+ * desde el último eslabón que ya está a la vista (./pausas.ts → pasoDeLaCadena), y cada uno espera al siguiente hasta
+ * TOPE_CADENA_MS. Si el siguiente no aparece (un rol sin esa opción), cierra lo abierto: nunca deja un menú colgado.
+ */
+function tocarAntes(antes: string | readonly string[], vivo: () => boolean): void {
+  const cadena = comoCadena(antes);
+  const i = pasoDeLaCadena(cadena.map((s) => !!lugarDe(s)));
+  if (i < 0) return;
+  lugarDe(cadena[i])?.click();
+  const resto = cadena.slice(i + 1);
+  if (!resto.length) return;
+  const desde = Date.now();
+  const mirar = () => {
+    if (!vivo()) return;
+    if (lugarDe(resto[0])) { tocarAntes(resto, vivo); return; }
+    if (Date.now() - desde > TOPE_CADENA_MS) { cerrarLoAbierto(); return; }
+    window.setTimeout(mirar, 100);
+  };
+  window.setTimeout(mirar, 100);
+}
+
+/**
  * Cierra lo que abrió lo tocado (un panel, otra vista) antes de marcar lo siguiente, para que no lo tape: un Escape y, si sigue
  * abierto, su botón de cerrar. El Escape del motor NO omite el tutorial (el manejador de abajo sólo oye los de la persona).
  */
@@ -170,8 +192,28 @@ function TutorialDeLaRuta() {
   // el video del Ops Center. tutorialDeRuta (lib/tutoriales) ya elige por la consulta cuando el tutorial la pide.
   const consulta = useSearchParams()?.toString() ?? '';
   const ruta = (usePathname() ?? '/') + (consulta ? `?${consulta}` : '');
-  const t = tutorialDeRuta(ruta);
+  const t = useVariante(tutorialDeRuta(ruta));
   return t ? <><PrimeraVez key={t.pestana} t={t} /><BotonDelVideo t={t} /></> : null;
+}
+
+/**
+ * EL TUTORIAL DEL ESTADO DE LA PANTALLA (20/11: Chats vacío). Si el de la ruta trae `variante` y su marca está en la pantalla (la
+ * pantalla ya pintó: se mira cuando cambia), corre ése, con su video y su «visto» propios. Sin variante, el de la ruta tal cual.
+ */
+function useVariante(t: TutorialPestana | null): TutorialPestana | null {
+  const si = t?.variante?.si ?? null;
+  const [esta, setEsta] = useState(false);
+  useEffect(() => {
+    if (!si) return;
+    let cuadro = 0;
+    const mirar = () => { cuadro = 0; setEsta(!!lugarDe(si)); };
+    const pedir = () => { if (!cuadro) cuadro = requestAnimationFrame(mirar); };
+    pedir();
+    const mo = new MutationObserver(pedir);
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => { mo.disconnect(); if (cuadro) cancelAnimationFrame(cuadro); setEsta(false); };
+  }, [si]);
+  return t?.variante && esta ? t.variante.tutorial : t;
 }
 
 /** El «?» de cada pestaña con tutorial (Martín, 18/11: «el botoncito de pregunta… si el usuario cerró el video, pueda volver a
@@ -490,7 +532,8 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
       // No está: el video SIGUE. Si el paso trae `antes` (abre lo que falta: el grafo, la ficha, el modal) y la frase anterior no se
       // tocó, se toca una vez; lo que abre se marca apenas aparece.
       const previa = [...frases].reverse().find((x) => !!x.sel && x.t_inicio < f.t_inicio);
-      if (paso.antes && !(previa && pulsadas.current.has(previa.id))) lugarDe(paso.antes)?.click();
+      // Una cadena va igual: arranca en su último eslabón a la vista, así que lo que dejó abierto la frase tocada no se cierra.
+      if (paso.antes && (typeof paso.antes !== 'string' || !(previa && pulsadas.current.has(previa.id)))) tocarAntes(paso.antes, () => vivo.current);
       pendiente.current = { f, espera: null };
     };
     // Terminó con una «Mira aquí» marcada: se suelta y va al cierre. Con una que espera el clic, espera (el clic lleva al cierre).
@@ -511,7 +554,9 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
     if (abreLaBarra) barraEntera(true);
     let vivo = true;
     // En el modo video el `antes` lo toca el efecto 0, sólo si la marca falta: aquí la marca ya está, y tocarlo de nuevo cerraría lo abierto.
-    if (paso.antes && !modoVideo) { const a = lugarDe(paso.antes); if (a) a.click(); }
+    // Sólo si la marca falta (20/11): el efecto vuelve a correr apenas la encuentra (cambia `siguiente`), y tocar el `antes` otra vez
+    // cerraba el menú que acababa de abrir (con una cadena, lo abría y tocaba dos veces).
+    if (paso.antes && !modoVideo && !lugarDe(paso.sel)) tocarAntes(paso.antes, () => vivo);
     const desde = Date.now();
     let cuadro = 0;
     const buscar = () => {

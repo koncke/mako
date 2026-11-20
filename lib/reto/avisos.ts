@@ -17,7 +17,7 @@
 // OTRA clave (`reto.avisos`), no en `reto.estado`: el cron escribía el estado entero que había leído, y una tarea marcada en el medio
 // se perdía.
 // =============================================================================
-import { DIAS_RETO, diaAbierto, proximaTarea, type EstadoReto } from './dias';
+import { DIAS_RETO, desfaseHoras, diaAbierto, proximaTarea, type EstadoReto } from './dias';
 
 /** Lo que ya salió, por negocio (`app_settings` → `reto.avisos`). */
 export type AvisosReto = {
@@ -50,10 +50,12 @@ export const RUTA_RETO = '/second-brain?reto=1';
 
 const HORA_MS = 3_600_000;
 const DIA_MS = 86_400_000;
-/** La hora de Argentina, UTC−3: la misma que usa `diaAbierto` (lib/reto/dias.ts). Un test los ata. */
-const HORA_AR = -3;
-export const diaAr = (ms: number): number => Math.floor((ms + HORA_AR * HORA_MS) / DIA_MS);
-export const horaAr = (ms: number): number => ((((ms + HORA_AR * HORA_MS) % DIA_MS) + DIA_MS) % DIA_MS) / HORA_MS;
+/** El día de calendario (días desde 1970) y la hora (con minutos, en horas) de un instante en la zona de la persona
+ *  (`reto.estado.zona`, 20/11); sin zona, la de Argentina. Con el mismo desfase que usa `diaAbierto` (lib/reto/dias.ts), así la
+ *  noche y el abandono caen a SU hora, como el día que se abre. */
+export const diaEnSuZona = (ms: number, zona?: string): number => Math.floor((ms + desfaseHoras(ms, zona) * HORA_MS) / DIA_MS);
+export const horaEnSuZona = (ms: number, zona?: string): number =>
+  ((((ms + desfaseHoras(ms, zona) * HORA_MS) % DIA_MS) + DIA_MS) % DIA_MS) / HORA_MS;
 
 /** Lo guardado, validado. Sin nada guardado, arranca desde el `avisado` del correo de antes (lib/reto/dias.ts). */
 export function leerAvisos(crudo: unknown, e: EstadoReto | null): AvisosReto {
@@ -96,8 +98,9 @@ export function queMandar(p: { e: EstadoReto; a: AvisosReto; ahora: number; ulti
     if (!adelantado && recien) plan.manana = { dia: abierto, whatsapp: p.porWhatsApp && sinBaja && !!e.horaWa };
   }
 
-  const hora = horaAr(ahora), hoy = diaAr(ahora);
-  const pasados = hoy - diaAr(Date.parse(e.inicio));
+  // Las 20:00 y el mediodía son los de SU zona (los de Argentina sin zona): a quien está en México no le llega a las 17:00.
+  const hora = horaEnSuZona(ahora, e.zona), hoy = diaEnSuZona(ahora, e.zona);
+  const pasados = hoy - diaEnSuZona(Date.parse(e.inicio), e.zona);
   const falta = proximaTarea(e, ahora);
 
   // A las 20:00, si falta algo y mañana se abre otro día (la maqueta: el aviso de la noche va en `nuevoDia`, del 2 al 7). No sobre un

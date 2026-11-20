@@ -7,6 +7,7 @@ import { join } from 'node:path';
 
 test('«Conectar un canal» va segundo en la lista del admin, no al final', () => {
   const f = readFileSync(join(__dirname, '..', 'app/chats/FiltrosChats.tsx'), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(f, /\? \[canales\[0\], \{ value: 'conectar', label: 'Conectar un canal', crear: true \}, \.\.\.canales\.slice\(1\)\]/);
+  // (20/11: con su lugar para el tutorial de Chats, `marca`, que no cambia el orden.)
+  assert.match(f, /\? \[canales\[0\], \{ value: 'conectar', label: 'Conectar un canal', crear: true(?:, marca: MARCA\.chatsConectar)? \}, \.\.\.canales\.slice\(1\)\]/);
   assert.doesNotMatch(f, /opcionesCanal\.push\(\{ value: 'conectar'/, 'volvió al final de la lista');
 });
