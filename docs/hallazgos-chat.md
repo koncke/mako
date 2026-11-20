@@ -550,6 +550,10 @@ auditoría). Las pruebas: tests/chats-de-a-uno.test.ts y, con el hook de verdad,
 - **Trampa al probar con `renderToStaticMarkup`:** AperturaMako dibuja siempre `<style>{CSS_OFFER}</style>`, que trae `.of-pill--mako`.
   Una regex que busca la clase sola «encuentra» el botón aunque no esté. Hay que buscar el marcado (`class="of-pill of-pill--mako"`) o el
   texto.
+- **Trampa: un dibujo estático no corre la cola** (el rojo de 34738ec54, tests/carruseles-guiado-pantalla.test.ts). Lo que sale por la
+  cola no está en el primer cuadro, porque los puntitos y la salida son efectos. El diagnóstico obvio («el ancla del velo ya no envuelve
+  la pregunta») era el equivocado: el velo mide su ancla cuadro a cuadro (app/_ui/guia/VeloGuia.tsx) y la sigue mientras pasa de los
+  puntitos a la pregunta. Un test así mira dos cosas: el ancla está en el primer cuadro, y lo ya dicho (`anotarDicho`) se dibuja adentro.
 - **Trampa en el arnés de los grupos:** su `setTimeout` no hacía nada, y la cola mide con `Date.now`. El mensaje de MaKo no salía nunca, y
   el test parecía decir que el hook estaba roto. El arnés ahora guarda los relojes y espera el tiempo de verdad.
 - **Sin hacer** (no eran de esta tanda): las pestañas (Copywriter, Image Editor, Video Editor, Web Generator…), MaKo Mobile, el superadmin

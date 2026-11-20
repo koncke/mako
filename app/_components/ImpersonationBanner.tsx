@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { PanelAgencia } from './PanelAgencia';
+import { ReiniciarOnboarding } from './ReiniciarOnboarding';
 import { WS_PARAM } from '@/lib/ws-tab';
 import type { VistaDeOtro } from '@/lib/vista-de-otro';
 
@@ -140,7 +141,14 @@ export function ImpersonationBanner({ inicial = null }: { inicial?: VistaDeOtro 
           del cliente de otra agencia. El server ya las cierra (`/api/datos-mau`
           exige super-admin), así que esto no es el guard: es no pedir una
           respuesta que va a ser 403 y no dibujar un control muerto. */}
-      {!modoAgencia && <div style={{ marginLeft: 'auto' }}><PanelAgencia cliente={cliente} /></div>}
+      {/* «Reiniciar onboarding» (20/11/2026), al lado de RESET: no borra datos, así que va en CUALQUIER cliente (RESET, sólo en el
+          de prueba). El server lo cierra igual: super admin y nunca el negocio del dueño. */}
+      {!modoAgencia && (
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <PanelAgencia cliente={cliente} />
+          <ReiniciarOnboarding cliente={cliente} />
+        </div>
+      )}
       {modoAgencia && <span style={{ marginLeft: 'auto' }} />}
       <button type="button" onClick={salir} disabled={saliendo}
         style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.06em', textTransform: 'uppercase',

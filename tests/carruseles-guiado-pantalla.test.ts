@@ -98,6 +98,14 @@ test('2. la tarjeta de MaKo pregunta la oferta, con sus botones, ADENTRO del anc
   const h = hechos();
   const pregunta = preguntaDe(h, {});
   assert.ok(pregunta, 'sin contestar nada, MaKo pregunta');
+  // La pregunta sale por la cola de salida (20/11/2026, la auditoría de chats: ops-center-5): primero los puntitos, después el texto
+  // y, en la pausa, los botones. El ancla está desde el primer cuadro: el velo la mide cuadro a cuadro (VeloGuia.tsx) y sigue a la
+  // tarjeta mientras crece. Un dibujo estático no corre la cola: lo ya dicho en la página (`anotarDicho`) es la pregunta ya escrita.
+  const primera = renderToStaticMarkup(createElement(ChatReplica, { g: await guiado(h), volver: null }));
+  assert.ok(primera.includes('data-recorrido="image-editor-pregunta"'), 'el ancla está antes de que la pregunta salga');
+  assert.ok(!primera.includes(enHtml(pregunta!.texto)), 'la pregunta, después de los puntitos (nunca de golpe)');
+  const { anotarDicho } = await import('@/app/_chat/useColaDeSalida');
+  anotarDicho(`ap-${pregunta!.id}`);
   const html = renderToStaticMarkup(createElement(ChatReplica, { g: await guiado(h), volver: null }));
   assert.match(html, /Vamos a hacer tu versión del carrusel de @ana\.ventas \(3 láminas\)/, 'el saludo dice de quién es y cuántas láminas');
   const ancla = html.indexOf('data-recorrido="image-editor-pregunta"');
@@ -114,13 +122,17 @@ test('3. un carrusel sin persona no pregunta el avatar: después de la oferta, q
   const r = responder(h, {}, { tipo: 'respuesta', rotulo: 'Mentoría', valor: VALOR.oferta(21) });
   const siguiente = preguntaDe(h, r);
   assert.ok(siguiente);
+  // Ya escrita (sale por la cola de salida: el test 2 dice por qué).
+  const { anotarDicho } = await import('@/app/_chat/useColaDeSalida');
+  anotarDicho(`ap-${siguiente!.id}`);
   const html = renderToStaticMarkup(createElement(ChatReplica, { g: await guiado(h, r), volver: null }));
   assert.ok(html.includes(enHtml(siguiente!.texto)), 'la pregunta siguiente se dibuja');
   assert.doesNotMatch(html, /Mi cara de marca|¿Quién va en su lugar\?/, 'sin persona no hay a quién cambiar');
   // Y con persona, sí: el mismo paso pregunta por la foto.
   const conPersona = hechos({ persona: true, leyendo: false });
   const r2 = responder(conPersona, {}, { tipo: 'respuesta', rotulo: 'Mentoría', valor: VALOR.oferta(21) });
-  const html2 = renderToStaticMarkup(createElement(ChatReplica, { g: await guiado(conPersona, r2), volver: null }));
+  anotarDicho(`ap-${preguntaDe(conPersona, r2)!.id}`);
+  const html2 =renderToStaticMarkup(createElement(ChatReplica, { g: await guiado(conPersona, r2), volver: null }));
   assert.match(html2, />Mi cara de marca</);
 });
 

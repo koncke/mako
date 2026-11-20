@@ -173,14 +173,18 @@ export function ChatOffer({
   // sus píldoras de golpe, y en cada respuesta las píldoras salían junto con el texto. Por la cola de salida: el mensaje de MaKo con sus
   // puntitos y sus píldoras en la pausa. Lo que ya estaba al abrir la conversación, de una; una conversación recién creada (sólo lo de
   // MaKo, sin nada de la persona) trae su primer mensaje con puntitos.
-  const conocidos = useRef<{ sesion: string; ids: ReadonlySet<string> } | null>(null);
-  if (!conocidos.current || conocidos.current.sesion !== sesion.id) {
+  const conocidos = useRef<{ sesion: OfferSesionVista['id']; ids: ReadonlySet<string> } | null>(null);
+  let vistos = conocidos.current;
+  if (!vistos || vistos.sesion !== sesion.id) {
     const recienCreada = mensajes.length > 0 && mensajes.every((m) => m.de === 'mako');
-    conocidos.current = { sesion: sesion.id, ids: new Set(recienCreada ? [] : items.map((x) => x.id)) };
+    vistos = { sesion: sesion.id, ids: new Set(recienCreada ? [] : items.map((x) => x.id)) };
+    conocidos.current = vistos;
   }
-  const yaEstaban = conocidos.current.ids;
+  const yaEstaban = vistos.ids;
   const filas = useMemo(() => items.map((x): FilaDeCola => {
-    if (yaEstaban.has(x.id) || x.k !== 'msg') return { id: x.id, de: x.k === 'msg' ? 'ya' : 'pieza', texto: '' };
+    // Lo que estaba al abrir, de una (también lo que no es un mensaje); lo nuevo que no es un mensaje, en la pausa.
+    if (yaEstaban.has(x.id)) return { id: x.id, de: 'ya', texto: '' };
+    if (x.k !== 'msg') return { id: x.id, de: 'pieza', texto: '' };
     if (x.role !== 'assistant') return { id: x.id, de: 'yo', texto: '' };
     return { id: x.id, de: 'mako', texto: x.texto ?? '', pieza: !!porId.get(x.id.replace(/^of-/, ''))?.opciones?.length };
   }), [items, yaEstaban, porId]);

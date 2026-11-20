@@ -2687,6 +2687,14 @@ guarda por persona en el onboarding (empezó el V2, vio el recorrido, la barra o
 **Se lee del dueño siempre; se ESCRIBE en el dueño sólo en los negocios de prueba** (`escribeComoElCliente`: ws 3 y ws 9). En cualquier
 otro cliente, lo que hace el administrador no toca el perfil del cliente (la D7, docs/diseno-curso-skool.md).
 
+# Algo nuevo que guarde estado del onboarding o del reto se suma a «Reiniciar onboarding»
+
+«Reiniciar onboarding» (20/11/2026: el botón de la vista de administrador y scripts/reiniciar-onboarding.mts) borra SÓLO el estado del
+onboarding y del reto, nunca los datos. Funciona porque sabe dónde vive cada cosa: una clave nueva en `app_settings` va en
+`SETTINGS_QUE_SE_BORRAN` o `SETTINGS_QUE_SE_REESCRIBEN` (lib/reiniciar-onboarding.ts), y si es un dato, en `LO_QUE_QUEDA`. Una marca
+nueva en el navegador va en `CLAVES_DEL_NAVEGADOR` (lib/reinicio-en-el-navegador.ts). Si no, el reinicio la deja y la persona no ve el
+onboarding entero. **El navegador también es estado:** lo visto que guarda se lo devuelve a la base (`Recorrido.tsx`, `useVisto.ts`).
+
 # Una pantalla que TRABA se dispara con la marca de quien entró al flujo, no con la falta de un «visto» nuevo
 
 El 20/11/2026, «Sigamos en tu computadora» (lib/seguir-en-pc.ts) salía a quien NO tuviera `tutorial-ops-center` en su perfil. Ese visto

@@ -15,8 +15,13 @@ export const PARA_TODOS = false;
 /** Las cuentas de la revisión de Martín (en minúsculas). */
 export const EMAILS_REVISION: readonly string[] = ['martinkoncke@gmail.com', 'tejadomartin@gmail.com'];
 
-/** Los negocios de la revisión: el Cliente de Prueba. */
-export const WS_REVISION_V2: readonly number[] = [3];
+/**
+ * Los negocios de la revisión: el Cliente de Prueba (ws 3) y Leila (ws 11). Leila entró el 20/11/2026: Martín pidió reiniciarle el
+ * onboarding para que lo haga entero, y que haga el NUEVO (el Cerebro). Es un cliente de verdad: NO va en `WS_PRUEBA_COMO_CLIENTE`
+ * (mirándola como administrador se lee lo suyo, pero no se anota en su perfil). Con ella se prenden también el reto por WhatsApp
+ * (`retoPorWhatsApp`), el clip de regalo y el AI Avatar en cubos, que cuelgan de esta misma lista.
+ */
+export const WS_REVISION_V2: readonly number[] = [3, 11];
 
 /**
  * LOS NEGOCIOS DONDE MARTÍN PRUEBA COMO SI FUERA EL CLIENTE (el Cerebro, 20/11/2026, la decisión sobre la D7): el ws 3 y el ws 9, las
