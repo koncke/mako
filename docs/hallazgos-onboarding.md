@@ -3550,6 +3550,8 @@ filas de los coaches tachaban el día 1 entero.
   reto tiene su pantalla aparte (app/second-brain/reto/SeguirEnPcReto.tsx), con el mismo diseño y su texto.
 - **Una aserción de orden con `indexOf` no prueba que exista** (`indexOf(a) < indexOf(b)` da verde si `a` no está: -1). Lo encontró
   romper el código; la aserción ahora exige `> 0`.
+- **Una página de /m que devuelve algo antes de su `PantallaM` da rojo** (tests/movil-refrescar.test.ts: sin ella no se refresca
+  tirando hacia abajo). «Sigamos en tu computadora» del reto salía antes de los desvíos y sin envolver (corrida 44687986156).
 - **La zona horaria del reto se guarda sólo al empezar** (`reto.estado.zona`, la del navegador): cambiarla a mitad del reto puede
   cerrar un día ya abierto (de Argentina a México, a las 10:00 de Argentina el día vuelve atrás). Sin zona, Argentina. El aviso de la
   mañana la sigue solo (usa `diaAbierto`); el de la noche y el de Martín siguen con `horaAr` (lib/reto/avisos.ts, del chat de WhatsApp).
