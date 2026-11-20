@@ -21,6 +21,14 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
   ventana ya lo deja afuera (la rotura R1 no da rojo). Queda para cuando `diaAbierto` cuente desde el último día abierto (d24-01).
 - **WhatsApp:** sale sólo con la hora elegida (así la manda la maqueta), sólo a quien verificó su número por el V2 (`v2 && verificado`),
   por `enviarAPersonaMaKo` (regla 1) y sólo a `WS_REVISION_V2` hasta que el V2 esté para todos (`retoPorWhatsApp`).
+- **«Te falta…» de algo que ya había hecho** (d24-04): lo hecho de `reto.estado` se pone al día recién cuando abre el chat del reto
+  (`leerTareasHechas`, app/api/reto). Ahora la vuelta relee con las señales (lib/reto/senales.ts) antes de la noche o del WhatsApp de
+  Martín. Lo leído vale sólo para decidir: el cron no reescribe `reto.estado`. **Trampa que queda:** las lecturas que miran a la
+  persona (la app instalada, la foto) dicen que no sin una sesión, y el cron no tiene. Esas tareas siguen como «falta» hasta que abra
+  el chat del reto.
+- **«MaKo atendió a N clientes por ti»** sale de `wa_mensajes.automatico` (mig 0396): los chats distintos con un saliente automático
+  desde las 0:00 de SU zona, sin los grupos. Chats y el borrador aprobado marcan `false`; el resto, incluida la IA, `true`. Va una sola
+  vez (`reto.avisos.atendio`), con la automatización hecha y con la noche. Con 0, otra noche. Sólo cuenta WhatsApp.
 - **El día 7 no necesitaba al bot** (se creía bloqueado como el 3, 4 y 5): su audio no pide una herramienta, sólo pasárselo a
   Martín. Lo contesta el código (`lib/reto/respuestas.ts`), como la hora y BAJA:
   - va al grupo de SuperAdmin con el audio;
