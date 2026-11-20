@@ -208,7 +208,7 @@ test('auditoría de chats (reto-2, reto-6 y reto-7): un solo hilo por hora, el c
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(chat.includes('const hiloPorHora = intercalar(piezas, k.items);'), 'el chat del reto, por hora');
   assert.ok(!chat.includes('<HiloDelCliente k={k} />'), 'nunca más la charla entera debajo de todo');
-  assert.ok(fuente('../app/second-brain/PiezasCliente.tsx').includes('const items = tramo ?? k.items;'), 'un tramo de la charla');
+  assert.ok(chat.includes('k={{ ...k, items: x.tramo, enCurso: i === ultimoTramo && k.enCurso }}'), 'un tramo de la charla; los puntitos, sólo en el último');
   // reto-6: el cierre de cada día que terminó, debajo de ese día (no sólo el del último).
   assert.ok(chat.includes("piezas.push({ t: tFin, key: `fin:${dia.n}`, nodo: ("), 'cada día con su cierre');
   assert.ok(chat.includes('const verFin = (k2: string) => !esHoy || ver(k2);'), 'los de antes, ya vistos, como están');

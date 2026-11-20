@@ -556,7 +556,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
             {/* Los días, sus cierres y lo que le escribió a MaKo en la caja, en UN hilo por hora (reto-2 y reto-6). */}
             {hiloPorHora.map((x, i) => ('pieza' in x
               ? <Fragment key={x.pieza.key}>{x.pieza.nodo}</Fragment>
-              : <HiloDelCliente key={`charla-${x.desde}`} k={k} tramo={x.tramo} ultimo={i === ultimoTramo} />))}
+              // Cada tramo, con SU parte de la charla; sólo el último lleva «MaKo está escribiendo» (HiloDelCliente, sin cambios).
+              : <HiloDelCliente key={`charla-${x.desde}`} k={{ ...k, items: x.tramo, enCurso: i === ultimoTramo && k.enCurso }} />))}
             {cola.escribiendo && <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo"><span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></span></Burbuja>}
           </>
         )}
