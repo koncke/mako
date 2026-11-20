@@ -75,6 +75,15 @@ export function cierraYa(frases: readonly FraseVideo[], idQueAbrio: string, t: n
   return !!sig && t >= sig.t_inicio;
 }
 
+/**
+ * La frase que suena en el segundo `t` (desde su t_inicio hasta un poco después de su t_fin), o null en un silencio entre frases. La usa
+ * el reproductor de los chats para avisar cada frase (`onFrase`) y marcar las que tienen lugar (app/_ui/tutorial/VideoDelMomento.tsx;
+ * 20/11, la auditoría de chats, videos-5).
+ */
+export function fraseEnElTiempo<F extends Pick<FraseVideo, 't_inicio' | 't_fin'>>(frases: readonly F[], t: number): F | null {
+  return frases.find((f) => t >= f.t_inicio && t < f.t_fin + 0.2) ?? null;
+}
+
 /** ¿Este paso de lib/tutoriales marca lo mismo que la frase? (un `sel` del paso puede ser una lista «computadora, teléfono»). */
 export function mismoLugar(selPaso: string, selFrase: string): boolean {
   const norm = (s: string) => s.replace(/\s+/g, ' ').trim();

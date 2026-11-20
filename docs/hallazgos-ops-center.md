@@ -826,7 +826,8 @@ tests/onboarding-v2-coaches-videos.test.ts.
   del hilo y con su scroll mientras escribe. Medido en el navegador: el velo aparece después de que carga el hilo, sobre su lugar.
 - **ops-center-3, recargar repetía la llegada:** se recuerda por persona en este navegador (`mk-llegada-mostrada:<quien>`, con la huella
   que manda /api/recorridos; `useRecorrido` ahora la devuelve). Al recargar, el mensaje sale de una, sin velo ni puntitos.
-- **Mirando como administrador un negocio con el V2, /api/recorridos lee y anota en el DUEÑO** (Martín: lo mismo que ve el cliente). Da
-  vuelta ahí la regla D7 («el super admin que mira un cliente no le consume el recorrido»): en un negocio del V2, lo que el administrador
-  cierra lo cierra el cliente. Hoy sólo alcanza al Cliente de Prueba (ws 3); **con el interruptor para todos, alcanzará a cualquier
-  cliente que un administrador mire.** Si eso no se quiere para los clientes de verdad, hay que acotarlo antes de prender el V2.
+- **Mirando un negocio como administrador, /api/recorridos LEE del dueño** (Martín: lo mismo que ve el cliente) **y ESCRIBE en el dueño
+  sólo en los negocios de prueba, ws 3 y ws 9** (la decisión del Cerebro sobre la D7, 20/11). En cualquier otro cliente, lo que el
+  administrador cierra queda en su navegador (el respaldo local, con la huella del dueño) y nunca toca el perfil del cliente: si soporte
+  mira una cuenta, el cliente no puede perder sus tutoriales. La misma regla para la marca de quien empezó el V2. Escrito junto a la D7
+  (docs/diseno-curso-skool.md).

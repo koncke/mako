@@ -175,7 +175,7 @@ test('6. la pantalla del V2: la estrella, la caja del Ops Center, los dos videos
   // Desde el 20/11 (tarde), por la cola de salida: de a uno, con sus puntitos, y su pieza después (tests/cola-de-salida.test.ts).
   assert.match(v2, /\{cola\.visibles\.map\(\(f\) => \{/);
   assert.match(v2, /\{escribe && escribiendo\('arr-pensando'\)\}/);
-  assert.match(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /onEnded=\{\(\) => \{ setEstado\('terminado'\); onTermina\?\.\(\); \}\}/);
+  assert.match(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /onEnded=\{\(\) => \{ setEstado\('terminado'\); soltarMarca\(\); onTermina\?\.\(\); \}\}/);
   assert.match(v2, /<CriaturaMako size=\{36\}/, 'la estrella en la cabecera');
   assert.match(v2, /<CriaturaMako size=\{26\}/, 'la estrella al lado de cada mensaje');
   assert.match(v2, /<div className=\{`co-caja\$\{etapa === 'listo' && enTelefono \? ' arr-v2__caja--dos' : ''\}`\} onFocusCapture=\{soltarPrimero\} onPointerDownCapture=\{soltarPrimero\}>\s*<CajaChat /, 'la caja de una línea del Ops Center');

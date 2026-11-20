@@ -18,6 +18,15 @@ export const EMAILS_REVISION: readonly string[] = ['martinkoncke@gmail.com', 'te
 /** Los negocios de la revisión: el Cliente de Prueba. */
 export const WS_REVISION_V2: readonly number[] = [3];
 
+/**
+ * LOS NEGOCIOS DONDE MARTÍN PRUEBA COMO SI FUERA EL CLIENTE (el Cerebro, 20/11/2026, la decisión sobre la D7): el ws 3 y el ws 9, las
+ * cuentas de prueba (nunca el ws 1, que es un cliente). Mirándolos como administrador, lo que se ve y se cierra del onboarding y de los
+ * recorridos se ANOTA en su dueño. En cualquier otro negocio se lee del dueño (lo mismo que ve el cliente) pero no se escribe: si
+ * soporte mira una cuenta, el cliente no puede perder sus tutoriales.
+ */
+export const WS_PRUEBA_COMO_CLIENTE: readonly number[] = [3, 9];
+export const escribeComoElCliente = (ws: number | null | undefined): boolean => ws != null && WS_PRUEBA_COMO_CLIENTE.includes(ws);
+
 /** ¿Esta persona, en este negocio, ve el onboarding V2 y los tutoriales nuevos? */
 export function veOnboardingV2(q: { email?: string | null; ws?: number | null }): boolean {
   if (PARA_TODOS) return true;

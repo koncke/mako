@@ -12,6 +12,7 @@
 // =============================================================================
 import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react';
 import { useVideoTutorial } from './useVideoTutorial';
+import { pausaPorFlotar } from './useVideoQueFlota';
 import type { FraseVideo } from '@/lib/tutoriales/videos';
 
 /** 'espera': todavía no llegó su momento. 'listo': ya puede salir (sus puntitos y su pieza los pone la cola: app/_chat/useColaDeSalida.ts). */
@@ -35,7 +36,7 @@ export function momentoDelVideo(frases: readonly Pick<FraseVideo, 't_inicio' | '
 }
 
 /** Lo que se usa del video y de su lugar (un HTMLElement con su <video>; en el test, uno de mentira). */
-export type VideoQueCorre = { paused: boolean; ended: boolean; currentTime: number; playbackRate: number };
+export type VideoQueCorre = { paused: boolean; ended: boolean; currentTime: number; playbackRate: number; dataset?: Record<string, string | undefined> };
 export type LugarDelVideo = {
   addEventListener(tipo: string, f: () => void, captura: boolean): void;
   removeEventListener(tipo: string, f: () => void, captura: boolean): void;
@@ -71,8 +72,9 @@ export function esperarAlMomento(lugar: LugarDelVideo | null, o: { tMomento: num
   let sinPlay = 0;
   oir('play', () => { if (sinPlay) { reloj.sacar(sinPlay); sinPlay = 0; } tope(); });
   oir('timeupdate', () => { if (llego()) listo(); });
-  // Pausarlo, que termine o que falle: la persona dejó de verlo (o no puede), y el mensaje no la deja esperando.
-  oir('pause', () => { if (!video.ended) listo(); });
+  // Pausarlo, que termine o que falle: la persona dejó de verlo (o no puede), y el mensaje no la deja esperando. La pausa por pasar a la
+  // esquina NO (videos-1): el video sigue hablando ahí; el momento lo da el tope (`tope`, puesto al darle play).
+  oir('pause', () => { if (!video.ended && !pausaPorFlotar(video)) listo(); });
   oir('ended', () => listo());
   oir('error', () => listo());
   const corre = !video.paused && !video.ended;

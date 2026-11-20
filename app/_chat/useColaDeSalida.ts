@@ -6,8 +6,8 @@
 // que tardaba el servidor (un parpadeo, o segundos), dos mensajes salían de golpe, y la pregunta salía en el mismo instante que su
 // tarjeta, su recuadro o su botón. La regla, para todos los chats con MaKo:
 //   · un mensaje nuevo de MaKo sale con puntitos durante max(lo que ya se esperó, `msEscribiendo(texto)`): 600 ms + 20 ms por
-//     carácter, con tope de 2.200 ms. Los puntitos empiezan cuando la persona mandó (`empezoLaEspera`), así la espera del servidor
-//     cuenta;
+//     carácter, con tope de 3,5 s, el de la maqueta (la función única de todos los chats: lib/puntitos.ts). Los puntitos empiezan
+//     cuando la persona mandó (`empezoLaEspera`), así la espera del servidor cuenta;
 //   · si llegan dos, el segundo trae los suyos;
 //   · después del texto, una pausa (`MS_PAUSA_PIEZA`) y recién su pieza: la tarjeta, el recuadro o el botón;
 //   · lo de la persona sale ya (es suyo);
@@ -18,13 +18,9 @@
 // =============================================================================
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-/** Los puntitos de un mensaje: 600 ms + 20 ms por carácter, con tope de 2.200 ms. */
-export const MS_ESCRIBE_BASE = 600;
-export const MS_ESCRIBE_POR_LETRA = 20;
-export const MS_ESCRIBE_TOPE = 2200;
-export function msEscribiendo(texto: string): number {
-  return Math.min(MS_ESCRIBE_TOPE, MS_ESCRIBE_BASE + MS_ESCRIBE_POR_LETRA * (texto ?? '').length);
-}
+// Los puntitos de un mensaje: la función única de todos los chats (lib/puntitos.ts).
+import { msEscribiendo } from '@/lib/puntitos';
+export { MS_ESCRIBE_BASE, MS_ESCRIBE_POR_LETRA, MS_ESCRIBE_TOPE, msEscribiendo } from '@/lib/puntitos';
 /** Entre el texto y su pieza (la tarjeta, el recuadro, el botón): de 400 a 600 ms. */
 export const MS_PAUSA_PIEZA = 500;
 

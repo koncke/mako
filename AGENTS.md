@@ -2661,16 +2661,18 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
 - **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
   desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 
-# Un chat con MaKo baja por la CLAVE de la última fila y saca sus mensajes por la cola (y lo que nombra el video, cuando la voz llega ahí)
+# El scroll de un chat no se escribe por pantalla: lo da la pieza compartida. Lo de MaKo sale por la cola, con puntitos
 
 Martín, 20/11/2026: «siempre se haga scroll automático hacia el último mensaje», con los tres puntitos antes de cada mensaje y nunca dos
 juntos. La auditoría de chats encontró que el scroll bajaba con una CUENTA de filas, que no cambia al contestar (entran dos mensajes y se
 van dos marcas en el mismo render).
 
-- **Un chat con MaKo usa `useBajarAlUltimo` (app/_chat/useBajarAlUltimo.ts) con la clave de la ÚLTIMA fila dibujada**, nunca una cuenta
-  ni un `scrollTop = scrollHeight` en un efecto. Una fila que no sale de la lista del chat avisa con `avisarMensajeNuevo()`.
+- **Un chat con MaKo no escribe su scroll:** si dibuja su hilo en `PanelDeChat`, le pasa `seguir={{ clave }}` con la clave de su ÚLTIMA
+  fila dibujada; si no, usa `useBajarAlUltimo` (app/_chat/useBajarAlUltimo.ts) con esa clave. Nunca una cuenta ni un
+  `scrollTop = scrollHeight` en un efecto. Una fila que no sale de la lista del chat avisa con `avisarMensajeNuevo()`.
 - **Sus mensajes salen por la cola (`useColaDeSalida`, app/_chat/useColaDeSalida.ts):** de a uno, con puntitos según su largo, y la
-  tarjeta, el recuadro o el botón después del texto. El historial, de una.
+  tarjeta, el recuadro o el botón después del texto. El historial, de una. Cuánto escribe MaKo sale de UNA función (`msEscribiendo`,
+  lib/puntitos.ts): nunca un número fijo en una pantalla.
 - **Lo que aparece porque cambió algo en el servidor (una tarea hecha, un paso que se abre) también es una fila de la cola**, no estado
   derivado que se dibuja de golpe. Qué sale lo dice UNA función que usan la cola y el dibujo (como lib/reto/en-el-dia.ts).
 - **Un chat con PERSONAS usa app/_chat/grupo/useSeguirElHilo.ts** (como WhatsApp: no arrastra a quien lee arriba, cuenta lo nuevo).
@@ -2682,6 +2684,8 @@ van dos marcas en el mismo render).
 Martín, 20/11/2026, probando en Lalaland «como administrador»: la vista como administrador muestra LO MISMO que ve el cliente. Lo que se
 guarda por persona en el onboarding (empezó el V2, vio el recorrido, la barra oculta) se lee y se anota con `personaDelOnboarding()`
 (lib/seguir-en-pc.ts), que da el dueño del negocio que se mira. Nunca con la persona de la sesión ni con un «mirando, nunca».
+**Se lee del dueño siempre; se ESCRIBE en el dueño sólo en los negocios de prueba** (`escribeComoElCliente`: ws 3 y ws 9). En cualquier
+otro cliente, lo que hace el administrador no toca el perfil del cliente (la D7, docs/diseno-curso-skool.md).
 
 # Una pantalla que TRABA se dispara con la marca de quien entró al flujo, no con la falta de un «visto» nuevo
 

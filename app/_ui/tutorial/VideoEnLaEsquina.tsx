@@ -8,7 +8,7 @@
 // portada con su play, la barra con play, tiempo, avance y velocidad) y dos botones arriba a la derecha: «Agrandar/Achicar» (⤢/⤡) y
 // la X. Chico (230 px) mientras está quieto, grande (380 px) mientras corre; el botón lo fija a mano.
 // =============================================================================
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@/app/_components/icons';
 import { Z_PISO_RECORRIDO } from '@/lib/recorridos';
@@ -37,6 +37,20 @@ export function VideoEnLaEsquina({ senal }: { senal: Extract<Senal, { tipo: 'vid
     const arrancar = () => { try { el.currentTime = senal.desde; } catch { /* */ } el.play().catch(() => { el.muted = true; el.play().catch(() => {}); }); };
     if (el.readyState >= 1) arrancar(); else el.addEventListener('loadedmetadata', arrancar, { once: true });
   }, [v?.archivo, senal.desde]);
+  // EL HILO LE DEJA LUGAR (20/11, la auditoría de chats, videos-6): en el teléfono el video ocupa todo el ancho abajo y tapaba los últimos
+  // mensajes. Mientras flota, su alto queda en <html> (`--alto-esquina`) y el hilo suma ese aire abajo (el CSS de abajo, < 640 px).
+  const raizPip = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = raizPip.current;
+    const html = document.documentElement;
+    if (!el) return;
+    const medir = () => html.style.setProperty('--alto-esquina', `${Math.round(el.getBoundingClientRect().height)}px`);
+    html.setAttribute('data-video-esquina', '');
+    medir();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
+    ro?.observe(el);
+    return () => { ro?.disconnect(); html.removeAttribute('data-video-esquina'); html.style.removeProperty('--alto-esquina'); };
+  }, [v]);
   if (!v || typeof document === 'undefined') return null;
   const chico = pipChico(manual, corre);
   const alternar = () => { const x = ref.current; if (!x) return; if (x.paused || x.ended) void x.play().catch(() => {}); else x.pause(); };
@@ -51,7 +65,7 @@ export function VideoEnLaEsquina({ senal }: { senal: Extract<Senal, { tipo: 'vid
     if (ref.current) ref.current.playbackRate = sig;
   };
   return createPortal(
-    <div className="mk-pip" data-chico={chico ? '' : undefined} role="complementary" aria-label={`El video: ${senal.titulo}`} style={{ zIndex: Z_PISO_RECORRIDO }}>
+    <div ref={raizPip} className="mk-pip" data-chico={chico ? '' : undefined} role="complementary" aria-label={`El video: ${senal.titulo}`} style={{ zIndex: Z_PISO_RECORRIDO }}>
       <style>{CSS_REPRODUCTOR}{CSS}</style>
       <div className="mk-vmom" data-clave={senal.clave} data-estado={corre ? 'reproduciendo' : 'pausado'}>
         <div className="mk-vmom__pantalla" onClick={alternar}>
@@ -99,6 +113,7 @@ const CSS = `
 .mk-pip__btn { width: 28px; height: 28px; border-radius: 8px; border: 0; background: rgba(0,0,0,.5); color: #fff; display: grid; place-items: center; cursor: pointer; font-size: 14px; line-height: 1; }
 .mk-pip__btn:hover { background: rgba(0,0,0,.7); }
 .mk-pip__btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-@media (max-width: 640px) { .mk-pip { right: 10px; bottom: 10px; width: calc(100% - 20px); } .mk-pip[data-chico] { width: 190px; } }
+@media (max-width: 640px) { .mk-pip { right: 10px; bottom: 10px; width: calc(100% - 20px); } .mk-pip[data-chico] { width: 190px; }
+  html[data-video-esquina] .co-hilo, html[data-video-esquina] .m-operaciones-hilo { padding-bottom: calc(var(--alto-esquina, 0px) + 16px); } }
 @media (prefers-reduced-motion: reduce) { .mk-pip { transition: none; } }
 `;
