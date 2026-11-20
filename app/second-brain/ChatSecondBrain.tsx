@@ -750,7 +750,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           estado={estadoDelCliente(k)}>
           <HiloDelCliente k={k} apertura={apertura} />
           {/* Al llegar del onboarding, en su chat: MaKo escribe y manda el video del recorrido con «Dale play…» (20/11, OD-05). */}
-          {enElOnboarding && <BienvenidaOpsCenter nombre={nombrePersona} />}
+          {enElOnboarding && <BienvenidaOpsCenter nombre={nombrePersona} retoEmpezo={!!datosReto.d?.estado} />}
           {enChatNuevo && !k.items.length && !k.trabajo && <GaleriaDeGurus onElegir={abrirGuru} soloPro={gurusSoloPro} />}
         </PanelDeChat>
       )}

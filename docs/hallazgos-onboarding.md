@@ -118,8 +118,17 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
     - Para probarlo en el navegador, el bundle de esbuild necesita las server actions (`'use server'`) como stubs. Next las cambia
       por referencias, y esbuild las metía enteras con `node:crypto` y la base adentro. Se resuelve con un plugin que cambia cada
       módulo `'use server'` por funciones vacías con los mismos nombres.
-    - Sin hacer: con «Usar el …», ella vuelve a mandar el mensaje desde ese WhatsApp. El mensaje que ya llegó de ahí no se reusa
-      para confirmar, porque eso es del servidor (lib/verificacion-entrante.ts, del chat de WhatsApp).
+    - (Hecho después por el chat de WhatsApp, d144092eb: «Usar el …» confirma con el mensaje que ya llegó de ese número).
+  - *El cierre del onboarding (OD-09, OD-10, la marca de OD-11; tests/onboarding-v2-auditoria.test.ts, 19 a 21)*. Tres trampas:
+    - *Un aviso nuevo en el store del motor no despierta a nadie.* `useSenal` es un `useSyncExternalStore` cuya foto es la señal de
+      ahora. Avisar sin cambiar esa señal no vuelve a dibujar. La marca al reto esperaba el mensaje «¡Listo tu onboarding…!» con un
+      flag que nunca la despertaba. Por eso tiene su propia suscripción (`usePresentaReto`).
+    - *«Esperar el clic en cualquier paso con `clic`» cambiaba en silencio TODOS los tutoriales sin video.* Antes sólo esperaba el
+      último. Se hizo porque hoy ningún tutorial tiene `clic` en un paso del medio (el test lo exige para cada uno), y el clic en un
+      paso del medio pasa al siguiente con `siguiente()` (antes terminaba el tutorial).
+    - *OD-11 es el d24-20 del reto* (el perfil termina en la foto, con «Entendido» y el mensaje de MaKo). La lista vive en
+      lib/reto/dias.ts, del chat del reto. Aquí, sólo el lugar: `MARCA.settingsFoto` (`tour-settings-foto`) en el botón de la foto
+      de Settings › Perfil.
   - *El número se guarda en dígitos y se formatea al dibujarlo* (`telefonoVisible`: «+54 911 5555 0101», en grupos de 4 desde el
     final). La burbuja que espera muestra lo que escribió, con la lada.
 - **Lo que quedó sin hacer:**

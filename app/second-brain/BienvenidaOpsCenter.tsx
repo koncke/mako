@@ -15,20 +15,32 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRecorrido } from '@/app/_ui/Recorrido';
 import { marcarVistoEnEnsayo, useEnsayo, vistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
-import { chatPresentaRecorrido, mostrarTutorial } from '@/app/_ui/tutorial/store';
+import { chatPresentaRecorrido, chatPresentaReto, mostrarTutorial } from '@/app/_ui/tutorial/store';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { useDalePlay } from '@/app/_ui/tutorial/useDalePlay';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
 import { Icon } from '@/app/_components/icons';
-import { ID_RECORRIDO, MS_ESCRIBE_LLEGADA, textoLlegada } from '@/lib/onboarding-v2/llegada';
+import { ID_RECORRIDO, MS_ESCRIBE_LLEGADA, MS_ESCRIBE_RETO, textoLlegada, textoRetoEnSuChat } from '@/lib/onboarding-v2/llegada';
 
 
-export function BienvenidaOpsCenter({ nombre }: { nombre: string }) {
+/** `retoEmpezo`: el reto ya empezó (su chat ya se abrió): el mensaje que lo presenta ya no hace falta. */
+export function BienvenidaOpsCenter({ nombre, retoEmpezo = false }: { nombre: string; retoEmpezo?: boolean }) {
   const r = useRecorrido(ID_RECORRIDO, { autoabrir: false });
   // En el ensayo «desde cero» (como lo revisa Martín), lo visto vive en el navegador (app/_ui/tutorial/desde-cero.ts).
   const ensayo = useEnsayo();
   const toca = ensayo.activo ? !vistoEnEnsayo(ID_RECORRIDO) : r.visto === false;
+  // OD-09 (20/11): visto el recorrido y sin empezar el reto, el chat sigue: el mensaje con el video queda, MaKo escribe y presenta el
+  // chat del reto («¡Listo tu onboarding…!»). Recién después lo marca MarcaAlReto (espera con `chatPresentaReto`).
+  const visto = ensayo.activo ? vistoEnEnsayo(ID_RECORRIDO) : r.visto === true;
+  const cierra = visto && !retoEmpezo;
+  const [cierre, setCierre] = useState<'escribe' | 'listo'>('escribe');
+  useEffect(() => {
+    if (!cierra) return;
+    chatPresentaReto(true);
+    const t = window.setTimeout(() => { setCierre('listo'); chatPresentaReto(false); }, MS_ESCRIBE_RETO);
+    return () => { window.clearTimeout(t); chatPresentaReto(false); };
+  }, [cierra]);
   const alTerminar = ensayo.activo ? () => marcarVistoEnEnsayo(ID_RECORRIDO) : r.onCerrar;
   const [fase, setFase] = useState<'escribe' | 'listo'>('escribe');
   const video = useVideoTutorial('recorrido');
@@ -64,14 +76,14 @@ export function BienvenidaOpsCenter({ nombre }: { nombre: string }) {
   const play = useRef<HTMLButtonElement>(null);
   useDalePlay(play, { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' });
 
-  if (!toca) return null;
+  if (!toca && !cierra) return null;
   const estrella = <span className="sbl-foto" aria-hidden="true"><CriaturaMako size={26} reaccion="escucha" /></span>;
   const puntitos = <span role="status" aria-label="MaKo está escribiendo" className="sbl-escribe"><i /><i /><i /></span>;
   const empezar = () => mostrarTutorial(TUTORIAL_RECORRIDO, { alTerminar });
   return (
     <>
       <style>{CSS}</style>
-      {fase === 'escribe' ? (
+      {toca && fase === 'escribe' ? (
         <div ref={fila} className="co-el-wa co-wa sbl-fila" data-llegada="escribe">
           <div className="co-el">{estrella}<div className="co-el__cuerpo">{puntitos}</div></div>
         </div>
@@ -88,7 +100,10 @@ export function BienvenidaOpsCenter({ nombre }: { nombre: string }) {
           </div>
         </div>
       )}
-      {fase === 'escribe' && typeof document !== 'undefined' && createPortal(
+      {cierra && (cierre === 'escribe'
+        ? <div className="co-el-wa co-wa" data-llegada="reto-escribe"><div className="co-el">{estrella}<div className="co-el__cuerpo">{puntitos}</div></div></div>
+        : <div className="co-el-wa co-wa" data-llegada="reto"><div className="co-el">{estrella}<div className="co-el__cuerpo"><div className="ch-md"><p>{textoRetoEnSuChat(nombre)}</p></div></div></div></div>)}
+      {toca && fase === 'escribe' && typeof document !== 'undefined' && createPortal(
         <div className="sbl-capa" aria-hidden="true">
           <style>{CSS}</style>
           <div className="sbl-velo" />
