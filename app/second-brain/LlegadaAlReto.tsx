@@ -32,7 +32,8 @@ import { barrer } from '@/app/_ui/tutorial/iris';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { useDalePlay } from '@/app/_ui/tutorial/useDalePlay';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
-import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
+import { Muneco } from '@/app/admin/operaciones/Muneco';
+import { ASPECTO_APP_MAKO } from '@/lib/centro-munecos';
 import { Icon } from '@/app/_components/icons';
 import { ID_RECORRIDO, textoLlegada } from '@/lib/onboarding-v2/llegada';
 
@@ -147,7 +148,8 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
   useDalePlay(play, { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' });
 
   if (fase === 'espera') return null;
-  const estrella = <span className="sbl-foto" aria-hidden="true"><CriaturaMako size={26} reaccion="escucha" /></span>;
+  // El ícono de la app de MaKo, no la criatura (20/11, la llamada con Leila: la criatura queda sólo para el Ops Center).
+  const estrella = <span className="sbl-foto" aria-hidden="true"><Muneco titulo="MaKo" aspecto={ASPECTO_APP_MAKO} animo="despierto" size={26} /></span>;
   const puntitos = <span role="status" aria-label="MaKo está escribiendo" className="sbl-escribe"><i /><i /><i /></span>;
   const empezar = () => mostrarTutorial(TUTORIAL_RECORRIDO, { alTerminar });
   return (

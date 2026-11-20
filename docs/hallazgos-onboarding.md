@@ -16,6 +16,13 @@ Lo pedido por Martín (Fathom 205366178, 00:29:00): al terminar el video del dí
   a que se libere.
 - **«Tu siguiente paso» (rt-sigue) salió entera**, con `SIGUIENTE_DE_TAREA`. Al volver al reto, lo que toca lo marca `tocaHoy`.
 - **El ícono de videos, lo último a la derecha de la cabecera** (00:31:46). Gana sobre el orden de la maqueta, que tenía un test.
+- **El reto sin la criatura** (00:39:14). Lleva el ícono de la app, `ASPECTO_APP_MAKO` (lib/centro-munecos.ts), que se aplica con
+  el patrón de `retrato`: un campo del aspecto que no se elige ni se guarda. Aparece en la fila, la cabecera, las burbujas (y los
+  puntitos, que son burbujas), la entrada de cada día y la llegada. Hubo dos trampas:
+  - `aspectoDe` fuerza la criatura para el título «MaKo». Pasar otro aspecto no alcanzaba: `Muneco` mira `app` antes que el título.
+  - `Muneco` no lleva hooks ni ids de SVG, porque lo dibujan el server y varios a la vez. Por eso no importa `MakoLogo` (useId y
+    gradientes con id): dibuja la misma baldosa y la misma chispa en su viewBox, con colores lisos.
+  - El test lo prueba sobre lo dibujado (renderToStaticMarkup), no sobre el texto: tests/reto-icono-app.test.ts.
 - **Sin probar en el uso:** nada se abrió en un navegador. Está probado por el código y por los tests, rompiendo cada arreglo.
 
 ## Los avisos del reto: un correo diario no podía cumplir el «te escribo a las {hora}» (20/11/2026, claude5)
