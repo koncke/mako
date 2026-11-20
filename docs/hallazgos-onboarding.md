@@ -14,11 +14,13 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
   SU póster cargado (no otro), y el `<img>` lo anota en `onLoad`. Un póster en la caché puede cargar antes de que React escuche, así
   que también se mira `complete && naturalWidth > 0` al dibujarlo. Lo fija tests/llegada-dale-play-dibujado.test.ts, roto de a una
   rotura (4).
-- **Regla** (en AGENTS.md): un «dale play» sobre un póster propio espera a que el póster cargue. Estar «a la vista» no alcanza.
-- **Sin hacer, sin verificar:** `VideoDelMomento` (la bienvenida, el WhatsApp y los coaches) marca con `!!v && estado === 'quieto'`.
-  Dibuja un `<video poster=…>`, así que con el manifiesto leído ya hay un cuadro, pero negro hasta que llega el póster. No lo vi en
-  producción. Si el Cerebro lo ve sobre un cuadro negro, es el mismo arreglo, con el `loadeddata` del `<video>`
-  (app/_ui/tutorial/VideoDelMomento.tsx).
+- **El mismo criterio en todos los videos con marca** (el Cerebro, esa noche): `VideoDelMomento` (la bienvenida, el WhatsApp y los
+  coaches) y, en el reto, el video de cada día y el de muestra. **Trampa:** un `<video poster>` (y un `background-image`) NO avisa
+  cuándo cargó su póster, y `loadeddata` habla del video, no del póster. `usePosterDibujado` pide el mismo archivo con un `Image`
+  (la misma URL, la misma caché) y cuenta cuando ESE carga; uno roto (`naturalWidth` 0) no cuenta. Al irse, la limpieza suelta el
+  `onload`. Una bandera `vivo` además de eso resultó redundante: la rotura que la sacaba quedaba en verde, así que se fue.
+- **Regla** (en AGENTS.md): un «dale play», o cualquier marca sobre un video, sale recién con el póster dibujado. Estar «a la vista»
+  no alcanza. El test revisa cada `useDalePlay(` de esos archivos: uno nuevo sin la espera cae.
 
 ## La llamada con Leila: lo que sigue lo marca la barra (20/11/2026, noche, claude5, chat «reto-tutoriales»)
 
@@ -4013,7 +4015,7 @@ de la vista de administrador y scripts/reiniciar-onboarding.mts. RESET (lib/rese
   (`esContextoDelHilo`): salen de la lista y la conversación queda. Mirando como administrador la lista es la del ADMINISTRADOR (su
   `chart_key`), así que ahí no aparece el del dueño: eso lo decide el Cerebro.
 - **Mirando como administrador: el dueño o NADIE** (`emailDelOnboarding`, lib/seguir-en-pc.ts). El Cerebro, en el teléfono mirando el
-  ws 3: «Entra con tu cuenta martinkoncke@…», el correo del ADMINISTRADOR, y lo visto del recorrido anotado en su fila. Si el negocio
+  ws 3: «Entra con tu cuenta <el correo del ADMINISTRADOR>», y lo visto del recorrido anotado en SU fila. Si el negocio
   no tiene dueño (o no se pudo leer), `personaDelOnboarding` da null y cada pantalla caía en el email de la sesión. Ahora la pantalla
   dice «tu correo» y /api/recorridos no lee ni anota nada. Que «Sigamos en tu computadora» siguiera saliendo después del recorrido
   no se reprodujo después (con el preset de teléfono, /onboarding?ws=3 ya mandaba a la app).
@@ -4021,7 +4023,9 @@ de la vista de administrador y scripts/reiniciar-onboarding.mts. RESET (lib/rese
   con la carga entera, el motor (MotorTutorial) lo arrancaba apenas veía la fila «Reto de 7 días», y sólo esperaba si el chat ya
   presentaba el recorrido; recién cargada, la llegada todavía no estaba. Marcaba la fila ~10 s sobre una pantalla vacía, sin «dale
   play». Entrando a /second-brain?reto=1 a mano no pasaba (la llegada llegaba antes). Ahora el motor NUNCA arranca el del Ops Center:
-  lo arranca el «dale play» de la llegada.
+  lo arranca el «dale play» de la llegada. Verificado en producción por el Cerebro (7736f219f, 22:08 UTC, ws 3). **Regla:** un
+  recorrido que presenta un chat no lo arranca el motor por su cuenta; si arrancarlo depende de que «algo ya esté», con una carga
+  entera ese algo todavía no está.
 - **Dos velos a la vez dejan una mancha clara:** al tocar Offer Coach antes del día 1, la marca del motor («Tu reto de 7 días», velo
   en 400) y la entrada del coach (EntradaEscribiendo, velo en 650 con su hueco redondeado) salían juntas: el hueco de arriba dejaba
   ver claro lo que caía debajo, el título de la tarjeta del motor. Con una señal del motor a la vista, la entrada no pone velo.

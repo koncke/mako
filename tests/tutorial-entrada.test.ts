@@ -73,7 +73,7 @@ test('3. la tarjeta del «dale play»: sólo el título y la X roja (sin «Lo ha
 
 test('4. el reproductor del chat lo pide quieto, y el onboarding y la llegada lo usan', () => {
   const v = sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx'));
-  assert.match(v, /useDalePlay\(raiz, \{ clave, titulo, activo: dalePlay && !!v && estado === 'quieto' && !flotando \}\);/);
+  assert.match(v, /useDalePlay\(raiz, \{ clave, titulo, activo: dalePlay && !!v && estado === 'quieto' && !flotando && dibujado \}\);/);
   assert.match(v, /<div ref=\{raiz\} className="mk-vmom"/);
   const a = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
   assert.match(a, /<VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="Bienvenida a MaKo" revision=\{false\} dalePlay \/>/);

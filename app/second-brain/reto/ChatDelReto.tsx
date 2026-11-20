@@ -46,6 +46,7 @@ import { cerrarDalePlay, dalePlayCerrado, tituloDalePlay } from '@/app/_ui/tutor
 import { EntradaEscribiendo, useEntrada } from '@/app/_ui/tutorial/EntradaEscribiendo';
 import { CSS_REPRODUCTOR, VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
 import { useDalePlay } from '@/app/_ui/tutorial/useDalePlay';
+import { usePosterDibujado } from '@/app/_ui/tutorial/usePosterDibujado';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo, vistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
 import { claveTarea, diaAbierto, diasDelReto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
@@ -847,7 +848,9 @@ function VideoDelDia({ dia, onTocado, onFin, dalePlay = false }: { dia: DiaReto;
   // dale play»), mientras nadie lo tocó y sólo si ese video todavía no se vio en este navegador (V5).
   const [visto] = useState(() => yaVisto(`video:${dia.n}`));
   const titulo = v ? tituloDelVideo(v, dia.n) : `Día ${dia.n}`;
-  useDalePlay(raiz, { clave: delReto(dia.video), titulo, activo: dalePlay && conMarcas && !visto && !corre });
+  // Recién con el póster dibujado (20/11/2026, el Cerebro; app/_ui/tutorial/usePosterDibujado.ts).
+  const posterDibujado = usePosterDibujado(v?.poster);
+  useDalePlay(raiz, { clave: delReto(dia.video), titulo, activo: dalePlay && conMarcas && !visto && !corre && posterDibujado });
   // CERRAR EL «DALE PLAY» DEL DÍA 1 CON SU X (auditoría de chats, reto-5 a; decidido por el Cerebro, D1-03: «o cuando la persona lo
   // cierra»): sin darle play, la invitación se va y Offer Coach no se marcaba nunca. Se ve desde aquí, sin tocar useDalePlay: la marca
   // «{título}: dale play» de este video se fue, quedó cerrada y el video no arrancó.
@@ -935,7 +938,8 @@ function VideoDeMuestra({ m, onPlay }: { m: MuestraReto; onPlay: () => void }) {
   const v = useVideoTutorial(m.pestana);
   // Con su «dale play», como el video de cada día (auditoría de chats, reto-9): «Te muestro dónde… Dale play.» lo dejaba sin velo.
   const boton = useRef<HTMLButtonElement>(null);
-  useDalePlay(boton, { clave: delReto(`muestra-${m.pestana}`), titulo: m.nombre, activo: !!v });
+  const posterDibujado = usePosterDibujado(v?.poster);
+  useDalePlay(boton, { clave: delReto(`muestra-${m.pestana}`), titulo: m.nombre, activo: !!v && posterDibujado });
   return (
     <button ref={boton} type="button" className="rt-video rt-video--pasos" onClick={() => { cerrarDalePlay(delReto(`muestra-${m.pestana}`)); onPlay(); }} style={v?.poster ? { backgroundImage: `url(${v.poster})` } : undefined}
       aria-label={`Ver el video de ${m.nombre}: te llevo a la pestaña`} data-recorrido={`sb-reto-muestra-${m.pestana}`}>
