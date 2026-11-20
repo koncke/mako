@@ -12,7 +12,11 @@
 //     toca (cada tarea dice DÓNDE: sin botones de atajo) y su prueba por WhatsApp, con la persona escribiendo primero.
 //   · Lo que falta se marca con el motor de los tutoriales: la pantalla se oscurece y se señala dónde tocar (`senalarDondeTocar`).
 // =============================================================================
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useChatCliente } from '../useChatCliente';
+import { CajaDelCliente, HiloDelCliente } from '../PiezasCliente';
+import { ORIGEN_RETO, TAB_RETO, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import type { Desde } from '@/lib/chat-desde';
 import { tutorialDe } from '@/lib/tutoriales';
 import { BotonTutoriales, CatalogoTutoriales, CSS_CATALOGO } from './CatalogoTutoriales';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
@@ -125,6 +129,20 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   const { d, leer, hacer } = useReto();
   const hilo = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState(false);
+  // LA CAJA DEL RETO (20/11, auditoría D1-09 y R57-13; decisión del Cerebro): le escribe al MaKo del Ops Center con el contexto del
+  // reto (app/api/mako/chat/route.ts → `contextoDelChat`, lib/reto/contexto.ts), con adjuntos y voz como toda caja (CajaDelCliente,
+  // lib/cajas-de-chat.ts). La charla va en SU conversación (TAB_RETO), debajo de los mensajes del reto.
+  const campo = useRef<HTMLTextAreaElement>(null);
+  const [elegido, setElegido] = useState<ElegidoChat | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void fetch(`/api/mako/chat?deTab=${TAB_RETO}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null)).catch(() => null)
+      .then((j: { sesion?: { id: number } | null } | null) => { if (vivo) setElegido(j?.sesion ? { antes: j.sesion.id } : { virtual: 'nuevo' }); });
+    return () => { vivo = false; };
+  }, []);
+  const quienMako = useMemo(() => ({ nombre: 'MaKo', aspecto: ASPECTO_MAKO }), []);
+  const k = useChatCliente({ elegido, setElegido, activo: false, entrarAlCerebro: false, chatInicial: null, opcionArmar: '', busca: '', caja: campo, desde: DESDE_RETO, tab: TAB_RETO, quien: quienMako, offerDirecto: false });
   // El catálogo «Tutoriales de MaKo» (V1, D1-07): el ícono de videos cambia los mensajes por todos los videos, con «Volver al chat».
   const [catalogo, setCatalogo] = useState(false);
   const [hora, setHora] = useState<string | null>(null);
@@ -192,11 +210,11 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     <PanelDeChat hilo={hilo}
       cabecera={{ clave: 'reto-7-dias', titulo: RETO_TITULO, aspecto: ASPECTO_MAKO, animo: 'despierto', onVolver,
         acciones: d && e ? <span className="rt-acciones"><BotonTutoriales activo={catalogo} onClick={() => setCatalogo((x) => !x)} /><DesplegableReto d={d} abierto={menu} onAbrir={setMenu} /></span> : undefined }}
-      caja={d && e && !empezo1 && ap.listo && !ap.escribiendo
+      caja={<>{d && e && !empezo1 && ap.listo && !ap.escribiendo
         ? <QueHacemos titulo={vistas.length ? '¿Seguimos?' : '¿Qué hacemos ahora?'} quedan={quedan} onDia1={empezarDia1} onMostrar={mostrar} />
         : pregunta && siguiente && ap.listo && !ap.escribiendo
         ? <AdelantarDia n={siguiente.n} onAdelantar={() => void hacer({ accion: 'adelantar', dia: siguiente.n })} onManana={() => void hacer({ accion: 'manana', dia: siguiente.n })} />
-        : <p className="rt-caja">Cada día te escribo aquí, con su video. Para preguntarle algo a MaKo, el Ops Center.</p>}
+        : null}<div className="co-caja"><CajaDelCliente k={k} campo={campo} seguir={() => hilo.current} /></div></>}
       estado="">
       <style>{CSS_RETO + CSS_CATALOGO}</style>
       <div className="co-hilo__col" data-recorrido="sb-reto-hilo">
@@ -219,6 +237,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
             ))}
             {termino && actual && ap.ver(`fin:${actual.n}`) && <Burbuja><p>{finDelDia(actual, siguiente, horaWa, nombre, falta)}</p></Burbuja>}
             {termino && eligioManana && siguiente && ap.ver(`manana:${siguiente.n}`) && <Burbuja><p>Perfecto: mañana a las {horaWa} se abre tu día {siguiente.n}, aquí en el reto.</p></Burbuja>}
+            {/* Lo que le escribió a MaKo en este chat, y lo que contestó (su conversación, después de los mensajes del reto). */}
+            {(k.items.length > 0 || k.enCurso) && <HiloDelCliente k={k} />}
             {ap.escribiendo && <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo"><span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></span></Burbuja>}
             {d.abierto === 7 && d.hechos === 7 && <Burbuja><p>¡Terminaste tu reto de 7 días, {nombre || 'genial'}! Tu negocio ya está armado en MaKo.</p></Burbuja>}
           </>
@@ -359,6 +379,9 @@ function VideoDelDia({ dia, onTocado, onFin }: { dia: DiaReto; onTocado?: (sel: 
   if (PARA_TODOS) return null;
   return <div className="rt-video rt-video--lugar" role="note"><b>Tu video del día {dia.n}</b><span>Todavía no está grabado: va aquí.</span></div>;
 }
+
+/** Desde dónde escribe la caja del reto: el servidor arma con esto el contexto del reto (`contextoDelChat`). */
+const DESDE_RETO: Desde = { tab: ORIGEN_RETO, entidad: null, modo: null };
 
 /** El título del desplegable (la maqueta, RETO_T; auditoría D1-14, d24-18 y R57-F6). El chat sigue llamándose «Reto de 7 días». */
 const RETO_TITULO_DESPLEGABLE = 'El reto de 7 días de MaKo';

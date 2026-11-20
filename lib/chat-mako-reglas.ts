@@ -305,6 +305,7 @@ export function origenDeClave(clave: string | null | undefined): string | null {
   if (k.endsWith(`:${TAB_VIDEO_GENERATOR}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_VIDEO_GENERATOR;
   if (k.endsWith(`:${TAB_FUNNEL_COACH}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_FUNNEL_COACH;
   if (k.endsWith(`:${TAB_OFFER_COACH}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_OFFER_COACH;
+  if (k.endsWith(`:${TAB_RETO}`) && /^mako-movil:[^:]+:[a-z0-9-]+$/.test(k)) return ORIGEN_RETO;
   // La de un gurú: su nombre es el origen («Julián Alborna › tema»). Sin esto, `claveDeTab` la rechaza y no se puede escribir.
   if (/^mako-movil:[^:]+:referente-[a-z-]+$/.test(k)) { const a = asesorPorId(referenteDeTab(k)); if (a) return a.nombre; }
   if (/^(dashboard:|comercial-|marketing-(?!ad-))/.test(k)) return 'Dashboard';
@@ -369,14 +370,18 @@ export const ORIGEN_FUNNEL_COACH = 'Funnel Coach';
 /** El Offer Coach (sólo con el onboarding V2): su conversación, una por persona y negocio (`mako-movil:<persona>:offer-coach`). */
 export const TAB_OFFER_COACH = 'offer-coach';
 export const ORIGEN_OFFER_COACH = 'Offer Coach';
+/** El chat «Reto de 7 días» (20/11/2026, auditoría D1-09; sólo con el onboarding V2): su conversación, una por persona y negocio, con
+ *  el contexto del reto (app/api/mako/chat/route.ts → `contextoDelChat`, lib/reto/contexto.ts). Tiene su fila fija. */
+export const TAB_RETO = 'reto-7-dias';
+export const ORIGEN_RETO = 'Reto de 7 días';
 /** Qué coach del Ops Center: el Funnel Coach (el único, sin el V2) o el Offer Coach (con el V2). */
 export type CoachDelOps = 'funnel' | 'offer';
 export const esCoachDelOps = (v: unknown): v is CoachDelOps => v === 'funnel' || v === 'offer';
 /** Los orígenes con fila fija (no se repiten en el resto de la lista). */
-const ORIGENES_DE_COACH: readonly string[] = [ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH];
+const ORIGENES_DE_COACH: readonly string[] = [ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, ORIGEN_RETO];
 // ⚠️ `offer-coach` se acepta para todos a propósito: crearla no da nada (el CONTEXTO lo elige el servidor con el interruptor,
 //    app/api/mako/chat/route.ts → `contextoDelChat`), y sacarla de la lista volvería «sin hilo» a quien la usó si el V2 se apaga.
-export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN, TAB_VIDEO_GENERATOR, TAB_FUNNEL_COACH, TAB_OFFER_COACH];
+export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN, TAB_VIDEO_GENERATOR, TAB_FUNNEL_COACH, TAB_OFFER_COACH, TAB_RETO];
 
 // ── El chat con un GURÚ (3/11/2026, #16: «elegir un gurú desde Nuevo chat») ─────────────────────────────────────────
 // UNA conversación por persona, negocio y gurú (`mako-movil:<persona>:referente-<id>`), como la del Funnel Coach: elegir otra
