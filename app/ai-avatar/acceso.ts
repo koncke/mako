@@ -36,6 +36,9 @@ import { requireRolWs } from '@/lib/tab-access';
 import { tabEnCapa } from '@/lib/capas';
 import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
 import { textoSoloPro } from '@/lib/topes-plan';
+// El reto le abre el personaje en la prueba (20/11, lib/reto/pro-del-reto.ts): la primera vez, sin candado. El clip por ApiMart
+// lo hace la sesión de AI Avatar.
+import { abreElReto } from '@/lib/reto/pro-del-reto-server';
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 
 /** ¿Quien mira puede usar AI Avatar? Para las actions (no redirige): el admin, con la tab en su capa. */
@@ -51,5 +54,5 @@ export async function requireAiAvatar(): Promise<void> {
 
 /** El texto del candado si quien mira paga MaKo Essential, o null (pasa). Lo dibuja `CartelSoloPro`; las actions lo devuelven. */
 export async function candadoDeAiAvatar(): Promise<string | null> {
-  return (await esEsencialDeLaSesion()) ? textoSoloPro('ai-avatar') : null;
+  return (await esEsencialDeLaSesion()) && !(await abreElReto('ai-avatar', { usar: true })) ? textoSoloPro('ai-avatar') : null;
 }

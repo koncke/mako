@@ -111,6 +111,11 @@ export const EXCEPCIONES: Readonly<Record<string, string>> = {
   'app/ai-avatar/cubos/actions.ts#personajeDesdeFotoAction': 'leer la foto es un paso de la pantalla: por la API el personaje se pasa por partes a crear_video_cubos',
   'app/ai-avatar/cubos/actions.ts#cambiarCubosAction': 'retocar el personaje o el formato de un video ya hecho es de la pantalla del estudio; por la API se crea otro con crear_video_cubos',
   'app/ai-avatar/cubos/actions.ts#borrarCubosAction': 'borrar un video (y su voz, que no se recupera) se hace en la pantalla del estudio, con su confirmación',
+  // El clip de 10 s que el reto REGALA el día 6 (20/11/2026, R57-02, app/ai-avatar/regalo/clip.ts). No es una función de la app:
+  // es UNA pieza por prueba, que pide la tarjeta del día 6 del reto. Lo que queda (el video) se lee por la API como cualquier
+  // video con avatar del historial; pedirlo por fuera del reto sería abrir un generador de Pro sin candado.
+  'app/ai-avatar/regalo/actions.ts#clipDeRegaloAction': 'es la tarjeta del día 6 del reto preguntando cómo va su regalo; el video, una vez hecho, queda en el historial de videos',
+  'app/ai-avatar/regalo/actions.ts#pedirClipDeRegaloAction': 'el regalo del reto (uno por prueba, sin el candado de Pro) lo pide la tarjeta del día 6; por la API sería un generador de Pro abierto',
 };
 
 /**

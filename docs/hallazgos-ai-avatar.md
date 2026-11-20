@@ -716,3 +716,18 @@ Y una decisión de DÓNDE va el candado, que es la regla de este día: **va DESP
 Devolver una toma ya filmada no genera nada y no cuesta nada: es una LECTURA. Ponerlo antes habría repetido el error de la
 `puerta()` común —cerrar una lectura y apagarle al cliente algo que sí es suyo—. Lo fija `tests/ai-avatar.test.ts` ⑥, con el
 orden de los dos índices como aserción; probado rompíendolo: sacar el freno da 34 verdes y 1 rojo, el que lo nombra.
+
+## El clip de regalo del reto: la imagen del personaje vence a la hora (20/11/2026)
+
+**La trampa:** el personaje de AI Avatar (`Look.url`, app/ai-avatar/looks.ts) es el link FIRMADO de Google Flow
+(`flow-content.google/image/<id>?Expires=…`, lib/flow-imagen.ts), que vence a la hora. Pasárselo a ApiMart como primer cuadro anda en la
+prueba de la mañana y falla a la tarde, y ApiMart cobra el intento fallido.
+
+**La regla:** una imagen que sale hacia un generador de afuera se COPIA en el momento de pedir. Va al bucket privado de medios, con link
+firmado de 2 h. Si ya no se puede bajar, va su foto de referencia (link firmado de 6 h, lib/persona.ts). Vive en
+app/ai-avatar/regalo/clip.ts, `imagenDelClip`. Una prueba de Essential puede no tener personaje: crearlo es de Pro, salvo la vez que el
+reto lo abre (`abreElReto`). Entonces el clip sale con su foto.
+
+**SIN HACER:** el clip se termina SÓLO cuando alguien pregunta (`avanzarClipRegalo`, que llama la tarjeta del día 6). Si la persona no
+vuelve a abrir la tarjeta, ApiMart guarda el video 24 h y se pierde, ya pagado. Lo cerraría un cron que llame a `avanzarClipRegalo` por
+cada negocio con `reto.clip-regalo` en «generando». Vive en app/ai-avatar/regalo/clip.ts.
