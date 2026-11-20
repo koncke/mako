@@ -17,12 +17,11 @@ import 'server-only';
 //   · El Plan: todo cliente nuevo recibe un plan de arranque; cuentan sólo las tareas que dejó el CoPilot (`#copiloto:`).
 // Sin poder leer el usuario (otra sesión, una suplantación) lo de la persona (la app, la foto) queda en no.
 // =============================================================================
-import type { EstadoReto } from './dias';
-import { DIAS_RETO, claveTarea, diaAbierto } from './dias';
+import type { EstadoReto, IntegracionReto } from './dias';
+import { DIAS_RETO, claveTarea, diaAbierto, integracionesDelReto } from './dias';
 import { getTenantDb, getWorkspaceActual } from '../workspace';
 import { getSetting } from '../settings';
 import { integracionConectada } from '../credenciales';
-import type { Funnel } from '../funnel-plan';
 
 type Leida = string | null;
 
@@ -38,14 +37,17 @@ async function contar(tabla: string, filtro?: (q: any) => any): Promise<number> 
   } catch { return 0; }
 }
 
-/** Las integraciones que pide cada funnel (lo acordado el 16/11: «sólo las de lo que eligió»). */
-export const INTEGRA_POR: Readonly<Record<Funnel, readonly string[]>> = {
-  anuncios: ['meta'], 'anuncios-a-vsl': ['meta'], 'anuncios-a-whatsapp': ['meta', 'whatsapp'],
-  organico: ['zernio'], youtube: ['youtube'], 'prospeccion-en-frio': ['whatsapp'],
-};
-const NOMBRE_INTEGRACION: Record<string, string> = { meta: 'Meta Ads', whatsapp: 'WhatsApp', zernio: 'tu Instagram (Zernio)', youtube: 'YouTube' };
-
 async function plan() { try { return await (await import('../funnel-plan-db')).leerPlanFunnel(); } catch { return null; } }
+
+/** Las integraciones que pide lo que eligió (lib/reto/dias.ts, `integracionesDelReto`), cada una con si ya está conectada (d24-05). */
+export async function estadoDeIntegraciones(): Promise<Array<IntegracionReto & { conectada: boolean }>> {
+  const p = await plan();
+  const ints = integracionesDelReto(p ? [p.funnel, ...(p.otros ?? [])] : []);
+  try {
+    const { getIntegracion } = await import('../integraciones');
+    return await Promise.all(ints.map(async (i) => ({ ...i, conectada: (await getIntegracion(i.key).catch(() => null))?.estado === 'conectada' })));
+  } catch { return ints.map((i) => ({ ...i, conectada: false })); }
+}
 
 const LECTURAS: Record<string, (e: EstadoReto) => Promise<Leida>> = {
   '1:offer': async () => {
@@ -68,15 +70,8 @@ const LECTURAS: Record<string, (e: EstadoReto) => Promise<Leida>> = {
     try { const p = await (await import('../flow-cola')).estadoPuente(); return p.ultimoVisto ? 'Tu extensión de Chrome está conectada.' : null; } catch { return null; }
   },
   '2:integraciones': async () => {
-    const p = await plan();
-    if (!p) return null;
-    const claves = [...new Set([p.funnel, ...(p.otros ?? [])].flatMap((f) => INTEGRA_POR[f] ?? []))];
-    if (!claves.length) return null;
-    try {
-      const { getIntegracion } = await import('../integraciones');
-      const ok = await Promise.all(claves.map(async (k) => (await getIntegracion(k).catch(() => null))?.estado === 'conectada'));
-      return ok.every(Boolean) ? `Conectaste ${claves.map((k) => NOMBRE_INTEGRACION[k] ?? k).join(' y ')}: lo que pide tu funnel.` : null;
-    } catch { return null; }
+    const ints = await estadoDeIntegraciones();
+    return ints.length && ints.every((i) => i.conectada) ? `Conectaste ${ints.map((i) => i.nombre).join(' y ')}: lo que pide lo que elegiste.` : null;
   },
   '2:perfil': async () => {
     try { const p = await (await import('../perfil')).getPerfil(); return /\/object\/public\/avatars\//.test(p.avatarUrl ?? '') ? 'Ya tienes tu foto de perfil.' : null; } catch { return null; }

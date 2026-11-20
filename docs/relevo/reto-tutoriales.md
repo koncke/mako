@@ -89,6 +89,21 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
   del chat del onboarding). El video del día lleva «dale play»: el día 1 con `VideoDelMomento`, y los días con marcas con
   `useDalePlay` en su botón. Los tres puntitos de acá no esperan en los días, para que no haya dos entradas seguidas.
 
+## Hecho (tanda 7)
+
+- **El clip del día 6, en main en 91ceac387** (la tarjeta en app/second-brain/reto/ClipDelReto.tsx; los dos rojos, arreglados).
+- **Los textos de la maqueta (D1-14, d24-24, R57-16, f24-08):** los mensajes de los 7 días, los títulos y los detalles. Dos excepciones
+  decididas: el CSV sin «lo integramos» (el CRM quedó afuera) y «Tu personaje con IA» en vez de «AI Avatar». El día 6 vuelve a decir
+  «de regalo»: el clip existe.
+- **«Tu onboarding» (D1-14):** primera tarea del día 1, hecha siempre (`siempre` en lib/reto/dias.ts).
+- **Las marcas que faltaban:** la foto del perfil con «Entendido» (d24-20; `listo` en MarcaReto), el «⋮» del CRM para el CSV (f24-05),
+  «Crear desde cero» y la tarjeta «Tu personaje con IA» en Video (R57-18), y la tarea del clip marca la tarjeta de regalo del chat.
+- **«Vuelve a tu reto» (D1-05):** app/second-brain/reto/useVueltaAlReto.ts, enganchado en ChatSecondBrain.tsx al lado de usePasoAlFunnel.
+- **Las integraciones de su funnel (d24-05):** `integracionesDelReto` (lib/reto/dias.ts), su estado en /api/reto
+  (`estadoDeIntegraciones`, lib/reto/senales.ts) y la tarjeta «Te falta integrar esto» (app/second-brain/reto/TarjetasDia2.tsx).
+- **El QR de la app en el chat (d24-06):** /api/reto lo arma con el día 2 abierto y la app sin instalar; la tarjeta va con el video y
+  el chat relee cada 10 s mientras está.
+
 ## Lo que decidió el Cerebro (20/11)
 
 - **R57-02, el clip de 10 s del día 6: SÍ, por ApiMart.** Martín decidió el 17/11 que el video de los CLIENTES va por ApiMart (Flow es

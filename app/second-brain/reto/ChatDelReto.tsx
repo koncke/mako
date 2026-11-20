@@ -41,11 +41,15 @@ import { diaTerminado, finDelDia, marcasDeLaTarea, tareaDespues } from '@/lib/re
 import { NOTA_PRO_UNA_VEZ, TAREA_PRO } from '@/lib/reto/pro-del-reto';
 import { Burbuja } from './Burbuja';
 import { ClipDelReto } from './ClipDelReto';
+import { TarjetaIntegraciones, TarjetaQrApp, type IntegracionConEstado } from './TarjetasDia2';
 
 
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null;
   /** El funnel que eligió en Funnel Coach: arma los días 4 a 6 (`diasDelReto`, 20/11). */
   funnel?: string | null;
+  /** Con el día 2 abierto (d24-05 y d24-06): las integraciones de lo que eligió, con su estado, y el QR de la app mientras no esté. */
+  integraciones?: IntegracionConEstado[];
+  qrApp?: string | null;
   /** Lo que eligió en «¿Qué te gustaría que MaKo resuelva primero?» (D1-02). */
   intereses?: string[];
   /** Una prueba de MaKo Essential: lo de Pro de los días 4 a 6 se usa una vez (R57-03). */
@@ -100,7 +104,7 @@ export function marcarTarea(marcas: readonly MarcaReto[], alTerminar: () => void
   if (!m) { alTerminar(); return; }
   senalarDondeTocar({ sel: m.sel, titulo: m.titulo, texto: m.texto, haz: m.haz, lado: m.lado },
     () => (resto.length ? window.setTimeout(() => marcarTarea(resto, alTerminar, alDejar), 350) : alTerminar()),
-    { alOmitir: alDejar, libre: m.libre });
+    { alOmitir: alDejar, libre: m.libre, ...(m.listo ? { listo: m.listo } : {}) });
 }
 
 // LOS TRES PUNTITOS (20/11, auditoría D1-10 y d24-11): lo acordado es que ningún mensaje del reto sale pegado a otro. La primera vez
@@ -128,6 +132,8 @@ export function useAparicion(claves: readonly string[]): { ver: (k: string) => b
 
 
 const YA_MARCADA = 'mako.reto.marcada.';
+/** Cada cuánto relee el chat mientras espera la app del QR del día 2. */
+const CADA_MS_QR = 10_000;
 // Exportadas para el paso de Offer Coach a Funnel Coach (./usePasoAlFunnel.ts): la misma tarea se marca una vez por visita, la
 // marque este chat o el Offer Coach.
 export const yaMarcada = (k: string) => { try { return !!sessionStorage.getItem(YA_MARCADA + k); } catch { return false; } };
@@ -187,7 +193,14 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
 
 
   // Los días 4 a 6, armados para su funnel (20/11, auditoría d24-14 y R57-01).
-  const abiertos = d && e ? diasDelReto(d.funnel).filter((x) => x.n <= d.abierto) : [];
+  const abiertos = d && e ? diasDelReto(d.funnel, d.integraciones).filter((x) => x.n <= d.abierto) : [];
+  // El QR del día 2 dice «Sigo solo cuando estén» (d24-06): mientras está, relee cada 10 s con la pestaña a la vista.
+  const esperaLaApp = !!d?.qrApp && !!e && !tareaHecha(e, 2, 'app') && !tareaDespues(e, 2, 'app');
+  useEffect(() => {
+    if (!esperaLaApp) return;
+    const t = window.setInterval(() => { if (document.visibilityState === 'visible') void leer(); }, CADA_MS_QR);
+    return () => window.clearInterval(t);
+  }, [esperaLaApp, leer]);
   // «¿Qué hacemos ahora?» (20/11, D1-02 y V3): lo que eligió en el onboarding, con su «Muéstrame…», antes del día 1. Un reto que ya
   // venía andando (con algo hecho o pasado el día 1) no vuelve a preguntar.
   const muestras = muestrasDe(d?.intereses);
@@ -197,7 +210,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   // EL FIN DEL DÍA (20/11, D1-06, d24-13, R57-07): recién cuando el día abierto terminó (todo hecho o dejado para después), su
   // cierre (FIN_DIA) y, en el recuadro de opciones, «¿Adelantas el día N?». «Mañana» queda guardado y su respuesta, en el chat.
   const actual = abiertos[abiertos.length - 1];
-  const siguiente = actual ? diasDelReto(d?.funnel).find((x) => x.n === actual.n + 1) : undefined;
+  const siguiente = actual ? diasDelReto(d?.funnel, d?.integraciones).find((x) => x.n === actual.n + 1) : undefined;
   const termino = !!e && !!actual && empezo1 && diaTerminado(e, actual);
   const falta = e && actual ? actual.tareas.filter((t) => !tareaHecha(e, actual.n, t.id) && tareaDespues(e, actual.n, t.id)).map((t) => t.id) : [];
   const eligioManana = !!e && !!siguiente && e.manana === siguiente.n;
@@ -212,7 +225,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   const ap = useAparicion(claves);
   useEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [d?.abierto, d?.hechos, ap.escribiendo]);
   const empezarDia1 = () => {
-    const d1 = diasDelReto(d?.funnel)[0];
+    const d1 = diasDelReto(d?.funnel, d?.integraciones)[0];
     // La marca de Offer Coach sale recién al elegir «Empezar mi día 1» (D1-03), no sola al abrir el chat.
     void hacer({ accion: 'dia1' }).then(() => window.setTimeout(() => marcarLoQueFalta(d1), 600));
   };
@@ -251,6 +264,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
                 onMarcar={(t) => marcarTarea(marcasDeLaTarea(t), () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); })}
                 onTocadoEnVideo={() => { void leer(); }}
                 onClipListo={() => { void leer(); }}
+                qrApp={d.qrApp ?? null} integraciones={d.integraciones ?? []}
+                onDespues={(id) => { void hacer({ accion: 'despues', dia: dia.n, id }); }}
                 onFinVideo={() => marcarLoQueFalta(dia)} />
             ))}
             {termino && actual && ap.ver(`fin:${actual.n}`) && <Burbuja><p>{finDelDia(actual, siguiente, horaWa, nombre, falta)}</p></Burbuja>}
@@ -302,7 +317,7 @@ export function AdelantarDia({ n, onAdelantar, onManana }: { n: number; onAdelan
 }
 
 
-export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora, onConfirmarHora, onMarcar, onTocadoEnVideo, onFinVideo, onClipListo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; proUnaVez?: boolean; hoy?: boolean; onHora: (h: string) => void; onConfirmarHora?: () => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void; onClipListo?: () => void }) {
+export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora, onConfirmarHora, onMarcar, onTocadoEnVideo, onFinVideo, onClipListo, qrApp = null, integraciones = [], onDespues }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; proUnaVez?: boolean; hoy?: boolean; onHora: (h: string) => void; onConfirmarHora?: () => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void; onClipListo?: () => void; qrApp?: string | null; integraciones?: readonly IntegracionConEstado[]; onDespues?: (id: string) => void }) {
   const p = dia.whatsapp;
   const todas = dia.tareas.every((t) => tareaHecha(e, dia.n, t.id));
   const link = p ? linkWaMe(linea, mensajeEscrito(p, hora)) : null;
@@ -346,6 +361,8 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
         <p>{dia.mensaje}</p>
         <VideoDelDia dia={dia} onTocado={onTocadoEnVideo} onFin={onFinVideo} dalePlay={hoy} />
       </Burbuja>
+      {/* El QR de la app, desde que llega el video del día 2 (d24-06), mientras la app no esté y no la dejó para después. */}
+      {dia.n === 2 && qrApp && !tareaHecha(e, 2, 'app') && !tareaDespues(e, 2, 'app') && <TarjetaQrApp qr={qrApp} onDespues={() => onDespues?.('app')} />}
       <Burbuja ancho>
         <div className="rt-tarjeta" data-recorrido={`sb-reto-dia-${dia.n}`}>
           {/* «Día N de 7» y el título del día; en un día pasado, «Lo que te tocó» (20/11, f24-03 y R57-15). */}
@@ -356,6 +373,8 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
           </ol>
         </div>
       </Burbuja>
+      {/* Las integraciones de lo que eligió, con su estado (d24-05). «Te muestro dónde» corre las marcas de la tarea. */}
+      {dia.n === 2 && integraciones.length > 0 && <TarjetaIntegraciones ints={integraciones} onMostrar={() => { const t = dia.tareas.find((x) => x.id === 'integraciones'); if (t) onMarcar(t); }} />}
       {dia.n === 6 && <ClipDelReto onListo={onClipListo} />}
       {/* La prueba por WhatsApp va al FINAL del día (f24-02); la hora del día 2 es un paso del día: su tarjeta (wa-08, TarjetaHora). */}
       {p && (dia.n === 2 || diaTerminado(e, dia)) && (dia.n === 2
@@ -479,7 +498,7 @@ export function DesplegableReto({ d, abierto, onAbrir }: { d: DatosReto; abierto
           <div className="rt-menu__segs" aria-hidden>{d.dias.map((x, i) => <i key={i} data-e={x} />)}</div>
           <p className="rt-menu__ley"><span><i data-e="hecho" />Listo</span><span><i data-e="hoy" />Hoy</span><span><i data-e="medias" />A medias</span><span><i />Por venir</span></p>
           <ol className="rt-menu__lista">
-            {diasDelReto(d.funnel).map((dia, i) => {
+            {diasDelReto(d.funnel, d.integraciones).map((dia, i) => {
               const est = d.dias[i];
               const futuro = est === 'luego';
               const etiqueta = ESTADO[est] || (dia.n === actual + 1 ? `Mañana, a las ${hora}` : `Día ${dia.n}`);
@@ -544,6 +563,12 @@ export const CSS_RETO = `
 .rt-tarea__donde:hover { color: var(--ink); }
 .rt-wa__ej { margin: 0; font-size: var(--fs-meta); color: var(--dim); line-height: 1.45; }
 .rt-wa__btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 10px; background: #25D366; color: #08321A; font-weight: 700; font-size: var(--fs-sm); text-decoration: none; }
+.rt-qr .rt-tarea__donde { align-self: flex-start; }
+/* En una pantalla angosta, «dónde» y «Listo» van abajo del texto (20/11): al lado, el texto quedaba en una columna de tres palabras. */
+@media (max-width: 520px) { .rt-tarea { flex-wrap: wrap; row-gap: 2px; } .rt-tarea__txt { flex-basis: calc(100% - 28px); } .rt-tarea > .rt-tarea__donde, .rt-tarea > .rt-tarea__ok, .rt-tarea > .rt-int__falta { margin-left: 28px; } }
+.rt-qr__img { display: block; align-self: center; border-radius: 8px; background: #fff; padding: 6px; }
+.rt-int__falta { flex: none; font-size: var(--fs-meta); font-weight: 650; color: var(--warn); }
+.rt-int__ver { align-self: flex-start; text-align: left; }
 .rt-clip__frase { width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px; max-height: 220px; field-sizing: content; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); line-height: 1.45; }
 .rt-clip__frase:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
 .rt-clip__cuenta { margin: -2px 0 0; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }

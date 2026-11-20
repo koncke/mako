@@ -15,10 +15,14 @@
 
 // Las marcas de la barra y de Settings son las del chat de las pestañas: importadas, para que un cambio de nombre no deje al reto
 // señalando algo que ya no existe (pasó el 18/11: la foto pasó de `tour-sidebar-perfil` a `tour-barra-foto`).
-import { MARCA, conMarca, marcaSettings } from '../tutoriales/marcas';
+import { MARCA, conMarca, marcaIntegracion, marcaSettings } from '../tutoriales/marcas';
 
 /** Una marca del motor: dónde tocar, con su tarjeta. */
-export type MarcaReto = { sel: string; titulo: string; texto: string; haz: string; lado?: 'arriba' | 'abajo' | 'izquierda' | 'derecha'; libre?: boolean };
+export type MarcaReto = { sel: string; titulo: string; texto: string; haz: string; lado?: 'arriba' | 'abajo' | 'izquierda' | 'derecha'; libre?: boolean;
+  /** Sin clic: la marca muestra y espera este botón («Entendido»), como la foto del perfil de la maqueta (d24-20). */
+  listo?: string;
+  /** Con su propio texto aunque sea la última (`marcasDeLaTarea` le pone el de la tarea a las demás): la integración que le toca (d24-05). */
+  propia?: true };
 
 export type TareaReto = {
   id: string;
@@ -28,6 +32,8 @@ export type TareaReto = {
   detalle: string;
   /** Los lugares que se tocan, en orden (la barra, el menú de la foto, una sección): el motor los marca de a uno. */
   marcas: MarcaReto[];
+  /** Hecha desde el principio, sin nada que hacer ni marcar: «Tu onboarding» (el reto empieza al terminarlo; D1-14). */
+  siempre?: true;
 };
 
 export type PruebaWhatsApp = {
@@ -75,7 +81,8 @@ export function tutorialDelDia(d: DiaReto): import('@/lib/tutoriales').TutorialP
 export function tareasQueCierra(d: DiaReto, sel: string): string[] {
   const norm = (x: string) => x.split(',').map((y) => y.replace(/\s+/g, ' ').trim());
   const tocado = norm(sel);
-  return d.tareas.filter((t) => { const u = t.marcas[t.marcas.length - 1]; return !!u && norm(u.sel).some((x) => tocado.includes(x)); }).map((t) => t.id);
+  // La última marca que se TOCA: una con «Entendido» (`listo`, la foto del perfil) no se toca.
+  return d.tareas.filter((t) => { const u = [...t.marcas].reverse().find((m) => !m.listo); return !!u && norm(u.sel).some((x) => tocado.includes(x)); }).map((t) => t.id);
 }
 
 export const DIAS_RETO: readonly DiaReto[] = [
@@ -84,42 +91,47 @@ export const DIAS_RETO: readonly DiaReto[] = [
     // oferta con el Offer Coach y después el sistema para conseguir clientes con el Funnel Coach. La marca lleva de uno al otro: la
     // fila de cada coach (app/second-brain/ChatSecondBrain.tsx, `sb-offer` y `sb-funnel`). El reto es del onboarding V2, y con él
     // están los dos coaches (el mismo interruptor). ⚠️ El id de la segunda sigue siendo 'funnel': lo guardado antes (`1:funnel`) vale.
-    n: 1, titulo: 'Tu oferta y tu sistema de adquisición', video: 'reto-dia-1',
-    mensaje: 'Hoy es tu día 1. Tu onboarding ya está; ahora tu oferta, con Offer Coach, y después tu sistema para conseguir clientes, con Funnel Coach.',
+    // Los textos, de la maqueta (20/11, auditoría D1-14). «Tu onboarding» va primero y ya hecha: el reto empieza al terminarlo
+    // (`siempre`: no hay nada que leer ni que marcar).
+    n: 1, titulo: 'Tu onboarding, tu oferta y tu sistema de adquisición', video: 'reto-dia-1',
+    mensaje: 'Hoy es tu día 1. Tu onboarding ya está; ahora tu oferta, con Offer Coach, y tu sistema de adquisición de clientes, con Funnel Coach. Empecemos por tu oferta.',
     tareas: [
-      { id: 'offer', titulo: 'Tu oferta, con Offer Coach', donde: 'En el Ops Center', detalle: 'Te pregunta como un coach y te deja el diagnóstico de tu oferta.',
+      { id: 'onboarding', titulo: 'Tu onboarding', donde: 'En el Ops Center', detalle: 'Lo hiciste al entrar.', marcas: [], siempre: true },
+      { id: 'offer', titulo: 'Tu oferta, con Offer Coach', donde: 'En el Ops Center', detalle: 'Con su diagnóstico y el PDF.',
         marcas: [{ sel: '[data-recorrido="sb-offer"]', titulo: 'Tu día 1 sigue en Offer Coach', texto: 'Ahí armamos tu oferta.', haz: 'Haz clic en Offer Coach', lado: 'derecha' }] },
-      { id: 'funnel', titulo: 'Tu sistema para conseguir clientes, con Funnel Coach', donde: 'En el Ops Center', detalle: 'Con tu oferta ya hecha, elige contigo tu funnel y su plan.',
-        marcas: [{ sel: '[data-recorrido="sb-funnel"]', titulo: 'Ahora, Funnel Coach', texto: 'Ahí armas tu sistema para conseguir clientes.', haz: 'Haz clic en Funnel Coach', lado: 'derecha' }] },
+      { id: 'funnel', titulo: 'Tu sistema de adquisición, con Funnel Coach', donde: 'En el Ops Center', detalle: 'Elige tu funnel.',
+        marcas: [{ sel: '[data-recorrido="sb-funnel"]', titulo: 'Ahora, Funnel Coach', texto: 'Ahí armas tu sistema de adquisición de clientes.', haz: 'Haz clic en Funnel Coach', lado: 'derecha' }] },
     ],
   },
   {
     n: 2, titulo: 'Conecta todo: la app, la extensión y tus integraciones', video: 'reto-dia-2',
-    mensaje: 'Día 2: conectamos todo, de a un paso. Primero la app de MaKo en tu teléfono; después la extensión para Chrome y tus integraciones.',
+    mensaje: 'Día 2: conectamos todo. Dale play: te muestro la app, la extensión y tus integraciones.',
     tareas: [
       // Martín, 18/11: «MaKo con tu teléfono» no se entiende, «pareciera que está hablando de MaKo con WhatsApp otra vez… es la
       // aplicación de MaKo en tu teléfono». Se nombra la APP, aparte de MaKo por WhatsApp.
-      { id: 'app', titulo: 'La app de MaKo en tu teléfono', donde: en('Settings › Instalar la app'), detalle: 'Escanea el QR e instala la app de MaKo: los avisos de tu negocio, al instante. Es aparte de MaKo por WhatsApp.',
+      { id: 'app', titulo: 'Instala la app de MaKo en tu teléfono', donde: en('Settings › Instalar la app'), detalle: 'Escanea el QR del día 2. Es aparte de MaKo por WhatsApp.',
         marcas: [
           { sel: conMarca(MARCA.barraFoto), titulo: 'Tu cuenta', texto: 'Lo de tu cuenta está en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'Todo lo de tu cuenta y tu negocio.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
           { sel: conMarca(marcaSettings('instalar')), titulo: 'Instalar la app', texto: 'Ahí está el QR para tu teléfono.', haz: 'Haz clic en Instalar la app', lado: 'derecha' },
         ] },
-      { id: 'extension', titulo: 'La extensión para Chrome', donde: en('Settings › Instalar la app'), detalle: 'MaKo a mano mientras navegas.',
+      { id: 'extension', titulo: 'La extensión de MaKo para Chrome', donde: en('Settings › Instalar la app'), detalle: 'MaKo a mano mientras navegas: tus leads, tus chats y tus anuncios.',
         marcas: [{ sel: conMarca(marcaSettings('instalar')), titulo: 'La extensión', texto: 'En la misma sección, la extensión para Chrome.', haz: 'Haz clic en Instalar la app', lado: 'derecha' }] },
-      { id: 'integraciones', titulo: 'Las integraciones de lo que elegiste', donde: en('Settings › Integraciones'), detalle: 'Sólo las de tu funnel: no se conectan aquí.',
+      { id: 'integraciones', titulo: 'Las integraciones de lo que elegiste', donde: en('Settings › Integraciones'), detalle: 'Las que pide lo que elegiste con Offer Coach y Funnel Coach. Se conectan en Settings, en Integraciones.',
         marcas: [
           { sel: conMarca(MARCA.barraFoto), titulo: 'Tus integraciones', texto: 'Están en Settings, en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'Todo lo de tu cuenta y tu negocio.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
           { sel: conMarca(marcaSettings('integraciones')), titulo: 'Integraciones', texto: 'Aquí conectas lo que necesita tu funnel.', haz: 'Haz clic en Integraciones', lado: 'derecha' },
         ] },
-      { id: 'perfil', titulo: 'Tu perfil y tu foto', donde: en('Settings › Perfil'), detalle: 'Lo que contaste en el chat ya está guardado.',
+      { id: 'perfil', titulo: 'Tu perfil y tu foto', donde: en('Settings › Perfil'), detalle: 'Lo que me contaste ya quedó guardado; ahí subes tu foto.',
         marcas: [
           { sel: conMarca(MARCA.barraFoto), titulo: 'Tu perfil', texto: 'Está en Settings, en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'La primera sección es tu perfil.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
           // 19/11: la última marca es la sección Perfil (la que marca el video del día 2, `tour-settings-info`). Con Settings como
           // última, tocar Settings en el video cerraba «Tu perfil y tu foto» antes de llegar al perfil, y tocar Perfil no cerraba nada.
           { sel: conMarca(marcaSettings('info')), titulo: 'Perfil', texto: 'Tu nombre y tu foto: lo que contaste en el chat ya está guardado.', haz: 'Haz clic en Perfil', lado: 'derecha' },
+          // 20/11 (d24-20, la maqueta): la última es el botón de la foto (app/perfil/InformacionPersonal.tsx), con «Entendido».
+          { sel: 'button.aj-foto--grande', titulo: 'Tu foto', texto: 'Tu foto: súbela aquí. Tu nombre, tu WhatsApp y tu negocio ya están guardados.', haz: 'Entendido', lado: 'derecha', listo: 'Entendido' },
         ] },
     ],
     whatsapp: { texto: 'Dile a MaKo a qué hora te escribe sobre el reto: le escribes tú primero, así WhatsApp no frena sus mensajes.', ejemplo: '«Hola MaKo, prefiero que me escribas a las 9:00 sobre el reto.»', escrito: 'Hola MaKo, prefiero que me escribas a las {hora} sobre el reto.' },
@@ -128,61 +140,68 @@ export const DIAS_RETO: readonly DiaReto[] = [
     // Martín, 18/11: «no lo llamaría el día 3 de difusión de WhatsApp, porque hay muchos que no usan WhatsApp y hacen sus mensajes
     // por Instagram, otros por email… tu primera automatización de mensajes o de respuestas a clientes». Sin atarla a un canal.
     n: 3, titulo: 'Tus contactos y tu primera automatización', video: 'reto-dia-3',
-    mensaje: 'Día 3: tus contactos y tu primera automatización. Cargas tus clientes en el CRM y dejas a MaKo respondiendo por el canal que usas: WhatsApp, Instagram o email.',
+    mensaje: 'Día 3: tus contactos y tu primera automatización. Dale play: te muestro dónde va todo.',
     tareas: [
       { id: 'contactos', titulo: 'Carga tus clientes en el CRM', donde: 'En CRM', detalle: 'Con un CSV, aunque vengan de otro sistema.',
         // 19/11: decía «si ya usas otro CRM, lo integramos», que promete un equipo. Lo que hay es importar un CSV (app/crm/ImportarLeadsModal.tsx).
-        marcas: [enLaBarra('/crm', 'CRM', 'Ahí cargas tus clientes con un CSV, aunque vengan de otro sistema.')] },
+        // 20/11 (f24-05, la maqueta): después de CRM, el «⋮» de su barra, donde está «Importar leads» (app/crm/CrmToolbar.tsx).
+        marcas: [enLaBarra('/crm', 'CRM', 'Tus clientes van a tu CRM. Los cargas tú, como prefieras.'),
+          { sel: '[data-recorrido="crm-mas"]', titulo: 'Carga tus clientes', texto: 'Si quieres, cárgalos con un CSV: aquí, en «Importar leads».', haz: 'Haz clic aquí', lado: 'abajo' }] },
       { id: 'automatizacion', titulo: 'Tu primera automatización de mensajes', donde: 'En Automations', detalle: 'Que MaKo atienda solo a tus clientes, por el canal que usas: WhatsApp, Instagram o email.',
         marcas: [
           enLaBarra('/automations', 'Automations', 'Aquí armas tu primera automatización de mensajes.'),
           // «Atiende MaKo» de Chats es sólo un filtro (las charlas que ya atiende MaKo): la respuesta automática se arma aquí.
           { sel: 'aside[aria-label="Tus automatizaciones"] button.chb-nueva', titulo: 'Nueva automatización', texto: 'Pídesela a MaKo con tus palabras: qué responder y por qué canal.', haz: 'Haz clic en Nueva automatización', lado: 'derecha' },
         ] },
-      { id: 'calendar', titulo: 'Conecta tu calendario', donde: 'En Calendar', detalle: 'Las llamadas que agenden caen en tu agenda.',
+      { id: 'calendar', titulo: 'Conecta Google Calendar', donde: 'En Calendar', detalle: 'Las llamadas que agenden caen en tu calendario.',
         marcas: [enLaBarra('/calendario', 'Calendar', 'Conecta tu calendario: las llamadas caen en tu agenda.')] },
     ],
     whatsapp: { texto: 'Pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead a tu CRM.', ejemplo: '«MaKo, carga a Juan Pérez en mi CRM: me escribió por Instagram y quiere el programa.»', audio: true },
   },
   {
     n: 4, titulo: 'Copia lo que le funciona a tu competencia', video: 'reto-dia-4',
-    mensaje: 'Día 4: lo que ya le funciona a tu competencia, y tu página con esa estructura.',
+    mensaje: 'Día 4: copiamos lo que ya le funciona a tu competencia. Dale play.',
     tareas: [
-      { id: 'spy', titulo: 'Agrega 3 competidores', donde: 'En Competitor Spy', detalle: 'Mira lo que más tiempo llevan activo.',
+      { id: 'spy', titulo: 'Agrega 3 competidores en Competitor Spy', donde: 'En Competitor Spy', detalle: 'Mira lo que más tiempo llevan activo.',
         marcas: [enLaBarra('/competitor-spy', 'Competitor Spy', 'Agrega a 3 competidores y mira lo que más les funciona.')] },
-      { id: 'web', titulo: 'Replica una página que ya vende', donde: 'En Web Generator', detalle: 'Pegas su página y la arma con tu oferta.',
+      { id: 'web', titulo: 'Replica una página que ya vende', donde: 'En Web Generator', detalle: 'En Web Generator: pegas su página y la replica con tu oferta.',
         marcas: [enLaBarra('/web-generator', 'Web Generator', 'Pegas su página y la replica con tu oferta.')] },
     ],
     whatsapp: { texto: 'Pruébalo por WhatsApp: pregúntale a MaKo qué le está funcionando a tu competencia.', ejemplo: '«¿Qué le está funcionando a mi competencia?»', escrito: '¿Qué le está funcionando a mi competencia?' },
   },
   {
     n: 5, titulo: 'Tu carrusel y tu guion', video: 'reto-dia-5',
-    mensaje: 'Día 5: una semana de contenido, sin hoja en blanco, replicando lo que ya funcionó.',
+    mensaje: 'Día 5: tu carrusel y tu guion, replicando lo que ya funcionó. Dale play.',
     tareas: [
-      { id: 'carrusel', titulo: 'Tu carrusel', donde: 'En Image', detalle: 'Replicas un carrusel que ya funcionó, con tu oferta.',
+      { id: 'carrusel', titulo: 'Tu carrusel', donde: 'En Image', detalle: 'En Image: replicas un carrusel que ya funcionó.',
         marcas: [enLaBarra('/image-editor', 'Image', 'Replica un carrusel que ya funcionó, con tu oferta.')] },
-      { id: 'guion', titulo: 'Tu guion', donde: 'En Copywriting', detalle: 'Replicando a tu referente.',
+      { id: 'guion', titulo: 'Tu guion', donde: 'En Copywriting', detalle: 'En Copywriting, replicando a tu referente.',
         marcas: [enLaBarra('/copywriter', 'Copywriting', 'Tu guion, replicando a tu referente.')] },
     ],
     whatsapp: { texto: 'Pruébalo por WhatsApp: mándale a MaKo un audio con la idea de tu guion y te lo escribe.', ejemplo: '«Quiero un guion sobre por qué las dietas fallan…»', audio: true },
   },
   {
     n: 6, titulo: 'Tu video con IA', video: 'reto-dia-6',
-    // 19/11: decía «el clip de 10 segundos va de regalo», y en la app no hay clip de regalo: la prueba deja hacer un video con el
-    // personaje (`prueba.avatares`, lib/topes-plan.ts). Y «AI Avatar» ya no es una tab: es «Tu personaje con IA», en Video › Crear desde cero.
-    mensaje: 'Día 6: tu video con IA, sin grabarte: tu personaje y tu primer clip.',
+    // 20/11: el clip de 10 segundos de regalo EXISTE (la tarjeta del chat, app/second-brain/reto/ClipDelReto.tsx; AI Avatar lo hace por
+    // ApiMart): vuelven los textos de la maqueta. «AI Avatar» sigue sin ser una tab: es «Tu personaje con IA», en Video › Crear desde cero.
+    mensaje: 'Día 6: tu video con IA, sin grabarte. El clip de 10 segundos va de regalo. Dale play.',
     tareas: [
       { id: 'personaje', titulo: 'Tu personaje con IA', donde: en('Video › Tu personaje con IA'), detalle: 'Con una foto tuya.',
-        marcas: [enLaBarra('/video-editor', 'Video', 'Tu personaje con IA está en Video, con una foto tuya.')] },
-      { id: 'clip', titulo: 'Tu primer clip con tu personaje', donde: en('Video › Tu personaje con IA'), detalle: 'Con el gancho de tu guion.',
-        marcas: [enLaBarra('/video-editor', 'Video', 'Tu primer clip, con el gancho de tu guion.')] },
+        // 20/11 (R57-18): Video, «Crear desde cero» y la tarjeta «Tu personaje con IA» (app/video-editor/plantillas-crear.ts), que abre
+        // el estudio del personaje con su propio tutorial.
+        marcas: [enLaBarra('/video-editor', 'Video', 'Tu personaje con IA está en Video.'),
+          { sel: 'a[href="/video-editor?ver=crear"]', titulo: 'Crear desde cero', texto: 'Ahí está «Tu personaje con IA».', haz: 'Haz clic en Crear desde cero', lado: 'abajo' },
+          { sel: 'button.cr-plantilla[aria-label="Usar la plantilla Tu personaje con IA"]', titulo: 'Tu personaje con IA', texto: 'Con una foto tuya.', haz: 'Haz clic en Tu personaje con IA', lado: 'derecha' }] },
+      // El regalo se pide en la tarjeta del chat (app/second-brain/reto/ClipDelReto.tsx): la marca muestra esa tarjeta.
+      { id: 'clip', titulo: 'Tu clip de 10 segundos, de regalo', donde: 'Aquí, en el chat', detalle: 'Con el gancho de tu guion.',
+        marcas: [{ sel: '[data-recorrido="sb-reto-dia-6-clip"]', titulo: 'Tu clip de regalo', texto: 'Escribe el gancho de tu guion y pídelo aquí.', haz: 'Entendido', lado: 'derecha', listo: 'Entendido' }] },
     ],
   },
   {
     n: 7, titulo: 'Tu Marketing CoPilot', video: 'reto-dia-7',
-    mensaje: 'Día 7, el último: tu CoPilot revisa todo lo que armaste y te deja tu semana en el Plan.',
+    mensaje: 'Día 7, el último: tu Marketing CoPilot revisa todo y arma tu semana. Dale play.',
     tareas: [
-      { id: 'copilot', titulo: 'Abre tu Marketing CoPilot', donde: 'En Marketing CoPilot', detalle: 'Revisa tu oferta, tu página y tu contenido.',
+      { id: 'copilot', titulo: 'Abre tu Marketing CoPilot', donde: 'En Marketing CoPilot', detalle: 'Revisa todo lo que armaste en la semana.',
         marcas: [enLaBarra('/ads-manager/copiloto', 'Marketing CoPilot', 'Revisa todo lo que armaste y te dice qué hacer cada semana.')] },
       { id: 'semana', titulo: 'Tu semana, en tu Plan', donde: 'En Plan', detalle: 'El CoPilot te deja las tareas de cada semana.',
         marcas: [enLaBarra('/plan', 'Plan', 'Ahí te deja las tareas de cada semana.')] },
@@ -242,15 +261,59 @@ const COLUMNA_DEL_FUNNEL: Readonly<Record<string, keyof typeof POR_FUNNEL>> = {
   'anuncios-a-whatsapp': 'whatsapp', 'anuncios-a-vsl': 'vsl', anuncios: 'formulario', organico: 'instagram', youtube: 'youtube', 'prospeccion-en-frio': 'whatsapp',
 };
 
-/** Los 7 días con los 4 a 6 armados para el funnel elegido en Funnel Coach (el principal). Los ids de las tareas no cambian. */
-export function diasDelReto(funnel?: string | null): readonly DiaReto[] {
+// ── Las integraciones del día 2, según lo que eligió (20/11/2026, auditoría d24-05; la maqueta, INTEGRA_POR) ───────────────────────
+// Lo acordado el 16/11: «sólo las de lo que eligió». Hasta 3, sin repetir, con su «para». Con las claves de lib/integraciones-catalogo.ts
+// (la tarjeta de cada una en Settings › Integraciones lleva `marcaIntegracion(clave)`). Google Calendar no va: es la tarea del día 3.
+export type IntegracionReto = { key: string; nombre: string; para: string };
+/** El mensaje de MaKo antes de la tarjeta «Te falta integrar esto» (la maqueta, D2_INT). */
+export const RETO_D2_INT = 'Por lo que elegiste con Offer Coach y Funnel Coach, te falta integrar esto. Se conecta en Settings, en Integraciones: te muestro dónde.';
+const NOMBRE_INTEGRACION: Readonly<Record<string, string>> = {
+  meta: 'Meta Ads', whatsapp: 'WhatsApp', zernio: 'Instagram (Zernio)', panda: 'Tu reproductor de video (Panda Video u otro)', youtube: 'YouTube',
+};
+const INTEGRA_POR_FUNNEL: Readonly<Record<string, ReadonlyArray<readonly [string, string]>>> = {
+  'anuncios-a-whatsapp': [['meta', 'tus anuncios a WhatsApp'], ['whatsapp', 'los chats que llegan de tus anuncios']],
+  'anuncios-a-vsl': [['panda', 'el video de venta de tu página'], ['meta', 'tus anuncios']],
+  anuncios: [['meta', 'tus anuncios con formulario']],
+  organico: [['zernio', 'tu funnel de Instagram']],
+  youtube: [['youtube', 'tu canal']],
+  'prospeccion-en-frio': [['whatsapp', 'escribirle a tus prospectos']],
+};
+/** Las del funnel principal y los otros que eligió, en ese orden. Sin funnel, Meta (la de la maqueta). */
+export function integracionesDelReto(funnels: ReadonlyArray<string | null | undefined>): IntegracionReto[] {
+  const vistas = new Set<string>(), out: IntegracionReto[] = [];
+  for (const f of funnels) {
+    for (const [key, para] of (f ? INTEGRA_POR_FUNNEL[f] : undefined) ?? []) {
+      if (vistas.has(key) || out.length >= 3) continue;
+      vistas.add(key); out.push({ key, nombre: NOMBRE_INTEGRACION[key] ?? key, para });
+    }
+  }
+  return out.length ? out : [{ key: 'meta', nombre: NOMBRE_INTEGRACION.meta, para: 'tus anuncios' }];
+}
+/** La tarea del día 2 con SUS integraciones: el detalle las nombra y la última marca baja hasta la tarjeta de la primera (si está
+ *  escondida detrás de «Mostrar más integraciones», marca ese botón: la tarjeta va antes en la página, y gana la primera que esté). */
+function tareaDeIntegraciones(t: TareaReto, ints: readonly IntegracionReto[]): Partial<TareaReto> {
+  const [p] = ints;
+  if (!p) return {};
+  return {
+    detalle: `${enLista(ints.map((i) => i.nombre))}: lo que pide lo que elegiste. Se conectan en Settings, en Integraciones.`,
+    marcas: [...t.marcas, { sel: `${conMarca(marcaIntegracion(p.key))}, ${conMarca(MARCA.integracionesMas)}`, titulo: p.nombre,
+      texto: `La necesitas para ${p.para}. Conéctala cuando quieras.`, haz: 'Entendido', lado: 'arriba', listo: 'Entendido', propia: true }],
+  };
+}
+
+/** Los 7 días del negocio: los 4 a 6 armados para el funnel elegido en Funnel Coach (el principal), y las integraciones del día 2 para lo
+ *  que eligió (`integraciones`: las que manda /api/reto; sin ellas, las del funnel principal). Los ids de las tareas no cambian. */
+export function diasDelReto(funnel?: string | null, integraciones: readonly IntegracionReto[] = integracionesDelReto([funnel])): readonly DiaReto[] {
   const col = funnel ? COLUMNA_DEL_FUNNEL[funnel] : undefined;
-  if (!col) return DIAS_RETO;
-  const F = POR_FUNNEL[col];
+  const F = col ? POR_FUNNEL[col] : null;
+  const t2 = DIAS_RETO[1].tareas.find((t) => t.id === 'integraciones')!;
   const cambia: Record<number, Record<string, Partial<TareaReto>>> = {
-    4: { spy: { detalle: F.spy }, web: { titulo: F.web } },
-    5: { carrusel: { titulo: F.carrusel }, guion: { titulo: F.guion } },
-    6: { clip: { detalle: F.clip } },
+    2: { integraciones: tareaDeIntegraciones(t2, integraciones) },
+    ...(F ? {
+      4: { spy: { detalle: F.spy }, web: { titulo: F.web } },
+      5: { carrusel: { titulo: F.carrusel }, guion: { titulo: F.guion } },
+      6: { clip: { detalle: F.clip } },
+    } : {}),
   };
   return DIAS_RETO.map((d) => (cambia[d.n] ? { ...d, tareas: d.tareas.map((t) => ({ ...t, ...(cambia[d.n][t.id] ?? {}) })) } : d));
 }
@@ -345,7 +408,7 @@ export function diaAbierto(e: EstadoReto, ahora: number): number {
 export const claveTarea = (dia: number, id: string) => `${dia}:${id}`;
 /** La marca de una tarea lleva la TAREA, no la pestaña (20/11, f24-04 y R57-F2: «Carga tus clientes en el CRM / Con un CSV…»): la
  *  última marca (el lugar donde se hace) toma su título y su detalle; las del camino (la foto, Settings) quedan como están. */
-export const marcasDeLaTarea = (t: TareaReto): MarcaReto[] => t.marcas.map((m, i) => (i === t.marcas.length - 1 ? { ...m, titulo: t.titulo, texto: t.detalle } : m));
+export const marcasDeLaTarea = (t: TareaReto): MarcaReto[] => t.marcas.map((m, i) => (i === t.marcas.length - 1 && !m.propia ? { ...m, titulo: t.titulo, texto: t.detalle } : m));
 /** ¿La dejó para después? (R57-F1) */
 export const tareaDespues = (e: EstadoReto, dia: number, id: string) => !!e.despues?.includes(claveTarea(dia, id));
 /** ¿Terminó el día? Todas sus tareas hechas o dejadas para después (20/11, D1-06, d24-13, R57-07): recién ahí, «¿Adelantas…?». */
@@ -355,10 +418,10 @@ export const diaTerminado = (e: EstadoReto, d: DiaReto) => d.tareas.every((t) =>
  *  de cada mañana todavía no existe (auditoría D1-04, es del chat de WhatsApp); lo cierto es que el día se abre a esa hora, aquí. */
 /** Lo que falta, dicho para «te falta…» (la maqueta, `falta` de cada tarea): el título es una orden («Conecta tu calendario»). */
 const FALTA_TAREA: Readonly<Record<string, string>> = {
-  app: 'instalar la app de MaKo en tu teléfono', extension: 'la extensión para Chrome', integraciones: 'conectar tus integraciones',
+  app: 'instalar la app de MaKo en tu teléfono', extension: 'la extensión de MaKo para Chrome', onboarding: 'tu onboarding', offer: 'tu oferta', funnel: 'tu sistema de adquisición', integraciones: 'conectar tus integraciones',
   perfil: 'tu perfil y tu foto', contactos: 'cargar tus clientes en el CRM', automatizacion: 'tu primera automatización',
   calendar: 'conectar tu calendario', spy: 'agregar a tus competidores', web: 'tu página', carrusel: 'tu carrusel', guion: 'tu guion',
-  personaje: 'tu personaje con IA', clip: 'tu primer clip', copilot: 'abrir tu Marketing CoPilot', semana: 'tu semana en el Plan',
+  personaje: 'tu personaje con IA', clip: 'tu clip de regalo', copilot: 'abrir tu Marketing CoPilot', semana: 'tu semana en el Plan',
 };
 /** `falta`: los ids de las tareas que dejó para después. */
 export function finDelDia(d: DiaReto, siguiente: DiaReto | undefined, hora: string, nombre: string, falta: string[]): string {
@@ -366,7 +429,9 @@ export function finDelDia(d: DiaReto, siguiente: DiaReto | undefined, hora: stri
   const sigue = siguiente ? ` Mañana a las ${hora} sigue el día ${siguiente.n}: ${siguiente.titulo.charAt(0).toLowerCase()}${siguiente.titulo.slice(1)}.` : '';
   return falta.length ? `Tu día ${d.n} quedó casi listo: te falta ${falta.map((id) => FALTA_TAREA[id] ?? id).join(' y ')}.${sigue}` : `¡Listo tu día ${d.n}!${sigue}`;
 }
-export const tareaHecha = (e: EstadoReto, dia: number, id: string) => !!e.hechas[claveTarea(dia, id)];
+/** Las tareas hechas desde el principio (`siempre`): no se leen ni se marcan. */
+const SIEMPRE_HECHAS: ReadonlySet<string> = new Set(DIAS_RETO.flatMap((d) => d.tareas.filter((t) => t.siempre).map((t) => claveTarea(d.n, t.id))));
+export const tareaHecha = (e: EstadoReto, dia: number, id: string) => SIEMPRE_HECHAS.has(claveTarea(dia, id)) || !!e.hechas[claveTarea(dia, id)];
 
 // ── El paso de Offer Coach a Funnel Coach (18/11/2026) ────────────────────────────────────────────────────────────────────────
 // Martín, sobre la maqueta: «me manda la oferta con el PDF para descargar… pero apenas me la manda automáticamente ya sale el botón

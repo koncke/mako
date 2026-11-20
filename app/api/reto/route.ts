@@ -18,8 +18,8 @@ import { cambiarSettingSi, getSetting } from '@/lib/settings';
 import { cambiarReto, type IoReto } from '@/lib/reto/cambiar';
 import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
 import { WHATSAPP_MAKO } from '@/app/vsl/_sitio/contacto';
-import { CLAVE_RETO, HORAS_WA, diaAbierto, estadoDeLosDias, leerEstado, type EstadoReto } from '@/lib/reto/dias';
-import { leerTareasHechas } from '@/lib/reto/senales';
+import { CLAVE_RETO, HORAS_WA, diaAbierto, estadoDeLosDias, leerEstado, tareaHecha, type EstadoReto } from '@/lib/reto/dias';
+import { estadoDeIntegraciones, leerTareasHechas } from '@/lib/reto/senales';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,10 +82,25 @@ async function essentialEnPrueba(): Promise<boolean> {
   } catch { return false; }
 }
 
+/** El QR de la app (el link único, como el paso de los avisos del onboarding: lib/onboarding-arranque-server.ts). Sin él, null. */
+async function qrDeLaApp(): Promise<string | null> {
+  try {
+    const [{ default: QRCode }, { linkApp }, { RUTA_APP }] = await Promise.all([import('qrcode'), import('@/lib/app-url'), import('@/lib/app-tiendas')]);
+    return await QRCode.toDataURL(linkApp(RUTA_APP, null), { margin: 1, width: 336 });
+  } catch { return null; }
+}
+
+/** Lo del día 2, con el día abierto (20/11, d24-05 y d24-06): sus integraciones con su estado, y el QR mientras la app no esté. */
+async function delDia2(e: EstadoReto | null, abierto: number) {
+  if (!e || abierto < 2) return { integraciones: [], qrApp: null };
+  const [integraciones, qrApp] = await Promise.all([estadoDeIntegraciones().catch(() => []), tareaHecha(e, 2, 'app') ? null : qrDeLaApp()]);
+  return { integraciones, qrApp };
+}
+
 async function respuesta(e: EstadoReto | null, numero: string | null) {
   const { abierto, dias, hechos } = estadoDeLosDias(e, Date.now());
-  const [f, i, unaVez] = await Promise.all([funnel(), intereses(), essentialEnPrueba()]);
-  return Response.json({ ok: true, ve: true, estado: e, abierto, dias, hechos, linea: numero, funnel: f, intereses: i, proUnaVez: unaVez });
+  const [f, i, unaVez, d2] = await Promise.all([funnel(), intereses(), essentialEnPrueba(), delDia2(e, abierto)]);
+  return Response.json({ ok: true, ve: true, estado: e, abierto, dias, hechos, linea: numero, funnel: f, intereses: i, proUnaVez: unaVez, ...d2 });
 }
 
 export async function GET() {
