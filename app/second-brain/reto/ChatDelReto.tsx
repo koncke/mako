@@ -123,7 +123,15 @@ export const anotarMarcada = (k: string) => { try { sessionStorage.setItem(YA_MA
 
 export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: () => void }) {
   const { d, leer, hacer } = useReto();
+  const ensayo = useEnsayo();
   const hilo = useRef<HTMLDivElement>(null);
+  // La hora se guarda cuando ella manda el WhatsApp (lib/reto/respuestas.ts): al volver de WhatsApp, se relee para mostrar la confirmación.
+  useEffect(() => {
+    const alVolver = () => { if (document.visibilityState === 'visible') void leer(); };
+    window.addEventListener('focus', alVolver);
+    document.addEventListener('visibilitychange', alVolver);
+    return () => { window.removeEventListener('focus', alVolver); document.removeEventListener('visibilitychange', alVolver); };
+  }, [leer]);
   const [menu, setMenu] = useState(false);
   // El catálogo «Tutoriales de MaKo» (V1, D1-07): el ícono de videos cambia los mensajes por todos los videos, con «Volver al chat».
   const [catalogo, setCatalogo] = useState(false);
@@ -212,7 +220,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
             ))}
             {empezo1 && abiertos.filter((dia) => ap.ver(`dia:${dia.n}`)).map((dia) => (
               <Dia key={dia.n} dia={dia} e={e} linea={d.linea} hora={horaWa} proUnaVez={!!d.proUnaVez} hoy={dia.n === d.abierto}
-                onHora={(h) => { setHora(h); void hacer({ accion: 'hora', hora: h }); }}
+                onHora={(h) => setHora(h)}
+                onConfirmarHora={() => { if (ensayo.activo) void hacer({ accion: 'hora', hora: horaWa }); }}
                 onMarcar={(t) => marcarTarea(marcasDeLaTarea(t), () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); })}
                 onTocadoEnVideo={() => { void leer(); }}
                 onFinVideo={() => marcarLoQueFalta(dia)} />
@@ -267,7 +276,7 @@ function Burbuja({ children, ancho = false }: { children: ReactNode; ancho?: boo
   return <FilaDelChat m={null} quien={{ titulo: 'MaKo', aspecto: ASPECTO_MAKO }} marcas={null} hora={null} ancho={ancho}><div className="rt-md">{children}</div></FilaDelChat>;
 }
 
-export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora, onMarcar, onTocadoEnVideo, onFinVideo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; proUnaVez?: boolean; hoy?: boolean; onHora: (h: string) => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void }) {
+export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora, onConfirmarHora, onMarcar, onTocadoEnVideo, onFinVideo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; proUnaVez?: boolean; hoy?: boolean; onHora: (h: string) => void; onConfirmarHora?: () => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void }) {
   const p = dia.whatsapp;
   const todas = dia.tareas.every((t) => tareaHecha(e, dia.n, t.id));
   const link = p ? linkWaMe(linea, mensajeEscrito(p, hora)) : null;
@@ -308,20 +317,16 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
       {/* Lo que hizo durante el video ya cuenta (el Cerebro, 18/11): si hizo todo, la felicita y pasa a la prueba por WhatsApp. */}
       {todas && dia.n === 2 && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!{p ? ' Te queda la prueba por WhatsApp.' : ''}</p></Burbuja>}
       {dia.n === 6 && <ClipDelReto />}
-      {/* La prueba por WhatsApp va al FINAL del día (f24-02); la hora del día 2 es un paso del día. */}
-      {p && (dia.n === 2 || diaTerminado(e, dia)) && (
+      {/* La prueba por WhatsApp va al FINAL del día (f24-02); la hora del día 2 es un paso del día: su tarjeta (wa-08, TarjetaHora). */}
+      {p && dia.n === 2 && <TarjetaHora p={p} guardada={e.horaWa ?? null} linea={linea} hora={hora} onHora={onHora} onConfirmar={onConfirmarHora ?? (() => {})} />}
+      {p && dia.n !== 2 && diaTerminado(e, dia) && (
         <Burbuja ancho>
           <div className="rt-tarjeta rt-wa">
             <p className="rt-tarjeta__t">{p.texto}</p>
             <p className="rt-wa__ej">Por ejemplo: {p.ejemplo}</p>
-            {dia.n === 2 && (
-              <div className="rt-horas" role="radiogroup" aria-label="La hora">
-                {HORAS_WA.map((h) => <button key={h} type="button" role="radio" aria-checked={h === hora} className="rt-hora" onClick={() => onHora(h)}>{h}</button>)}
-              </div>
-            )}
             {link
-              ? <a className="rt-wa__btn" href={link} target="_blank" rel="noopener noreferrer">{dia.n === 2 ? 'Confirmar y abrir WhatsApp' : 'Abrir WhatsApp'}</a>
-              : <p className="rt-wa__ej">La línea de MaKo no está conectada en este momento.</p>}
+              ? <a className="rt-wa__btn" href={link} target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>
+              : <p className="rt-wa__ej">No tengo el número de MaKo a mano: vuelve a intentarlo en un rato.</p>}
           </div>
         </Burbuja>
       )}
@@ -337,6 +342,36 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
  */
 function ClipDelReto() {
   return null;
+}
+
+/**
+ * LA HORA DE MaKo (el día 2; la maqueta, `tarjeta('hora')`; la auditoría del 20/11, wa-08 y D1-12). Tocar una hora sólo la ELIGE: se
+ * guarda cuando ella manda el mensaje por WhatsApp, y MaKo le contesta (lib/reto/respuestas.ts). Desde ahí MaKo le escribe cada mañana a
+ * esa hora (lib/reto/avisos.ts). Guardada, queda la confirmación. En el ensayo «desde cero» no hay WhatsApp: «Confirmar» la guarda ahí.
+ */
+function TarjetaHora({ p, guardada, linea, hora, onHora, onConfirmar }: {
+  p: NonNullable<DiaReto['whatsapp']>; guardada: string | null; linea: string | null; hora: string; onHora: (h: string) => void; onConfirmar: () => void;
+}) {
+  if (guardada) return <Burbuja><p>✓ MaKo te escribe cada día a las {guardada}, por WhatsApp.</p></Burbuja>;
+  const link = linkWaMe(linea, mensajeEscrito(p, hora));
+  return (
+    <>
+      <Burbuja><p>Una más: dile a MaKo a qué hora te escribe por WhatsApp sobre el reto. Le escribes tú primero, así WhatsApp no frena sus mensajes.</p></Burbuja>
+      <Burbuja ancho>
+        <div className="rt-tarjeta rt-wa">
+          <p className="rt-tarjeta__t">¿A qué hora te escribe MaKo sobre el reto?</p>
+          <p className="rt-wa__ej">Al confirmar se abre tu WhatsApp con el mensaje ya escrito: lo mandas tú y MaKo te contesta.</p>
+          <div className="rt-horas" role="radiogroup" aria-label="La hora">
+            {HORAS_WA.map((h) => <button key={h} type="button" role="radio" aria-checked={h === hora} className="rt-hora" onClick={() => onHora(h)}>{h}</button>)}
+          </div>
+          <p className="rt-wa__ej">MaKo te escribe cada día a las {hora}.</p>
+          {link
+            ? <a className="rt-wa__btn" href={link} target="_blank" rel="noopener noreferrer" onClick={onConfirmar}>Confirmar y abrir WhatsApp</a>
+            : <p className="rt-wa__ej">No tengo el número de MaKo a mano: vuelve a intentarlo en un rato.</p>}
+        </div>
+      </Burbuja>
+    </>
+  );
 }
 
 /** El video del día: el del manifiesto (`reto-dia-<n>`), o en la revisión su lugar marcado. Nunca otro video. */

@@ -21,6 +21,9 @@
 //   R11 la respuesta del reto lee la base con cualquier mensaje               → falla «la hora del día 2»
 //   R12 lo del reto también pasa al bot (contestaría dos veces)               → falla «la hora del día 2»
 //   R13 se guarda una hora que no es del reto                                 → falla «la hora del día 2»
+//   X1 tocar una hora la guarda otra vez (sin que ella escriba)               → falla «la tarjeta de la hora»
+//   X2 sin releer al volver de WhatsApp (la confirmación no aparece)          → falla «la tarjeta de la hora»
+//   X3 el mensaje escrito con 9:00 fijo                                       → falla «la tarjeta de la hora»
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -208,4 +211,19 @@ test('la hora del día 2 sale de SU mensaje, y MaKo le contesta (D1-12, wa-02)',
   const bot = hook.indexOf('manejarEntranteBot(instance, m)');
   assert.ok(v2 > 0 && reto > v2 && bot > reto, 'el pedido del código primero, después el reto, y lo demás al bot');
   assert.match(hook.slice(reto, bot), /deVerificacion\.add\(m\);[\s\S]*if \(reto\.responder\) after\(reto\.responder\);/, 'lo del reto no pasa al bot (no contesta dos veces)');
+});
+
+test('la tarjeta de la hora (día 2): tocar una hora sólo la elige; se guarda cuando ella escribe, y queda la confirmación (wa-08, D1-12)', () => {
+  const c = fuenteSinComentarios('app/second-brain/reto/ChatDelReto.tsx');
+  assert.match(c, /onHora=\{\(h\) => setHora\(h\)\}/, 'tocar una hora no la guarda');
+  assert.doesNotMatch(c, /setHora\(h\); void hacer\(\{ accion: 'hora'/);
+  assert.match(c, /onConfirmarHora=\{\(\) => \{ if \(ensayo\.activo\) void hacer\(\{ accion: 'hora', hora: horaWa \}\); \}\}/, 'sólo en el ensayo, que no tiene WhatsApp');
+  for (const t of ['Una más: dile a MaKo a qué hora te escribe por WhatsApp sobre el reto. Le escribes tú primero, así WhatsApp no frena sus mensajes.',
+    '¿A qué hora te escribe MaKo sobre el reto?', 'Al confirmar se abre tu WhatsApp con el mensaje ya escrito: lo mandas tú y MaKo te contesta.',
+    'MaKo te escribe cada día a las {hora}.', '✓ MaKo te escribe cada día a las {guardada}, por WhatsApp.', 'Confirmar y abrir WhatsApp']) {
+    assert.ok(c.includes(t), `falta «${t}»`);
+  }
+  assert.match(c, /const link = linkWaMe\(linea, mensajeEscrito\(p, hora\)\);/, 'el mensaje escrito con la hora elegida, no con 9:00');
+  assert.match(c, /window\.addEventListener\('focus', alVolver\);/, 'al volver de WhatsApp se relee');
+  assert.doesNotMatch(c, /no está conectada/, 'sin número no es «la línea está caída»');
 });
