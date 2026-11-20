@@ -374,7 +374,8 @@ test('el gancho decide con la lógica pura y lee lo local sin desfasar la hidrat
   assert.match(g, /const visto = vistoActual\(\{/, 'la decisión es la de lib/recorridos.ts, no una copia');
   assert.match(g, /useSyncExternalStore\(suscribirLocal, \(\) => \(clave \? leerLocal\(clave\) : null\), \(\) => null\)/,
     'en el server lo local es «no sé» (null); leerlo en un useState daría otro HTML que el del server');
-  assert.match(g, /const abierto = modo === 'abierto' \|\| \(modo === 'auto' && autoabrir && visto === false\)/,
+  // 20/11 (OD-F4): además, no se abre solo donde el motor de los tutoriales ya corre el video de la pestaña (tests/tutorial-marcas-auditoria.test.ts).
+  assert.match(g, /const abierto = modo === 'abierto' \|\| \(modo === 'auto' && autoabrir && visto === false && \(delMotor \|\| typeof window === 'undefined' \|\| !motorSeOcupa\(window\.location\.pathname\)\)\)/,
     'se abre solo con un «false» explícito: con null (no se sabe) no');
 });
 

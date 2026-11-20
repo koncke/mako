@@ -45,6 +45,7 @@ import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
 import type { Asignacion } from './KanbanEntrega';
 import { Marca } from '@/app/_components/Marca';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import { Dropdown } from '@/app/components/Dropdown';
 import { colorDe } from './ClienteCard';
 import { opcionesDeEtapas } from './LoteClientes';
@@ -539,7 +540,8 @@ export function TablaClientes({
           (27/09/2026): una fila de acción al final de una lista se lee como un dato más, y
           con la tabla scrolleada ni siquiera está en pantalla. */}
       <div className="tc-arriba">
-        <button type="button" className="tc-nuevo" onClick={onNuevo}>＋ Nuevo cliente</button>
+        {/* La marca de «Cargar un cliente» del tutorial también aquí: con clientes, la checklist ya no la trae (20/11). */}
+        <button type="button" className="tc-nuevo" onClick={onNuevo} data-recorrido={MARCA.classroomClientsCargar}>＋ Nuevo cliente</button>
       </div>
       {/* El auto-scroll escucha en la CAJA y no en cada grupo: tiene que empujar también
           cuando el cursor pasa por el encabezado o por un grupo que no es destino. */}
