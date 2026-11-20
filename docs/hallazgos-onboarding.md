@@ -3517,3 +3517,46 @@ filas de los coaches tachaban el día 1 entero.
   le habla a MaKo cuenta como «otra caja de chat» (tests/chat-unico.test.ts), aunque sea un formulario; y todo `role="alert"` lleva
   `<ReportarASoporte />` (tests/reportar-a-soporte.test.ts). Un formulario dentro de un chat va en su propio archivo
   (app/second-brain/reto/ClipDelReto.tsx). Antes de subir algo con un campo de texto o un aviso de error, correr esos dos.
+
+## El reto contra la maqueta, tanda 7: lo que no se veía desde el pedido (20/11/2026, chat «reto-tutoriales», claude5)
+
+- **Mover código entre archivos cortando por un marcador deja cosas atrás.** Al pasar la tarjeta del clip a su archivo, el corte
+  terminaba en el JSDoc siguiente, que era el de `ganchoDeSuGuion`: la función quedó en ChatDelReto sin sus imports. En la PC el tsc no
+  entra (lo corta el vigía de RAM) y los tests pasaban; lo vio el paso «Tipos» de GitHub (6 errores, corrida 44683133663). Antes de
+  subir un movimiento, buscar cada nombre movido en los DOS archivos (`grep -c`), no sólo correr los tests.
+- **Una ruta que empieza a leer integraciones sale de `SIN_IA`** (tests/d6b-rutas.test.ts). `getIntegracion` (lib/integraciones.ts)
+  pasa por `conSoloSuIA` para saber si la clave es propia, así que el GET del reto «prende el contexto» y el test pide sacarlo de la
+  lista. Sigue sin pedirle nada a una IA: es una lectura.
+- **«Tu onboarding» es una tarea sin lugar** (la maqueta la pone primera y hecha). La regla de Martín del 18/11 es que toda tarea se
+  marca (sin botones de atajo); una tarea `siempre` (lib/reto/dias.ts) es la excepción: hecha desde el principio, sin lectura ni marca,
+  y `tareaHecha` la da por hecha también en lo guardado antes y en el ensayo «desde cero».
+- **Las integraciones del día 2 son por funnel, con las claves del catálogo** (`integracionesDelReto`). La tabla de la maqueta pone
+  Google Calendar en tres columnas, pero el calendario se conecta en Calendar (no en Integraciones) y es la tarea del día 3: no va. La
+  última marca usa una lista de selectores (la tarjeta de la integración, o «Mostrar más integraciones» si está escondida entre las que
+  pasan las 12 primeras): `querySelector` devuelve la primera en el ORDEN DE LA PÁGINA, y la tarjeta va antes que el botón.
+- **El texto de la última marca es el de la tarea** (`marcasDeLaTarea`, f24-04). Para la integración que le toca se quiere el suyo
+  («La necesitas para … Conéctala cuando quieras.»): la marca va con `propia`.
+- **Sin hacer**, con su archivo: el día 2 en pasos de a uno (d24-08, ChatDelReto.tsx `Dia`), lo pendiente de ayer con «Del día N»
+  (d24-21), el cierre del reto con el piloto (R57-08), el inicio con la prueba (R57-19), la zona horaria (R57-20), la fecha y la hora
+  del hilo (R57-F3, f24-07), el teléfono (f24-01, R57-F5), el Plan (d24-22) y el video con marcas en el mensaje (d24-10, R57-21, V4: el
+  motor, MotorTutorial.tsx, no es de este chat). La tabla de cada ID: la carpeta de notas del Cerebro, `auditoria-estado-reto.md`.
+
+## El reto contra la maqueta, tandas 8 y 9: los tipos que la PC no ve y las rutas que arrastra un import (20/11/2026, chat «reto-tutoriales», claude5)
+
+- **Un spread condicional dentro de un `Record` tipado da TS2322** (`{ 2: …, ...(F ? { 4: …, 5: … } : {}) }` deja claves opcionales con
+  `undefined`). Los tests pasaban y en la PC el tsc no entra: lo vio «Tipos» en GitHub (corrida 44685831731). Se arma con asignaciones.
+- **Importar un componente del chat del onboarding en el Ops Center del teléfono le suma las rutas del onboarding** (las que llegan a una
+  IA): tests/d6b-rutas.test.ts sigue los imports del navegador del Ops Center. `SeguirEnPc` vive en app/onboarding/ChatArranque.tsx; el
+  reto tiene su pantalla aparte (app/second-brain/reto/SeguirEnPcReto.tsx), con el mismo diseño y su texto.
+- **Una aserción de orden con `indexOf` no prueba que exista** (`indexOf(a) < indexOf(b)` da verde si `a` no está: -1). Lo encontró
+  romper el código; la aserción ahora exige `> 0`.
+- **Una página de /m que devuelve algo antes de su `PantallaM` da rojo** (tests/movil-refrescar.test.ts: sin ella no se refresca
+  tirando hacia abajo). «Sigamos en tu computadora» del reto salía antes de los desvíos y sin envolver (corrida 44687986156).
+- **La zona horaria del reto se guarda sólo al empezar** (`reto.estado.zona`, la del navegador): cambiarla a mitad del reto puede
+  cerrar un día ya abierto (de Argentina a México, a las 10:00 de Argentina el día vuelve atrás). Sin zona, Argentina. El aviso de la
+  mañana la sigue solo (usa `diaAbierto`); el de la noche y el de Martín siguen con `horaAr` (lib/reto/avisos.ts, del chat de WhatsApp).
+- **El día 1 es el primero de la prueba** (`inicioConLaPrueba`: el primer cobro menos 7 días). Quien abre el reto tarde ve abiertos los
+  días que ya corrieron, y el aviso de la mañana no los reenvía: sólo avisa un día que se abrió hace poco (`recien`, avisos.ts).
+- **Sin hacer**: el reto como proyecto del Plan (d24-22: toca el Plan, otra área), el video con marcas dentro del mensaje (d24-10,
+  R57-21, V4: el motor, MotorTutorial.tsx, es del chat del onboarding), los días 3 y 4 de a una tarea (d24-08 hizo el 2), y el video
+  del día 1 (D1-15: decisión de Martín, reto-dia-1 o el recorrido).

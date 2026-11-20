@@ -37,15 +37,19 @@ import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutorial/desde-cero';
 import { claveTarea, diaAbierto, diasDelReto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
 import { RETO_EMPEZAR_DIA1, RETO_INTERES_YA, RETO_MUESTRA, RETO_MUESTRA_FIN, muestrasDe, type MuestraReto } from '@/lib/reto/dias';
-import { diaTerminado, finDelDia, marcasDeLaTarea, tareaDespues } from '@/lib/reto/dias';
+import { RETO_D2_EXT, RETO_D2_PERFIL, RETO_PILOTO, diaTerminado, finDelDia, marcasDeLaTarea, rotuloDelDia, tareaDespues } from '@/lib/reto/dias';
 import { NOTA_PRO_UNA_VEZ, TAREA_PRO } from '@/lib/reto/pro-del-reto';
 import { Burbuja } from './Burbuja';
 import { ClipDelReto } from './ClipDelReto';
+import { TarjetaIntegraciones, TarjetaQrApp, type IntegracionConEstado } from './TarjetasDia2';
 
 
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null;
   /** El funnel que eligió en Funnel Coach: arma los días 4 a 6 (`diasDelReto`, 20/11). */
   funnel?: string | null;
+  /** Con el día 2 abierto (d24-05 y d24-06): las integraciones de lo que eligió, con su estado, y el QR de la app mientras no esté. */
+  integraciones?: IntegracionConEstado[];
+  qrApp?: string | null;
   /** Lo que eligió en «¿Qué te gustaría que MaKo resuelva primero?» (D1-02). */
   intereses?: string[];
   /** Una prueba de MaKo Essential: lo de Pro de los días 4 a 6 se usa una vez (R57-03). */
@@ -100,7 +104,7 @@ export function marcarTarea(marcas: readonly MarcaReto[], alTerminar: () => void
   if (!m) { alTerminar(); return; }
   senalarDondeTocar({ sel: m.sel, titulo: m.titulo, texto: m.texto, haz: m.haz, lado: m.lado },
     () => (resto.length ? window.setTimeout(() => marcarTarea(resto, alTerminar, alDejar), 350) : alTerminar()),
-    { alOmitir: alDejar, libre: m.libre });
+    { alOmitir: alDejar, libre: m.libre, ...(m.listo ? { listo: m.listo } : {}) });
 }
 
 // LOS TRES PUNTITOS (20/11, auditoría D1-10 y d24-11): lo acordado es que ningún mensaje del reto sale pegado a otro. La primera vez
@@ -128,6 +132,8 @@ export function useAparicion(claves: readonly string[]): { ver: (k: string) => b
 
 
 const YA_MARCADA = 'mako.reto.marcada.';
+/** Cada cuánto relee el chat mientras espera la app del QR del día 2. */
+const CADA_MS_QR = 10_000;
 // Exportadas para el paso de Offer Coach a Funnel Coach (./usePasoAlFunnel.ts): la misma tarea se marca una vez por visita, la
 // marque este chat o el Offer Coach.
 export const yaMarcada = (k: string) => { try { return !!sessionStorage.getItem(YA_MARCADA + k); } catch { return false; } };
@@ -168,7 +174,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   useEffect(() => {
     if (!d || !d.ve || d.estado || empezo.current) return;
     empezo.current = true;
-    void hacer({ accion: 'empezar' });
+    // La zona del navegador (R57-20): cada día se abre a su hora en SU zona.
+    void hacer({ accion: 'empezar', zona: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return undefined; } })() });
   }, [d, hacer]);
 
   // Lo que falta, marcado DESPUÉS del video del día (20/11, auditoría D1-03, d24-09 y R57-12): antes, a los 0,9 s de abrir el chat
@@ -187,7 +194,14 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
 
 
   // Los días 4 a 6, armados para su funnel (20/11, auditoría d24-14 y R57-01).
-  const abiertos = d && e ? diasDelReto(d.funnel).filter((x) => x.n <= d.abierto) : [];
+  const abiertos = d && e ? diasDelReto(d.funnel, d.integraciones).filter((x) => x.n <= d.abierto) : [];
+  // El QR del día 2 dice «Sigo solo cuando estén» (d24-06): mientras está, relee cada 10 s con la pestaña a la vista.
+  const esperaLaApp = !!d?.qrApp && !!e && !tareaHecha(e, 2, 'app') && !tareaDespues(e, 2, 'app');
+  useEffect(() => {
+    if (!esperaLaApp) return;
+    const t = window.setInterval(() => { if (document.visibilityState === 'visible') void leer(); }, CADA_MS_QR);
+    return () => window.clearInterval(t);
+  }, [esperaLaApp, leer]);
   // «¿Qué hacemos ahora?» (20/11, D1-02 y V3): lo que eligió en el onboarding, con su «Muéstrame…», antes del día 1. Un reto que ya
   // venía andando (con algo hecho o pasado el día 1) no vuelve a preguntar.
   const muestras = muestrasDe(d?.intereses);
@@ -197,9 +211,13 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   // EL FIN DEL DÍA (20/11, D1-06, d24-13, R57-07): recién cuando el día abierto terminó (todo hecho o dejado para después), su
   // cierre (FIN_DIA) y, en el recuadro de opciones, «¿Adelantas el día N?». «Mañana» queda guardado y su respuesta, en el chat.
   const actual = abiertos[abiertos.length - 1];
-  const siguiente = actual ? diasDelReto(d?.funnel).find((x) => x.n === actual.n + 1) : undefined;
+  const siguiente = actual ? diasDelReto(d?.funnel, d?.integraciones).find((x) => x.n === actual.n + 1) : undefined;
   const termino = !!e && !!actual && empezo1 && diaTerminado(e, actual);
-  const falta = e && actual ? actual.tareas.filter((t) => !tareaHecha(e, actual.n, t.id) && tareaDespues(e, actual.n, t.id)).map((t) => t.id) : [];
+  // El día 7 cierra el reto (R57-08): nombra TODO lo que quedó sin hacer, de cualquier día.
+  const falta = !e || !actual ? [] : actual.n === 7
+    ? abiertos.flatMap((x) => x.tareas.filter((t) => !tareaHecha(e, x.n, t.id)).map((t) => t.id))
+    : actual.tareas.filter((t) => !tareaHecha(e, actual.n, t.id) && tareaDespues(e, actual.n, t.id)).map((t) => t.id);
+  const cierre = termino && actual?.n === 7;
   const eligioManana = !!e && !!siguiente && e.manana === siguiente.n;
   const pregunta = termino && !!siguiente && !eligioManana;
   // El orden en que llegan los mensajes (las claves de useAparicion).
@@ -207,12 +225,13 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     'hola', ...(muestras.length ? ['interes'] : []), ...vistas.flatMap((m) => [`muestra:${m.pestana}`, `muestrafin:${m.pestana}`]),
     ...(empezo1 ? abiertos.map((x) => `dia:${x.n}`) : []),
     ...(termino && actual ? [`fin:${actual.n}`] : []),
+    ...(cierre ? ['piloto'] : []),
     ...(termino && eligioManana && siguiente ? [`manana:${siguiente.n}`] : []),
   ];
   const ap = useAparicion(claves);
   useEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [d?.abierto, d?.hechos, ap.escribiendo]);
   const empezarDia1 = () => {
-    const d1 = diasDelReto(d?.funnel)[0];
+    const d1 = diasDelReto(d?.funnel, d?.integraciones)[0];
     // La marca de Offer Coach sale recién al elegir «Empezar mi día 1» (D1-03), no sola al abrir el chat.
     void hacer({ accion: 'dia1' }).then(() => window.setTimeout(() => marcarLoQueFalta(d1), 600));
   };
@@ -246,19 +265,24 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
             ))}
             {empezo1 && abiertos.filter((dia) => ap.ver(`dia:${dia.n}`)).map((dia) => (
               <Dia key={dia.n} dia={dia} e={e} linea={d.linea} hora={horaWa} proUnaVez={!!d.proUnaVez} hoy={dia.n === d.abierto}
+                deAntes={dia.n === d.abierto ? abiertos.filter((x) => x.n < dia.n).flatMap((x) => x.tareas.filter((t) => !tareaHecha(e, x.n, t.id)).map((t) => ({ n: x.n, t }))) : []}
                 onHora={(h) => setHora(h)}
                 onConfirmarHora={() => { if (ensayo.activo) void hacer({ accion: 'hora', hora: horaWa }); }}
-                onMarcar={(t) => marcarTarea(marcasDeLaTarea(t), () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); })}
+                onMarcar={(t, n = dia.n) => marcarTarea(marcasDeLaTarea(t), () => { void leer(); }, n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: n, id: t.id }); })}
                 onTocadoEnVideo={() => { void leer(); }}
                 onClipListo={() => { void leer(); }}
+                qrApp={d.qrApp ?? null} integraciones={d.integraciones ?? []}
+                onDespues={(id) => { void hacer({ accion: 'despues', dia: dia.n, id }); }}
                 onFinVideo={() => marcarLoQueFalta(dia)} />
             ))}
             {termino && actual && ap.ver(`fin:${actual.n}`) && <Burbuja><p>{finDelDia(actual, siguiente, horaWa, nombre, falta)}</p></Burbuja>}
+            {/* El cierre del reto (R57-08): el piloto según su funnel y, recién después, la tarjeta del audio para Martín. */}
+            {cierre && ap.ver('piloto') && <Burbuja><p>{RETO_PILOTO(d.funnel)}</p></Burbuja>}
+            {cierre && ap.ver('piloto') && actual?.whatsapp && <TarjetaPrueba p={actual.whatsapp} linea={d.linea} hora={horaWa} />}
             {termino && eligioManana && siguiente && ap.ver(`manana:${siguiente.n}`) && <Burbuja><p>Perfecto: mañana a las {horaWa} se abre tu día {siguiente.n}, aquí en el reto.</p></Burbuja>}
             {/* Lo que le escribió a MaKo en este chat, y lo que contestó (su conversación, después de los mensajes del reto). */}
             {(k.items.length > 0 || k.enCurso) && <HiloDelCliente k={k} />}
             {ap.escribiendo && <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo"><span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></span></Burbuja>}
-            {d.abierto === 7 && d.hechos === 7 && <Burbuja><p>¡Terminaste tu reto de 7 días, {nombre || 'genial'}! Tu negocio ya está armado en MaKo.</p></Burbuja>}
           </>
         )}
       </div>
@@ -302,29 +326,45 @@ export function AdelantarDia({ n, onAdelantar, onManana }: { n: number; onAdelan
 }
 
 
-export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora, onConfirmarHora, onMarcar, onTocadoEnVideo, onFinVideo, onClipListo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; proUnaVez?: boolean; hoy?: boolean; onHora: (h: string) => void; onConfirmarHora?: () => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void; onClipListo?: () => void }) {
+export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora, onConfirmarHora, onMarcar, onTocadoEnVideo, onFinVideo, onClipListo, qrApp = null, integraciones = [], onDespues, deAntes = [] }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; proUnaVez?: boolean; hoy?: boolean; onHora: (h: string) => void; onConfirmarHora?: () => void; onMarcar: (t: TareaReto, n?: number) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void; onClipListo?: () => void; qrApp?: string | null; integraciones?: readonly IntegracionConEstado[]; onDespues?: (id: string) => void;
+  /** El día de HOY: lo que quedó sin hacer de los días anteriores, que va primero con «Del día N» (d24-21). */
+  deAntes?: ReadonlyArray<{ n: number; t: TareaReto }> }) {
   const p = dia.whatsapp;
   const todas = dia.tareas.every((t) => tareaHecha(e, dia.n, t.id));
-  const link = p ? linkWaMe(linea, mensajeEscrito(p, hora)) : null;
   // EL DÍA 2 EN SU ORDEN (20/11, auditoría d24-19 y D1-18; memoria onboarding-16-11-decisiones): el QR, la extensión, las integraciones,
   // la hora de WhatsApp y, ÚLTIMO, el perfil. El perfil sale de la tarjeta del día y va después de la hora.
   const ultimo = dia.n === 2 ? dia.tareas.find((t) => t.id === 'perfil') : undefined;
   const primeras = ultimo ? dia.tareas.filter((t) => t !== ultimo) : dia.tareas;
-  const fila = (t: TareaReto) => {
-    const ok = tareaHecha(e, dia.n, t.id);
+  // EL DÍA 2 EN PASOS (20/11, auditoría d24-08; la maqueta: «no los nombra todos juntos»). El día de HOY va de a uno: la app (el QR, con
+  // el video), la extensión con su mensaje, las integraciones con el suyo, y recién con esos tres hechos o para después, la hora de
+  // WhatsApp y el perfil. Un día 2 que ya pasó se ve entero.
+  // La fecha del día en el hilo (R57-F3): «Hoy», «Ayer», «Jueves 19 de noviembre».
+  const visto = e.abiertoEl?.[String(dia.n)];
+  const fecha = visto ? rotuloDelDia(Date.parse(visto), Date.now(), e.zona) : null;
+  const pasos2 = dia.n === 2 && hoy;
+  const paso2 = pasos2 ? ['app', 'extension', 'integraciones'].findIndex((id) => !tareaHecha(e, 2, id) && !tareaDespues(e, 2, id)) : -1;
+  const llega2 = (i: number) => !pasos2 || paso2 === -1 || i <= paso2;
+  // Los días 3 y 4 de HOY también van de a una tarea (d24-08): las hechas o dejadas para después, y la que sigue.
+  const deAUna = hoy && (dia.n === 3 || dia.n === 4);
+  const iSigue = primeras.findIndex((t) => !tareaHecha(e, dia.n, t.id) && !tareaDespues(e, dia.n, t.id));
+  const enLaTarjeta = pasos2 ? primeras.filter((t) => t.id === 'app') : deAUna && iSigue >= 0 ? primeras.slice(0, iSigue + 1) : primeras;
+  const tarea2 = (id: string) => dia.tareas.find((t) => t.id === id);
+  // `n`: el día de la tarea (una de un día anterior va en la tarjeta de hoy con «Del día N», d24-21).
+  const fila = (t: TareaReto, n: number = dia.n) => {
+    const ok = tareaHecha(e, n, t.id);
     // Hecha, dice lo que MaKo LEYÓ (20/11, auditoría d24-12: «Leí 134 contactos en tu CRM.»), no el detalle de la tarea.
-    const leido = ok ? e.leidas?.[claveTarea(dia.n, t.id)] : undefined;
+    const leido = ok ? e.leidas?.[claveTarea(n, t.id)] : undefined;
     // En una prueba de Essential, lo de Pro se usa una vez y se dice sin vender (R57-03): ningún botón que venda el plan acá.
-    const pro = TAREA_PRO[claveTarea(dia.n, t.id)];
+    const pro = TAREA_PRO[claveTarea(n, t.id)];
     const nota = !ok && proUnaVez && pro && !(e.pro?.[pro] && Date.now() > Date.parse(e.pro[pro]!.hasta)) ? NOTA_PRO_UNA_VEZ : null;
     return (
-      <li key={t.id} className="rt-tarea" data-ok={ok ? '' : undefined}>
+      <li key={`${n}:${t.id}`} className="rt-tarea" data-ok={ok ? '' : undefined}>
         <span className="rt-tarea__check" aria-hidden>{ok ? '✓' : ''}</span>
-        <span className="rt-tarea__txt"><b>{t.titulo}</b><small>{leido ?? t.detalle}</small>{nota && <small className="rt-tarea__pro">{nota}</small>}</span>
+        <span className="rt-tarea__txt"><b>{n !== dia.n && <span className="rt-tarea__de">Del día {n} · </span>}{t.titulo}</b><small>{leido ?? t.detalle}</small>{nota && <small className="rt-tarea__pro">{nota}</small>}</span>
         {/* Sin «Hacerlo» (18/11): dice DÓNDE es, y tocarlo marca ese lugar con el tutorial (no lleva a ningún lado). */}
         {ok ? <span className="rt-tarea__ok">Listo</span>
-          : tareaDespues(e, dia.n, t.id) ? <button type="button" className="rt-tarea__donde" onClick={() => onMarcar(t)} title="Te marco dónde está">◐ Después</button>
-          : <button type="button" className="rt-tarea__donde" onClick={() => onMarcar(t)} title="Te marco dónde está">{t.donde}</button>}
+          : tareaDespues(e, n, t.id) ? <button type="button" className="rt-tarea__donde" onClick={() => onMarcar(t, n)} title="Te marco dónde está">◐ Después</button>
+          : <button type="button" className="rt-tarea__donde" onClick={() => onMarcar(t, n)} title="Te marco dónde está">{t.donde}</button>}
       </li>
     );
   };
@@ -334,54 +374,78 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
   if (fase === 'escribe') {
     return (
       <>
-        <p className="co-dia">Día {dia.n} de 7</p>
+        <p className="co-dia">Día {dia.n} de 7{fecha ? ` · ${fecha}` : ''}</p>
         <EntradaEscribiendo foto={<Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo="despierto" size={26} />} quien="MaKo" />
       </>
     );
   }
   return (
     <>
-      <p className="co-dia">Día {dia.n} de 7</p>
-      <Burbuja ancho>
-        <p>{dia.mensaje}</p>
+      <p className="co-dia">Día {dia.n} de 7{fecha ? ` · ${fecha}` : ''}</p>
+      {/* El video primero y el texto abajo, con la hora del mensaje (f24-07): desde el día 2, la que eligió (o 9:00). */}
+      <Burbuja ancho hora={dia.n > 1 ? hora : null}>
         <VideoDelDia dia={dia} onTocado={onTocadoEnVideo} onFin={onFinVideo} dalePlay={hoy} />
+        <p className="rt-dia__msj">{dia.mensaje}</p>
       </Burbuja>
+      {/* El QR de la app, desde que llega el video del día 2 (d24-06), mientras la app no esté y no la dejó para después. */}
+      {dia.n === 2 && qrApp && !tareaHecha(e, 2, 'app') && !tareaDespues(e, 2, 'app') && <TarjetaQrApp qr={qrApp} onDespues={() => onDespues?.('app')} />}
       <Burbuja ancho>
         <div className="rt-tarjeta" data-recorrido={`sb-reto-dia-${dia.n}`}>
           {/* «Día N de 7» y el título del día; en un día pasado, «Lo que te tocó» (20/11, f24-03 y R57-15). */}
           <p className="rt-tarjeta__t">{dia.titulo}</p>
           <p className="rt-tarjeta__sub">{hoy ? 'Lo que te toca hoy' : 'Lo que te tocó'}</p>
           <ol className="rt-tareas">
-            {primeras.map(fila)}
+            {deAntes.map((x) => fila(x.t, x.n))}
+            {enLaTarjeta.map((t) => fila(t))}
           </ol>
         </div>
       </Burbuja>
+      {/* Las integraciones de lo que eligió, con su estado (d24-05). «Te muestro dónde» corre las marcas de la tarea. */}
+      {/* El día 2 en pasos: la extensión, con su mensaje (d24-08). */}
+      {pasos2 && llega2(1) && tarea2('extension') && (
+        <>
+          <Burbuja><p>{RETO_D2_EXT}</p></Burbuja>
+          <Burbuja ancho><div className="rt-tarjeta" data-recorrido="sb-reto-dia-2-extension"><ol className="rt-tareas">{fila(tarea2('extension')!)}</ol></div></Burbuja>
+        </>
+      )}
+      {dia.n === 2 && llega2(2) && (integraciones.length > 0
+        ? <TarjetaIntegraciones ints={integraciones} onMostrar={() => { const t = tarea2('integraciones'); if (t) onMarcar(t); }} />
+        : pasos2 && tarea2('integraciones') && <Burbuja ancho><div className="rt-tarjeta"><ol className="rt-tareas">{fila(tarea2('integraciones')!)}</ol></div></Burbuja>)}
       {dia.n === 6 && <ClipDelReto onListo={onClipListo} />}
       {/* La prueba por WhatsApp va al FINAL del día (f24-02); la hora del día 2 es un paso del día: su tarjeta (wa-08, TarjetaHora). */}
-      {p && (dia.n === 2 || diaTerminado(e, dia)) && (dia.n === 2
+      {p && ((dia.n === 2 && llega2(3)) || (dia.n !== 2 && dia.n !== 7 && diaTerminado(e, dia))) && (dia.n === 2
         ? <TarjetaHora p={p} guardada={e.horaWa ?? null} linea={linea} hora={hora} onHora={onHora} onConfirmar={onConfirmarHora ?? (() => {})} />
-        : (
-          <Burbuja ancho>
-            <div className="rt-tarjeta rt-wa">
-              <p className="rt-tarjeta__t">{p.texto}</p>
-              <p className="rt-wa__ej">Por ejemplo: {p.ejemplo}</p>
-              {link
-                ? <a className="rt-wa__btn" href={link} target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>
-                : <p className="rt-wa__ej">No tengo el número de MaKo a mano: vuelve a intentarlo en un rato.</p>}
-            </div>
-          </Burbuja>
-        ))}
-      {ultimo && (
+        : <TarjetaPrueba p={p} linea={linea} hora={hora} />)}
+      {/* El perfil, último paso del día 2: el mensaje de MaKo (la maqueta, D2_PERFIL) y su tarjeta. */}
+      {ultimo && llega2(3) && (
+        <>
+        <Burbuja><p>{RETO_D2_PERFIL}</p></Burbuja>
         <Burbuja ancho>
           <div className="rt-tarjeta" data-recorrido="sb-reto-dia-2-perfil">
-            <p className="rt-tarjeta__t">Último paso del día 2: tu perfil</p>
-            <ol className="rt-tareas">{fila(ultimo)}</ol>
+            <ol className="rt-tareas">{fila(ultimo, dia.n)}</ol>
           </div>
         </Burbuja>
+        </>
       )}
       {/* Lo que hizo durante el video ya cuenta (el Cerebro, 18/11): si hizo todo, la felicita (sólo el día 2, R57-F4). */}
       {todas && dia.n === 2 && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!</p></Burbuja>}
     </>
+  );
+}
+
+/** La prueba por WhatsApp del día (el audio del día 7 va después del cierre del reto, R57-08). */
+function TarjetaPrueba({ p, linea, hora }: { p: NonNullable<DiaReto['whatsapp']>; linea: string | null; hora: string }) {
+  const link = linkWaMe(linea, mensajeEscrito(p, hora));
+  return (
+    <Burbuja ancho>
+      <div className="rt-tarjeta rt-wa">
+        <p className="rt-tarjeta__t">{p.texto}</p>
+        <p className="rt-wa__ej">Por ejemplo: {p.ejemplo}</p>
+        {link
+          ? <a className="rt-wa__btn" href={link} target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>
+          : <p className="rt-wa__ej">No tengo el número de MaKo a mano: vuelve a intentarlo en un rato.</p>}
+      </div>
+    </Burbuja>
   );
 }
 
@@ -479,7 +543,7 @@ export function DesplegableReto({ d, abierto, onAbrir }: { d: DatosReto; abierto
           <div className="rt-menu__segs" aria-hidden>{d.dias.map((x, i) => <i key={i} data-e={x} />)}</div>
           <p className="rt-menu__ley"><span><i data-e="hecho" />Listo</span><span><i data-e="hoy" />Hoy</span><span><i data-e="medias" />A medias</span><span><i />Por venir</span></p>
           <ol className="rt-menu__lista">
-            {diasDelReto(d.funnel).map((dia, i) => {
+            {diasDelReto(d.funnel, d.integraciones).map((dia, i) => {
               const est = d.dias[i];
               const futuro = est === 'luego';
               const etiqueta = ESTADO[est] || (dia.n === actual + 1 ? `Mañana, a las ${hora}` : `Día ${dia.n}`);
@@ -544,6 +608,14 @@ export const CSS_RETO = `
 .rt-tarea__donde:hover { color: var(--ink); }
 .rt-wa__ej { margin: 0; font-size: var(--fs-meta); color: var(--dim); line-height: 1.45; }
 .rt-wa__btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 10px; background: #25D366; color: #08321A; font-weight: 700; font-size: var(--fs-sm); text-decoration: none; }
+.rt-qr .rt-tarea__donde { align-self: flex-start; }
+.rt-md .rt-dia__msj { margin-top: 8px; }
+.rt-tarea__de { font-weight: 600; color: var(--dim); }
+/* En una pantalla angosta, «dónde» y «Listo» van abajo del texto (20/11): al lado, el texto quedaba en una columna de tres palabras. */
+@media (max-width: 520px) { .rt-tarea { flex-wrap: wrap; row-gap: 2px; } .rt-tarea__txt { flex-basis: calc(100% - 28px); } .rt-tarea > .rt-tarea__donde, .rt-tarea > .rt-tarea__ok, .rt-tarea > .rt-int__falta { margin-left: 28px; } }
+.rt-qr__img { display: block; align-self: center; border-radius: 8px; background: #fff; padding: 6px; }
+.rt-int__falta { flex: none; font-size: var(--fs-meta); font-weight: 650; color: var(--warn); }
+.rt-int__ver { align-self: flex-start; text-align: left; }
 .rt-clip__frase { width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px; max-height: 220px; field-sizing: content; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); line-height: 1.45; }
 .rt-clip__frase:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
 .rt-clip__cuenta { margin: -2px 0 0; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }

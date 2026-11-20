@@ -18,8 +18,8 @@ import { cambiarSettingSi, getSetting } from '@/lib/settings';
 import { cambiarReto, type IoReto } from '@/lib/reto/cambiar';
 import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
 import { WHATSAPP_MAKO } from '@/app/vsl/_sitio/contacto';
-import { CLAVE_RETO, HORAS_WA, diaAbierto, estadoDeLosDias, leerEstado, type EstadoReto } from '@/lib/reto/dias';
-import { leerTareasHechas } from '@/lib/reto/senales';
+import { CLAVE_RETO, HORAS_WA, diaAbierto, estadoDeLosDias, inicioConLaPrueba, leerEstado, tareaHecha, zonaValida, type EstadoReto } from '@/lib/reto/dias';
+import { estadoDeIntegraciones, leerTareasHechas } from '@/lib/reto/senales';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,10 +45,14 @@ async function leer(): Promise<EstadoReto | null> {
 async function conLoLeido(e: EstadoReto | null): Promise<EstadoReto | null> {
   if (!e) return e;
   const nuevas = await leerTareasHechas(e).catch(() => ({} as Record<string, string>));
-  if (!Object.keys(nuevas).length) return e;
+  // La primera vez que se ve abierto un día, su fecha (R57-F3: la que lo separa en el hilo). El día 1, la del inicio.
+  const abierto = String(diaAbierto(e, Date.now()));
+  const sinFecha = !e.abiertoEl?.[abierto];
+  if (!Object.keys(nuevas).length && !sinFecha) return e;
   const cuando = new Date().toISOString();
   // Con compare-and-set (lib/reto/cambiar.ts): sólo suma lo leído, sobre lo último guardado, y no pisa la hora del WhatsApp.
-  const r = await cambiarReto(IO, (x) => ({ ...x, hechas: { ...x.hechas, ...Object.fromEntries(Object.keys(nuevas).filter((k) => !x.hechas[k]).map((k) => [k, cuando])) }, leidas: { ...(x.leidas ?? {}), ...nuevas } })).catch(() => null);
+  const r = await cambiarReto(IO, (x) => ({ ...x, hechas: { ...x.hechas, ...Object.fromEntries(Object.keys(nuevas).filter((k) => !x.hechas[k]).map((k) => [k, cuando])) }, leidas: { ...(x.leidas ?? {}), ...nuevas },
+    ...(x.abiertoEl?.[abierto] ? {} : { abiertoEl: { ...(x.abiertoEl ?? {}), [abierto]: abierto === '1' ? x.inicio : cuando } }) })).catch(() => null);
   return r ?? e;
 }
 
@@ -72,6 +76,16 @@ async function intereses(): Promise<string[]> {
   try { const a = JSON.parse((await getSetting('onboarding.arranque')) ?? 'null') as { intereses?: unknown } | null; return Array.isArray(a?.intereses) ? a.intereses.filter((x): x is string => typeof x === 'string') : []; } catch { return []; }
 }
 
+/** Cuándo cobra la prueba (el primer cobro, `estadoDePrueba().hasta`): de ahí sale el día 1 del reto (R57-19). Sin prueba, null. */
+async function cobroDeLaPrueba(): Promise<string | null> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return null;
+    const p = await (await import('@/lib/prueba-uso')).estadoDePrueba(ws);
+    return p.enPrueba ? p.hasta : null;
+  } catch { return null; }
+}
+
 /** ¿Es una prueba de MaKo Essential? (20/11, R57-03): ahí lo de Pro de los días 4 a 6 se usa una vez, y la tarjeta lo dice. */
 async function essentialEnPrueba(): Promise<boolean> {
   try {
@@ -82,10 +96,25 @@ async function essentialEnPrueba(): Promise<boolean> {
   } catch { return false; }
 }
 
+/** El QR de la app (el link único, como el paso de los avisos del onboarding: lib/onboarding-arranque-server.ts). Sin él, null. */
+async function qrDeLaApp(): Promise<string | null> {
+  try {
+    const [{ default: QRCode }, { linkApp }, { RUTA_APP }] = await Promise.all([import('qrcode'), import('@/lib/app-url'), import('@/lib/app-tiendas')]);
+    return await QRCode.toDataURL(linkApp(RUTA_APP, null), { margin: 1, width: 336 });
+  } catch { return null; }
+}
+
+/** Lo del día 2, con el día abierto (20/11, d24-05 y d24-06): sus integraciones con su estado, y el QR mientras la app no esté. */
+async function delDia2(e: EstadoReto | null, abierto: number) {
+  if (!e || abierto < 2) return { integraciones: [], qrApp: null };
+  const [integraciones, qrApp] = await Promise.all([estadoDeIntegraciones().catch(() => []), tareaHecha(e, 2, 'app') ? null : qrDeLaApp()]);
+  return { integraciones, qrApp };
+}
+
 async function respuesta(e: EstadoReto | null, numero: string | null) {
   const { abierto, dias, hechos } = estadoDeLosDias(e, Date.now());
-  const [f, i, unaVez] = await Promise.all([funnel(), intereses(), essentialEnPrueba()]);
-  return Response.json({ ok: true, ve: true, estado: e, abierto, dias, hechos, linea: numero, funnel: f, intereses: i, proUnaVez: unaVez });
+  const [f, i, unaVez, d2] = await Promise.all([funnel(), intereses(), essentialEnPrueba(), delDia2(e, abierto)]);
+  return Response.json({ ok: true, ve: true, estado: e, abierto, dias, hechos, linea: numero, funnel: f, intereses: i, proUnaVez: unaVez, ...d2 });
 }
 
 export async function GET() {
@@ -138,12 +167,17 @@ function aplicar(e: EstadoReto, body: { accion?: string; dia?: unknown; id?: unk
 export async function POST(req: NextRequest) {
   const q = await quien();
   if (!q) return Response.json({ ok: false, ve: false }, { status: 403 });
-  const body = (await req.json().catch(() => ({}))) as { accion?: string; dia?: unknown; id?: unknown; hora?: unknown; pestana?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { accion?: string; dia?: unknown; id?: unknown; hora?: unknown; pestana?: unknown; zona?: unknown };
   let e = await leer();
   const ahora = Date.now();
   if (body.accion === 'empezar') {
     // Sólo si no había: compare-and-set contra «no hay» (dos pestañas abiertas no lo empiezan dos veces).
-    if (!e) { const nuevo: EstadoReto = { v: 1, inicio: new Date(ahora).toISOString(), adelantado: 1, hechas: {}, leidas: {} }; await IO.cas(null, JSON.stringify(nuevo)).catch(() => false); e = (await leer()) ?? nuevo; }
+    // El día 1 es el primero de la prueba (R57-19) y los días se abren a la hora de SU zona, la del navegador (R57-20).
+    if (!e) {
+      const zona = typeof body.zona === 'string' && zonaValida(body.zona) ? body.zona : undefined;
+      const nuevo: EstadoReto = { v: 1, inicio: new Date(inicioConLaPrueba(ahora, await cobroDeLaPrueba())).toISOString(), adelantado: 1, hechas: {}, leidas: {}, ...(zona ? { zona } : {}) };
+      await IO.cas(null, JSON.stringify(nuevo)).catch(() => false); e = (await leer()) ?? nuevo;
+    }
     return respuesta(e, await linea());
   }
   if (!e) return Response.json({ ok: false, error: 'El reto todavía no empezó.' }, { status: 409 });

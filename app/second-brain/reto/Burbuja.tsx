@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { FilaDelChat } from '@/app/admin/operaciones/Hilo';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 
-export function Burbuja({ children, ancho = false }: { children: ReactNode; ancho?: boolean }) {
-  return <FilaDelChat m={null} quien={{ titulo: 'MaKo', aspecto: ASPECTO_MAKO }} marcas={null} hora={null} ancho={ancho}><div className="rt-md">{children}</div></FilaDelChat>;
+/** `hora`: la del mensaje («9:00»), arriba de la burbuja; sin ella, nada. */
+export function Burbuja({ children, ancho = false, hora = null }: { children: ReactNode; ancho?: boolean; hora?: string | null }) {
+  return <FilaDelChat m={null} quien={{ titulo: 'MaKo', aspecto: ASPECTO_MAKO }} marcas={null} hora={hora} ancho={ancho}><div className="rt-md">{children}</div></FilaDelChat>;
 }

@@ -18,7 +18,11 @@
 import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
 import { esAdminDeTab } from '@/lib/puerta-admin-tab';
-import { rutaConWs } from '@/lib/workspace';
+import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
+import { getUsuarioActual } from '@/lib/auth';
+import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
+import { primerNombre } from '@/lib/onboarding-arranque';
+import { SeguirEnPcReto } from '@/app/second-brain/reto/SeguirEnPcReto';
 import { RUTA_CENTRO_M } from '@/lib/movil-rutas';
 import { personaDelRequest, listarSesiones } from '@/lib/mako-turno-app';
 import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
@@ -37,11 +41,21 @@ export const maxDuration = 420;
 const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function SecondBrainPagina({ searchParams }: {
-  searchParams: Promise<{ area?: string | string[]; vista?: string | string[]; panel?: string | string[]; chat?: string | string[]; offer?: string | string[]; grupo?: string | string[] }>;
+  searchParams: Promise<{ area?: string | string[]; vista?: string | string[]; panel?: string | string[]; chat?: string | string[]; offer?: string | string[]; grupo?: string | string[]; reto?: string | string[] }>;
 }) {
   const ctx = await requireMovil({ navKey: 'mako' });
   const veMapa = await esAdminDeTab('second-brain');
   const sp = await searchParams;
+
+  // EL RETO SE HACE EN LA COMPUTADORA (20/11, auditoría f24-01 y R57-F5; lo acordado: pasado el primer paso del onboarding, el
+  // teléfono siempre dice «Sigamos en tu computadora», también al elegir un día del reto). El link del correo de cada día
+  // (`/second-brain?reto=1`, lib/reto/avisos.ts) abierto en el teléfono llegaba al Ops Center del teléfono, que no tiene el reto.
+  // Va antes de los desvíos de abajo: el admin del negocio también es «admin» y lo mandarían al Centro sin el `?reto=`.
+  if (uno(sp.reto) === '1') {
+    const [yo, ws] = await Promise.all([getUsuarioActual().catch(() => null), getWorkspaceActual().catch(() => null)]);
+    const email = (yo?.email ?? '').trim().toLowerCase();
+    if (yo && ws != null && veOnboardingV2({ email, ws })) return <PantallaM><SeguirEnPcReto nombre={primerNombre(yo.nombre ?? '')} email={email} /></PantallaM>;
+  }
 
   // ⚠️ Y para el super admin el Second Brain vive dentro del Ops Center (17/10/2026): su entrada salió de More y un
   // /m/second-brain guardado lo lleva al grafo, como en la computadora (lib/ops-center-ruta.ts). La fila «Second Brain» del Ops

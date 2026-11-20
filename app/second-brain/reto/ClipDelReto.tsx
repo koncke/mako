@@ -34,7 +34,7 @@ async function ganchoDeSuGuion(): Promise<string> {
  * 51d9ef3e5); acá sólo se muestra. Qué vista toca en cada estado: lib/reto/clip-del-reto.ts. Mientras dice «generando» pregunta cada
  * 10 s: esa consulta es la que lo termina con el día 6 abierto (si se va, lo termina el cron de cada 15 min, app/api/cron/clip-regalo).
  * Al quedar listo está en su historial de videos, y eso ya marca la tarea
- * «Tu primer clip con tu personaje» (lib/reto/senales.ts, `6:clip`): por eso `onListo` relee el reto.
+ * «Tu clip de 10 segundos, de regalo» (lib/reto/senales.ts, `6:clip`): por eso `onListo` relee el reto.
  */
 export function ClipDelReto({ onListo }: { onListo?: () => void }) {
   const [clip, setClip] = useState<ClipRegalo | null>(null);
