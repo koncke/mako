@@ -130,8 +130,8 @@ export const DIAS_RETO: readonly DiaReto[] = [
           // 19/11: la última marca es la sección Perfil (la que marca el video del día 2, `tour-settings-info`). Con Settings como
           // última, tocar Settings en el video cerraba «Tu perfil y tu foto» antes de llegar al perfil, y tocar Perfil no cerraba nada.
           { sel: conMarca(marcaSettings('info')), titulo: 'Perfil', texto: 'Tu nombre y tu foto: lo que contaste en el chat ya está guardado.', haz: 'Haz clic en Perfil', lado: 'derecha' },
-          // 20/11 (d24-20, la maqueta): la última es el botón de la foto (app/perfil/InformacionPersonal.tsx), con «Entendido».
-          { sel: 'button.aj-foto--grande', titulo: 'Tu foto', texto: 'Tu foto: súbela aquí. Tu nombre, tu WhatsApp y tu negocio ya están guardados.', haz: 'Entendido', lado: 'derecha', listo: 'Entendido' },
+          // 20/11 (d24-20, la maqueta): la última es el botón de la foto (app/perfil/InformacionPersonal.tsx, `MARCA.settingsFoto`), con «Entendido».
+          { sel: conMarca(MARCA.settingsFoto), titulo: 'Tu foto', texto: 'Tu foto: súbela aquí. Tu nombre, tu WhatsApp y tu negocio ya están guardados.', haz: 'Entendido', lado: 'derecha', listo: 'Entendido' },
         ] },
     ],
     whatsapp: { texto: 'Dile a MaKo a qué hora te escribe sobre el reto: le escribes tú primero, así WhatsApp no frena sus mensajes.', ejemplo: '«Hola MaKo, prefiero que me escribas a las 9:00 sobre el reto.»', escrito: 'Hola MaKo, prefiero que me escribas a las {hora} sobre el reto.' },

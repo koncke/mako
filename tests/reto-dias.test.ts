@@ -472,9 +472,9 @@ test('tanda 7 (20/11): los textos de la maqueta, las marcas que faltaban y «Tu 
   assert.ok(hecha(vacio, 1, 'onboarding') && !hecha(vacio, 1, 'offer'), '«Tu onboarding» siempre hecha; las demás no');
   // d24-20: el perfil termina en la foto, con «Entendido» (sin clic), y lo marca el motor con ese botón.
   const perfil = t(2, 'perfil').marcas;
-  assert.deepEqual(perfil[perfil.length - 1], { sel: 'button.aj-foto--grande', titulo: 'Tu foto', texto: 'Tu foto: súbela aquí. Tu nombre, tu WhatsApp y tu negocio ya están guardados.', haz: 'Entendido', lado: 'derecha', listo: 'Entendido' });
+  assert.deepEqual(perfil[perfil.length - 1], { sel: '[data-recorrido="tour-settings-foto"]', titulo: 'Tu foto', texto: 'Tu foto: súbela aquí. Tu nombre, tu WhatsApp y tu negocio ya están guardados.', haz: 'Entendido', lado: 'derecha', listo: 'Entendido' });
   const info = readFileSync(new URL('../app/perfil/InformacionPersonal.tsx', import.meta.url), 'utf8');
-  assert.match(info, /className="aj-foto aj-foto--grande"/, 'el botón de la foto existe con esa clase');
+  assert.ok(info.includes('data-recorrido={MARCA.settingsFoto}'), 'el botón de la foto lleva su ancla (la del chat del onboarding, OD-11)');
   const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
   assert.ok(chat.includes('{ alOmitir: alDejar, libre: m.libre, ...(m.listo ? { listo: m.listo } : {}) }'), 'marcarTarea le pasa «Entendido» al motor');
   // f24-05: después de CRM, el «⋮» (app/crm/CrmToolbar.tsx, `ancla('crm-mas')`).
