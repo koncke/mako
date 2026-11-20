@@ -792,5 +792,10 @@ tests/onboarding-v2-coaches-videos.test.ts.
 - **Un video de la lista se ve en su mensaje** (F3, `verEnSuMensaje` en app/_ui/tutorial/VideosDelChat.tsx). Se baja de una (sin
   animar) y recién ahí arranca. Con un scroll suave arrancaba fuera de la vista, y `useVideoQueFlota` lo mandaba a la esquina en el
   acto.
+- **El rojo de tipos de 06c76ba31 (la «weak type detection»).** Una función genérica sobre los elementos del hilo (`conLaClase`)
+  pedía `T extends { at?: string | null }`. Las tarjetas, los avisos y los bloques del hilo (`ItemHilo`) no tienen `at`, y
+  TypeScript no deja pasar a un tipo de sólo opcionales uno que no comparte NINGUNA propiedad. Los tests en node no lo ven
+  (tsx no chequea tipos), y el tsc acotado no corre en la PC con menos de 4 GB libres. **Regla:** para algo genérico sobre el hilo,
+  T sin restricción y la propiedad leída como `unknown`; y devolver `T[]`, porque `ChatCliente.items` no es de sólo lectura.
 - **Las portadas de las clases y de los coaches tenían el play encima del título.** El manifiesto les pone `play: 'abajo-derecha'`.
   La portada no cambia, y pantallas-onboarding/poster.mjs lo vuelve a poner después de un `hacer.mjs … web`.
