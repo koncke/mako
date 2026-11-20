@@ -4230,6 +4230,14 @@ red de 20 minutos.
 - **Arreglo:** el tope pasó a 60 s en `scripts/claude-hooks/guardia/vigia-ci.mjs` (y en la copia de `~/.claude/guardia/`).
 - **Regla:** un «no pude leer» del vigía no es un rojo ni un verde. Antes de tocar nada, medir el paso que se cortó a mano, con el
   mismo entorno.
+- **La vez siguiente (19/11, tarde) SÍ era la red:** entre ~11:42 y 13:37 UTC la PC no resolvía `github.com` («Could not
+  resolve host»). Cayeron juntos el vigía («fetch failed» / ETIMEDOUT) y el Runner: `vigilar` salía con 124 y
+  `cartero.log` decía «CICLO falló: fetch failed» en las tres cuentas. El Runner pidió revisar el código de `vigilar`, y no
+  hacía falta: al volver internet, el continuo latió solo. Lo que separa los dos casos en 2 s: `nslookup github.com` y
+  `git ls-remote origin` a mano. Si falla el DNS, no se toca código: se espera y se rearma el vigía.
+- **Y el arreglo de fondo (19/11, tarde):** una lectura tardó 43 s con 0,5 GB libres, casi todo en `git credential fill`. Ahora
+  `esperar` pide la llave UNA vez por proceso y la guarda sólo en memoria (nunca a disco); un 401 la descarta y se vuelve a
+  pedir. Las horas que vive `esperar` ya no dependen de que el Credential Manager arranque rápido en cada vuelta.
 
 ## «docs/branding-mako.md quedó viejo» era un worktree sin node_modules (19/11/2026)
 
