@@ -165,15 +165,15 @@ test('4. los pasos comunes: la oferta (0, 1, varias; sin la app sin texto libre)
   assert.equal(obj.botones[0].rotulo, 'Escribirte por WhatsApp', 'el de su funnel primero');
   assert.equal(obj.botones.length, 4);
   assert.equal(pasoObjetivo({ superficie: 'web', saltar: true }), null, 'si el funnel lo dice, no se pregunta');
-  // Sin la app de escritorio ya no hay paso (20/11/2026, tests/app-de-escritorio-primero.test.ts): sólo el de su IA.
-  assert.equal(pasoSinIA({ superficie: 'copywriter', iaConectada: false })!.id, 'copywriter:sin-ia');
-  assert.equal(pasoSinIA({ superficie: 'copywriter', iaConectada: true, pendiente: { texto: 'Adapta esta página', para: 'Mentoría' } })!.botones[0].tipo, 'pedir');
-  assert.equal(pasoSinIA({ superficie: 'copywriter', iaConectada: true }), null);
+  // Sin la app de escritorio ni su IA ya no hay paso antes de pedir (20/11/2026: MaKo contesta con los MaKo Tokens,
+  // tests/chat-su-ia-opcional.test.ts). Queda el pedido pendiente.
+  assert.equal(pasoSinIA({ superficie: 'copywriter', pendiente: { texto: 'Adapta esta página', para: 'Mentoría' } })!.botones[0].tipo, 'pedir');
+  assert.equal(pasoSinIA({ superficie: 'copywriter' }), null);
   for (const a of [tres, una, ninguna, sinApp, larga, obj]) {
     assert.deepEqual(problemasDeApertura(a, { primerPaso: true }), [], a.id);
     assert.deepEqual(marcasDeVoseo(textos(a)), [], a.id);
   }
-  for (const a of [pasoSinIA({ superficie: 'x', iaConectada: false })!]) {
+  for (const a of [pasoSinIA({ superficie: 'x', pendiente: { texto: 'Adapta esta página' } })!]) {
     assert.deepEqual(problemasDeApertura(a, { primerPaso: false }), [], a.id);
   }
 });

@@ -87,22 +87,16 @@ export function pasoObjetivo(o: { superficie: string; delFunnel?: ObjetivoPieza 
 }
 
 /**
- * Lo que falta para que un `pedir` salga (plan.md §2.6): sin su IA, «Conectar tu IA»; ya con su IA y algo pendiente,
- * «Escríbelo». `null` = se puede pedir ya. Hasta el 20/11/2026, sin la app de escritorio iba antes «Instalar MaKo»; ningún chat la
- * pide desde ese día (lib/chat-mako-reglas.ts).
+ * Un `pedir` que quedó guardado sin salir (plan.md §2.6): «Escríbelo». `null` = nada pendiente. Un pedido sale siempre: MaKo
+ * contesta con los MaKo Tokens (20/11/2026). Hasta ese día este paso iba primero, sin la app de escritorio («Instalar MaKo») o
+ * sin su IA («Conecta tu Claude o tu ChatGPT y lo escribo»), como si hiciera falta.
  * El pedido pendiente queda en la memoria de la apertura que lo pidió (`pendiente`), así que sobrevive a cerrar la pestaña.
  */
-export function pasoSinIA(o: { superficie: string; iaConectada: boolean | null; pendiente?: { texto: string; para?: string } | null }): Apertura | null {
-  if (o.iaConectada === false) {
-    return {
-      id: `${o.superficie}:sin-ia`, alcance: 'negocio', texto: 'Conecta tu Claude o tu ChatGPT y lo escribo.',
-      botones: [{ tipo: 'hacer', rotulo: 'Conectar tu IA', accion: 'conectar' }, { tipo: 'callar', rotulo: 'Ahora no' }],
-    };
-  }
+export function pasoSinIA(o: { superficie: string; pendiente?: { texto: string; para?: string } | null }): Apertura | null {
   if (o.pendiente) {
     const para = o.pendiente.para ? ` para «${o.pendiente.para}»` : '';
     return {
-      id: `${o.superficie}:pendiente`, alcance: 'entidad', texto: `Ya tengo tu IA. Lo escribo${para} cuando quieras.`,
+      id: `${o.superficie}:pendiente`, alcance: 'entidad', texto: `Lo escribo${para} cuando quieras.`,
       botones: [{ tipo: 'pedir', rotulo: 'Escríbelo', pedido: o.pendiente.texto }, { tipo: 'callar', rotulo: 'Ahora no' }],
     };
   }

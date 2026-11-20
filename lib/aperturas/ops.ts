@@ -29,8 +29,10 @@ export const IA_NINGUNA = 'ninguna';
 export const ID_IA = 'ops:ia';
 
 /**
- * El paso 3 de la escalera: su IA. Sin su IA conectada, pregunta cuál usa y, según lo que contestó, cómo crear la cuenta o
- * conectarla ahí mismo. Calla hasta que `?suIA=1` contesta.
+ * El paso 3 de la escalera: su IA, COMO OPCIÓN (20/11/2026). MaKo contesta con los MaKo Tokens; conectar su Claude o su ChatGPT
+ * usa su suscripción y gasta menos (ia-del-cliente-suscripcion). Sin su IA conectada, pregunta cuál usa y, si tiene una, ofrece
+ * conectarla ahí mismo; con «Ninguna todavía», no insiste. Hasta ese día decía «Para escribir por ti uso tu propia IA» y, sin
+ * cuenta, «Crea tu cuenta y vuelve»: como si hiciera falta. Calla hasta que `?suIA=1` contesta.
  */
 export function aperturaOps(h: HechosOps, r: Respuestas): Apertura<never> | null {
   if (h.app == null || h.iaConectada == null) return null;
@@ -39,7 +41,7 @@ export function aperturaOps(h: HechosOps, r: Respuestas): Apertura<never> | null
   if (!ia) {
     return {
       id: ID_IA, alcance: 'negocio', corto: '¿Qué IA usas?',
-      texto: 'Para escribir por ti uso tu propia IA. ¿Cuál usas?',
+      texto: 'Si tienes Claude o ChatGPT, puedo usar tu suscripción y gastas menos MaKo Tokens. ¿Cuál usas?',
       botones: [
         { tipo: 'respuesta', rotulo: 'Claude', valor: IA_CLAUDE },
         { tipo: 'respuesta', rotulo: 'ChatGPT', valor: IA_CHATGPT },
@@ -48,16 +50,10 @@ export function aperturaOps(h: HechosOps, r: Respuestas): Apertura<never> | null
       ],
     };
   }
-  if (ia === IA_NINGUNA) {
-    // «Ver cómo» abre «Tus cuentas de IA» ahí mismo: ahí está cómo se conecta cada una (para una integración no se sale de la tab).
-    return {
-      id: 'ops:ia-cuenta', alcance: 'negocio', texto: 'Crea tu cuenta de Claude o de ChatGPT y vuelve: te muestro cómo se conecta.',
-      botones: [{ tipo: 'hacer', rotulo: 'Ver cómo', accion: 'conectar' }, { tipo: 'callar', rotulo: 'Ahora no' }],
-    };
-  }
+  if (ia === IA_NINGUNA) return null;
   const nombre = ia === IA_CHATGPT ? 'ChatGPT' : 'Claude';
   return {
-    id: 'ops:ia-conectar', alcance: 'negocio', texto: `Conecta tu ${nombre} y ya escribo por ti.`,
+    id: 'ops:ia-conectar', alcance: 'negocio', texto: `Conecta tu ${nombre} y uso tu suscripción: gastas menos MaKo Tokens.`,
     botones: [{ tipo: 'hacer', rotulo: 'Conectar tu IA', accion: 'conectar' }, { tipo: 'callar', rotulo: 'Ahora no' }],
   };
 }
@@ -67,8 +63,7 @@ export const SUPERFICIE_OPS: Superficie<HechosOps> = { id: 'ops', acciones: [], 
 
 /** Los pasos que puede decir, con su porqué (lo lee tests/aperturas.test.ts). */
 export const CATALOGO: readonly { id: string; cuando: string }[] = [
-  { id: ID_IA, cuando: 'Sin su IA conectada, nada contestado todavía.' },
-  { id: 'ops:ia-cuenta', cuando: 'Contestó «Ninguna todavía».' },
+  { id: ID_IA, cuando: 'Sin su IA conectada, nada contestado todavía (es opcional: gasta menos MaKo Tokens).' },
   { id: 'ops:ia-conectar', cuando: 'Contestó Claude o ChatGPT y su IA sigue sin conectar.' },
 ];
 
@@ -77,7 +72,7 @@ export const EJEMPLOS: readonly { nombre: string; h: HechosOps; r: Respuestas; e
   { nombre: 'sin su IA, nada contestado', h: { app: 'tiene', iaConectada: false }, r: {}, espera: ID_IA, primerPaso: true },
   { nombre: 'eligió Claude', h: { app: 'tiene', iaConectada: false }, r: { [ID_IA]: IA_CLAUDE }, espera: 'ops:ia-conectar' },
   { nombre: 'eligió ChatGPT', h: { app: 'tiene', iaConectada: false }, r: { [ID_IA]: IA_CHATGPT }, espera: 'ops:ia-conectar' },
-  { nombre: 'sin cuenta todavía', h: { app: 'tiene', iaConectada: false }, r: { [ID_IA]: IA_NINGUNA }, espera: 'ops:ia-cuenta' },
+  { nombre: 'sin cuenta todavía: no insiste', h: { app: 'tiene', iaConectada: false }, r: { [ID_IA]: IA_NINGUNA }, espera: null },
   { nombre: 'con su IA: nada que decir', h: { app: 'tiene', iaConectada: true }, r: {}, espera: null },
   { nombre: 'sin saber todavía: calla', h: { app: null, iaConectada: null }, r: {}, espera: null },
 ];

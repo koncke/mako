@@ -29,9 +29,15 @@ app/m/_chat/AvisoDeIA.tsx · tests/app-de-escritorio-primero.test.ts y tests/app
   DESPUÉS del parche sin subir de las pestañas («reto-tutoriales», pestanas-sin-subir-20-11), que toca esas mismas líneas en 13 de
   ellas. Con el cableado se van los valores `bloquea` y `en-la-computadora` del tipo `AppDeEscritorio`, el `sinMandar` de
   HiloMako/BloqueHilo (ya nadie lo pasa) y las clases `.co-instalar` y `.ch-app-franja`.
-- **Abierto, de producto:** la escalera («Para escribir por ti uso tu propia IA»), el chip «Conectar tu IA» y la línea del
-  teléfono «Conecta tu IA para que MaKo conteste» suponen que hace falta SU IA. Con los MaKo Tokens, a quien no tiene una le dicen
-  algo que no es cierto. No se tocaron: lo decide Martín.
+- **Y su IA, OPCIONAL (decidido el mismo día por el Cerebro):** la escalera decía «Para escribir por ti uso tu propia IA», el
+  teléfono «Conecta tu IA para que MaKo conteste», y el Uso «con eso contesta tu Ops Center». Con los MaKo Tokens, a quien no tiene
+  su IA le decían algo falso. «Conectar tu IA» se queda, porque usa su suscripción y gasta menos MaKo Tokens, pero dicho así.
+  - Un pedido de una apertura sale aunque falte su IA: `puede = !!p.onPedir`, y `pasoSinIA` ya no pone «Conecta tu IA» delante.
+  - Con «Ninguna todavía», MaKo no insiste: se fue «Crea tu cuenta y vuelve».
+  - Lo fija tests/chat-su-ia-opcional.test.ts, con un barrido de las frases que dicen que hace falta.
+  - Queda igual, a propósito, el aviso del turno cuando NINGUNA IA pudo contestar (`sinIAEs`, lib/mako-turno-app.ts): es una
+    falla real. También quedan los «Conecta tu Claude» de Spy, Closing, gráficos e Insights, que son otra cosa: llevan datos de
+    clientes y no van a una IA gratis que entrena.
 - **No es esto:** la tarjeta del día 2 del reto («Instala MaKo y activa los avisos», app/second-brain/reto/TarjetasDia2.tsx) habla de
   la app del TELÉFONO para los avisos, no de la de escritorio.
 
