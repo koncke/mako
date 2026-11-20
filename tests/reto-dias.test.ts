@@ -291,9 +291,11 @@ test('el fin de cada día: «¿Adelantas…?» recién al terminarlo, «Lo hago 
   assert.ok(chat.includes("const pregunta = termino && !!siguiente && !eligioManana;"), 'la pregunta, recién con el día terminado');
   assert.ok(chat.includes('<AdelantarDia n={siguiente.n}'), 'en el recuadro de opciones, no en la burbuja');
   assert.ok(chat.includes("const dejar = () => { void hacer({ accion: 'despues', dia: n, id: t.id }).then(() => seguir?.()); };"), '«Lo hago después» se guarda');
-  assert.ok(chat.includes('{todas && dia.n === 2 && <Burbuja>'), '«¡Hiciste todo…!» sólo en el día 2');
+  // Desde el 20/11 lo de adentro del día sale por la cola de salida: QUÉ sale y en qué orden vive en lib/reto/en-el-dia.ts.
+  const enDia = fuente('../lib/reto/en-el-dia.ts');
+  assert.ok(enDia.includes("if (dia.n === 2 && dia.tareas.every((t) => tareaHecha(e, dia.n, t.id))) poner('todo',") && chat.includes("{sale('todo') && <Burbuja>"), '«¡Hiciste todo…!» sólo en el día 2');
   // El día 7 la saca del día: va después del cierre del reto (R57-08).
-  assert.ok(chat.includes("{p && ((dia.n === 2 && llega2(3)) || (dia.n !== 2 && dia.n !== 7 && diaTerminado(e, dia))) && ("), 'la prueba por WhatsApp, al final del día (la hora del día 2, en su paso)');
+  assert.ok(enDia.includes('if (p && dia.n === 2 && llega2(3)) {') && enDia.includes("if (p && dia.n !== 2 && dia.n !== 7 && diaTerminado(e, dia)) poner('prueba', p.texto, false);"), 'la prueba por WhatsApp, al final del día (la hora del día 2, en su paso)');
   const ruta = fuente('../app/api/reto/route.ts');
   assert.ok(ruta.includes("body.accion === 'despues'") && ruta.includes("body.accion === 'manana'"), 'la API guarda los dos');
 });
@@ -431,7 +433,7 @@ test('el clip de regalo del día 6 (20/11, R57-02): cada estado de AI Avatar tie
   assert.ok(!/<textarea/.test(soloChat), 'el chat del reto no arma otra caja');
   assert.ok(clip.includes('role="alert">{error}<ReportarASoporte /></p>'), 'el error, con «Reportar a Soporte» (tests/reportar-a-soporte.test.ts)');
   assert.ok(chat.includes("import { clipDeRegaloAction, pedirClipDeRegaloAction } from '@/app/ai-avatar/regalo/actions';"), 'las acciones del contrato');
-  assert.ok(chat.includes('{dia.n === 6 && <ClipDelReto onListo={onClipListo} />}'), 'en el día 6');
+  assert.ok(chat.includes("{sale('clip') && <ClipDelReto onListo={onClipListo} />}") && fuente('../lib/reto/en-el-dia.ts').includes("if (dia.n === 6) poner('clip',"), 'en el día 6 (por la cola de salida, desde el 20/11)');
   assert.ok(chat.includes('onClipListo={() => { void leer(); }}'), 'listo, relee el reto: la tarea del clip se marca sola');
   assert.match(chat, /useEffect\(\(\) => \{\n\s+if \(!generando\) return;\n\s+const t = setTimeout\(\(\) => \{ void preguntar\(\); \}, CADA_MS_CLIP\);\n\s+return \(\) => clearTimeout\(t\);\n\s+\}, \[generando, vuelta, preguntar\]\);/,
     'una consulta 10 s después de cada respuesta, sólo mientras se genera');
@@ -527,7 +529,7 @@ test('d24-05 y d24-06 (20/11): las integraciones de lo que eligió, con la marca
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(chat.includes("const esperaApp = dia.n === 2 && !!qrApp && !tareaHecha(e, 2, 'app') && !tareaDespues(e, 2, 'app');") && chat.includes('{esperaApp && qrApp && <TarjetaQrApp'), 'el QR, junto al video del día 2');
   assert.ok(chat.indexOf('<TarjetaQrApp') < chat.indexOf('<div className="rt-tarjeta" data-recorrido={`sb-reto-dia-${dia.n}`}>'), 'el QR va antes de la tarjeta del día (con el video)');
-  assert.ok(chat.includes('{dia.n === 2 && llega2(2) && (integraciones.length > 0\n        ? <TarjetaIntegraciones'), 'la tarjeta de las integraciones en el día 2, en su paso');
+  assert.ok(chat.includes("{sale('int') && (integraciones.length > 0\n        ? <TarjetaIntegraciones") && fuente('../lib/reto/en-el-dia.ts').includes('if (dia.n === 2 && llega2(2)) {'), 'la tarjeta de las integraciones en el día 2, en su paso');
   assert.ok(chat.includes("const esperaLaApp = !!d?.qrApp && !!e && !tareaHecha(e, 2, 'app') && !tareaDespues(e, 2, 'app');"), 'relee mientras espera la app');
   const tarjetas = fuente('../app/second-brain/reto/TarjetasDia2.tsx');
   for (const x of ['La app de MaKo en tu teléfono', 'Los avisos de tu negocio, al instante. Aparte de MaKo por WhatsApp.', 'Escanéalo con tu teléfono. Instala MaKo y activa los avisos. Sigo solo cuando estén.', 'Lo hago después', 'Te falta integrar esto', 'Falta integrar']) assert.ok(tarjetas.includes(x), `falta «${x}»`);
@@ -570,12 +572,14 @@ test('tanda 8 (20/11): el cierre del reto con el piloto y lo pendiente (R57-08),
 
 test('d24-08 (20/11): el día 2 de hoy va en pasos, de a uno y con su mensaje; uno que ya pasó se ve entero', () => {
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
-  assert.ok(chat.includes("const paso2 = pasos2 ? ['app', 'extension', 'integraciones'].findIndex((id) => !tareaHecha(e, 2, id) && !tareaDespues(e, 2, id)) : -1;"), 'el paso: el primero sin hacer ni dejar para después');
+  // Desde el 20/11 lo de adentro del día sale por la cola de salida: QUÉ sale y en qué orden vive en lib/reto/en-el-dia.ts.
+  const enDia = fuente('../lib/reto/en-el-dia.ts');
+  assert.ok(enDia.includes("const paso2 = pasos2 ? ['app', 'extension', 'integraciones'].findIndex((id) => !tareaHecha(e, 2, id) && !tareaDespues(e, 2, id)) : -1;"), 'el paso: el primero sin hacer ni dejar para después');
   assert.ok(chat.includes('const pasos2 = dia.n === 2 && hoy;'), 'sólo el día 2 de HOY');
   assert.ok(chat.includes("const enLaTarjeta = pasos2 ? primeras.filter((t) => t.id === 'app') :"), 'la tarjeta del día empieza sólo con la app');
-  assert.ok(chat.includes('{pasos2 && llega2(1) && tarea2(\'extension\') && ('), 'la extensión, en su paso');
+  assert.ok(enDia.includes("if (pasos2 && llega2(1) && tarea('extension')) poner('ext', RETO_D2_EXT, true);") && chat.includes("{sale('ext') && tarea2('extension') && ("), 'la extensión, en su paso');
   assert.ok(chat.includes('<Burbuja><p>{RETO_D2_EXT}</p></Burbuja>'), 'con su mensaje');
-  assert.ok(chat.includes('{ultimo && llega2(3) && ('), 'el perfil, recién con los tres primeros listos');
+  assert.ok(enDia.includes('if (perfil && llega2(3) && (') && chat.includes("{ultimo && sale('perfil') && ("), 'el perfil, recién con los tres primeros listos');
   assert.ok(chat.includes('const deAUna = hoy && (dia.n === 3 || dia.n === 4);') && chat.includes(': deAUna && iSigue >= 0 ? primeras.slice(0, iSigue + 1) : primeras;'), 'los días 3 y 4 de hoy, de a una tarea');
 });
 
@@ -717,7 +721,7 @@ test('verificación 20/11: el día de hoy, uno a la vez y con «Tu siguiente pas
   assert.ok(chat.includes('<span>Tu siguiente paso: <b>{sigue.txt}</b></span>'), 'arriba de la caja');
   assert.ok(chat.includes('{esLaQueToca && onDespuesDe && <button type="button" className="rt-tarea__luego" onClick={() => onDespuesDe(n, t.id)}>Lo hago después</button>}'), '«Lo hago después» en la que toca');
   assert.ok(chat.includes('{ico && <span className="rt-tarea__ico" aria-hidden><Icon name={ico} size={16} /></span>}'), 'el ícono de su pestaña');
-  assert.ok(chat.includes("{ultimo && llega2(3) && (!pasos2 || !!e.horaWa || tareaDespues(e, 2, 'hora')) && ("), 'el perfil, después de la hora');
+  assert.ok(fuente('../lib/reto/en-el-dia.ts').includes("if (perfil && llega2(3) && (!pasos2 || !!e.horaWa || tareaDespues(e, 2, 'hora'))) poner('perfil', RETO_D2_PERFIL, true);"), 'el perfil, después de la hora');
   assert.ok(chat.includes('{esperaApp && hoy && qrDeAntes && <Burbuja><p>{RETO_D2_RECORDATORIO}</p></Burbuja>}'), 'el recordatorio del QR (d24-07)');
 });
 

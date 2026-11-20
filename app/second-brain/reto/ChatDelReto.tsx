@@ -58,6 +58,8 @@ import { esTelefono } from '@/lib/telefono';
 import { ClipDelReto } from './ClipDelReto';
 import { RETO_EN_TU_PLAN } from '@/lib/reto/plan-reglas';
 import { TarjetaIntegraciones, TarjetaQrApp, type IntegracionConEstado } from './TarjetasDia2';
+import { RETO_D2_HORA } from '@/lib/reto/dias';
+import { diaDelPaso, idEnElDia, pasosEnElDia, type QueEnElDia } from '@/lib/reto/en-el-dia';
 
 
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null;
@@ -346,7 +348,12 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
         ...(x.n === 7 ? [{ id: 'piloto', de: 'mako', texto: RETO_PILOTO(d.funnel), pieza: !!x.whatsapp }] : []),
         ...(sig && e.manana === sig.n ? [{ id: `yo-manana:${sig.n}`, de: 'yo', texto: 'Mañana' }, { id: `manana:${sig.n}`, de: 'mako', texto: RETO_MANANA(hora0, sig.n) }] : []),
       ];
-      return [{ id: `dia:${x.n}`, de: 'dia', texto: '' }, ...fin];
+      // LO DE ADENTRO DEL DÍA, POR LA COLA (20/11, el Cerebro; lib/reto/en-el-dia.ts): la extensión, las integraciones, la hora, el
+      // perfil, la prueba por WhatsApp, «¡Hiciste todo…!» y el clip del día 6, cada uno con sus puntitos y su tarjeta después del
+      // texto. Antes entraban de golpe apenas /api/reto daba una tarea por hecha.
+      const enDia = pasosEnElDia(x, e, { hoy: x.n === d.abierto, integraciones: d.integraciones ?? [] })
+        .map((p): FilaDeCola => ({ id: p.id, de: 'mako', texto: p.texto, pieza: p.pieza }));
+      return [{ id: `dia:${x.n}`, de: 'dia', texto: '' }, ...enDia, ...fin];
     })),
     ...(pregunta && siguiente ? [{ id: `adelantar:${siguiente.n}`, de: 'mako', texto: `¿Adelantas el día ${siguiente.n}?` }] : []),
   ];
@@ -354,17 +361,24 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   // los días anteriores al de hoy (sus cierres no tenían clave antes de reto-6: no se vuelven a escribir).
   const amb = e?.inicio ? `${e.inicio}|` : '';
   const [historia, setHistoria] = useState<string | null>(null);
+  // Lo de adentro de un día espera a que el día mostró su mensaje y su tarjeta (`Dia` avisa con `onListo`): sus puntitos empiezan ahí,
+  // no mientras corre la entrada del día.
+  const [diasListos, setDiasListos] = useState<ReadonlySet<number>>(() => new Set());
+  const diaListo = useCallback((n: number) => setDiasListos((s) => (s.has(n) ? s : new Set([...s, n]))), []);
+  const esperaSuDia = (id: string) => { const n = diaDelPaso(id); return n != null && !diasListos.has(n); };
   const cola = useColaDeSalida(filas, {
     historial: () => [],
-    retenido: () => historia !== amb || !amb || !puerta,
+    retenido: (id) => historia !== amb || !amb || !puerta || esperaSuDia(id),
     alMostrar: (id) => { if (amb) anotarVistoEnCola(amb + id); },
   });
   const mostrarYa = cola.mostrarYa;
+  // Lo de los días anteriores al de hoy ya se vio: sale de una al cargar (sus cierres no tenían clave antes de reto-6) y también si
+  // aparece después (una tarea de un día pasado que se termina hoy no escribe en el medio del hilo, tapando lo de hoy).
+  const hoyN = abiertos[abiertos.length - 1]?.n ?? 1;
+  const deAntes = (id: string) => { const m = /^(?:dia|fin):(\d)$/.exec(id); const enN = diaDelPaso(id); return id === 'plan' ? hoyN > 3 : m ? Number(m[1]) < hoyN : enN != null ? enN < hoyN : /^(?:yo-)?manana:(\d)$/.test(id) && Number(id.slice(-1)) <= hoyN; };
   useEffect(() => {
     if (!amb || historia === amb || !d || !e) return;
     const vistos = leerVistos();
-    const hoyN = abiertos[abiertos.length - 1]?.n ?? 1;
-    const deAntes = (id: string) => { const m = /^(?:dia|fin):(\d)$/.exec(id); return id === 'plan' ? hoyN > 3 : m ? Number(m[1]) < hoyN : /^(?:yo-)?manana:(\d)$/.test(id) && Number(id.slice(-1)) <= hoyN; };
     mostrarYa(filas.filter((x) => vistos.has(amb + x.id) || deAntes(x.id)).map((x) => x.id));
     setHistoria(amb);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -372,6 +386,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   const visibles = new Set(cola.visibles.map((x) => x.id));
   const ver = (id: string) => visibles.has(id);
   const listo = historia === amb && !!amb;
+  const atrasados = listo ? filas.filter((x) => deAntes(x.id) && !ver(x.id)).map((x) => x.id).join('|') : '';
+  useEffect(() => { if (atrasados) mostrarYa(atrasados.split('|')); }, [atrasados, mostrarYa]);
   const vePlan = enElPlan3 && ver('plan');
   useEffect(() => {
     if (!vePlan || yaMarcada('plan-dia-3') || senalAhora()) return;
@@ -410,6 +426,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     return actual.tareas.find((x) => !x.siempre && !tareaHecha(e, actual.n, x.id) && !tareaDespues(e, actual.n, x.id) && !esperaLaHora(x)) ?? null;
   })();
   const claveToca = tocaHoy && actual ? `${actual.n}:${tocaHoy.id}` : '';
+  // La tarjeta de un paso del día sale por la cola, después de sus puntitos y su texto: la marca la espera (se vuelve a mirar cuando sale).
+  const enDiaVisto = filas.filter((x) => diaDelPaso(x.id) != null && ver(x.id)).map((x) => `${x.id}${cola.conPieza(x.id) ? '+' : ''}`).join('|');
   useEffect(() => {
     const t = tocaHoy, n = actual?.n;
     if (!t || !n || yaMarcada(claveToca) || !yaVisto(`video:${n}`)) return;
@@ -423,7 +441,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     }, MS_ANTES_DEL_PERFIL);
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claveToca, correr]);
+  }, [claveToca, correr, enDiaVisto]);
   // EL DÍA QUE SE ABRE, CON EL CHAT ABIERTO (reto-7): se relee el reto a la hora en que se abre el que sigue. Antes llegaba recién al
   // cambiar de pestaña y volver.
   const proxima = e ? proximaApertura(e, Date.now()) : null;
@@ -461,7 +479,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
             qrApp={d.qrApp ?? null} integraciones={d.integraciones ?? []}
             onDespues={(id) => { void hacer({ accion: 'despues', dia: dia.n, id }); }}
             onDespuesDe={(n, id) => { void hacer({ accion: 'despues', dia: n, id }); }}
-            onFinVideo={() => marcarLoQueFalta(dia)} />
+            onFinVideo={() => marcarLoQueFalta(dia)}
+            ver={ver} conPiezaDe={cola.conPieza} onListo={diaListo} />
         </>
       ) });
       if (!diaTerminado(e, dia)) continue;
@@ -500,6 +519,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   const claveUltimaFila = catalogo ? 'catalogo' : !d || !e ? 'carga' : [
     cola.escribiendo ? 'escribe' : '',
     cola.visibles[cola.visibles.length - 1]?.id ?? '',
+    // Su tarjeta, que sale después del texto (la de un paso del día: la extensión, el perfil…).
+    cola.visibles.length && cola.conPieza(cola.visibles[cola.visibles.length - 1].id) ? 'pieza' : '',
     !ultimaFila ? '' : 'pieza' in ultimaFila ? `${ultimaFila.pieza.key}#${delDia(Number(ultimaFila.pieza.key.split(':')[1]))}` : `charla:${ultimaFila.tramo[ultimaFila.tramo.length - 1]?.id ?? ''}`,
     k.enCurso ? 'trabaja' : '',
     muestraPendiente?.pestana ?? '',
@@ -606,7 +627,12 @@ export function AdelantarDia({ n, onAdelantar, onManana }: { n: number; onAdelan
 }
 
 
-export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy = true, onHora, onConfirmarHora, onMarcar, onTocadoEnVideo, onFinVideo, onClipListo, qrApp = null, integraciones = [], onDespues, onDespuesDe, deAntes = [] }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string;
+const siempre = () => true;
+
+export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy = true, onHora, onConfirmarHora, onMarcar, onTocadoEnVideo, onFinVideo, onClipListo, qrApp = null, integraciones = [], onDespues, onDespuesDe, deAntes = [], ver = siempre, conPiezaDe = siempre, onListo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string;
+  /** La cola de salida del chat (lib/reto/en-el-dia.ts): si la fila de un paso del día ya salió, y si su tarjeta también. Sin cola,
+   *  todo de una (las capturas). `onListo`: el mensaje del día y su tarjeta ya se ven (lo de adentro puede empezar sus puntitos). */
+  ver?: (id: string) => boolean; conPiezaDe?: (id: string) => boolean; onListo?: (n: number) => void;
   /** La hora que tocó en el selector del día 2 y todavía no confirmó: sólo para su tarjeta (R57-F3). Sin ella, `hora`. */
   horaElegida?: string; proUnaVez?: boolean; hoy?: boolean; onHora: (h: string) => void; onConfirmarHora?: () => void; onMarcar: (t: TareaReto, n?: number) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void; onClipListo?: () => void; qrApp?: string | null; integraciones?: readonly IntegracionConEstado[]; onDespues?: (id: string) => void;
   /** «Lo hago después» de la tarea que toca, en la tarjeta (R57-15, d24-08): también una de un día anterior. */
@@ -614,7 +640,11 @@ export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy =
   /** El día de HOY: lo que quedó sin hacer de los días anteriores, que va primero con «Del día N» (d24-21). */
   deAntes?: ReadonlyArray<{ n: number; t: TareaReto }> }) {
   const p = dia.whatsapp;
-  const todas = dia.tareas.every((t) => tareaHecha(e, dia.n, t.id));
+  // LO DE ADENTRO DEL DÍA, POR LA COLA (lib/reto/en-el-dia.ts: qué sale y en qué orden, lo mismo que arma la cola): cada paso, recién
+  // cuando su fila salió (después de sus puntitos), y su tarjeta, recién cuando salió su pieza.
+  const pasos = pasosEnElDia(dia, e, { hoy, integraciones });
+  const sale = (q: QueEnElDia) => pasos.some((x) => x.que === q) && ver(idEnElDia(dia.n, q));
+  const suTarjeta = (q: QueEnElDia) => conPiezaDe(idEnElDia(dia.n, q));
   // EL DÍA 2 EN SU ORDEN (20/11, auditoría d24-19 y D1-18; memoria onboarding-16-11-decisiones): el QR, la extensión, las integraciones,
   // la hora de WhatsApp y, ÚLTIMO, el perfil. El perfil sale de la tarjeta del día y va después de la hora.
   const ultimo = dia.n === 2 ? dia.tareas.find((t) => t.id === 'perfil') : undefined;
@@ -626,9 +656,8 @@ export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy =
   // de cuando se vio; lo guardado por /api/reto o, sin eso, la cuenta de `cuandoSeAbrio`).
   const abrio = cuandoSeAbrio(e, dia.n, Date.now());
   const fecha = abrio != null ? rotuloDelDia(abrio, Date.now(), e.zona) : null;
+  // El paso en que va el día 2 de HOY (`paso2`, `llega2`) vive en lib/reto/en-el-dia.ts, con lo que sale.
   const pasos2 = dia.n === 2 && hoy;
-  const paso2 = pasos2 ? ['app', 'extension', 'integraciones'].findIndex((id) => !tareaHecha(e, 2, id) && !tareaDespues(e, 2, id)) : -1;
-  const llega2 = (i: number) => !pasos2 || paso2 === -1 || i <= paso2;
   // Los días 3 y 4 de HOY también van de a una tarea (d24-08): las hechas o dejadas para después, y la que sigue.
   const deAUna = hoy && (dia.n === 3 || dia.n === 4);
   const iSigue = primeras.findIndex((t) => !tareaHecha(e, dia.n, t.id) && !tareaDespues(e, dia.n, t.id));
@@ -679,6 +708,7 @@ export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy =
     const t = window.setTimeout(() => setConPieza(true), MS_PAUSA_PIEZA);
     return () => window.clearTimeout(t);
   }, [conPieza, fase]);
+  useEffect(() => { if (conPieza) onListo?.(dia.n); }, [conPieza, onListo, dia.n]);
   if (fase === 'escribe') {
     return (
       <>
@@ -712,36 +742,37 @@ export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy =
       </Burbuja>}
       {/* Las integraciones de lo que eligió, con su estado (d24-05). «Te muestro dónde» corre las marcas de la tarea. */}
       {/* El día 2 en pasos: la extensión, con su mensaje (d24-08). */}
-      {pasos2 && llega2(1) && tarea2('extension') && (
+      {sale('ext') && tarea2('extension') && (
         <>
           <Burbuja><p>{RETO_D2_EXT}</p></Burbuja>
-          <Burbuja ancho><div className="rt-tarjeta" data-recorrido="sb-reto-dia-2-extension"><ol className="rt-tareas">{fila(tarea2('extension')!)}</ol></div></Burbuja>
+          {suTarjeta('ext') && <Burbuja ancho><div className="rt-tarjeta" data-recorrido="sb-reto-dia-2-extension"><ol className="rt-tareas">{fila(tarea2('extension')!)}</ol></div></Burbuja>}
         </>
       )}
-      {dia.n === 2 && llega2(2) && (integraciones.length > 0
+      {sale('int') && (integraciones.length > 0
         ? <TarjetaIntegraciones ints={integraciones} onMostrar={() => { const t = tarea2('integraciones'); if (t) onMarcar(t); }}
-            despues={tareaDespues(e, 2, 'integraciones')} onDespues={hoy ? () => onDespues?.('integraciones') : undefined} />
-        : pasos2 && tarea2('integraciones') && <Burbuja ancho><div className="rt-tarjeta"><ol className="rt-tareas">{fila(tarea2('integraciones')!)}</ol></div></Burbuja>)}
-      {dia.n === 6 && <ClipDelReto onListo={onClipListo} />}
-      {/* La prueba por WhatsApp va al FINAL del día (f24-02); la hora del día 2 es un paso del día: su tarjeta (wa-08, TarjetaHora). */}
-      {p && ((dia.n === 2 && llega2(3)) || (dia.n !== 2 && dia.n !== 7 && diaTerminado(e, dia))) && (dia.n === 2
-        ? <TarjetaHora p={p} guardada={e.horaWa ?? null} linea={linea} hora={horaElegida ?? hora} onHora={onHora} onConfirmar={onConfirmarHora ?? (() => {})}
-            onDespues={pasos2 && !tareaDespues(e, 2, 'hora') ? () => onDespues?.('hora') : undefined} />
-        : <TarjetaPrueba p={p} linea={linea} hora={hora} hecha={e.pruebas?.[String(dia.n)] ?? null} />)}
+            despues={tareaDespues(e, 2, 'integraciones')} onDespues={hoy ? () => onDespues?.('integraciones') : undefined} conTarjeta={suTarjeta('int')} />
+        : tarea2('integraciones') && <Burbuja ancho><div className="rt-tarjeta"><ol className="rt-tareas">{fila(tarea2('integraciones')!)}</ol></div></Burbuja>)}
+      {sale('clip') && <ClipDelReto onListo={onClipListo} />}
+      {/* La prueba por WhatsApp va al FINAL del día (f24-02); la hora del día 2 es un paso del día: su tarjeta (wa-08, TarjetaHora).
+          Guardada, su mensaje queda y la confirmación llega con sus puntitos. */}
+      {p && (sale('hora') || sale('hora-ok')) && <TarjetaHora p={p} guardada={e.horaWa ?? null} linea={linea} hora={horaElegida ?? hora} onHora={onHora} onConfirmar={onConfirmarHora ?? (() => {})}
+            onDespues={pasos2 && !tareaDespues(e, 2, 'hora') ? () => onDespues?.('hora') : undefined}
+            conMensaje={sale('hora')} conTarjeta={suTarjeta('hora')} confirmada={sale('hora-ok')} />}
+      {p && sale('prueba') && <TarjetaPrueba p={p} linea={linea} hora={hora} hecha={e.pruebas?.[String(dia.n)] ?? null} />}
       {/* El perfil, último paso del día 2: el mensaje de MaKo (la maqueta, D2_PERFIL) y su tarjeta. Recién con la hora guardada (o
           dejada para después): la maqueta lo manda después del WhatsApp de la hora (d24-08, «uno a la vez»). */}
-      {ultimo && llega2(3) && (!pasos2 || !!e.horaWa || tareaDespues(e, 2, 'hora')) && (
+      {ultimo && sale('perfil') && (
         <>
         <Burbuja><p>{RETO_D2_PERFIL}</p></Burbuja>
-        <Burbuja ancho>
+        {suTarjeta('perfil') && <Burbuja ancho>
           <div className="rt-tarjeta" data-recorrido="sb-reto-dia-2-perfil">
             <ol className="rt-tareas">{fila(ultimo, dia.n)}</ol>
           </div>
-        </Burbuja>
+        </Burbuja>}
         </>
       )}
       {/* Lo que hizo durante el video ya cuenta (el Cerebro, 18/11): si hizo todo, la felicita (sólo el día 2, R57-F4). */}
-      {todas && dia.n === 2 && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!</p></Burbuja>}
+      {sale('todo') && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!</p></Burbuja>}
       </>}
     </>
   );
@@ -771,16 +802,20 @@ function TarjetaPrueba({ p, linea, hora, hecha = null }: { p: NonNullable<DiaRet
  * guarda cuando ella manda el mensaje por WhatsApp, y MaKo le contesta (lib/reto/respuestas.ts). Desde ahí MaKo le escribe cada mañana a
  * esa hora (lib/reto/avisos.ts). Guardada, queda la confirmación. En el ensayo «desde cero» no hay WhatsApp: «Confirmar» la guarda ahí.
  */
-function TarjetaHora({ p, guardada, linea, hora, onHora, onConfirmar, onDespues }: {
+function TarjetaHora({ p, guardada, linea, hora, onHora, onConfirmar, onDespues, conMensaje = true, conTarjeta = true, confirmada = true }: {
   p: NonNullable<DiaReto['whatsapp']>; guardada: string | null; linea: string | null; hora: string; onHora: (h: string) => void; onConfirmar: () => void;
   /** «Lo hago después» (d24-08: cada paso del día 2 lo lleva): sigue el perfil. */
   onDespues?: () => void;
+  /** Por la cola de salida (lib/reto/en-el-dia.ts): el mensaje, la tarjeta (después del texto) y la confirmación, cada uno cuando sale. */
+  conMensaje?: boolean; conTarjeta?: boolean; confirmada?: boolean;
 }) {
-  if (guardada) return <Burbuja><p>✓ MaKo te escribe cada día a las {guardada}, por WhatsApp.</p></Burbuja>;
+  const mensaje = conMensaje && <Burbuja><p>{RETO_D2_HORA}</p></Burbuja>;
+  if (guardada) return <>{mensaje}{confirmada && <Burbuja><p>✓ MaKo te escribe cada día a las {guardada}, por WhatsApp.</p></Burbuja>}</>;
   const link = linkWaMe(linea, mensajeEscrito(p, hora));
+  if (!conTarjeta) return <>{mensaje}</>;
   return (
     <>
-      <Burbuja><p>Una más: dile a MaKo a qué hora te escribe por WhatsApp sobre el reto. Le escribes tú primero, así WhatsApp no frena sus mensajes.</p></Burbuja>
+      {mensaje}
       <Burbuja ancho>
         <div className="rt-tarjeta rt-wa" data-tarea="2:hora">
           <p className="rt-tarjeta__t">¿A qué hora te escribe MaKo sobre el reto?</p>

@@ -304,8 +304,10 @@ test('la tarjeta de la hora (día 2): tocar una hora sólo la elige; se guarda c
   for (const t of ['Una más: dile a MaKo a qué hora te escribe por WhatsApp sobre el reto. Le escribes tú primero, así WhatsApp no frena sus mensajes.',
     '¿A qué hora te escribe MaKo sobre el reto?', 'Al confirmar se abre tu WhatsApp con el mensaje ya escrito: lo mandas tú y MaKo te contesta.',
     'MaKo te escribe cada día a las {hora}.', '✓ MaKo te escribe cada día a las {guardada}, por WhatsApp.', 'Confirmar y abrir WhatsApp']) {
-    assert.ok(c.includes(t), `falta «${t}»`);
+    // El mensaje de antes de la tarjeta, desde el 20/11 en lib/reto/dias.ts (RETO_D2_HORA): también lo usa la cola de salida.
+    assert.ok(c.includes(t) || fuenteSinComentarios('lib/reto/dias.ts').includes(t), `falta «${t}»`);
   }
+  assert.match(c, /const mensaje = conMensaje && <Burbuja><p>\{RETO_D2_HORA\}<\/p><\/Burbuja>;/, 'la tarjeta de la hora dice RETO_D2_HORA');
   assert.match(c, /const link = linkWaMe\(linea, mensajeEscrito\(p, hora\)\);/, 'el mensaje escrito con la hora elegida, no con 9:00');
   assert.match(c, /window\.addEventListener\('focus', alVolver\);/, 'al volver de WhatsApp se relee');
   assert.doesNotMatch(c, /no está conectada/, 'sin número no es «la línea está caída»');

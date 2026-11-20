@@ -3858,8 +3858,7 @@ existía y el test pasaba, pero el camino de la persona se cortaba. El test comp
 - **Lo que quedó sin hacer:**
   - reto-3, reto-4 y reto-8 ya van por la cola de salida compartida (`useColaDeSalida`, con la llegada primero): el saludo, «Me
     dijiste que…», el recuadro, las muestras, los cierres y «¿Adelantas…?» salen de a uno. La tarjeta del día y el QR del día 2
-    salen después del mensaje, con su pausa. Lo que aparece DENTRO de un día (la extensión, las integraciones, la hora, el perfil, la
-    prueba por WhatsApp) todavía sale sin puntitos: queda para otra tanda.
+    salen después del mensaje, con su pausa. Lo que aparece DENTRO de un día ya va por la cola también: la entrada de abajo.
   - La hora de «lo dejé para después» no se guarda: un día cerrado sólo así toma la hora en que se abrió.
 
 ## Reiniciar el onboarding sin tocar lo suyo: el estado vive en tres lados, y uno le devuelve a la base lo que se borró (20/11/2026, chat «onboarding-v2», claude5)
@@ -3904,3 +3903,26 @@ de la vista de administrador y scripts/reiniciar-onboarding.mts. RESET (lib/rese
     (gasta IA y revive un borrador que había descartado).
   - Los onboardings de cada pestaña (`onboarding.tab.*`) no se reinician.
   - Nada de esto se probó contra la base todavía: lo corre el Cerebro con el script, primero en seco.
+## Lo de adentro de un día del reto, por la cola de salida (20/11, tarde, chat «reto-tutoriales», claude5)
+
+El Cerebro, con Martín probando el reto: la extensión, las integraciones, la hora, el perfil, la prueba por WhatsApp, «¡Hiciste
+todo…!» y el clip del día 6 entraban de golpe. Lo prueba tests/reto-dia-por-la-cola.test.ts.
+- **Por qué la pausa del día no alcanzaba.** `Dia` ya soltaba su tarjeta y su QR después del mensaje (`conPieza`, reto-3), pero ese
+  reloj corre UNA vez. Lo que llega después depende del servidor: cuando /api/reto da una tarea por hecha, el paso siguiente (su
+  mensaje y su tarjeta) aparece en el mismo render. Esos pasos tienen que ser filas de la cola del chat, no estado derivado del día.
+- **La regla: una sola fuente para lo que sale.** `pasosEnElDia` (lib/reto/en-el-dia.ts, pura) dice qué sale dentro de un día y en
+  qué orden. La usan la cola (las filas `en:<día>:<qué>`) y `Dia` (dibuja cada paso cuando su fila salió y su tarjeta con su pieza).
+  Con dos copias de las condiciones, una fila sin dibujo muestra puntitos para nada, y un dibujo sin fila no sale nunca.
+- **Trampa: los puntitos de un paso no pueden correr durante la entrada del día.** La fila `dia:N` no es de MaKo y sale al instante,
+  pero el día todavía muestra su velo y su mensaje. Lo de adentro queda retenido por día (`esperaSuDia`) hasta que `Dia` avisa con
+  `onListo`. Retenido, no tiene puntitos; los suyos empiezan al soltarse.
+- **Trampa: una fila nueva en el medio del hilo tapa todo lo que sigue.** `filasVisibles` corta en la primera fila de MaKo que falta
+  salir, aunque las de abajo ya se hayan visto. Si una tarea de un día pasado se termina hoy, su paso nuevo esconde el día de hoy
+  mientras escribe. Por eso lo de los días anteriores sale de una (`deAntes`, al cargar, y `atrasados`, si aparece después).
+- **Trampa: la marca sola buscaba la tarjeta a los 1,2 s.** La tarea que toca se marca cuando su fila (`data-tarea`) está en el hilo.
+  Con la tarjeta saliendo después de sus puntitos, no estaba, y el efecto no volvía a mirar. Ahora mira de nuevo cuando sale
+  (`enDiaVisto` en sus dependencias).
+- **La hora, como charla:** guardada, su mensaje queda en el hilo sin el selector y la confirmación llega como mensaje nuevo, con
+  sus puntitos. Antes la tarjeta se reemplazaba por la confirmación.
+- **Sin hacer:** nada se abrió en un navegador (la PC sin RAM). La prueba por WhatsApp del día 7 (después del cierre) ya iba por la
+  cola (`piloto`) y quedó como estaba.
