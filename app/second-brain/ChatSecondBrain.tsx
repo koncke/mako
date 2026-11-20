@@ -65,7 +65,8 @@
 //    criatura, marca `sb-funnel`). Cada uno es ./ChatDelCoach.tsx con su `cual`, montado una vez y escondido. Quien no lo ve, el coach
 //    único, exactamente como antes.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { Modal, Toast, useToast } from '@/app/_ui';
@@ -382,9 +383,11 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const apertura = useAperturaDelCerebro(k, { libre: conGuia });
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
   // El chat nuevo abre arriba: abajo de la portada están los gurús, y bajando se perdía lo que dice.
-  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = enChatNuevo && !k.items.length ? 0 : el.scrollHeight; }, [k.items.length, k.trabajo, k.idTurno, idOffer, enChatNuevo]);
   // El campo que crece y el scroll que lo acompaña son de la caja única (app/_chat/CajaChat.tsx): le pasa la conversación.
   const seguirHilo = useCallback(() => hilo.current, []);
+  // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11), también en el chat «Onboarding»: su llegada (BienvenidaOpsCenter) avisa cada mensaje
+  // nuevo, y lo que crece después (el video, la portada) baja mientras la persona está abajo (app/_chat/useBajarAlUltimo.ts).
+  useBajarAlUltimo(seguirHilo, `${k.items.length}|${k.trabajo}|${k.idTurno}|${idOffer}|${enChatNuevo}`, { arriba: enChatNuevo && !k.items.length });
 
   // ── Elegir en la barra ──
   /** Lo que hay en el panel (lib/ops-center-navegar.ts → panelQueSeVe). */

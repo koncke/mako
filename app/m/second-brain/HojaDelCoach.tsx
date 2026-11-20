@@ -15,7 +15,8 @@
 
 import '@/app/admin/operaciones/centro.css';
 import '@/app/m/operaciones/operaciones.css';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { CUERPO_CHAT, PantallaChatM } from '@/app/m/_chat/PantallaChatM';
 import { AvisoDeIA } from '@/app/m/_chat/AvisoDeIA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
@@ -64,12 +65,11 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
   // referente ya llega en null con el candado (app/second-brain/useCoaches.ts), así que `r` es null y no hay «Second Brain de X».
   const soloPro = useSoloPro('chat-referentes');
   const [vista, setVista] = useState<'plan' | 'cerebro' | 'elegir' | null>(null);
-  // La hoja mide su cuerpo después del primer pintado: se baja en el cuadro siguiente (el mismo cuidado que HojaDelGuru.tsx).
+  // La hoja mide su cuerpo después del primer pintado (el mismo cuidado que HojaDelGuru.tsx): el hook se engancha cuando está.
   const seguirHoja = useCallback(() => hilo.current?.closest(CUERPO_CHAT) as HTMLElement | null, []);
-  useEffect(() => {
-    const t = setTimeout(() => { const el = seguirHoja(); if (el) el.scrollTop = el.scrollHeight; }, 80);
-    return () => clearTimeout(t);
-  }, [k.items.length, k.trabajo, vista, seguirHoja]);
+  // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11): con cada mensaje y cuando lo último crece (un video, una imagen o una tarjeta que
+  // cargan después); si subió a leer, lo que crece no la arrastra (app/_chat/useBajarAlUltimo.ts).
+  useBajarAlUltimo(seguirHoja, `${k.items.length}|${k.trabajo}|${vista}`);
 
   const panel = k.conectando ? 'conectar' : k.infoWA ? 'info' : vista === 'cerebro' && r ? 'cerebro' : vista === 'plan' && plan ? 'plan' : vista === 'elegir' ? 'elegir' : null;
   const volverDelPanel = () => { if (k.conectando) { k.setConectando(false); k.mirarSuIA(); } k.setInfoWA(null); setVista(null); };
