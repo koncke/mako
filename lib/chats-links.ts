@@ -27,7 +27,8 @@ export const rutaChatsDeLead = (leadId: number): string => `${RUTA_CHATS}?${PARA
  * borrador de una conversación cerrada también espera), y saca el parámetro de la URL: después el filtro es de quien
  * lo toca. Una vista que no está acá no hace nada.
  */
-export const VISTAS_CON_LINK = ['borradores'] as const;
+// `mako` («Atiende MaKo», 20/11/2026): el aviso del reto «MaKo atendió a N clientes por ti» (lib/reto/avisos-salida.ts).
+export const VISTAS_CON_LINK = ['borradores', 'mako'] as const;
 export type VistaConLink = (typeof VISTAS_CON_LINK)[number];
 export const rutaChatsDeVista = (v: VistaConLink): string => `${RUTA_CHATS}?${PARAM_CHATS.vista}=${v}`;
 export const vistaDeLink = (raw: string | null | undefined): VistaConLink | null =>

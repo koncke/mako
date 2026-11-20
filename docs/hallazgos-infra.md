@@ -12897,3 +12897,18 @@ genérico encontró el ajeno.
 **La regla:** los scripts de un chat van al scratchpad de SU sesión, con ruta absoluta de Windows y nunca con nombres genéricos en
 `/tmp`. Un script que restaura un archivo lo lee y lo escribe con `newline=''`, para devolverlo byte por byte. Y un heredoc de Git Bash
 se come las barras invertidas: un script con rutas de Windows va a un archivo, no a un heredoc.
+
+## Un `todo` que falla tiñe la punta de quien toque lo que ese test lee (20/11/2026, chat «onboarding-v2», claude5)
+
+- **El síntoma:** la punta de onboarding-v2 dio rojo en tests/onboarding-llegada-superadmin.test.ts, y localmente pasaba (`ℹ fail 0`,
+  sale con 0).
+- **La causa:** el test tiene un caso `{ todo: … }`, de la copia de Polar a medias, cuya aserción falla. Node lo imprime igual en
+  «✖ failing tests:», con su «test at <archivo>». El runner de la punta (scripts/tests-afectados.mjs → `leerResultado`) cuenta como
+  rojo cualquier «test at <archivo>», sin mirar si es `todo`. El archivo le tocó a esa punta porque cambió lib/onboarding-arranque.ts,
+  que el test lee.
+- **Diagnóstico obvio y equivocado:** «es lo mismo que el hub retirado» (otro test rojo de la misma corrida). No tenía nada que ver con
+  el cambio.
+- **Qué se hizo:** el caso pasó a `skip` (igual de pendiente, no imprime «test at»). **Queda para infra:** que `leerResultado` no
+  cuente los `todo`, o el próximo que toque lib/onboarding-arranque.ts o las páginas de Polar vuelve a salir rojo.
+- **Regla al probar en la PC:** un test «verde» para la punta no es `ℹ fail 0`: es que la salida no tenga ningún «test at». Así lo
+  mide el runner de GitHub.
