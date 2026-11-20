@@ -19,11 +19,16 @@
 //   W6 el «otro número» contesta en cualquier línea             → falla «otro número»
 //   W7 setNumeroDuenoYSync arma el grupo a un negocio del V2   → falla «sin grupo»
 //   W8 el link del reto vuelve a `numeroLinea`                  → falla «el número publicado»
+//   O1 «Usar el +…» sin la ventana de 24 h                      → falla «Usar el +54…»
+//   O2 el otro número sin la hora en que llegó                  → falla «Usar el +54…»
+//   O3 se manda el código antes de guardarlo contestado         → falla «Usar el +54…»
+//   O4 si no sale, queda «contestada» igual                     → falla «Usar el +54…»
+//   O5 la ruta no pasa la hora del mensaje que llegó            → falla «Usar el +54…» (y el test de la tarjeta)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   AGENDAR_V2, E_REESCRIBIR_V2, E_TEL_CORTO, E_TEL_NO_WA, MAKO_SIN_LINEA_V2, VENTANA_REENVIAR_MS, codigoEnGrupos, errorDelTelefono,
-  mensajeDelCodigoV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, respuestaOtroNumeroV2, unicaEsperandoV2, type EstadoVerificacion,
+  escribioDesdeElOtro, mensajeDelCodigoV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, respuestaOtroNumeroV2, unicaEsperandoV2, type EstadoVerificacion,
 } from '../lib/verificacion-entrante';
 import { codigoDeLoEscrito } from '../lib/onboarding-arranque';
 import { fuenteSinComentarios } from './_fuente-sin-comentarios';
@@ -94,7 +99,7 @@ test('el pedido desde otro número: MaKo contesta qué hacer, sólo en la línea
   assert.equal(unicaEsperandoV2([fila(3, {}), fila(9, { expira: ahora - 1 })], 'mako_l1', ahora)?.workspace_id, 3, 'la vencida no cuenta');
   assert.equal(unicaEsperandoV2([fila(3, {}), fila(9, { verificado: true })], 'mako_l1', ahora)?.workspace_id, 3);
   assert.equal(unicaEsperandoV2([fila(3, { linea: 'mako_otra' })], 'mako_l1', ahora), null, 'la de otra línea no');
-  assert.match(respuestaOtroNumeroV2('5491166660202'), /^Me escribiste desde \+5491166660202, pero en MaKo pusiste otro número\..*«Cambiar número»/);
+  assert.match(respuestaOtroNumeroV2('5491166660202'), /^Me escribiste desde \+5491166660202, pero en MaKo pusiste otro número\..*«Usar el \+5491166660202» en MaKo y te mando el código aquí/);
   const responder = bloque(grupo(), 'export async function responderPedidoV2(', 'export async function reenviarCodigoV2(');
   const tras = responder.slice(responder.indexOf("if (d === 'ya-verificado')"));
   assert.match(tras, /if \(instancia !== \(await instanciaVoz\(\)\)\) return null;/, 'contesta sólo la línea que recibe');
@@ -102,7 +107,36 @@ test('el pedido desde otro número: MaKo contesta qué hacer, sólo en la línea
   const contesta = tras.indexOf('respuestaOtroNumeroV2(tel)');
   assert.ok(yaConfirmo > 0 && contesta > yaConfirmo, 'a quien ya confirmó no le dice «otro número»');
   assert.match(tras, /const suya = unicaEsperandoV2\(filas, instancia, Date\.now\(\)\);/);
-  assert.match(tras, /cambiarSettingSi\(KEY_VERIFICACION, suya\.value, JSON\.stringify\(\{ \.\.\.suya\.v!, otroNumero: tel \}\)\)/);
+  assert.match(tras, /cambiarSettingSi\(KEY_VERIFICACION, suya\.value, JSON\.stringify\(\{ \.\.\.suya\.v!, otroNumero: tel, otroNumeroAt: Date\.now\(\) \}\)\)/);
+});
+
+test('«Usar el +54…»: con el mensaje que YA llegó de ese número, MaKo le contesta el código ahí mismo (dentro de las 24 h)', () => {
+  const ahora = Date.parse('2026-11-20T15:00:00Z');
+  const v: EstadoVerificacion = {
+    telefono: '5491155550101', codigo: '123456', expira: ahora + 600_000, verificado: false, entrante: true, v2: true,
+    otroNumero: '5491166660202', otroNumeroAt: ahora - 3_600_000,
+  };
+  assert.deepEqual(escribioDesdeElOtro(v, ahora), { telefono: '5491166660202', escribioAt: ahora - 3_600_000 });
+  assert.equal(escribioDesdeElOtro({ ...v, otroNumeroAt: ahora - VENTANA_REENVIAR_MS - 1 }, ahora), null, 'pasadas las 24 h, que vuelva a escribir');
+  assert.equal(escribioDesdeElOtro({ ...v, otroNumeroAt: undefined }, ahora), null, 'sin la marca (de antes), como antes');
+  assert.equal(escribioDesdeElOtro({ ...v, verificado: true }, ahora), null);
+  assert.equal(escribioDesdeElOtro({ ...v, v2: undefined }, ahora), null);
+  const g = grupo();
+  const responder = bloque(g, 'export async function responderPedidoV2(', 'export async function reenviarCodigoV2(');
+  assert.match(responder, /JSON\.stringify\(\{ \.\.\.suya\.v!, otroNumero: tel, otroNumeroAt: Date\.now\(\) \}\)/, 'anota CUÁNDO llegó del otro número');
+  const pedir = bloque(g, 'export async function pedirConfirmacionV2(', 'async function mandarCodigoV2(');
+  const guarda = pedir.indexOf('const contestada: EstadoVerificacion = { ...nueva, respondido: true, escribioAt: opts.escribioAt };\n  await guardarVerificacion(ws, contestada);');
+  const manda = pedir.indexOf('const r = await mandarCodigoV2(contestada, num);');
+  assert.ok(guarda > 0 && manda > guarda, 'se guarda contestada y DESPUÉS se manda: el código que llega es el que la app espera');
+  assert.match(pedir, /if \(opts\.escribioAt == null \|\| !reenviarDirecto\(\{ escribioAt: opts\.escribioAt \}, Date\.now\(\)\)\) \{/, 'fuera de las 24 h, el pedido de siempre');
+  assert.match(pedir.slice(manda), /await guardarVerificacion\(ws, nueva\);\n  return \{ ok: true, yaVerificado: false, link, numeroLinea: linea\.numero, contestado: false \};/, 'si no sale, vuelve a «esperando»: que escriba');
+  const r = fuenteSinComentarios('app/api/onboarding/arranque/route.ts');
+  const caso = bloque(r, "case 'usar-otro-numero': {", "case 'reenviar':");
+  const lee = caso.indexOf('const llego = await otroNumeroQueEscribioV2(g.ws);');
+  assert.ok(lee > 0 && lee < caso.indexOf('await guardarEstadoArranque({ telefono: undefined'), 'lo lee ANTES de rehacer el pedido, que lo pisa');
+  assert.match(caso, /pedirCodigo\(e2, h2, await hechosConfirmados\(h2\), otro, llego\?\.telefono === otro \? llego\.escribioAt : undefined\)/);
+  assert.match(r, /pedirConfirmacionV2\(g\.ws, digitos, e\.nombre \? primerNombre\(e\.nombre\) : '', \{ escribioAt \}\)/);
+  assert.match(r, /return listo\(contestado \? \{ aviso: 'Te mandé el código a ese WhatsApp\.' \} : \{\}\);/);
 });
 
 test('un negocio del V2 no arma grupo al guardar sus números (wa-15)', () => {

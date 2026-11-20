@@ -77,6 +77,8 @@ export type EstadoVerificacion = {
   numeroLinea?: string;
   /** Escribió el código desde OTRO número (no se confirma: la pantalla se lo dice). */
   otroNumero?: string;
+  /** V2: cuándo llegó ese mensaje desde el otro número (ms). Con «Usar el +…» dentro de las 24 horas, MaKo le contesta ahí mismo. */
+  otroNumeroAt?: number;
   /** Cuándo se confirmó. */
   confirmadoAt?: string;
   /** EL ONBOARDING V2 (19/11/2026): la persona manda «Hola, quiero confirmar mi WhatsApp.» y MaKo le CONTESTA con el código en
@@ -226,7 +228,20 @@ export const reenviarDirecto = (v: Pick<EstadoVerificacion, 'escribioAt'>, ahora
  * no se sabe de quién es: se le contesta igual, sin anotar nada en ninguna.
  */
 export const respuestaOtroNumeroV2 = (telefono: string): string =>
-  `Me escribiste desde +${telefono}, pero en MaKo pusiste otro número. Escríbeme desde el WhatsApp del número que pusiste, o toca «Cambiar número» en MaKo y pon éste.`;
+  `Me escribiste desde +${telefono}, pero en MaKo pusiste otro número. Si quieres usar éste, toca «Usar el +${telefono}» en MaKo y te mando el código aquí. Si no, escríbeme desde el número que pusiste.`;
+
+/**
+ * «USAR EL +54…» CON EL MENSAJE QUE YA LLEGÓ (20/11/2026). La tarjeta del código ofrece usar el otro WhatsApp desde el que escribió
+ * (acción `usar-otro-numero`). Ese mensaje ya prueba el número: si llegó dentro de las 24 horas (`VENTANA_REENVIAR_MS`, la misma de
+ * «Reenviar»), MaKo le contesta el código en ese chat sin que lo mande otra vez. Pasado eso, o sin la marca, que vuelva a escribir.
+ * null: no hay un otro número que usar así.
+ */
+export function escribioDesdeElOtro(v: EstadoVerificacion | null | undefined, ahora: number): { telefono: string; escribioAt: number } | null {
+  if (!v?.v2 || v.verificado || !v.otroNumero || v.otroNumeroAt == null) return null;
+  const telefono = v.otroNumero.replace(/\D/g, '');
+  if (!telefono || !reenviarDirecto({ escribioAt: v.otroNumeroAt }, ahora)) return null;
+  return { telefono, escribioAt: v.otroNumeroAt };
+}
 
 /** La única verificación del V2 que espera en esa línea (sin confirmar y sin vencer), o null si no hay ninguna o hay más de una. */
 export function unicaEsperandoV2<T extends { v: EstadoVerificacion | null }>(filas: readonly T[], instancia: string, ahora: number): T | null {

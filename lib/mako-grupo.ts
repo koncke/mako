@@ -32,7 +32,7 @@ import { agenciasAprobadasDe } from './agencia';
 import { KEY_VOZ_INSTANCIA } from './linea-plataforma';
 import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
 import { MINUTOS_ENTRANTE, codigoDelTexto, codigoNuevo, decidirCodigoTipeado, decidirLlegada, linkWaMe, textoParaMandar, vistaDeEntrante, type EstadoVerificacion, type VistaEntrante } from './verificacion-entrante';
-import { E_REESCRIBIR_V2, E_SIN_CODIGO_V2, MAKO_SIN_LINEA_V2, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, errorDelTelefono, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, renovarCodigoV2, respuestaOtroNumeroV2, unicaEsperandoV2 } from './verificacion-entrante';
+import { E_REESCRIBIR_V2, E_SIN_CODIGO_V2, MAKO_SIN_LINEA_V2, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, errorDelTelefono, escribioDesdeElOtro, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, renovarCodigoV2, respuestaOtroNumeroV2, unicaEsperandoV2 } from './verificacion-entrante';
 import { chatDelMensaje, esSuTelefono } from './mako-bot-reglas';
 import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, leEscribioEnLasFilas, pausaDeEscritura, puedeEscribirleAPersona, type FilaQuienEscribio } from './mako-salida-reglas';
 import { respondiendoA } from './respuesta-en-curso';
@@ -971,8 +971,8 @@ export async function confirmarPorMensajeEntrante(instancia: string, m: Record<s
 
 /** Prepara el pedido: un código de 6 números que MaKo le va a CONTESTAR, y el link `wa.me` con «Hola, quiero confirmar mi WhatsApp.». */
 export async function pedirConfirmacionV2(
-  ws: number, telefono: string, nombrePersona: string,
-): Promise<{ ok: true; yaVerificado: true } | { ok: true; yaVerificado: false; link: string; numeroLinea: string } | { ok: false; error: string }> {
+  ws: number, telefono: string, nombrePersona: string, opts: { escribioAt?: number } = {},
+): Promise<{ ok: true; yaVerificado: true } | { ok: true; yaVerificado: false; link: string; numeroLinea: string; contestado?: boolean } | { ok: false; error: string }> {
   const num = soloDigitos(telefono);
   const malo = errorDelTelefono(num);
   if (malo) return { ok: false, error: malo };
@@ -983,12 +983,29 @@ export async function pedirConfirmacionV2(
   if (!linea) return { ok: false, error: MAKO_SIN_LINEA_V2 };
   const link = linkWaMe(linea.numero, TEXTO_CONFIRMAR_V2);
   if (!link) return { ok: false, error: MAKO_SIN_LINEA_V2 };
-  await guardarVerificacion(ws, {
+  const nueva: EstadoVerificacion = {
     telefono: num, destino: num, nombre: nombrePersona, codigo: codigoNumerico(),
     expira: Date.now() + MINUTOS_ENTRANTE * 60_000, verificado: false,
     entrante: true, v2: true, respondido: false, intentos: 0, linea: linea.instancia, numeroLinea: linea.numero,
-  });
-  return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero };
+  };
+  // Con el mensaje que YA llegó de este número (`escribioAt`, «Usar el +…»: `escribioDesdeElOtro`), MaKo le contesta ahora, sin que lo
+  // mande otra vez. Se guarda contestada ANTES de mandar (el código que llega es el que la app espera); si no sale, vuelve a «esperando».
+  if (opts.escribioAt == null || !reenviarDirecto({ escribioAt: opts.escribioAt }, Date.now())) {
+    await guardarVerificacion(ws, nueva);
+    return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero };
+  }
+  const contestada: EstadoVerificacion = { ...nueva, respondido: true, escribioAt: opts.escribioAt };
+  await guardarVerificacion(ws, contestada);
+  const r = await mandarCodigoV2(contestada, num);
+  if (r.ok) return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero, contestado: true };
+  console.error(`[mako-grupo] ws${ws}: no salió el código al otro número: ${r.error}`);
+  await guardarVerificacion(ws, nueva);
+  return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero, contestado: false };
+}
+
+/** El otro WhatsApp desde el que escribió, si se puede usar con el mensaje que ya llegó (`escribioDesdeElOtro`). Para «Usar el +…». */
+export async function otroNumeroQueEscribioV2(ws: number): Promise<{ telefono: string; escribioAt: number } | null> {
+  return escribioDesdeElOtro(await getVerificacion(ws).catch(() => null), Date.now());
 }
 
 /** Le manda el código por el chat privado (ella escribió primero: la regla 1 lo mira igual), su tarjeta de contacto y el pedido de agendarlo.
@@ -1067,7 +1084,7 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
   const filas = ((data ?? []) as Array<{ workspace_id: number; value: string }>).map((f) => ({ ...f, v: parseVerificacion(f.value) }));
   const suya = unicaEsperandoV2(filas, instancia, Date.now());
   if (suya && suya.v!.otroNumero !== tel) {
-    await runWithWorkspace(Number(suya.workspace_id), () => cambiarSettingSi(KEY_VERIFICACION, suya.value, JSON.stringify({ ...suya.v!, otroNumero: tel }))).catch(() => false);
+    await runWithWorkspace(Number(suya.workspace_id), () => cambiarSettingSi(KEY_VERIFICACION, suya.value, JSON.stringify({ ...suya.v!, otroNumero: tel, otroNumeroAt: Date.now() }))).catch(() => false);
   }
   return {
     resultado: `otro número (${suya ? `ws${suya.workspace_id}` : 'sin una sola verificación esperando'}): le contesto qué hacer`,

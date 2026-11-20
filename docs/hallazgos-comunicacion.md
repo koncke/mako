@@ -109,6 +109,10 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   (`instanciaVoz`), porque con dos líneas de la misma cuenta el mensaje llega dos veces.
 - **Un `@lid` sin número no se puede contestar:** no se sabe de quién es, y mandarle el código a un `@lid` sería darle el código a
   cualquiera. Queda en el log como `pedido del V2 por @lid sin número`; contarlo antes de decidir más.
+- **El mensaje desde el otro número ya prueba ese número** («Usar el +54…», `escribioDesdeElOtro`): se anota CUÁNDO llegó
+  (`otroNumeroAt`) y, dentro de las 24 horas, el pedido nuevo nace contestado y MaKo manda el código ahí, sin que lo escriba otra
+  vez. **Trampa:** rehacer el pedido (`pedirConfirmacionV2`) pisa la verificación entera, con `otroNumero` y su hora: la ruta lo
+  lee ANTES (`otroNumeroQueEscribioV2`). Si el código no sale, la verificación vuelve a «esperando» y que escriba ella.
 - **Lo que quedó para la tarjeta (es del chat del onboarding, app/onboarding/ChatArranqueV2.tsx):** la vista ya trae
   `estado: 'otro-numero'` con `otroNumero`, y falta dibujarlo. Pasadas 24 horas, «Reenviar» devuelve `E_REESCRIBIR_V2`, y la
   tarjeta debería abrir WhatsApp con el pedido escrito.
