@@ -3384,3 +3384,27 @@ app/api/onboarding/arranque/route.ts, app/api/onboarding/plan-arranque/route.ts.
 - **Diagnóstico obvio y equivocado:** que los `t_fin` del manifiesto estaban corridos. Medido contra la voz sola de cada video (`trabajo/<key>/voz.mp3`, silencedetect −40 dB): las 58 pausas que esperan el clic caen TODAS en el silencio del final de su frase. Ojo, dos trampas al medir: el mp4 tiene música de fondo y con −38 dB no encuentra ningún silencio (hace falta la voz sola), y comparar el manifiesto contra `alin.json` es circular, porque salen del mismo pipeline.
 - **Causa real (app/_ui/tutorial/MotorTutorial.tsx):** cuando la marca de una frase no está en la página, el motor PAUSA en su `t_inicio`, a mitad de la primera sílaba, y espera hasta 4 s sin mostrar nada, contra su propio contrato («una marca que no está no frena nada»). Lo disparan: marcas con otro nombre o que no existen; las que están en otra pestaña, porque `seguirVideo` reanuda apenas tocan aunque el clic navegue y la frase siguiente arranca 0,4 s después; «Siguiente», que no aplica el `antes` del paso; y las tapas, que no respetan `libre` y cierran el menú de la foto. En cadena: el día 2 del reto llegaba a 6 congeladas seguidas. **60 marcas confirmadas** en casi todas las pestañas (`auditoria-pausas-tutoriales-20-11.md`).
 - **Regla:** un tutorial con video nunca pausa por una marca ausente. Pausa sólo en el silencio del `t_fin` de una frase que espera el clic, y después de un clic que navega, se queda en ese silencio hasta que aparece la marca siguiente.
+
+## Las tareas del reto se cierran por lo que MaKo LEE, no por un toque (20/11/2026, chat «reto-tutoriales», claude5)
+
+Vive en `lib/reto/senales.ts` y en el GET de `/api/reto`. Lo pidió la auditoría del Cerebro (D1-01, d24-12, R57-09): dos clics en las
+filas de los coaches tachaban el día 1 entero.
+
+- **⚠️ Casi todo «hay filas» da verde para todos.** Medido el 20/11:
+  - Todo negocio nace con un funnel por defecto (`crearWorkspace`).
+  - Entrar con Google pone la foto de Google sola.
+  - Toda secuencia de Automations nace apagada, también las que crea el onboarding.
+  - Todo cliente nuevo recibe un plan de arranque en el Plan.
+  - Al abrir Copywriter se mudan los guiones viejos, con sus fechas de antes.
+
+  Cada lectura pide la evidencia que distingue: un funnel que no es el default, la foto del bucket `avatars`, una secuencia con
+  `activa = true`, las tareas con `#copiloto:` y un guion tocado desde `reto.inicio`.
+- **La extensión SÍ tiene señal:** el latido del puente (`flow_puentes.ultimo_visto`, `estadoPuente`). Tocar «Conectar» crea la
+  fila sin latido, así que se pide `ultimoVisto`.
+- **No existe integrar otro CRM:** no hay GoHighLevel, HubSpot ni Pipedrive en el catálogo. Por eso el día 3 no puede prometer
+  «integrar tu CRM».
+- **El GET del reto ahora alcanza módulos que tienen IA en otras funciones.** tests/d6b-rutas.test.ts lo marcó. Va en `SIN_IA` con
+  lo que usa: sólo lee.
+- **Adelantar no corría los días:** el calendario se contaba desde `inicio`, así que adelantar el 2 y el 3 el lunes dejaba el martes
+  en el 3. Ahora se guarda `adelantadoEn`.
+- **Lo que quedó sin hacer**, en orden, está en `docs/relevo/reto-tutoriales.md`.
