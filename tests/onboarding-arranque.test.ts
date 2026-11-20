@@ -473,9 +473,12 @@ test('la entrada: sin el grafo, ESPERA EL CLIC (o Enter), sin anillos, sin movim
     assert.ok(i > 0, `no encuentro ${constante}`);
     assert.equal((src.slice(i).match(/`/g) ?? []).length, 2, `${archivo}: comillas invertidas DENTRO del CSS`);
   }
-  // La salida del modo agencia (el aviso de arriba, z 300) no queda tapada por el onboarding.
+  // La salida del modo agencia (la barra de arriba) no queda tapada por el onboarding. Su z es la constante `Z_BARRA_ADMIN` desde el
+  // 20/11/2026 (por encima del velo de los tutoriales): se lee su valor, y que la barra la use.
   const banner = leer('app/_components/ImpersonationBanner.tsx');
-  const zBanner = Number(/zIndex: (\d+)/.exec(banner)?.[1]);
+  const zBanner = Number(/export const Z_BARRA_ADMIN = (\d+);/.exec(banner)?.[1]);
+  assert.ok(Number.isFinite(zBanner) && zBanner > 0, 'no encuentro el z de la barra (Z_BARRA_ADMIN)');
+  assert.match(banner, /position: 'fixed', top: 0, left: 0, right: 0, zIndex: Z_BARRA_ADMIN,/);
   for (const archivo of ['app/onboarding/EntradaMako.tsx', 'app/onboarding/ChatArranque.tsx', 'app/onboarding/CriaturaMako.tsx']) {
     for (const m of leer(archivo).matchAll(/z-index: (\d+)/g)) {
       assert.ok(Number(m[1]) < zBanner, `${archivo} tapa la salida del modo agencia (z ${m[1]} ≥ ${zBanner})`);
