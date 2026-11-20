@@ -62,5 +62,6 @@ const CSS = `
 .mk-vchat__lista { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 240px; max-width: min(320px, calc(100vw - 32px)); margin: 0; padding: 6px; list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: 0 12px 32px rgba(0,0,0,.18); }
 .mk-vchat__lista button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 8px; font: inherit; font-size: var(--fs-sm); color: var(--ink); cursor: pointer; }
 .mk-vchat__lista button:hover { background: var(--surface-2, rgba(0,0,0,.05)); }
-@media (max-width: 640px) { .mk-vchat__lista { right: auto; left: 0; } }
+/* La lista abre hacia la izquierda, también en el teléfono: el botón va a la derecha de la cabecera (20/11, como la maqueta), y abierta
+   hacia la derecha se salía de la pantalla. */
 `;

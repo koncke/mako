@@ -14,14 +14,13 @@ import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react
 import { useVideoTutorial } from './useVideoTutorial';
 import type { FraseVideo } from '@/lib/tutoriales/videos';
 
-export type FaseMensaje = 'espera' | 'escribe' | 'listo';
+/** 'espera': todavía no llegó su momento. 'listo': ya puede salir (sus puntitos y su pieza los pone la cola: app/_chat/useColaDeSalida.ts). */
+export type FaseMensaje = 'espera' | 'listo';
 
 /** Sin el video en el manifiesto (o sin manifiesto), el mensaje sale después de este momento. */
 export const MS_SIN_VIDEO = 2500;
 /** Un video que nadie pone a correr (no arranca solo) no retiene el mensaje para siempre. */
 export const MS_SIN_PLAY = 12_000;
-/** Los tres puntitos antes del mensaje. */
-export const MS_ESCRIBE = 1400;
 /** Con el video corriendo, el momento llega a más tardar a su hora más esto (se trabó, o flota en la esquina y no se oye aquí). */
 export const MS_TOPE_EXTRA = 2000;
 
@@ -47,7 +46,7 @@ const RELOJ: Reloj = { poner: (f, ms) => window.setTimeout(f, ms), sacar: (id) =
 
 /**
  * Espera el momento del video y llama `soltar` UNA vez. `conPuntitos` false: no hubo que esperar nada (el video no corría y
- * `esperaPlay` es 0) y el mensaje va derecho, porque lo que vino antes ya trajo sus puntitos. Devuelve la limpieza.
+ * `esperaPlay` es 0). Los puntitos de verdad los pone la cola de salida. Devuelve la limpieza.
  * Los eventos del <video> no burbujean: se oyen en CAPTURA desde su lugar (la fila del mensaje), sin tocar el reproductor.
  */
 export function esperarAlMomento(lugar: LugarDelVideo | null, o: { tMomento: number | null; esperaPlay: number; hayVideo: boolean },
@@ -100,14 +99,9 @@ export function useMensajeDelVideo(o: { lugar: RefObject<HTMLElement | null>; ac
   const video = useVideoTutorial(o.clave);
   const tMomento = useMemo(() => momentoDelVideo(video?.frases ?? [], o.dice), [video, o.dice]);
   const [fase, setFase] = useState<FaseMensaje>(o.inicial);
-  const soltarCon = useCallback((conPuntitos: boolean) => { setFase((f) => (f === 'espera' ? (conPuntitos ? 'escribe' : 'listo') : f)); }, []);
-  const soltar = useCallback(() => soltarCon(true), [soltarCon]);
-  const listo = useCallback(() => setFase('listo'), []);
-  useEffect(() => {
-    if (fase !== 'escribe') return;
-    const t = window.setTimeout(() => setFase('listo'), MS_ESCRIBE);
-    return () => window.clearTimeout(t);
-  }, [fase]);
+  const soltarCon = useCallback(() => { setFase('listo'); }, []);
+  const soltar = soltarCon;
+  const listo = soltarCon;
   const { activo, esperaPlay, lugar } = o;
   useEffect(() => {
     if (!activo || fase !== 'espera') return;

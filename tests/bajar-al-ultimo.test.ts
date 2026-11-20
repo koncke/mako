@@ -102,9 +102,11 @@ test('4. el chat que abre ARRIBA (el chat nuevo del Ops Center, con su portada) 
 
 test('5. lo usan el onboarding, los coaches (computadora y teléfono) y el chat «Onboarding» del Ops Center; su llegada avisa cada mensaje', () => {
   const v2 = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
-  assert.match(v2, /useBajarAlUltimo\(seguirHilo, `\$\{cuantos\}\|\$\{fase\}\|\$\{primero\}\|\$\{codigoFase\}\|\$\{agendadoFase\}`, \{ suave: true \}\);/,
-    'con cada mensaje, sus puntitos y los que esperan su video');
-  assert.doesNotMatch(v2, /scrollTo\(\{ top: h\.scrollHeight/, 'sin el scroll de una vez');
+  // Por la CLAVE de la última fila dibujada, nunca por una cuenta (la auditoría, onboarding-1: al contestar entraban dos mensajes y se
+  // iban los puntitos y lo pendiente en el mismo render, y la cuenta no cambiaba), y sin animación (onboarding-7).
+  assert.match(v2, /const ultimaFila = cola\.visibles\[cola\.visibles\.length - 1\];/);
+  assert.match(v2, /useBajarAlUltimo\(seguirHilo, `\$\{fase\}\|\$\{ultimaFila\?\.id \?\? ''\}\|\$\{ultimaFila && cola\.conPieza\(ultimaFila\.id\) \? 'pieza' : ''\}\|\$\{pendiente \?\? ''\}\|\$\{escribe \? 'escribe' : ''\}`\);/);
+  assert.doesNotMatch(v2, /const cuantos =|scrollTo\(\{ top: h\.scrollHeight|suave: true/, 'sin la cuenta, sin el scroll de una vez, sin animación');
   assert.match(sinComentarios(leer('app/second-brain/ChatDelCoach.tsx')), /useBajarAlUltimo\(seguirHilo, `\$\{k\.items\.length\}\|\$\{k\.trabajo\}`\);/);
   const hoja = sinComentarios(leer('app/m/second-brain/HojaDelCoach.tsx'));
   assert.match(hoja, /useBajarAlUltimo\(seguirHoja, `\$\{k\.items\.length\}\|\$\{k\.trabajo\}\|\$\{vista\}`\);/);
@@ -112,8 +114,9 @@ test('5. lo usan el onboarding, los coaches (computadora y teléfono) y el chat 
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
   assert.match(sb, /useBajarAlUltimo\(seguirHilo, `[^`]*\$\{k\.items\.length\}[^`]*`, \{ arriba: enChatNuevo && !k\.items\.length \}\);/);
   assert.doesNotMatch(sb, /el\.scrollTop = enChatNuevo/);
-  const b = sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx'));
-  assert.match(b, /useEffect\(\(\) => \{ if \(toca \|\| cierra\) avisarMensajeNuevo\(\); \}, \[toca, cierra, fase, cierre\]\);/);
+  // La llegada (ops-center-1: sus filas viven fuera de la lista del chat) avisa cada fila nueva; desde el 20/11 vive en el chat del reto.
+  const b = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
+  assert.match(b, /useEffect\(\(\) => \{ if \(fase !== 'espera'\) avisarMensajeNuevo\(\); \}, \[fase\]\);/);
   // El hilo y sus hijos, con ResizeObserver: lo que crece adentro (un video, una imagen, una tarjeta) lo avisa.
   const hk = sinComentarios(leer('app/_chat/useBajarAlUltimo.ts'));
   assert.match(hk, /ro\.observe\(el as never\);\n\s*for \(const c of Array\.from\(el\.children\)\) ro\.observe\(c as never\);/);

@@ -110,7 +110,8 @@ test('6b. OA-10, segunda verificación (20/11, tarde): «Sigamos en tu computado
   assert.match(f, /const perfil = \(data as \{ perfil\?: unknown \} \| null\)\?\.perfil;\n\s*if \(!empezoElV2\(perfil\)\) return false;\n\s*return !Object\.prototype\.hasOwnProperty\.call\(vistosDePerfil\(perfil\), ID_RECORRIDO_PC\);/);
   // La marca: la primera respuesta del V2, de la persona de la sesión (nunca mirando a un cliente), conservando el resto del jsonb.
   const a = sep.slice(sep.indexOf('export async function anotarQueEmpezoElV2'));
-  assert.match(a, /if \(await estaImpersonando\(\)\.catch\(\(\) => true\)\) return;/);
+  // En la fila de la persona del onboarding: mirando un negocio como administrador, su dueño (Martín, 20/11: lo mismo que el cliente).
+  assert.match(a, /const email = \(await personaDelOnboarding\(\)\)\?\.email;/);
   assert.match(a, /if \(empezoElV2\(fila\.perfil\)\) return;/, 'sólo la primera vez');
   assert.match(a, /update\(\{ perfil: \{ \.\.\.base, \[CLAVE_EMPEZO_V2\]: ahora \}, updated_at: ahora \}\)/);
   assert.match(a, /q = fila\.updated_at == null \? q\.is\('updated_at', null\) : q\.eq\('updated_at', fila\.updated_at\);/, 'compare-and-set, como /api/recorridos');
@@ -122,7 +123,7 @@ test('7. OD-03: la barra sigue oculta con el «dale play», al recargar y al vol
   const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
   assert.match(m, /const invita = senal\.tipo === 'marca' && !!senal\.invita;\n\s*const fin = useCallback\(\(como: 'fin' \| 'omitido' \| 'hecho'\) => \{ if \(!invita\) mostrarLaBarra\(\); terminar\(senal\.id, como\); \}, \[senal\.id, invita\]\);/);
   assert.match(m, /const t = window\.setTimeout\(\(\) => \{ if \(!elChatPresentaElRecorrido\(\)\) mostrarLaBarra\(\); \}, ESPERA_BARRA_MS\);/);
-  assert.match(sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx')), /useLayoutEffect\(\(\) => \{ if \(toca && !senalAhora\(\)\) esconderLaBarra\(\); \}, \[toca\]\);/);
+  assert.match(sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx')), /useLayoutEffect\(\(\) => \{ if \(toca && !senalAhora\(\)\) esconderLaBarra\(\); \}, \[toca\]\);/);
   // Al recargar (la segunda verificación de OD-03, 20/11, tarde): en el <html> del layout raíz, del server, y no un <script> de la
   // página, que llega después de loading.tsx con el riel ya pintado. Del módulo chico (tests/seguir-en-pc-liviano.test.ts).
   const lay = sinComentarios(leer('app/layout.tsx'));
@@ -152,7 +153,7 @@ test('10. OD-10: sin video, el paso que sigue a un clic no vuelve a tocar su `an
 });
 
 test('11. OD-F2: el velo de la llegada al Ops Center entra con el barrido, no con un fundido', () => {
-  const b = sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx'));
+  const b = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
   assert.match(b, /if \(!hayHueco \|\| !nodo \|\| menosMovimiento\(\)\) return;\n\s*return barrer\(nodo\);/);
   // El hueco con la forma de la píldora de MaKo escribiendo, no de la fila (la fila se estira al ancho del chat: una franja clara).
   assert.match(b, /\{hc && <div ref=\{hueco\} className="sbl-velo" style=\{\{ left: hc\.x, top: hc\.y, width: hc\.w, height: hc\.h \}\} \/>\}/);
@@ -215,7 +216,8 @@ test('14. V5: la entrada de un día y su «dale play» se guardan en el navegado
   assert.match(sinComentarios(leer('app/_ui/tutorial/useDalePlay.ts')), /cerrado: cerrado \|\| dalePlayCerrado\(clave\)/);
   // El del WhatsApp sigue SIN «dale play» (la verificación lo anotó como detalle; la decisión está en tests/tutorial-entrada.test.ts, 4:
   // llega junto a la tarjeta del código, y las tapas de la marca no dejarían escribirlo).
-  assert.match(sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx')), /<VideoDelMomento clave=\{VIDEO_WHATSAPP\} titulo="Tu WhatsApp con MaKo" revision=\{false\} \/>/);
+  // El del WhatsApp, con su «dale play» desde el 20/11 (tarde): la tarjeta del código ya no sale junto al video, así que sus tapas no tapan nada.
+  assert.match(sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx')), /<VideoDelMomento clave=\{VIDEO_WHATSAPP\} titulo="Tu WhatsApp con MaKo" revision=\{false\} dalePlay \/>/);
 });
 
 test('15. V9: en «Onboarding», el recorrido de la lista de videos se ve con sus marcas', () => {
@@ -250,7 +252,7 @@ test('17. F2: el video de la esquina es el reproductor de la maqueta, con «Agra
 });
 
 test('18. F4: en la llegada al Ops Center, el video va arriba y el texto debajo', () => {
-  const b = sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx'));
+  const b = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
   const video = b.indexOf('data-recorrido="sb-llegada-play"');
   const texto = b.indexOf('<div className="ch-md"><p>{textoLlegada(nombre)}</p></div>');
   assert.ok(video > 0 && texto > 0 && video < texto);
@@ -272,17 +274,18 @@ test('20. wa-04: la tarjeta del código dice el aviso cuando su mensaje llegó y
 });
 
 test('21. OD-05, segunda verificación (20/11, tarde): al volver de Second Brain, la llegada no redibuja el velo en medio del recorrido', () => {
-  const b = sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx'));
+  const b = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
   assert.match(b, /^let llegadaEscrita = false;$/m, 'en el módulo: sobrevive al desmontaje del chat');
-  assert.match(b, /const \[fase, setFase\] = useState<'escribe' \| 'listo'>\(\(\) => \(llegadaEscrita \|\| senalAhora\(\) \? 'listo' : 'escribe'\)\);/);
-  assert.match(b, /useEffect\(\(\) => \{ if \(fase === 'listo'\) llegadaEscrita = true; \}, \[fase\]\);/);
+  assert.match(b, /const \[fase, setFase\] = useState<'espera' \| 'escribe' \| 'listo'>\(\(\) => \(llegadaEscrita \|\| senalAhora\(\) \? 'listo' : 'espera'\)\);/);
+  // Y por persona, también al recargar (ops-center-3: tests/onboarding-llegada-al-reto.test.ts).
+  assert.match(b, /const anotarMostrada = \(quien: string \| null\): void => \{\n\s*llegadaEscrita = true;/);
   // El velo y los puntitos salen sólo con `fase === 'escribe'`.
-  assert.match(b, /\{toca && fase === 'escribe' && typeof document !== 'undefined' && createPortal\(/);
+  assert.match(b, /\{fase === 'escribe' && typeof document !== 'undefined' && createPortal\(/);
 });
 
 test('22. OD-13, segunda verificación (20/11, tarde): «Entrar a MaKo» cierra también el video que ya flotaba en la esquina', async () => {
   const c = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
-  const e = c.slice(c.indexOf('const entrar = useCallback('), c.indexOf('router.push(rutaDelHilo('));
+  const e = c.slice(c.indexOf('const entrar = useCallback('), c.indexOf('router.push(RUTA_AL_RETO);'));
   assert.match(e, /v\.pause\(\);\n\s*const flotando = senalAhora\(\);\n\s*if \(flotando\?\.tipo === 'video'\) soltarSenal\(flotando\.id\);/);
   // La señal del video de la esquina se suelta (y un tutorial no se toca: sólo la del video).
   const { reproducirFlotante, senalAhora, soltarSenal } = await import('../app/_ui/tutorial/store');

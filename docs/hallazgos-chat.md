@@ -440,21 +440,36 @@ verde de «Enviar audio» quedaba cortado contra el borde derecho, y en el hilo 
 - **Regla:** un elemento compartido que se centra con `margin-inline: auto` lleva `width: 100%` + `min-width: 0` para no depender del
   tipo de su padre (bloque, flex o grilla). Se mide en el chat MÁS angosto donde vive, con su estado más ancho (la nota lista).
 
-## El chat no bajaba al último mensaje cuando el mensaje CRECÍA después (20/11/2026, chat «onboarding-v2», claude5)
+## El chat no bajaba al último mensaje: el disparador era una CUENTA, no el video (20/11/2026, chat «onboarding-v2», claude5)
 
-- **El síntoma (Martín, en producción):** llega un video al chat y el chat no baja. «Siempre se haga scroll automático hacia el último
-  mensaje para que el usuario sepa dónde están las cosas.»
-- **La causa:** cada chat bajaba UNA vez, al montarse el mensaje (`scrollTop = scrollHeight` con el largo de la lista en las
-  dependencias). Un video se dibuja más tarde: la portada y los metadatos llegan después y el mensaje crece con el chat ya quieto. Lo
-  mismo pasa con una imagen lenta o una tarjeta que se arma después. Ningún cambio en la lista lo avisa.
-- **Qué quedó:** app/_chat/useBajarAlUltimo.ts. Un mensaje NUEVO baja siempre. Lo que CRECE baja mientras la persona está abajo
-  (ResizeObserver sobre el hilo y sus hijos). Si subió a leer, lo que crece no la arrastra; el próximo mensaje nuevo, sí. Lo usan el
-  onboarding V2, los coaches (computadora y teléfono) y el Ops Center, también en su chat «Onboarding» (la llegada avisa cada mensaje
-  con `avisarMensajeNuevo`). El núcleo no usa React y lo prueba tests/bajar-al-ultimo.test.ts con un hilo de mentira.
-- **UN mecanismo para lo que crece (`bajarAlCrecer`), dos reglas de «abajo»:** el chat de los grupos (app/_chat/grupo/useSeguirElHilo.ts)
-  ya tenía la suya, como WhatsApp: lo nuevo de otros no la baja si está leyendo, y un botón cuenta cuántos llegaron. Usa el mismo
-  `bajarAlCrecer`, con su `estabaAbajo`. Si «un mensaje nuevo sí la baja» vale también ahí, lo decide la auditoría de todos los chats.
+- **El síntoma (Martín, en producción):** llega un mensaje o un video al chat y el chat no baja. «Siempre se haga scroll automático hacia
+  el último mensaje para que el usuario sepa dónde están las cosas.»
+- **El diagnóstico obvio era el equivocado:** «el video carga su portada después y crece». VideoDelMomento y la portada de la llegada
+  tienen CAJA FIJA (aspect-ratio 16/9); un arreglo que escuche `loadedmetadata` no arregla nada. Lo dijo la auditoría de chats del
+  Cerebro (side-session-notes, auditoria-chats-onboarding-ops-20-11.md); la primera versión de este hook (95644fc4b) se armó sobre el
+  diagnóstico equivocado y bajaba por cuenta.
+- **La causa real:** lo que dispara el scroll. Cada chat bajaba con una CUENTA (`mensajes.length + pendiente + ocupado`). Al contestar,
+  el servidor suma dos mensajes (la respuesta y la pregunta nueva) y en el MISMO render React se van lo pendiente y los puntitos: la
+  cuenta no cambia y el efecto no corre. Y en el Ops Center, las filas de la llegada vivían fuera de `k.items`: no las contaba nadie.
+- **Qué quedó:** app/_chat/useBajarAlUltimo.ts baja por la CLAVE de la última fila dibujada (su id, sus puntitos, su pieza), sin
+  animación y la primera vez antes de pintar. Una fila que no sale de la lista del chat avisa con `avisarMensajeNuevo()`. El
+  ResizeObserver (`bajarAlCrecer`) queda para lo que de verdad cambia de alto: una tarjeta que se arma, el recuadro o el error arriba de
+  la caja. Si la persona subió a leer, lo que crece no la arrastra; el próximo mensaje nuevo, sí. Lo prueba tests/bajar-al-ultimo.test.ts
+  con un hilo de mentira; en el navegador, el onboarding queda a 0 px del final en cada paso, y leyendo arriba no se mueve.
+- **La cola de salida (app/_chat/useColaDeSalida.ts), la otra pieza:** los mensajes de MaKo salen de a uno, con puntitos de
+  max(lo ya esperado, 600 ms + 20 ms por letra, tope 2.200 ms), y su tarjeta, recuadro o botón 500 ms después del texto. El
+  historial sale de una. Los puntitos cuentan desde que la persona mandó (`empezoLaEspera`): si el servidor tardó más, el mensaje sale
+  ya. Un mensaje RETENIDO (espera el momento de su video) no tiene puntitos hasta que se suelta, y ahí trae los suyos. **Trampa:** sin
+  limpiar `desde` mientras está retenido, el mensaje del código salía sin puntitos (`desde` era de cuando salió el video, 4 s antes).
+- **Dos hooks, a propósito:** `useBajarAlUltimo` para los chats con MaKo (un mensaje nuevo baja SIEMPRE) y app/_chat/grupo/useSeguirElHilo.ts
+  para los chats con PERSONAS (grupos y bandeja): lo nuevo de otros no baja a quien lee arriba, un botón cuenta cuántos llegaron, y al
+  abrir va a «Sin leer». Es la excepción escrita (decisión del 3/11, «como WhatsApp»; el Cerebro, 20/11). Comparten `bajarAlCrecer`, y el
+  de grupos baja con los puntitos de MaKo pensando si estaba abajo (ops-center-8a).
 - **Trampa:** el «subió a leer» se mide por el scroll que BAJA. Lo que baja el chat solo nunca la despega, y cuando el hilo se achica el
   navegador recorta el scroll y la deja cerca del final: por eso se mira primero la distancia al final y después la dirección.
-- **Sin hacer:** ChatDelReto.tsx (lo tiene el chat del reto; el Cerebro le pasa el hook) y el resto de los chats de la app (la
-  auditoría del Cerebro). Los que todavía bajan una sola vez: `grep -rn "scrollTop = el.scrollHeight" app`.
+- **Trampa al medirlo:** con una marca del tutorial puesta, el motor vuelve a traer lo marcado a la vista cuando se scrollea. Una prueba
+  de «subió a leer» con la marca abierta mide al motor, no al hook.
+- **Sin hacer:** ChatDelReto.tsx (lo tiene el chat del reto; el Cerebro le pasa los nombres) y los otros chats con MaKo (ops-center-4 a 7
+  y 9 de la auditoría: el Cerebro, AperturaMako, useChatCliente, las pestañas). Los que todavía bajan por cuenta:
+  `grep -rn "scrollTop = el.scrollHeight" app`.
+

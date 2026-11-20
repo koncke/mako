@@ -115,15 +115,18 @@ test('4. los momentos, contra el manifiesto de verdad: cada mensaje nombra lo qu
   assert.equal(momentoDelVideo([{ t_inicio: 1, texto: 'otra cosa' }], 'Abrir WhatsApp'), null);
 });
 
-test('5. el onboarding lo arma así: el código y el contacto a su momento, con puntitos, y el velo sobre «Abrir WhatsApp»', () => {
+test('5. el onboarding lo arma así: el video del WhatsApp y el código salen por la cola, a su momento, y el velo marca «Abrir WhatsApp» con su tarjeta', () => {
   const v2 = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
-  assert.match(v2, /lugar: filaWhatsapp, activo: mensajes\.some\(\(m\) => m\.id === MENSAJE_DEL_CODIGO\), inicial: yaEstaba\(MENSAJE_DEL_CODIGO\) \? 'listo' : 'espera',\n\s*clave: VIDEO_WHATSAPP, dice: MOMENTO_CODIGO\.dice, esperaPlay: MS_SIN_PLAY,/);
+  // El momento del código se espera con el video ya dibujado (sale por la cola, con sus puntitos); sin video, sin él.
+  assert.match(v2, /lugar: filaWhatsapp, activo: mensajes\.some\(\(m\) => m\.id === MENSAJE_DEL_CODIGO\) && \(conVideoWa \|\| !videoWhatsapp\), inicial: yaEstaba\(MENSAJE_DEL_CODIGO\) \? 'listo' : 'espera',\n\s*clave: VIDEO_WHATSAPP, dice: MOMENTO_CODIGO\.dice, esperaPlay: MS_SIN_PLAY,/);
   assert.match(v2, /lugar: filaWhatsapp, activo: mensajes\.some\(\(m\) => m\.id === MENSAJE_AGENDADO\), inicial: yaEstaba\(MENSAJE_AGENDADO\) \? 'listo' : 'espera',\n\s*clave: VIDEO_WHATSAPP, dice: MOMENTO_AGENDADO\.dice, esperaPlay: 0,/);
-  // Primero SOLO el video; el mensaje del código, con sus puntitos, a su momento. Nunca dos mensajes de MaKo de golpe.
-  assert.match(v2, /return \[video, codigoFase === 'listo' \? fila : codigoFase === 'escribe' \? escribiendo\('arr-codigo-escribe'\) : null\];/);
-  assert.match(v2, /if \(m\.id === MENSAJE_AGENDADO && agendadoFase !== 'listo'\) return agendadoFase === 'escribe' \? escribiendo\('arr-agendado-escribe'\) : null;/);
-  assert.match(v2, /&& !\(ultimoMako\.id === MENSAJE_AGENDADO && agendadoFase !== 'listo'\) \? ultimoMako : null;/, 'sus opciones, con el mensaje');
-  // El velo del tutorial marca «Abrir WhatsApp» con el mensaje (sólo si el botón está: una marca sin lugar espera para siempre).
+  assert.match(v2, /useEffect\(\(\) => \{ if \(cola\.visibles\.some\(\(f\) => f\.id === FILA_VIDEO_WHATSAPP\)\) setConVideoWa\(true\); \}, \[cola\.visibles\]\);/);
+  // Lo que espera su momento queda RETENIDO en la cola (sin puntitos); suelto, trae los suyos. Primero SOLO el video, como un mensaje más.
+  assert.match(v2, /retenido: \(id\) => \(id === MOMENTO_NOMBRE\.mensaje && primero !== 'listo'\) \|\| \(id === MENSAJE_DEL_CODIGO && codigoFase !== 'listo'\)\n\s*\|\| \(id === MENSAJE_AGENDADO && agendadoFase !== 'listo'\),/);
+  assert.match(v2, /if \(m\.id === MENSAJE_DEL_CODIGO && videoWhatsapp\) out\.push\(\{ id: FILA_VIDEO_WHATSAPP, de: 'mako', texto: '', m: null \}\);/);
+  // La tarjeta (con «Abrir WhatsApp») sale después de su texto, y el velo la marca recién entonces.
+  assert.match(v2, /const t = cola\.conPieza\(m\.id\) \? tarjeta\(m\) : null;/);
+  assert.match(v2, /const tarjetaDelCodigo = cola\.conPieza\(MENSAJE_DEL_CODIGO\);/);
   assert.match(v2, /if \(!codigoEnVivo\.current \|\| !document\.querySelector\(SEL_ABRIR_WHATSAPP\)\) return;/);
   assert.match(v2, /marcaWa\.current = senalarDondeTocar\(PASO_ABRIR_WHATSAPP, fuera, \{ alOmitir: fuera \}\);/);
   assert.match(v2, /href=\{w\.link!\} target="_blank" rel="noopener noreferrer" data-abrir-whatsapp="">/);

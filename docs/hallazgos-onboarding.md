@@ -3664,6 +3664,27 @@ filas de los coaches tachaban el día 1 entero.
 - **Sin hacer** (nota del Cerebro, para la próxima vez que se toque Calendar): en el video de Calendar, «Toca aquí, en Publicaciones,
   Plan, Ventas o Entregas,» sale con la letra más chica que el resto (el dibujo del pipeline, C:/dev/tutoriales-video).
 
+## El onboarding V2 contra la auditoría de chats, y lo que Martín vio entrando como administrador (20/11/2026, tarde, chat «onboarding-v2», claude5)
+
+- **onboarding-1, el hilo no bajaba al contestar:** el efecto miraba una CUENTA de filas, y al responder entraban dos mensajes y se iban
+  lo pendiente y los puntitos en el mismo render. Baja por la clave de la última fila (docs/hallazgos-chat.md). No era el video.
+- **onboarding-3 y 4, todo de golpe:** la pregunta y su tarjeta, su recuadro o su botón salían en el mismo instante, y los puntitos
+  duraban lo que el servidor. Ahora por la cola de salida (app/_chat/useColaDeSalida.ts): el video del WhatsApp es un mensaje más, el
+  código espera su momento sin puntitos y, al soltarse, trae los suyos; la tarjeta sale después del texto y el velo la marca recién ahí.
+- **El video del WhatsApp ahora tiene su «dale play».** La decisión de no ponérselo era porque sus tapas taparían la tarjeta del código;
+  la tarjeta ya no sale junto al video.
+- **onboarding-6 (decidido: al recargar, lo ya mostrado se dibuja de una):** la pregunta del nombre se recuerda en este navegador
+  (`mk-onb-salidos:<huella>`). Se aplica después de hidratar: leer localStorage en el estado inicial daría un HTML distinto del del servidor.
+- **«Entrar a MaKo» abre el chat «Reto de 7 días»** (`RUTA_AL_RETO`, la misma que manda el reto en sus correos). La llegada ya no vive
+  en el chat «Onboarding»: es el primer mensaje del reto (docs/hallazgos-ops-center.md). El chat «Onboarding» se sigue creando, con la
+  conversación.
+- **La vista como administrador muestra lo mismo que ve el cliente** (Martín, probando en Lalaland, ws 3, «como administrador»). La
+  barra lateral se veía al llegar porque `seguirEnPcPendiente` daba que no a quien opera o mira un negocio. Ahora el estado del
+  onboarding (empezó el V2, vio el recorrido) es del DUEÑO del negocio que se mira (lib/seguir-en-pc.ts → `personaDelOnboarding`; el
+  dueño sale de lib/dueno-del-ws.ts, chico porque lo importa el guard del layout raíz). En SU cuenta, quien opera sigue afuera.
+- **Sin hacer:** el chat del reto tiene que montar `LlegadaAlReto` (no lo toqué: tiene una tanda sin subir). Hasta que lo haga, la llegada
+  no sale en ningún lado y la barra vuelve a los 9 s (ESPERA_BARRA_MS del motor).
+
 ## El mensaje que nombra algo del video sale cuando la voz llega ahí (20/11/2026, tarde, chat «onboarding-v2», claude5)
 
 - **El síntoma (Martín, en producción):** en el paso del WhatsApp salían juntos el video y el mensaje con «Abrir WhatsApp» y la caja

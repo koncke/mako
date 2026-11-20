@@ -35,7 +35,7 @@ export function ChatDelGrupo({ ws, grupo, visible = true, onVolver, onLeido, onC
   const caja = useRef<HTMLTextAreaElement>(null);
   const k = useHiloDelGrupo({ ws, visible, onLeido });
   const seguir = useCallback(() => hilo.current, []);
-  const s = useSeguirElHilo({ contenedor: seguir, mensajes: k.mensajes, pendientes: k.pendientes.length, conError: k.pendientes.filter((p) => p.estado === 'error').length, listo: k.estado === 'listo', visible });
+  const s = useSeguirElHilo({ contenedor: seguir, mensajes: k.mensajes, pendientes: k.pendientes.length, conError: k.pendientes.filter((p) => p.estado === 'error').length, pensando: k.pensando, listo: k.estado === 'listo', visible });
   // Participantes, o la misma hoja con el cursor en el email («Invitar», 4/11/2026: Martín, «no veo el botón de invitar allí mismo»).
   const [viendo, setViendo] = useState<'participantes' | 'invitar' | null>(null);
   const miembros = useMiembrosDelGrupo(ws);

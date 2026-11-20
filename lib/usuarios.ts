@@ -8,6 +8,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
+import { emailDelDuenoDelWs } from './dueno-del-ws';
 import { atarInvitacionesAlEntrar } from './grupo-invitaciones';
 import type { Rol, RolWorkspace } from './auth-session';
 import { conFotoSegura, fotoDePersonaSegura } from './foto-perfil';
@@ -255,14 +256,8 @@ export async function contarAdminsActivos(): Promise<number> {
  * que no es lo mismo que "quién está logueado" cuando un admin impersona.
  */
 export async function emailDuenoWorkspace(ws: number | null): Promise<string> {
-  if (ws == null) return '';
-  const { data, error } = await getSupabaseServer()
-    .from('usuarios').select('email, rol_ws').eq('workspace_id', ws).neq('estado', 'suspendido')
-    .order('rol_ws', { ascending: true }).limit(20);
-  if (error) return '';
-  const filas = (data ?? []) as Array<{ email: string; rol_ws: string | null }>;
-  const admin = filas.find((f) => f.rol_ws === 'admin') ?? filas[0];
-  return (admin?.email ?? '').trim().toLowerCase();
+  // En un módulo chico (lib/dueno-del-ws.ts): lo usa también el guard del layout raíz, que no puede arrastrar este archivo.
+  return emailDelDuenoDelWs(ws);
 }
 
 /**

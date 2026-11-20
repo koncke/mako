@@ -88,7 +88,6 @@ import { BotonSecondBrainDe, CerebroDelGuru } from './SuSecondBrain';
 import { useCoaches, useGurusConCharla } from './useCoaches';
 import { ChatDelCentro, FilaDeChat, GruposPorJefe, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, RenglonDeFila, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
-import { BienvenidaOpsCenter } from './BienvenidaOpsCenter';
 import { VideosDelChat, type VideoDeUnChat } from '@/app/_ui/tutorial/VideosDelChat';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { ChatNuevoCentro } from '@/app/admin/operaciones/ChatNuevo';
@@ -742,7 +741,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             // En una conversación de Offer se ve quién aconseja (el referente del coach, del que cuelga) y se puede cambiar, como la
             // criatura de cualquier chat.
             // Los videos del onboarding, para volver a verlos (20/11, V9): la bienvenida, el del WhatsApp y el recorrido.
-            ...(enElOnboarding ? { acciones: <VideosDelChat videos={VIDEOS_DEL_ONBOARDING} /> } : {}),
+            ...(enElOnboarding ? { acciones: <span className="co-cab__der"><VideosDelChat videos={VIDEOS_DEL_ONBOARDING} /></span> } : {}),
             ...(idOffer != null ? {
               onMuneco: puedeElegir ? () => setEligiendoReferente(true) : undefined,
               acciones: delCoach ? <><span className="co-cab__inspirado">{inspiradoEn(delCoach)}</span><BotonSecondBrainDe referente={delCoach} viendo={viendoCerebroOffer} onCambiar={(si) => setCerebroDeOffer(si ? idOffer : null)} /></> : undefined,
@@ -761,8 +760,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           </>}
           estado={estadoDelCliente(k)}>
           <HiloDelCliente k={k} apertura={apertura} />
-          {/* Al llegar del onboarding, en su chat: MaKo escribe y manda el video del recorrido con «Dale play…» (20/11, OD-05). */}
-          {enElOnboarding && <BienvenidaOpsCenter nombre={nombrePersona} retoEmpezo={!!datosReto.d?.estado} />}
+          {/* La llegada (el video del recorrido con «Dale play…») ya no va en el chat «Onboarding»: es el primer mensaje del chat «Reto de
+              7 días», que abre solo al «Entrar a MaKo» (20/11, Martín; ./LlegadaAlReto.tsx, la monta ChatDelReto). */}
           {enChatNuevo && !k.items.length && !k.trabajo && <GaleriaDeGurus onElegir={abrirGuru} soloPro={gurusSoloPro} />}
         </PanelDeChat>
       )}

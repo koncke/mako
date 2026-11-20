@@ -145,7 +145,8 @@ test('12. OA-10 / OD-12: en el teléfono, «Sigamos en tu computadora» se queda
   const srv = leer('lib/seguir-en-pc.ts');
   const f = srv.slice(srv.indexOf('export async function seguirEnPcPendiente'));
   assert.match(f, /if \(!veOnboardingV2\(/, 'sólo con el V2');
-  assert.match(f, /if \(await estaImpersonando\(\)\.catch\(\(\) => true\)\) return false;/, 'mirando a un cliente, nunca');
+  // Mirando un negocio como administrador, lo del DUEÑO (Martín, 20/11: la vista como administrador muestra lo mismo que el cliente).
+  assert.match(f, /const p = await personaDelOnboarding\(\);\n\s*if \(!p\) return false;/);
   // Y sólo a quien EMPEZÓ el V2 (la segunda verificación, 20/11, tarde: tests/onboarding-v2-verificacion.test.ts, 6b).
   assert.match(f, /if \(!empezoElV2\(perfil\)\) return false;\n\s*return !Object\.prototype\.hasOwnProperty\.call\(vistosDePerfil\(perfil\), ID_RECORRIDO_PC\);/);
   assert.match(srv, /const ID_RECORRIDO_PC = 'tutorial-ops-center';/, 'el id con que lo anota el motor');
@@ -187,13 +188,12 @@ test('15. F2: el video que pasó a la esquina vuelve al chat cuando su mensaje s
   assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /\{flotando && <span className="mk-vmom__esquina" role="status">Se está viendo en la esquina ↘<\/span>\}/);
 });
 
-test('16. OD-05 y V9: en el chat «Onboarding», MaKo escribe y manda el video del recorrido con «Dale play…»; su play lo arranca', async () => {
-  const { textoLlegada, ID_RECORRIDO, MS_ESCRIBE_LLEGADA } = await import('../lib/onboarding-v2/llegada');
+test('16. OD-05 y V9: la llegada (desde el 20/11, el primer mensaje del chat del reto): MaKo escribe y manda el video del recorrido con «Dale play…»; su play lo arranca', async () => {
+  const { textoLlegada, ID_RECORRIDO } = await import('../lib/onboarding-v2/llegada');
   assert.equal(textoLlegada('Valentina'), 'Te doy la bienvenida a tu Ops Center, Valentina. Dale play: te muestro dónde está cada cosa.');
   assert.equal(ID_RECORRIDO, 'tutorial-ops-center');
-  assert.equal(MS_ESCRIBE_LLEGADA, 1800, 'como la pantalla oscura del onboarding');
-  const b = sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx'));
-  assert.match(b, /const toca = ensayo\.activo \? !vistoEnEnsayo\(ID_RECORRIDO\) : r\.visto === false;/, 'sólo mientras no vio el recorrido (también en el ensayo)');
+  const b = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
+  assert.match(b, /const toca = ensayo\.activo \? !vistoEnEnsayo\(ID_RECORRIDO\) : r\.visto === false;/, 'el velo, sólo mientras no vio el recorrido (también en el ensayo)');
   assert.match(b, /const alTerminar = ensayo\.activo \? \(\) => marcarVistoEnEnsayo\(ID_RECORRIDO\) : r\.onCerrar;/);
   assert.match(b, /const empezar = \(\) => mostrarTutorial\(TUTORIAL_RECORRIDO, \{ alTerminar \}\);/, 'el play lo arranca y lo anota como visto');
   assert.match(b, /chatPresentaRecorrido\(true\);\n\s*return \(\) => chatPresentaRecorrido\(false\);/);
@@ -201,9 +201,10 @@ test('16. OD-05 y V9: en el chat «Onboarding», MaKo escribe y manda el video d
   // El motor no lo arranca solo mientras el chat lo presenta.
   const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
   assert.match(m, /if \(t\.pestana === 'ops-center' && elChatPresentaElRecorrido\(\)\) \{ window\.setTimeout\(mirar, 500\); return; \}/);
+  // Ya no va en el chat «Onboarding»: lo monta el chat del reto (Martín, 20/11).
   const c = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  assert.match(c, /\{enElOnboarding && <BienvenidaOpsCenter nombre=\{nombrePersona\} retoEmpezo=\{!!datosReto\.d\?\.estado\} \/>\}/);
-  assert.match(c, /\.\.\.\(enElOnboarding \? \{ acciones: <VideosDelChat videos=\{VIDEOS_DEL_ONBOARDING\} \/> \} : \{\}\),/, 'V9: los videos del onboarding en su chat');
+  assert.doesNotMatch(c, /<BienvenidaOpsCenter|<LlegadaAlReto/);
+  assert.match(c, /\.\.\.\(enElOnboarding \? \{ acciones: <span className="co-cab__der"><VideosDelChat videos=\{VIDEOS_DEL_ONBOARDING\} \/><\/span> \} : \{\}\),/, 'V9: los videos del onboarding en su chat, a la derecha');
   for (const k of ['onboarding-bienvenida', 'onboarding-bienvenida-whatsapp', 'recorrido']) assert.match(c, new RegExp(`clave: '${k}'`));
 });
 
@@ -234,16 +235,13 @@ test('18. OA-17: la bienvenida presenta el reto, y su portada lleva el play dond
   assert.match(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /\.mk-vmom__pantalla--abajo-derecha \{ place-items: end end;/);
 });
 
-test('19. OD-09: visto el recorrido, MaKo presenta el chat del reto en «Onboarding», y recién después se marca', async () => {
-  const { textoRetoEnSuChat, MS_ESCRIBE_RETO } = await import('../lib/onboarding-v2/llegada');
-  assert.equal(textoRetoEnSuChat('Valentina'), '¡Listo tu onboarding, Valentina! Tu reto de 7 días tiene su propio chat: ahí te escribo cada día, con su video.', 'la maqueta, RETO_EN_SU_CHAT');
-  assert.ok(MS_ESCRIBE_RETO > 0);
+test('19. OD-09, desde el 20/11: la llegada ES el primer mensaje del chat del reto, así que ya no lo presenta en «Onboarding»', async () => {
+  const l = await import('../lib/onboarding-v2/llegada');
+  assert.equal('textoRetoEnSuChat' in l, false, '«¡Listo tu onboarding…! Tu reto tiene su propio chat» ya no hace falta: está en él');
+  const b = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
+  assert.doesNotMatch(b, /chatPresentaReto|retoEmpezo/);
   const { chatPresentaReto, elChatPresentaElReto } = await import('../app/_ui/tutorial/store');
   chatPresentaReto(true); assert.equal(elChatPresentaElReto(), true); chatPresentaReto(false); assert.equal(elChatPresentaElReto(), false);
-  const b = sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx'));
-  assert.match(b, /const cierra = visto && !retoEmpezo;/, 'con el reto empezado, no hace falta');
-  assert.match(b, /chatPresentaReto\(true\);\s*const t = window\.setTimeout\(\(\) => \{ setCierre\('listo'\); chatPresentaReto\(false\); \}, MS_ESCRIBE_RETO\);/);
-  assert.match(b, /<p>\{textoRetoEnSuChat\(nombre\)\}<\/p>/);
   const m = sinComentarios(leer('app/second-brain/reto/MarcaAlReto.tsx'));
   assert.match(m, /if \(!listo \|\| empezo \|\| marcado\.current \|\| senal \|\| presenta \|\| opsVisto !== true\) return;/);
   assert.match(m, /if \(senalAhora\(\) \|\| elChatPresentaElReto\(\) \|\| marcado\.current\) return;/);

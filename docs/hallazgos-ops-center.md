@@ -812,3 +812,21 @@ tests/onboarding-v2-coaches-videos.test.ts.
 - **El recorrido de la lista de videos de «Onboarding» corre con sus marcas** (V9): `VideoDeUnChat.tutorial`. Antes se veía suelto
   en la esquina.
 - **En el catálogo, «Tu WhatsApp con MaKo» es el video del V2** (V1): `onboarding-whatsapp` era el de la pantalla vieja.
+
+## La llegada pasa al chat del reto, y el administrador ve lo del cliente (20/11/2026, tarde, chat «onboarding-v2», claude5)
+
+- **ops-center-1, la llegada no bajaba el hilo:** sus filas vivían fuera de `k.items` y cambiaban con su propio estado; nadie las
+  contaba. Ahora cada fila de la llegada avisa (`avisarMensajeNuevo`) y el hilo baja (app/_chat/useBajarAlUltimo.ts).
+- **La llegada es una pieza para el chat del reto** (app/second-brain/LlegadaAlReto.tsx, antes BienvenidaOpsCenter.tsx). Martín, 20/11:
+  la llegada es SIEMPRE el primer mensaje del chat «Reto de 7 días», que abre solo al «Entrar a MaKo». La monta ChatDelReto:
+  `<LlegadaAlReto nombre listo={hiloCargado} onMostrada={…} />`. Se fue la presentación del reto («¡Listo tu onboarding…! Tu reto tiene
+  su propio chat», OD-09): ya está en él.
+- **ops-center-2, el velo medido con el hilo vacío:** la llegada arrancaba antes de que llegara la conversación (otro fetch), y la copia de
+  los puntitos quedaba arriba, sobre mensajes viejos. Ahora espera `listo` (el hilo cargado) y se vuelve a medir con un ResizeObserver
+  del hilo y con su scroll mientras escribe. Medido en el navegador: el velo aparece después de que carga el hilo, sobre su lugar.
+- **ops-center-3, recargar repetía la llegada:** se recuerda por persona en este navegador (`mk-llegada-mostrada:<quien>`, con la huella
+  que manda /api/recorridos; `useRecorrido` ahora la devuelve). Al recargar, el mensaje sale de una, sin velo ni puntitos.
+- **Mirando como administrador un negocio con el V2, /api/recorridos lee y anota en el DUEÑO** (Martín: lo mismo que ve el cliente). Da
+  vuelta ahí la regla D7 («el super admin que mira un cliente no le consume el recorrido»): en un negocio del V2, lo que el administrador
+  cierra lo cierra el cliente. Hoy sólo alcanza al Cliente de Prueba (ws 3); **con el interruptor para todos, alcanzará a cualquier
+  cliente que un administrador mire.** Si eso no se quiere para los clientes de verdad, hay que acotarlo antes de prender el V2.

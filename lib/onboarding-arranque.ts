@@ -359,6 +359,13 @@ export function rutaDelHilo(chat: number | null): string {
   return chat ? `${RUTA_AL_TERMINAR}?chat=${chat}` : RUTA_AL_TERMINAR;
 }
 
+/**
+ * Al «Entrar a MaKo» del onboarding V2 (20/11/2026, Martín, en producción): el Ops Center con el chat «Reto de 7 días» ya elegido, porque
+ * la llegada (el video del recorrido) es su primer mensaje. La misma ruta que manda el reto en sus correos (`RUTA_RETO`, lib/reto/avisos.ts;
+ * no se importa de ahí: aquí la usa la pantalla, y aquel módulo arrastra los días del reto).
+ */
+export const RUTA_AL_RETO = '/second-brain?reto=1';
+
 /** El título del chat del Ops Center con la conversación del onboarding. */
 export const TITULO_HILO = 'Onboarding';
 

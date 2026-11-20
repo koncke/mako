@@ -27,7 +27,7 @@ import { ChatArranqueV2 } from './ChatArranqueV2';
 import { requireRolWs } from '@/lib/tab-access';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
 import { vistaArranque } from '@/lib/onboarding-arranque-server';
-import { seguirEnPcPendiente } from '@/lib/seguir-en-pc';
+import { personaDelOnboarding, seguirEnPcPendiente } from '@/lib/seguir-en-pc';
 import { primerNombre } from '@/lib/onboarding-arranque';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import { ARBOL_VACIO } from '../offer/arbol';
@@ -67,7 +67,10 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     // El onboarding V2 en un TELÉFONO (18/11/2026): el primer paso acá y, al terminar, «Continuar el onboarding desde la PC».
     // Un teléfono es un teléfono aunque haya pedido la «Versión completa» (20/11, la verificación de OA-10).
     const seguirEnPc = v2 && (await esTelefono().catch(() => false));
-    const persona = sesion ? { nombre: (sesion.nombre ?? '').trim().split(/\s+/)[0] ?? '', email: sesion.email } : undefined;
+    // Mirando el negocio como administrador, el email del DUEÑO (20/11, Martín: la vista como administrador muestra lo mismo que ve el
+    // cliente; lib/seguir-en-pc.ts → personaDelOnboarding): con él va «Te mandamos el link a…» y lo que la pantalla recuerda por persona.
+    const quien = sesion ? await personaDelOnboarding().catch(() => null) : null;
+    const persona = sesion ? { nombre: (sesion.nombre ?? '').trim().split(/\s+/)[0] ?? '', email: quien?.email || sesion.email } : undefined;
     const ws = await getWorkspaceActual();
     // EL ONBOARDING V2 (19/11/2026): el de la maqueta (./ChatArranqueV2.tsx). Con la guardia puesta, la pantalla de siempre (su aviso).
     if (vista.v2 && !vista.bloqueo) {
@@ -81,7 +84,8 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   if ((await esTelefono().catch(() => false)) && (await seguirEnPcPendiente())) {
     const sesionPc = await getUsuarioActual().catch(() => null);
     const vistaPc = await vistaArranque().catch(() => null);
-    return <SeguirEnPc nombre={primerNombre(vistaPc?.nombre || sesionPc?.nombre || '')} email={sesionPc?.email ?? ''} maqueta />;
+    const quienPc = await personaDelOnboarding().catch(() => null);
+    return <SeguirEnPc nombre={primerNombre(vistaPc?.nombre || sesionPc?.nombre || '')} email={quienPc?.email || sesionPc?.email || ''} maqueta />;
   }
   // Ya onboardeado → Second Brain, a la sección que pedía el link (`?tab=`), o a su portada.
   // `rutaConWs` y no el path pelado: sin el `?ws=` el super admin que mira a un cliente

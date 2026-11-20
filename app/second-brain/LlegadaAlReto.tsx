@@ -1,67 +1,96 @@
 'use client';
 // =============================================================================
-// LA LLEGADA AL OPS CENTER, EN EL CHAT «ONBOARDING» (20/11/2026, OD-05: la maqueta m-12 y m-13)
+// LA LLEGADA AL OPS CENTER: EL PRIMER MENSAJE DEL CHAT «RETO DE 7 DÍAS» (20/11/2026)
 // =============================================================================
-// Lo acordado (memoria onboarding-16-11-decisiones, :62, :73, :110; la maqueta, b-entra): después de «Entrar a MaKo», en el chat
-// «Onboarding» la pantalla se oscurece, MaKo escribe (los tres puntitos) y manda el video del recorrido con «Te doy la bienvenida a
-// tu Ops Center, {nombre}. Dale play: te muestro dónde está cada cosa.». El play arranca el recorrido aprobado (el motor, con su
-// video al costado: app/_ui/tutorial/MotorTutorial.tsx). Antes, el recorrido arrancaba solo, sin mensaje ni velo.
-// Sale sólo mientras la persona NO vio el recorrido (el mismo `tutorial-ops-center` que anota el motor). Mientras está, el motor no
-// arranca el recorrido solo (`chatPresentaRecorrido`, ./../_ui/tutorial/store.ts): lo arranca este play.
+// Martín, en producción (memoria onboarding-16-11-decisiones, «20/11, ~13:00 UTC»): al «Entrar a MaKo» el Ops Center abre con el chat
+// «Reto de 7 días» ya elegido, y la llegada es SIEMPRE su primer mensaje (antes vivía en un chat «Onboarding» aparte). Es esta pieza:
+// la pantalla se oscurece, MaKo escribe (los tres puntitos) y manda el video del recorrido general con «Te doy la bienvenida a tu Ops
+// Center, {nombre}. Dale play: te muestro dónde está cada cosa.». Su play arranca el recorrido (el motor, con su video al costado:
+// app/_ui/tutorial/MotorTutorial.tsx), con su «dale play» mientras el video se ve. Lo de después (el video del reto y sus mensajes,
+// uno por uno) lo pone el chat del reto (app/second-brain/reto/ChatDelReto.tsx), que la monta así:
+//
+//     <LlegadaAlReto nombre={nombre} listo={hiloCargado} onMostrada={() => …sigue el reto…} />
+//
+// · El mensaje está SIEMPRE (también con el recorrido visto: su play lo vuelve a mostrar).
+// · El velo y los puntitos, sólo la PRIMERA vez de la persona (lo recuerda por persona en este navegador, con la huella de
+//   /api/recorridos; ops-center-3 de la auditoría: al recargar o al volver ya no se repiten) y mientras no vio el recorrido.
+// · Arranca con el hilo ya cargado (`listo`) y mide su lugar de nuevo cuando el hilo cambia o se mueve (ops-center-2).
+// · Los puntitos duran lo de la cola de salida (`msEscribiendo`, app/_chat/useColaDeSalida.ts), no 1,8 s fijos.
+// · La barra lateral, oculta mientras no vio el recorrido (la saca «Tu panel»); el motor no arranca el recorrido solo mientras está
+//   (`chatPresentaRecorrido`).
 // El velo va en un PORTAL: el panel vive dentro de los contextos de apilado del layout, y ahí un velo fijo no tapa la lista de chats.
-// La fila con MaKo escribiendo se copia encima del velo, en el mismo lugar que la de verdad.
 // =============================================================================
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRecorrido } from '@/app/_ui/Recorrido';
 import { marcarVistoEnEnsayo, useEnsayo, vistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
-import { chatPresentaRecorrido, chatPresentaReto, mostrarTutorial, senalAhora } from '@/app/_ui/tutorial/store';
+import { chatPresentaRecorrido, mostrarTutorial, senalAhora } from '@/app/_ui/tutorial/store';
 import { esconderLaBarra } from '@/app/_ui/tutorial/barra-oculta';
 import { avisarMensajeNuevo } from '@/app/_chat/useBajarAlUltimo';
+import { msEscribiendo } from '@/app/_chat/useColaDeSalida';
 import { barrer } from '@/app/_ui/tutorial/iris';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { useDalePlay } from '@/app/_ui/tutorial/useDalePlay';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
 import { Icon } from '@/app/_components/icons';
-import { ID_RECORRIDO, MS_ESCRIBE_LLEGADA, MS_ESCRIBE_RETO, textoLlegada, textoRetoEnSuChat } from '@/lib/onboarding-v2/llegada';
+import { ID_RECORRIDO, textoLlegada } from '@/lib/onboarding-v2/llegada';
 
-
-/** `retoEmpezo`: el reto ya empezó (su chat ya se abrió): el mensaje que lo presenta ya no hace falta. */
 const menosMovimiento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /**
- * LA LLEGADA SE ESCRIBE UNA VEZ (20/11, tarde, la segunda verificación de OD-05). Al tocar Second Brain el panel del chat se cambia
- * por el mapa y esto se desmonta; al volver con la flecha se montaba de nuevo con `fase='escribe'`, y el velo oscuro con los tres
- * puntitos se redibujaba 1,8 s EN MEDIO del recorrido, encima de su marca. Vive en el módulo: dura lo que la página (al recargar,
- * la llegada vuelve a escribirse, como al entrar).
+ * YA SE MOSTRÓ (ops-center-3): por persona, en este navegador (`quien`, la huella que manda /api/recorridos), y en el módulo para lo que
+ * dure la página aunque el servidor no conteste (la segunda verificación de OD-05: al volver del Second Brain se redibujaba el velo en
+ * medio del recorrido).
  */
 let llegadaEscrita = false;
+const claveMostrada = (quien: string | null) => (quien ? `mk-llegada-mostrada:${quien}` : null);
+const yaMostrada = (quien: string | null): boolean => {
+  if (llegadaEscrita) return true;
+  const k = claveMostrada(quien);
+  try { return !!k && typeof localStorage !== 'undefined' && localStorage.getItem(k) === '1'; } catch { return false; }
+};
+const anotarMostrada = (quien: string | null): void => {
+  llegadaEscrita = true;
+  const k = claveMostrada(quien);
+  try { if (k) localStorage.setItem(k, '1'); } catch { /* sin storage: queda la página */ }
+};
 
-export function BienvenidaOpsCenter({ nombre, retoEmpezo = false }: { nombre: string; retoEmpezo?: boolean }) {
+export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
+  nombre: string;
+  /** El hilo del reto ya se cargó y bajó: recién ahí se mide y se oscurece (ops-center-2). */
+  listo?: boolean;
+  /** El mensaje ya está a la vista (después de los puntitos, o enseguida): el reto sigue con lo suyo. */
+  onMostrada?: () => void;
+}) {
   const r = useRecorrido(ID_RECORRIDO, { autoabrir: false });
   // En el ensayo «desde cero» (como lo revisa Martín), lo visto vive en el navegador (app/_ui/tutorial/desde-cero.ts).
   const ensayo = useEnsayo();
   const toca = ensayo.activo ? !vistoEnEnsayo(ID_RECORRIDO) : r.visto === false;
-  // OD-09 (20/11): visto el recorrido y sin empezar el reto, el chat sigue: el mensaje con el video queda, MaKo escribe y presenta el
-  // chat del reto («¡Listo tu onboarding…!»). Recién después lo marca MarcaAlReto (espera con `chatPresentaReto`).
-  const visto = ensayo.activo ? vistoEnEnsayo(ID_RECORRIDO) : r.visto === true;
-  const cierra = visto && !retoEmpezo;
-  const [cierre, setCierre] = useState<'escribe' | 'listo'>('escribe');
-  useEffect(() => {
-    if (!cierra) return;
-    chatPresentaReto(true);
-    const t = window.setTimeout(() => { setCierre('listo'); chatPresentaReto(false); }, MS_ESCRIBE_RETO);
-    return () => { window.clearTimeout(t); chatPresentaReto(false); };
-  }, [cierra]);
+  const sabe = ensayo.activo || r.visto !== null;
   const alTerminar = ensayo.activo ? () => marcarVistoEnEnsayo(ID_RECORRIDO) : r.onCerrar;
-  // Ya escrita, o con un tutorial andando (el recorrido que arrancó su play), entra con el mensaje: sin velo ni puntitos.
-  const [fase, setFase] = useState<'escribe' | 'listo'>(() => (llegadaEscrita || senalAhora() ? 'listo' : 'escribe'));
-  useEffect(() => { if (fase === 'listo') llegadaEscrita = true; }, [fase]);
+  // 'espera': todavía no se sabe (el recorrido o el hilo); 'escribe': el velo y los puntitos; 'listo': el mensaje.
+  const [fase, setFase] = useState<'espera' | 'escribe' | 'listo'>(() => (llegadaEscrita || senalAhora() ? 'listo' : 'espera'));
+  useEffect(() => {
+    if (fase !== 'espera' || !sabe || !listo) return;
+    // Ya la vio (o vio el recorrido, o hay un tutorial andando): de una, sin velo.
+    setFase(toca && !yaMostrada(r.quien) && !senalAhora() ? 'escribe' : 'listo');
+  }, [fase, sabe, listo, toca, r.quien]);
+  useEffect(() => {
+    if (fase !== 'escribe') return;
+    const t = window.setTimeout(() => setFase('listo'), msEscribiendo(textoLlegada(nombre)));
+    return () => window.clearTimeout(t);
+  }, [fase, nombre]);
+  const avisada = useRef(false);
+  useEffect(() => {
+    if (fase !== 'listo' || avisada.current) return;
+    avisada.current = true;
+    if (toca) anotarMostrada(r.quien);
+    onMostrada?.();
+  }, [fase, toca, r.quien, onMostrada]);
   const video = useVideoTutorial('recorrido');
-  // LA BARRA, OCULTA MIENTRAS EL RECORRIDO NO SE VIO (20/11, la verificación de OD-03): también al volver al Ops Center por dentro de la
-  // app (al recargar la esconde el servidor: app/second-brain/page.tsx). Nunca con un tutorial andando: el recorrido ya la mostró en
-  // «Tu panel», y este chat se vuelve a montar al salir del grafo.
+  // LA BARRA, OCULTA MIENTRAS EL RECORRIDO NO SE VIO (OD-03): al recargar la esconde el servidor (app/layout.tsx); esto, al volver por
+  // dentro de la app. Nunca con un tutorial andando: el recorrido ya la mostró en «Tu panel».
   useLayoutEffect(() => { if (toca && !senalAhora()) esconderLaBarra(); }, [toca]);
   // Mientras el chat presenta el recorrido, el motor no lo arranca solo.
   useEffect(() => {
@@ -69,32 +98,31 @@ export function BienvenidaOpsCenter({ nombre, retoEmpezo = false }: { nombre: st
     chatPresentaRecorrido(true);
     return () => chatPresentaRecorrido(false);
   }, [toca]);
-  useEffect(() => {
-    if (!toca || fase !== 'escribe') return;
-    const t = window.setTimeout(() => setFase('listo'), MS_ESCRIBE_LLEGADA);
-    return () => window.clearTimeout(t);
-  }, [toca, fase]);
 
-  // La fila de MaKo escribiendo, medida para copiarla encima del velo.
+  // La fila de MaKo escribiendo, medida para copiarla encima del velo. Se vuelve a medir cuando el hilo cambia de alto o se mueve
+  // (ops-center-2: medida con el hilo vacío, la copia quedaba arriba, sobre mensajes viejos, y la fila de verdad abajo y oscura).
   const fila = useRef<HTMLDivElement>(null);
   const [caja, setCaja] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   useLayoutEffect(() => {
-    if (!toca || fase !== 'escribe') return;
+    if (fase !== 'escribe') return;
     const medir = () => {
       const el = fila.current;
       if (!el) return;
       const b = el.getBoundingClientRect();
-      setCaja({ x: b.left, y: b.top, w: b.width, h: b.height });
+      setCaja((c) => (c && c.x === b.left && c.y === b.top && c.w === b.width && c.h === b.height ? c : { x: b.left, y: b.top, w: b.width, h: b.height }));
     };
     medir();
+    const hiloDe = fila.current?.closest('.co-hilo') ?? null;
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
+    if (hiloDe) { ro?.observe(hiloDe); for (const c of Array.from(hiloDe.children)) ro?.observe(c); }
+    hiloDe?.addEventListener('scroll', medir, { passive: true });
     window.addEventListener('resize', medir);
-    return () => window.removeEventListener('resize', medir);
-  }, [toca, fase]);
+    return () => { ro?.disconnect(); hiloDe?.removeEventListener('scroll', medir); window.removeEventListener('resize', medir); };
+  }, [fase]);
 
-  // EL VELO ENTRA CON EL BARRIDO (20/11, la verificación de OD-F2: la maqueta, b-entra pasa por `iris()`; era un fundido de opacidad).
-  // El velo es la sombra de un hueco con la forma de la píldora de MaKo escribiendo (la copia de arriba del velo), como el del motor;
-  // `barrer` lo cierra hacia ella en 720 ms. Medido sobre la PÍLDORA y no sobre la fila: la fila se estira al ancho del chat y dejaba
-  // una franja clara de 712 px arriba (medido en el navegador).
+  // EL VELO ENTRA CON EL BARRIDO (OD-F2: la maqueta, b-entra pasa por `iris()`). El velo es la sombra de un hueco con la forma de la
+  // píldora de MaKo escribiendo (la copia de arriba del velo), como el del motor; `barrer` lo cierra hacia ella en 720 ms. Medido sobre
+  // la PÍLDORA y no sobre la fila: la fila se estira al ancho del chat y dejaba una franja clara de 712 px arriba.
   const hueco = useRef<HTMLDivElement>(null);
   const pildora = useRef<HTMLDivElement>(null);
   const [hc, setHc] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -111,22 +139,21 @@ export function BienvenidaOpsCenter({ nombre, retoEmpezo = false }: { nombre: st
     return barrer(nodo);
   }, [hayHueco]);
 
-  // Cada mensaje de la llegada (los puntitos, el video del recorrido, el del reto) es un mensaje NUEVO del chat: lo baja al último
-  // (Martín, 20/11: «siempre se haga scroll automático hacia el último mensaje»; app/_chat/useBajarAlUltimo.ts).
-  useEffect(() => { if (toca || cierra) avisarMensajeNuevo(); }, [toca, cierra, fase, cierre]);
+  // Los puntitos y el mensaje son mensajes NUEVOS del chat: lo bajan al último (app/_chat/useBajarAlUltimo.ts).
+  useEffect(() => { if (fase !== 'espera') avisarMensajeNuevo(); }, [fase]);
 
   // Quieto, «Tu recorrido por MaKo: dale play» (V5; la maqueta, r4-invita). Su play arranca el recorrido, que toma el motor.
   const play = useRef<HTMLButtonElement>(null);
   useDalePlay(play, { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' });
 
-  if (!toca && !cierra) return null;
+  if (fase === 'espera') return null;
   const estrella = <span className="sbl-foto" aria-hidden="true"><CriaturaMako size={26} reaccion="escucha" /></span>;
   const puntitos = <span role="status" aria-label="MaKo está escribiendo" className="sbl-escribe"><i /><i /><i /></span>;
   const empezar = () => mostrarTutorial(TUTORIAL_RECORRIDO, { alTerminar });
   return (
     <>
       <style>{CSS}</style>
-      {toca && fase === 'escribe' ? (
+      {fase === 'escribe' ? (
         <div ref={fila} className="co-el-wa co-wa sbl-fila" data-llegada="escribe">
           <div className="co-el">{estrella}<div className="co-el__cuerpo">{puntitos}</div></div>
         </div>
@@ -134,7 +161,7 @@ export function BienvenidaOpsCenter({ nombre, retoEmpezo = false }: { nombre: st
         <div className="co-el-wa co-wa" data-llegada="mensaje">
           <div className="co-el">{estrella}
             <div className="co-el__cuerpo">
-              {/* El video ARRIBA y el texto debajo (20/11, la verificación de F4: en la maqueta es un mensaje de video, onboarding.html b-entra). */}
+              {/* El video ARRIBA y el texto debajo (F4: en la maqueta es un mensaje de video, onboarding.html b-entra). */}
               <button ref={play} type="button" className="sbl-video" onClick={empezar} aria-label="Ver el recorrido por MaKo" data-recorrido="sb-llegada-play">
                 {video?.poster ? <img src={video.poster} alt="" /> : <span className="sbl-video__vacio" />}
                 <span className="sbl-video__play" aria-hidden="true"><Icon name="play" size={28} /></span>
@@ -144,10 +171,7 @@ export function BienvenidaOpsCenter({ nombre, retoEmpezo = false }: { nombre: st
           </div>
         </div>
       )}
-      {cierra && (cierre === 'escribe'
-        ? <div className="co-el-wa co-wa" data-llegada="reto-escribe"><div className="co-el">{estrella}<div className="co-el__cuerpo">{puntitos}</div></div></div>
-        : <div className="co-el-wa co-wa" data-llegada="reto"><div className="co-el">{estrella}<div className="co-el__cuerpo"><div className="ch-md"><p>{textoRetoEnSuChat(nombre)}</p></div></div></div></div>)}
-      {toca && fase === 'escribe' && typeof document !== 'undefined' && createPortal(
+      {fase === 'escribe' && typeof document !== 'undefined' && createPortal(
         <div className="sbl-capa" aria-hidden="true">
           <style>{CSS}</style>
           {caja && (
@@ -178,10 +202,9 @@ const CSS = `
 .sbl-copia { position: fixed; display: flex; align-items: center; }
 .sbl-copia .co-el { display: flex; gap: 8px; align-items: flex-start; padding: 6px 12px 6px 8px; border-radius: 999px; background: var(--bg); box-shadow: 0 0 0 2px var(--ink), 0 10px 30px rgba(0, 0, 0, .25); }
 .sbl-fila { visibility: visible; }
-/* El play abajo a la izquierda: en el centro tapaba el título de la portada («¡Hola de nuevo!»; el Cerebro, 20/11: el play cae sobre
-   un espacio vacío). */
+/* El play abajo a la derecha (20/11): en el centro tapaba el título de la portada («¡Hola de nuevo!») y abajo a la izquierda el logo
+   «MaKo» (regla: el play, sobre un espacio vacío). */
 .sbl-video { position: relative; display: grid; place-items: end end; padding: 12px; box-sizing: border-box; width: min(400px, 100%); aspect-ratio: 16 / 9; margin: 2px 0 8px; border: 0; border-radius: 12px; overflow: hidden; background: #000; cursor: pointer; }
-/* El play abajo a la derecha (20/11): abajo a la izquierda tapaba el logo «MaKo» de la portada (regla: el play, sobre un espacio vacío). */
 .sbl-video img, .sbl-video__vacio { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .sbl-video__play { position: relative; z-index: 1; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: rgba(0, 0, 0, .55); color: #fff; }
 @media (prefers-reduced-motion: reduce) { .sbl-velo, .sbl-escribe i { animation: none; } }
