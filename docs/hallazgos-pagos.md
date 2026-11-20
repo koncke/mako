@@ -1915,6 +1915,31 @@ estaban commiteados (docs/hallazgos-infra.md, la trampa ya anotada).
 el 4/12»): eso pide leer si el negocio tiene prendido `cuota-por-vencer`, y es otra pieza. «Quitar» una excepción no existe en la
 API de MaKo (sólo en la ficha).
 
+## ⛔ Cargar los datos de cobro PRENDÍA el checkout directo: ahora va con su interruptor, apagado (20/11/2026)
+
+Martín (20/11): «por ahora… lo seguimos haciendo todo por pasarela y por el link de pago de Mercado Pago… no le brindamos ningún tipo de
+descuento… que salga exactamente lo mismo todo». Los datos de Binance y de transferencia se cargan para que MaKo le diga a una agencia a
+dónde pagar (lib/agencia-mes-consulta.ts). Pero hasta hoy, apenas había un dato, /planes ofrecía sola «Transferencia o Binance»
+(`mediosDisponibles` en app/planes/[plan]/page.tsx): tener los datos era lo mismo que ofrecerlos. Lo que cambió:
+- **El interruptor:** `checkoutPublico` vive en el mismo ajuste (`planes.pago_directo`) y está apagado por defecto. Sólo un `true` lo prende:
+  un setting de antes del 20/11, un texto o un número quedan apagados.
+- **/planes** pregunta `mediosDelCheckout` (vacío si está apagado): ni la fila ni el QR.
+- **El servidor** tampoco toma un pedido «por Binance» con el interruptor apagado (`medioDirectoQueVale` en `pedirPlanSinPasarela`). Una pestaña
+  de antes o un POST armado a mano quedan como un «Quiero» común, sin prometer otro medio.
+- **La agencia no depende del interruptor:** la consulta de pago dice el Pay ID igual. tests/agencia-pago-consulta.test.ts lo prueba con los
+  datos cargados y el checkout apagado.
+- ⚠️ **La trampa: el editor de Settings › Payments manda SÓLO los campos de texto.** Con un campo nuevo en el ajuste, cada guardado lo habría
+  apagado (o prendido) sin que nadie lo tocara. `guardarDatosDePagoDirecto` conserva el valor guardado cuando lo que llega no lo trae, y si
+  no puede leerlo, queda apagado. El editor no tiene botón para prenderlo: se prende escribiendo el ajuste (lo decide Martín).
+- **El mismo precio por cualquier medio:** `RECARGO_PASARELA` ya era 0. Los «5 %» y «descuento» que quedaban eran comentarios viejos del 18/11
+  y se fueron. Un test barre que ningún texto del pago directo ni de los avisos de la agencia hable de descuento ni de 5 %.
+  - **NO se tocó** el «Descuento del primer mes» del checkout (`conPromo`, app/planes/[plan]/Checkout.tsx): es otra promo, no depende del
+    medio. Si «ningún tipo de descuento» la incluye, es otra decisión.
+- **Probado:** tests/pago-directo.test.ts (14; 3 casos nuevos) y tests/agencia-pago-consulta.test.ts (21). 10 roturas a propósito, todas en rojo.
+
+**Vive en:** lib/pago-directo-reglas.ts (`checkoutPublico`, `mediosDelCheckout`, `medioDirectoQueVale`) · lib/pago-directo.ts (el guardado) ·
+app/planes/[plan]/page.tsx · lib/compra-plan.ts (`pedirPlanSinPasarela`) · app/admin/_polar/web/Settings/OrganizationPaymentSettings.tsx.
+
 ## «Transferencia o Binance» en el checkout, para todos (18/11/2026) — el «5 % OFF» de la mañana se DIO VUELTA a la tarde (ver la sección siguiente)
 
 Martín: «agregar ahí la opción de transferencia para el resto de personas, incluso que no son por partners… ofrecerle también a ellos un descuento… es el 5 %».
