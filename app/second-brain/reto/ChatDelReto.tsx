@@ -19,14 +19,14 @@ import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { linkWaMe } from '@/lib/verificacion-entrante';
 import { PARA_TODOS } from '@/lib/onboarding-v2/revision';
 import {
-  DIAS_RETO, HORAS_WA, RETO_HOLA, RETO_SUB, RETO_TITULO, mensajeEscrito, proximaTarea, tareaHecha,
+  DIAS_RETO, HORAS_WA, RETO_HOLA, RETO_SUB, RETO_TITULO, mensajeEscrito, tareaHecha,
   type DiaReto, type EstadoDia, type EstadoReto, type MarcaReto, type TareaReto,
 } from '@/lib/reto/dias';
 import { mostrarTutorial, senalAhora, senalarDondeTocar } from '@/app/_ui/tutorial/store';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { useVideoQueFlota } from '@/app/_ui/tutorial/useVideoQueFlota';
 import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutorial/desde-cero';
-import { claveTarea, diaAbierto, estadoDeLosDias, tareasQueCierra, tutorialDelDia } from '@/lib/reto/dias';
+import { claveTarea, diaAbierto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
 
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null };
 
@@ -39,7 +39,7 @@ function hacerEnEnsayo(e: EstadoReto | null, c: { accion?: unknown; dia?: unknow
   const ahora = Date.now();
   if (c.accion === 'empezar') return e ?? { v: 1, inicio: new Date(ahora).toISOString(), adelantado: 1, hechas: {} };
   if (!e) return e;
-  if (c.accion === 'adelantar' && Number(c.dia) === diaAbierto(e, ahora) + 1) return { ...e, adelantado: Number(c.dia) };
+  if (c.accion === 'adelantar' && Number(c.dia) === diaAbierto(e, ahora) + 1) return { ...e, adelantado: Number(c.dia), adelantadoEn: new Date(ahora).toISOString() };
   if (c.accion === 'hecha') return { ...e, hechas: { ...e.hechas, [claveTarea(Number(c.dia), String(c.id))]: new Date(ahora).toISOString() } };
   if (c.accion === 'hora' && (HORAS_WA as readonly string[]).includes(String(c.hora))) return { ...e, horaWa: String(c.hora) };
   return e;
@@ -85,7 +85,7 @@ export const yaMarcada = (k: string) => { try { return !!sessionStorage.getItem(
 export const anotarMarcada = (k: string) => { try { sessionStorage.setItem(YA_MARCADA + k, '1'); } catch { /* sin storage */ } };
 
 export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: () => void }) {
-  const { d, hacer } = useReto();
+  const { d, leer, hacer } = useReto();
   const hilo = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState(false);
   const [manana, setManana] = useState<number | null>(null);
@@ -99,19 +99,19 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     void hacer({ accion: 'empezar' });
   }, [d, hacer]);
 
-  // Lo que falta, marcado: una vez por visita y por tarea (con «Lo hago después» no vuelve hasta la próxima).
+  // Lo que falta, marcado DESPUÉS del video del día (20/11, auditoría D1-03, d24-09 y R57-12): antes, a los 0,9 s de abrir el chat
+  // se oscurecía la pantalla y se marcaba la próxima tarea, tapando el mensaje y el video. Lo acordado: cada día empieza con su
+  // video; mientras corre, el video marca dónde tocar; recién al terminar (o al cerrarlo) se marca lo que quedó, una vez por visita.
+  // Tocar lo marcado sólo LLEVA al lugar: la tarea queda hecha cuando MaKo lee que se hizo (/api/reto, lib/reto/senales.ts).
   const e = d?.estado ?? null;
-  const proxima = e ? proximaTarea(e, Date.now()) : null;
-  const claveProxima = proxima ? `${proxima.dia.n}:${proxima.tarea.id}` : null;
-  useEffect(() => {
-    if (!proxima || !claveProxima || yaMarcada(claveProxima)) return;
-    const t = window.setTimeout(() => {
-      if (senalAhora()) return;
-      anotarMarcada(claveProxima);
-      marcarTarea(proxima.tarea.marcas, () => { void hacer({ accion: 'hecha', dia: proxima.dia.n, id: proxima.tarea.id }); }, () => {});
-    }, 900);
-    return () => window.clearTimeout(t);
-  }, [claveProxima]); // eslint-disable-line react-hooks/exhaustive-deps
+  const marcarLoQueFalta = useCallback((dia: DiaReto) => {
+    if (!e || senalAhora()) return;
+    const t = dia.tareas.find((x) => !tareaHecha(e, dia.n, x.id));
+    if (!t || yaMarcada(`${dia.n}:${t.id}`)) return;
+    anotarMarcada(`${dia.n}:${t.id}`);
+    // El día 1 sin «Lo hago después» (auditoría F1: la maqueta no lo tiene); los demás días sí.
+    marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => {});
+  }, [e, leer]);
 
   useEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [d?.abierto, d?.hechos, manana]);
 
@@ -131,8 +131,9 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
             {abiertos.map((dia) => (
               <Dia key={dia.n} dia={dia} e={e} linea={d.linea} hora={horaWa}
                 onHora={(h) => { setHora(h); void hacer({ accion: 'hora', hora: h }); }}
-                onMarcar={(t) => marcarTarea(t.marcas, () => { void hacer({ accion: 'hecha', dia: dia.n, id: t.id }); }, () => {})}
-                onTocadoEnVideo={(sel) => { for (const id of tareasQueCierra(dia, sel)) if (!tareaHecha(e, dia.n, id)) void hacer({ accion: 'hecha', dia: dia.n, id }); }} />
+                onMarcar={(t) => marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => {})}
+                onTocadoEnVideo={() => { void leer(); }}
+                onFinVideo={() => marcarLoQueFalta(dia)} />
             ))}
             {d.abierto < 7 && (
               <Burbuja>
@@ -159,7 +160,7 @@ function Burbuja({ children, ancho = false }: { children: ReactNode; ancho?: boo
   return <FilaDelChat m={null} quien={{ titulo: 'MaKo', aspecto: ASPECTO_MAKO }} marcas={null} hora={null} ancho={ancho}><div className="rt-md">{children}</div></FilaDelChat>;
 }
 
-function Dia({ dia, e, linea, hora, onHora, onMarcar, onTocadoEnVideo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; onHora: (h: string) => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void }) {
+export function Dia({ dia, e, linea, hora, onHora, onMarcar, onTocadoEnVideo, onFinVideo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; onHora: (h: string) => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void }) {
   const p = dia.whatsapp;
   const todas = dia.tareas.every((t) => tareaHecha(e, dia.n, t.id));
   const link = p ? linkWaMe(linea, mensajeEscrito(p, hora)) : null;
@@ -168,7 +169,7 @@ function Dia({ dia, e, linea, hora, onHora, onMarcar, onTocadoEnVideo }: { dia: 
       <p className="co-dia">Día {dia.n} de 7</p>
       <Burbuja ancho>
         <p>{dia.mensaje}</p>
-        <VideoDelDia dia={dia} onTocado={onTocadoEnVideo} />
+        <VideoDelDia dia={dia} onTocado={onTocadoEnVideo} onFin={onFinVideo} />
       </Burbuja>
       <Burbuja ancho>
         <div className="rt-tarjeta" data-recorrido={`sb-reto-dia-${dia.n}`}>
@@ -176,10 +177,12 @@ function Dia({ dia, e, linea, hora, onHora, onMarcar, onTocadoEnVideo }: { dia: 
           <ol className="rt-tareas">
             {dia.tareas.map((t) => {
               const ok = tareaHecha(e, dia.n, t.id);
+              // Hecha, dice lo que MaKo LEYÓ (20/11, auditoría d24-12: «Leí 134 contactos en tu CRM.»), no el detalle de la tarea.
+              const leido = ok ? e.leidas?.[claveTarea(dia.n, t.id)] : undefined;
               return (
                 <li key={t.id} className="rt-tarea" data-ok={ok ? '' : undefined}>
                   <span className="rt-tarea__check" aria-hidden>{ok ? '✓' : ''}</span>
-                  <span className="rt-tarea__txt"><b>{t.titulo}</b><small>{t.detalle}</small></span>
+                  <span className="rt-tarea__txt"><b>{t.titulo}</b><small>{leido ?? t.detalle}</small></span>
                   {/* Sin «Hacerlo» (18/11): dice DÓNDE es, y tocarlo marca ese lugar con el tutorial (no lleva a ningún lado). */}
                   {ok ? <span className="rt-tarea__ok">Listo</span>
                     : <button type="button" className="rt-tarea__donde" onClick={() => onMarcar(t)} title="Te marco dónde está">{t.donde}</button>}
@@ -212,7 +215,7 @@ function Dia({ dia, e, linea, hora, onHora, onMarcar, onTocadoEnVideo }: { dia: 
 }
 
 /** El video del día: el del manifiesto (`reto-dia-<n>`), o en la revisión su lugar marcado. Nunca otro video. */
-function VideoDelDia({ dia, onTocado }: { dia: DiaReto; onTocado?: (sel: string) => void }) {
+function VideoDelDia({ dia, onTocado, onFin }: { dia: DiaReto; onTocado?: (sel: string) => void; onFin?: () => void }) {
   const v = useVideoTutorial(dia.video);
   const ref = useRef<HTMLVideoElement>(null);
   // Si sale de la vista corriendo (o se navega), sigue abajo a la derecha (Martín, 18/11).
@@ -221,13 +224,13 @@ function VideoDelDia({ dia, onTocado }: { dia: DiaReto; onTocado?: (sel: string)
   // lo nombra, pausa hasta el clic y sigue en el cuadrito de abajo a la derecha mientras la persona navega.
   if (v && v.frases?.some((f) => f.sel)) {
     return (
-      <button type="button" className="rt-video rt-video--pasos" onClick={() => mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true, alTocar: onTocado })}
+      <button type="button" className="rt-video rt-video--pasos" onClick={() => mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true, alTocar: onTocado, alTerminar: () => onFin?.() })}
         style={v.poster ? { backgroundImage: `url(${v.poster})` } : undefined} aria-label={`Ver el video del día ${dia.n}: te marca dónde tocar`}>
         <span className="rt-video__play" aria-hidden>▶</span><span className="rt-video__dice">Ver el video del día {dia.n}: te marco dónde tocar</span>
       </button>
     );
   }
-  if (v) return <video ref={ref} className="rt-video" src={v.archivo} poster={v.poster} controls playsInline preload="metadata" />;
+  if (v) return <video ref={ref} className="rt-video" src={v.archivo} poster={v.poster} controls playsInline preload="metadata" onEnded={() => onFin?.()} />;
   if (PARA_TODOS) return null;
   return <div className="rt-video rt-video--lugar" role="note"><b>Tu video del día {dia.n}</b><span>Todavía no está grabado: va aquí.</span></div>;
 }
@@ -285,7 +288,7 @@ export function DesplegableReto({ d, abierto, onAbrir }: { d: DatosReto; abierto
 }
 
 // ⚠️ SIN COMILLAS INVERTIDAS ADENTRO (es un template literal: AGENTS.md).
-const CSS_RETO = `
+export const CSS_RETO = `
 .rt-md p { margin: 0; }
 .rt-md p + p, .rt-md p + .rt-video, .rt-md .rt-opciones { margin-top: 8px; }
 .rt-caja { margin: 0; padding: 10px 14px; font-size: var(--fs-meta); color: var(--dim); text-align: center; }

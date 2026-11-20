@@ -131,7 +131,7 @@ test('el video siempre a la vista y el del día paso a paso (Martín, 18/11)', a
   assert.ok(t2.pasos.length >= 4 && t2.pasos.every((p) => p.sel && p.titulo), 'sus pasos son las marcas de sus tareas, en orden');
   const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8');
   const reto = leer('app/second-brain/reto/ChatDelReto.tsx');
-  assert.match(reto, /mostrarTutorial\(tutorialDelDia\(dia\), \{ video: dia\.video, directo: true, alTocar: onTocado \}\)/, 'con frases, el video del día lo pasa el motor');
+  assert.match(reto, /mostrarTutorial\(tutorialDelDia\(dia\), \{ video: dia\.video, directo: true, alTocar: onTocado(, alTerminar: \(\) => onFin\?\.\(\))? \}\)/, 'con frases, el video del día lo pasa el motor');
   assert.match(reto, /useVideoQueFlota\(ref, v \? dia\.video : null/, 'el del día flota al salir de la vista');
   assert.match(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /useVideoQueFlota\(ref, v \? clave : null, titulo\)/, 'los del onboarding también');
   const motor = leer('app/_ui/tutorial/MotorTutorial.tsx');

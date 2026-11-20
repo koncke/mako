@@ -195,6 +195,17 @@ export const DIAS_RETO: readonly DiaReto[] = [
 
 /** Lo que se guarda por negocio (`app_settings` → `reto.estado`). */
 export type EstadoReto = { v: 1; inicio: string; adelantado: number; hechas: Record<string, string>; horaWa?: string;
+  /**
+   * Cuándo adelantó por última vez (20/11, auditoría d24-01 y R57-06). Lo acordado: «si el lunes adelanta el día 2 y el 3, el
+   * martes ya tiene el día 4». Sin esto, el calendario se contaba desde el INICIO y, después de adelantar, pasaban días sin que se
+   * abriera uno nuevo. El día que sigue al adelantado se abre el día de calendario siguiente a ese momento, a su hora.
+   */
+  adelantadoEn?: string;
+  /**
+   * Lo que MaKo LEYÓ al dar cada tarea por hecha (20/11, lib/reto/senales.ts): { "3:contactos": "Leí 134 contactos en tu CRM." }.
+   * Desde el 20/11 una tarea queda hecha sólo así; las `hechas` de antes (por tocar la pestaña) no traen lectura y se vuelven a leer.
+   */
+  leidas?: Record<string, string>;
   /** El último día del que salió el correo «Día N del reto de MaKo» (lib/reto/correos.ts): uno por día, una vez. */
   avisado?: number };
 
@@ -213,7 +224,12 @@ export function leerEstado(crudo: unknown): EstadoReto | null {
   const adelantado = Number.isInteger(e.adelantado) ? Math.max(1, Math.min(7, Number(e.adelantado))) : 1;
   const horaWa = typeof e.horaWa === 'string' && (HORAS_WA as readonly string[]).includes(e.horaWa) ? e.horaWa : undefined;
   const avisado = Number.isInteger(e.avisado) ? Math.max(1, Math.min(7, Number(e.avisado))) : undefined;
-  return { v: 1, inicio: e.inicio, adelantado, hechas, ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}) };
+  const adelantadoEn = typeof e.adelantadoEn === 'string' && !Number.isNaN(Date.parse(e.adelantadoEn)) ? e.adelantadoEn : undefined;
+  const leidas: Record<string, string> = {};
+  for (const [k, v] of Object.entries(e.leidas && typeof e.leidas === 'object' ? e.leidas : {})) if (/^\d:[a-z-]+$/.test(k) && typeof v === 'string' && v) leidas[k] = v.slice(0, 200);
+  // Sin `leidas` es un reto de antes del 20/11: sus «hechas» salían de tocar la pestaña y no prueban nada. Se vuelven a leer.
+  const confiables = e.leidas && typeof e.leidas === 'object' ? Object.fromEntries(Object.entries(hechas).filter(([k]) => leidas[k])) : {};
+  return { v: 1, inicio: e.inicio, adelantado, hechas: confiables, leidas, ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}) };
 }
 
 /** La hora de Argentina (la de MaKo), UTC−3. */
@@ -224,15 +240,21 @@ const diaAr = (ms: number) => Math.floor((ms + HORA_AR * 3_600_000) / 86_400_000
 const horaAr = (ms: number) => (((ms + HORA_AR * 3_600_000) % 86_400_000) + 86_400_000) % 86_400_000 / 3_600_000;
 const horaDe = (h: string | undefined) => { const m = /^(\d{1,2}):(\d{2})$/.exec(h ?? '9:00'); return m ? Number(m[1]) + Number(m[2]) / 60 : 9; };
 
+/** Cuántos días se abrieron por calendario desde un momento: uno por cada día de calendario siguiente, a la hora del aviso. */
+function abiertosDesde(desde: number, horaWa: string | undefined, ahora: number): number {
+  const pasados = diaAr(ahora) - diaAr(desde);
+  return pasados <= 0 ? 0 : pasados - (horaAr(ahora) < horaDe(horaWa) ? 1 : 0);
+}
+
 /**
  * El último día ABIERTO: el día 1 se abre al empezar; cada uno de los que siguen, al día de calendario siguiente a la hora de su
- * aviso (la que eligió por WhatsApp, o las 9:00), o antes si lo adelantó.
+ * aviso (la que eligió por WhatsApp, o las 9:00), o antes si lo adelantó. Después de adelantar, el calendario sigue desde el día
+ * adelantado (`adelantadoEn`): adelantar el 2 y el 3 el lunes abre el 4 el martes.
  */
 export function diaAbierto(e: EstadoReto, ahora: number): number {
-  const ini = Date.parse(e.inicio);
-  const pasados = diaAr(ahora) - diaAr(ini);
-  const porCalendario = pasados <= 0 ? 1 : 1 + pasados - (horaAr(ahora) < horaDe(e.horaWa) ? 1 : 0);
-  return Math.max(1, Math.min(7, Math.max(porCalendario, e.adelantado)));
+  const porCalendario = 1 + abiertosDesde(Date.parse(e.inicio), e.horaWa, ahora);
+  const desdeAdelanto = e.adelantado + (e.adelantadoEn ? abiertosDesde(Date.parse(e.adelantadoEn), e.horaWa, ahora) : 0);
+  return Math.max(1, Math.min(7, Math.max(porCalendario, desdeAdelanto)));
 }
 
 export const claveTarea = (dia: number, id: string) => `${dia}:${id}`;

@@ -4,7 +4,7 @@
 //   GET                                        → { ok, ve, estado, abierto, dias, hechos, linea }
 //   POST { accion: 'empezar' }                 → empieza el reto (el día 1, ahora). Si ya empezó, no hace nada.
 //   POST { accion: 'adelantar', dia }          → abre el día que sigue al abierto, ya.
-//   POST { accion: 'hecha', dia, id }          → una tarea del día, hecha (la persona tocó lo marcado).
+//   (Sin 'hecha' desde el 20/11: una tarea queda hecha cuando MaKo LEE que se hizo, en cada GET; lib/reto/senales.ts.)
 //   POST { accion: 'hora', hora }              → a qué hora le escribe MaKo por WhatsApp (la eligió al escribirle).
 // Detrás del interruptor del onboarding V2 (lib/onboarding-v2/revision.ts): a quien no lo ve, `ve: false` y nada más. Guarda en
 // `app_settings` del negocio de la pestaña (`reto.estado`). Lo que es cada día vive en lib/reto/dias.ts.
@@ -14,7 +14,8 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { getSetting, setSetting } from '@/lib/settings';
 import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
-import { CLAVE_RETO, DIAS_RETO, HORAS_WA, claveTarea, diaAbierto, estadoDeLosDias, leerEstado, type EstadoReto } from '@/lib/reto/dias';
+import { CLAVE_RETO, HORAS_WA, diaAbierto, estadoDeLosDias, leerEstado, type EstadoReto } from '@/lib/reto/dias';
+import { leerTareasHechas } from '@/lib/reto/senales';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,20 @@ async function quien(): Promise<{ ws: number } | null> {
 
 async function leer(): Promise<EstadoReto | null> {
   return leerEstado(await getSetting(CLAVE_RETO).catch(() => null));
+}
+
+/**
+ * Lo que MaKo lee como hecho en los días abiertos (lib/reto/senales.ts), guardado con lo que leyó (20/11, auditoría D1-01, d24-12 y
+ * R57-09): las tareas ya no se cierran por tocar la pestaña. Se lee en cada GET: abrir el chat del reto, o volver a él, actualiza.
+ */
+async function conLoLeido(e: EstadoReto | null): Promise<EstadoReto | null> {
+  if (!e) return e;
+  const nuevas = await leerTareasHechas(e).catch(() => ({} as Record<string, string>));
+  if (!Object.keys(nuevas).length) return e;
+  const cuando = new Date().toISOString();
+  const r: EstadoReto = { ...e, hechas: { ...e.hechas, ...Object.fromEntries(Object.keys(nuevas).map((k) => [k, cuando])) }, leidas: { ...(e.leidas ?? {}), ...nuevas } };
+  await setSetting(CLAVE_RETO, JSON.stringify(r)).catch(() => {});
+  return r;
 }
 
 /**
@@ -50,7 +65,7 @@ function respuesta(e: EstadoReto | null, numero: string | null) {
 export async function GET() {
   const q = await quien();
   if (!q) return Response.json({ ok: true, ve: false });
-  const [e, numero] = await Promise.all([leer(), linea()]);
+  const [e, numero] = await Promise.all([leer().then(conLoLeido), linea()]);
   return respuesta(e, numero);
 }
 
@@ -61,7 +76,7 @@ export async function POST(req: NextRequest) {
   let e = await leer();
   const ahora = Date.now();
   if (body.accion === 'empezar') {
-    if (!e) { e = { v: 1, inicio: new Date(ahora).toISOString(), adelantado: 1, hechas: {} }; await setSetting(CLAVE_RETO, JSON.stringify(e)); }
+    if (!e) { e = { v: 1, inicio: new Date(ahora).toISOString(), adelantado: 1, hechas: {}, leidas: {} }; await setSetting(CLAVE_RETO, JSON.stringify(e)); }
     return respuesta(e, await linea());
   }
   if (!e) return Response.json({ ok: false, error: 'El reto todavía no empezó.' }, { status: 409 });
@@ -69,12 +84,9 @@ export async function POST(req: NextRequest) {
     const dia = Number(body.dia);
     const abierto = diaAbierto(e, ahora);
     if (!Number.isInteger(dia) || dia !== abierto + 1 || dia > 7) return Response.json({ ok: false, error: 'Ese día no se puede adelantar.' }, { status: 400 });
-    e = { ...e, adelantado: dia };
-  } else if (body.accion === 'hecha') {
-    const dia = Number(body.dia), id = String(body.id ?? '');
-    const d = DIAS_RETO.find((x) => x.n === dia);
-    if (!d || !d.tareas.some((t) => t.id === id) || dia > diaAbierto(e, ahora)) return Response.json({ ok: false, error: 'Esa tarea no es de un día abierto.' }, { status: 400 });
-    e = { ...e, hechas: { ...e.hechas, [claveTarea(dia, id)]: new Date(ahora).toISOString() } };
+    // Adelantado = abierto ahora: el que sigue se abre mañana a su hora (adelantadoEn), y este día no lleva aviso de la mañana
+    // (`avisado`): lo acordado es que el aviso sale sólo cuando el día se abre por calendario.
+    e = { ...e, adelantado: dia, adelantadoEn: new Date(ahora).toISOString(), avisado: Math.max(e.avisado ?? 1, dia) };
   } else if (body.accion === 'hora') {
     const hora = String(body.hora ?? '');
     if (!(HORAS_WA as readonly string[]).includes(hora)) return Response.json({ ok: false, error: 'Esa hora no está entre las del reto.' }, { status: 400 });

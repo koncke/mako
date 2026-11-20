@@ -17,6 +17,20 @@ test('el día 1 se abre al empezar; los que siguen, al otro día a la hora del a
   assert.equal(diaAbierto(base, h('2026-12-30T12:00:00Z')), 7, 'nunca más de 7');
 });
 
+test('adelantar corre los días que siguen: el lunes adelanta el 2 y el 3, el martes ya tiene el 4 (20/11, d24-01 y R57-06)', () => {
+  const adelanto: EstadoReto = { ...base, adelantado: 3, adelantadoEn: '2026-11-18T21:00:00Z' }; // lunes 18:00 en Argentina
+  assert.equal(diaAbierto(adelanto, h('2026-11-18T23:00:00Z')), 3, 'el mismo día, el adelantado');
+  assert.equal(diaAbierto(adelanto, h('2026-11-19T11:30:00Z')), 3, 'al otro día antes de las 9:00, todavía el 3');
+  assert.equal(diaAbierto(adelanto, h('2026-11-19T12:00:00Z')), 4, 'al otro día a las 9:00, el 4 (antes quedaba en el 3)');
+  assert.equal(diaAbierto(adelanto, h('2026-11-20T12:00:00Z')), 5, 'y el siguiente, el 5');
+  assert.equal(diaAbierto({ ...adelanto, horaWa: '18:00' }, h('2026-11-19T12:00:00Z')), 3, 'con el aviso a las 18:00, el 4 espera a esa hora');
+  assert.equal(diaAbierto({ ...adelanto, horaWa: '18:00' }, h('2026-11-19T21:00:00Z')), 4);
+  const e = leerEstado(JSON.stringify(adelanto));
+  assert.equal(e?.adelantadoEn, '2026-11-18T21:00:00Z', 'se guarda cuándo adelantó');
+  const ruta = readFileSync(new URL('../app/api/reto/route.ts', import.meta.url), 'utf8');
+  assert.ok(ruta.includes('adelantado: dia, adelantadoEn: new Date(ahora).toISOString(), avisado: Math.max(e.avisado ?? 1, dia)'), 'la API guarda el momento, y el día adelantado no lleva aviso');
+});
+
 test('cada día: hecho, a medias, hoy o luego; y lo pendiente va primero', () => {
   const e: EstadoReto = { ...base, adelantado: 2, hechas: { '1:offer': 'x', '1:funnel': 'x' } };
   const ahora = h('2026-11-18T23:00:00Z');
@@ -38,10 +52,13 @@ test('cada día: hecho, a medias, hoy o luego; y lo pendiente va primero', () =>
 test('lo guardado se valida: algo raro es «sin reto»', () => {
   assert.equal(leerEstado('no es json'), null);
   assert.equal(leerEstado({ inicio: 'ayer' }), null);
-  const e = leerEstado(JSON.stringify({ inicio: '2026-11-18T15:00:00Z', adelantado: 99, hechas: { '1:funnel': 'x', raro: 'y' }, horaWa: '3:00' }));
+  const e = leerEstado(JSON.stringify({ inicio: '2026-11-18T15:00:00Z', adelantado: 99, hechas: { '1:funnel': 'x', raro: 'y' }, leidas: { '1:funnel': 'Elegiste tu funnel: Anuncios.' }, horaWa: '3:00' }));
   assert.ok(e);
   assert.equal(e.adelantado, 7);
   assert.deepEqual(e.hechas, { '1:funnel': 'x' });
+  // 20/11: una «hecha» sin lo que MaKo leyó es de antes (se marcaba por tocar la pestaña): no cuenta, se vuelve a leer.
+  assert.deepEqual(leerEstado({ inicio: '2026-11-18T15:00:00Z', hechas: { '1:offer': 'x' } })?.hechas, {}, 'las de antes no prueban nada');
+  assert.deepEqual(leerEstado({ inicio: '2026-11-18T15:00:00Z', hechas: { '1:offer': 'x', '1:funnel': 'y' }, leidas: { '1:offer': 'Tu oferta ya está armada.' } })?.hechas, { '1:offer': 'x' });
   assert.equal(e.horaWa, undefined, 'una hora fuera de las del reto no se guarda');
 });
 
@@ -118,7 +135,9 @@ test('el paso a Funnel Coach espera a que la persona VEA su oferta: un gesto o ~
   const leerSin = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
   const paso = leerSin('app/second-brain/reto/usePasoAlFunnel.ts');
   assert.match(paso, /if \(ocupado && !antesOcupado\.current && entregadaEn != null\) setGesto\(true\);/);
-  assert.match(paso, /marcarTarea\(\[\{ \.\.\.m, lado: 'abajo' \}\], \(\) => \{ if \(d\?\.estado\) void hacer\(\{ accion: 'hecha', dia: 1, id: TAREA\.id \}\); \}\);/);
+  // Tocar la fila de Funnel Coach sólo lleva al coach (20/11, D1-01): la tarea la cierra el funnel guardado, no el clic.
+  assert.ok(paso.includes("marcarTarea([{ ...m, lado: 'abajo' }], () => { void leer(); });"), 'la marca a Funnel Coach no da la tarea por hecha');
+  assert.doesNotMatch(paso, /accion: 'hecha'/, 'nada de «hecha» por tocar');
   assert.match(paso, /if \(!m \|\| yaMarcada\(CLAVE\) \|\| senalAhora\(\) \|\| !filaVisible\(m\.sel\)\) return;/);
   assert.match(paso, /if \(Date\.now\(\) - ultimoGesto > GESTO_RECIENTE_MS\) return;/, 'bajar al último mensaje lo hace la pantalla, no la persona');
   // Dónde se entrega: el Offer Coach (desde el 19/11 con el motor de Offer: una versión nueva de SU conversación) y la conversación de
@@ -157,7 +176,26 @@ test('lo tocado durante el video del día cuenta como hecho: la tarea cuya últi
   assert.deepEqual(tareasQueCierra(d2, '#user-menu a[href^="/perfil"]'), [], 'Settings es un paso del camino, no cierra nada');
   const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
   assert.match(chat, /alTocar: onTocado/, 'el video del día avisa lo tocado');
+  // 20/11 (auditoría D1-01, d24-07, d24-12 y R57-09): tocar lo marcado NO da la tarea por hecha; sólo relee el reto.
+  assert.doesNotMatch(chat, /accion: 'hecha'/, 'el chat del reto nunca marca «hecha» por un toque');
+  // 20/11 (D1-03, d24-09 y R57-12): nada se marca solo a los 0,9 s; lo que falta, al terminar o cerrar el video del día.
+  assert.ok(!chat.includes('}, 900)'), 'sin la marca automática a los 900 ms');
+  assert.ok(chat.includes('alTerminar: () => onFin?.()') && chat.includes('onEnded={() => onFin?.()}'), 'la marca de lo que falta sale al terminar el video');
+  assert.ok(chat.includes("marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => {})"), 'el día 1 sin «Lo hago después» (F1)');
   assert.match(chat, /¡Hiciste todo lo del día \{dia\.n\}!/, 'con todo hecho, la felicita y pasa a WhatsApp');
+});
+
+test('cada tarea del reto se cierra por lo que MaKo LEE, nunca por tocar la pestaña (20/11, D1-01, d24-07, d24-12, R57-09)', () => {
+  const senales = readFileSync(new URL('../lib/reto/senales.ts', import.meta.url), 'utf8');
+  for (const d of DIAS_RETO) for (const t of d.tareas) assert.ok(senales.includes(`'${d.n}:${t.id}': async`), `la tarea ${d.n}:${t.id} tiene su lectura`);
+  // Las trampas medidas: el funnel por defecto de todo negocio, la foto de Google, las secuencias que nacen apagadas, el plan de arranque.
+  assert.ok(senales.includes("eq('es_default', false)"), 'el funnel por defecto no cuenta');
+  assert.ok(senales.includes(String.raw`\/object\/public\/avatars\/`), 'sólo la foto subida a MaKo');
+  assert.ok(senales.includes("eq('activa', true)"), 'sólo una automatización activa');
+  assert.ok(senales.includes('tareasEnElPlan'), 'sólo las tareas que dejó el CoPilot');
+  const ruta = readFileSync(new URL('../app/api/reto/route.ts', import.meta.url), 'utf8');
+  assert.ok(ruta.includes('leer().then(conLoLeido)'), 'el GET lee lo hecho');
+  assert.ok(!ruta.includes("accion === 'hecha'"), 'la API ya no acepta «hecha» por un toque');
 });
 
 test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, sin clip de regalo, sin la tab AI Avatar', () => {
