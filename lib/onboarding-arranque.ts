@@ -1922,7 +1922,7 @@ export function mensajesDeArranqueV2(e: EstadoArranque, h: HechosArranque): Mens
     yo('telefono', e.telefonoVisto || (e.telefonoNumero ? telefonoVisible(e.telefonoNumero) : 'Mi WhatsApp'));
     if (yaConfirmado) {
       mako('ya-confirmado', V2_YA_CONFIRMADO(e.telefonoVisto || (e.telefonoNumero ? telefonoVisible(e.telefonoNumero) : '')), { tarjeta: 'contacto' });
-      mako('guardame', V2_GUARDAME);
+      mako('guarda-contacto', V2_GUARDAME);
     } else {
       mako('codigo', V2_CODIGO, etapa === 'codigo' ? { tarjeta: 'codigo' } : {});
       if (etapa === 'codigo') return out;
