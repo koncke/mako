@@ -12760,6 +12760,11 @@ decide «usado» con el MISMO registro (`ordenesAnotadas` + `numerosUsados`, que
 debe, mira si la orden ya está en el libro: si no, la segunda corrida ve «no se debía nada» y le avisa a Martín de un pago que la otra
 acaba de aplicar. Y `aplicado_a` vacío en `comprobantes_leidos` NO quiere decir «abierto»: lo que Martín cierra a mano queda vacío.
 Lo fija tests/binance-sin-captura.test.ts.
+Y la cuenta se lee SIEMPRE con `pagosRecibidosEnBinance` (lib/binance-pay.ts), nunca con un fetch propio a Binance: el proyecto corre en
+`pdx1` y desde EE. UU. Binance contesta 451; ese lector va por la ruta de São Paulo (/api/cron/binance-pagos, `gru1`) cuando hace falta.
+Esa ruta es la ÚNICA función fuera de pdx1 (tests/region-funciones.test.ts, `EXCEPCIONES`): no le sumes nada que consulte la base, y
+una función nueva en otra región es una excepción NUEVA, escrita con su porqué, nunca una región puesta por su cuenta.
+Lo fija tests/binance-pay-region.test.ts.
 
 ## Lo que se le paga a MaKo lo contesta el código; una foto con una pregunta no es un comprobante (20/11/2026)
 - «¿Cuánto hay que pagar para activar la cuenta de X?» o «¿cuánto debo?» en el turno de una agencia lo contesta
