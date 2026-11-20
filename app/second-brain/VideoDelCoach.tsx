@@ -45,15 +45,16 @@ export function useVideoDelCoach(cual: CoachDelOps, dosCoaches: boolean, saludo:
     if (!conVideo || !primero || primero.k !== 'msg') return saludo;
     return [{ k: 'msg', id, role: 'assistant', texto: LINEA[cual], at: primero.at }, ...saludo];
   }, [conVideo, saludo, id, cual]);
+  // Quieto, el motor lo marca con «{título}: dale play» (V5, app/_ui/tutorial/useDalePlay.ts).
   const enMensaje = useCallback((x: { id: string }): EnMensaje | null => {
     if (x.id !== id) return null;
     return {
       abajo: cual === 'offer'
-        ? <VideoDelMomento clave="offer-coach" titulo={ORIGEN_OFFER_COACH} revision={revision} />
-        : <VideoDelMomento clave="funnel-coach" titulo={ORIGEN_FUNNEL_COACH} revision={revision} />,
+        ? <VideoDelMomento clave="offer-coach" titulo={ORIGEN_OFFER_COACH} revision={revision} dalePlay />
+        : <VideoDelMomento clave="funnel-coach" titulo={ORIGEN_FUNNEL_COACH} revision={revision} dalePlay />,
     };
   }, [id, cual, revision]);
-  return { items, enMensaje };
+  return { items, enMensaje, conVideo };
 }
 
 // Los videos de cada coach del V2 para su ícono de videos (18/11, Martín: «el mismo ícono de videos que tiene el reto… que al

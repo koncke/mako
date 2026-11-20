@@ -7,7 +7,8 @@
 // una marca nueva, el hueco se recorta con un `clip-path`: la pantalla entera menos un círculo centrado en él, que se achica hasta 0.
 // El clip-path (a diferencia de una máscara) no recorta al borde del elemento: la sombra de afuera se ve donde el camino la deja.
 // El arranque del onboarding (app/onboarding/ChatArranqueV2.tsx, OA-13) hace el mismo barrido con una máscara.
-// Aquí, sólo las cuentas (las prueba tests/tutorial-iris.test.ts sin navegador).
+// Las cuentas (las prueba tests/tutorial-iris.test.ts sin navegador) y `barrer`, que las anima sobre un hueco: lo usan el motor y la
+// entrada de los videos de los chats (./EntradaEscribiendo.tsx, V5).
 // =============================================================================
 
 /** Lo que dura el barrido: el del modo oscuro y el de la maqueta. */
@@ -48,4 +49,29 @@ export function recorteIris(hueco: Rect, ventana: { ancho: number; alto: number 
  */
 export function tocaIris(o: { habia: boolean; hay: boolean; clave: string | null; barrida: string | null; menosMovimiento: boolean }): boolean {
   return o.hay && !o.habia && o.clave != null && o.clave !== o.barrida && !o.menosMovimiento;
+}
+
+/**
+ * Anima el barrido sobre `nodo` (un hueco cuya sombra es el velo): desde la esquina más lejana hasta 0, en MS_IRIS. Devuelve con qué
+ * cortarlo (lo deja sin recorte). `alTerminar` corre al final y al cortarlo. Quien llama decide si toca (`tocaIris`).
+ */
+export function barrer(nodo: HTMLElement, alTerminar?: () => void): () => void {
+  const recorte = (r: number) => {
+    const c = nodo.getBoundingClientRect();
+    nodo.style.clipPath = recorteIris({ x: c.left, y: c.top, ancho: c.width, alto: c.height }, { ancho: window.innerWidth, alto: window.innerHeight }, r);
+  };
+  const c0 = nodo.getBoundingClientRect();
+  const r0 = radioInicial(c0.left + c0.width / 2, c0.top + c0.height / 2, window.innerWidth, window.innerHeight);
+  const t0 = performance.now();
+  let raf = 0;
+  const listo = () => { nodo.style.clipPath = ''; alTerminar?.(); };
+  const cuadro = (ahora: number) => {
+    const ms = ahora - t0;
+    if (ms >= MS_IRIS) { raf = 0; listo(); return; }
+    recorte(radioA(ms, r0));
+    raf = requestAnimationFrame(cuadro);
+  };
+  recorte(r0);   // el primer cuadro, ya recortado: nunca un destello de la pantalla entera oscura
+  raf = requestAnimationFrame(cuadro);
+  return () => { if (raf) cancelAnimationFrame(raf); listo(); };
 }

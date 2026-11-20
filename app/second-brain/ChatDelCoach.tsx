@@ -38,8 +38,10 @@ import { inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import { ROTULO_FUNNEL, type OfertaDelCoach } from '@/lib/funnel-plan';
 import { VideosDelChat } from '@/app/_ui/tutorial/VideosDelChat';
 import type { EnMensaje } from '@/app/_chat/HiloMako';
-import { VIDEOS_DEL_FUNNEL, VIDEOS_DEL_OFFER } from './VideoDelCoach';
+import { CLAVE_VIDEO_DEL_COACH, VIDEOS_DEL_FUNNEL, VIDEOS_DEL_OFFER } from './VideoDelCoach';
 import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
+import { EntradaEscribiendo, useEntrada } from '@/app/_ui/tutorial/EntradaEscribiendo';
+import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { PARA_TODOS } from '@/lib/onboarding-v2/revision';
 import { ErrorDelOfferCoach, useHiloConPortada, useOfertaEnMensaje, vozDelCoach } from './coach-compartido';
 
@@ -68,6 +70,11 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
   // Con la oferta entregada, la marca a Funnel Coach, recién cuando la persona la vio (Martín, 18/11: «mínimo déjame verla»).
   usePasoAlFunnel({ activo: dosCoaches && cual === 'offer' && visible, entregadaEn, ocupado, contenedor: useCallback(() => hilo.current, []) });
   const portada = useVideoDelCoach(cual, dosCoaches, saludo);
+  // LA ENTRADA (V5; la maqueta, b-of-entra: «Offer Coach abre como el recorrido: la pantalla se oscurece, escribe y manda el video»):
+  // la primera vez, con el chat a la vista y su video, el coach escribe con todo lo demás oscuro y después llega el mensaje con el
+  // video, marcado con «dale play» mientras está quieto (app/_ui/tutorial/EntradaEscribiendo.tsx).
+  const enPortada = vacio || (motorOffer && sinEscribir);
+  const entrada = useEntrada(CLAVE_VIDEO_DEL_COACH[cual], dosCoaches && visible && enPortada && portada.conVideo);
   // LA VOZ DE LOS COACHES (el Cerebro, 18/11; app/_ui/voz-coach): un botón debajo de cada mensaje del coach, sin tapar el texto. El
   // último del coach suena solo; el saludo (la portada) es una pregunta fija. Sin la clave de ElevenLabs, o fuera de la revisión de
   // Martín, BotonVozCoach no dibuja nada.
@@ -125,6 +132,7 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
         estado={estadoDelCliente(k)}>
         {mostrandoPlan ? <VistaDelPlan plan={plan} />
           : motorOffer && errorOffer ? <ErrorDelOfferCoach error={errorOffer} onReintentar={reintentarOffer} />
+            : entrada === 'escribe' ? <EntradaEscribiendo foto={<Muneco titulo={quien.nombre} aspecto={quien.aspecto} animo="despierto" size={26} />} quien={titulo} />
             : vacio ? (
               <HiloMako items={portada.items} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null} enMensaje={dosCoaches ? conVoz(true, portada.enMensaje as never) : portada.enMensaje}
                 onTarjeta={() => {}} onReintentar={() => {}} onRecargar={k.recargar} onResponder={(t) => k.enviar(t)} />

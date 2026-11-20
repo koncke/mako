@@ -32,7 +32,7 @@ import { Z_PISO_RECORRIDO, necesitaScroll, posicionTarjeta, recorteDe, type Caja
 import { pasosPara, tutorialDeRuta, type PasoTutorial, type TutorialPestana } from '@/lib/tutoriales';
 import { anotarTiempoFlotante, elChatPresentaElRecorrido, motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
 import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
-import { MS_IRIS, radioA, radioInicial, recorteIris, tocaIris } from './iris';
+import { barrer, tocaIris } from './iris';
 import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigueLosPasos, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
@@ -573,25 +573,9 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
     barrida.current = claveMarca;
     const nodo = huecoRef.current, capa = capaRef.current;
     if (!nodo || !capa) return;
-    const recorte = (r: number) => {
-      const c = nodo.getBoundingClientRect();
-      nodo.style.clipPath = recorteIris({ x: c.left, y: c.top, ancho: c.width, alto: c.height }, { ancho: window.innerWidth, alto: window.innerHeight }, r);
-    };
-    const c0 = nodo.getBoundingClientRect();
-    const r0 = radioInicial(c0.left + c0.width / 2, c0.top + c0.height / 2, window.innerWidth, window.innerHeight);
-    const t0 = performance.now();
-    let raf = 0;
-    const listo = () => { nodo.style.clipPath = ''; capa.removeAttribute('data-iris'); };
-    const cuadro = (ahora: number) => {
-      const ms = ahora - t0;
-      if (ms >= MS_IRIS) { raf = 0; listo(); return; }
-      recorte(radioA(ms, r0));
-      raf = requestAnimationFrame(cuadro);
-    };
     capa.setAttribute('data-iris', '');
-    recorte(r0);   // el primer cuadro, ya recortado: nunca un destello de la pantalla entera oscura
-    raf = requestAnimationFrame(cuadro);
-    return () => { if (raf) cancelAnimationFrame(raf); listo(); };
+    // Cortado a mitad (el hueco se fue), nada queda recortado ni la tarjeta escondida.
+    return barrer(nodo, () => capa.removeAttribute('data-iris'));
   }, [hayHueco, claveMarca]);
 
   // 2b. El video chico nunca tapa la tarjeta (en el teléfono se cruzan): si abajo a la derecha la tocaría, va arriba.
@@ -670,7 +654,16 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
         {estiloFlecha && t && <span className="mk-rec__flecha" data-lado={t.lado} style={estiloFlecha} aria-hidden />}
         <div key={modoVideo ? (frase?.id ?? (cierre ? 'cierre' : 'video')) : i} className="mk-rec__cuerpo">
           {paso && total > 1 && !modoVideo && <div className="mk-rec__cont">{i + 1} de {total}</div>}
-          <h2 className="mk-rec__tit">{titulo}</h2>
+          {senal.tipo === 'marca' && senal.invita
+            ? (
+              <div className="mk-tuto__invita">
+                <h2 className="mk-rec__tit">{titulo}</h2>
+                <button type="button" className="mk-tuto__vx" aria-label="Cerrar" onClick={() => fin('omitido')}>
+                  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
+                </button>
+              </div>
+            )
+            : <h2 className="mk-rec__tit">{titulo}</h2>}
           {texto && <p className="mk-rec__txt">{texto}</p>}
           {haz && <p className="mk-tuto__haz"><span aria-hidden className="mk-tuto__punto" />{haz}</p>}
         </div>
@@ -703,7 +696,7 @@ function Pie({ senal, paso, ultimo, esperaClic, hayAnterior, conVideo, siguiente
   siguiente: () => void; atras: () => void; fin: (c: 'fin' | 'omitido' | 'hecho') => void;
 }) {
   if (senal.tipo === 'marca') {
-    if (!senal.listo && !senal.alOmitir) return null;
+    if (senal.invita || (!senal.listo && !senal.alOmitir)) return null;
     return (
       <div className="mk-rec__pie">
         {senal.alOmitir && <Button variant="tertiary" size="sm" onClick={() => fin('omitido')}>Lo hago después</Button>}
@@ -772,6 +765,8 @@ const CSS_TUTORIAL = `
 .mk-tuto__tapa { position: fixed; }
 .mk-tuto .mk-rec__tarjeta { z-index: 3; transition: opacity .2s ease; }
 .mk-tuto[data-iris] .mk-rec__tarjeta { opacity: 0; }
+.mk-tuto__invita { display: flex; align-items: center; gap: 14px; }
+.mk-tuto__invita .mk-rec__tit { margin: 0; }
 .mk-tuto__haz { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: var(--fs-sm); font-weight: 650; color: var(--ink); }
 .mk-tuto__punto { width: 9px; height: 9px; border-radius: 999px; background: var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 18%, transparent); flex: none; }
 .mk-tuto__video { position: fixed; z-index: 2; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100vw - 32px)); background: #0E1219; color: #fff; border-radius: var(--r-lg); box-shadow: 0 18px 44px rgba(0,0,0,.35); overflow: hidden; }

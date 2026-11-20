@@ -337,7 +337,8 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T13:44:42.961Z"
+   "hecho": "2026-11-18T13:44:42.961Z",
+   "play": "abajo-derecha"
   },
   {
    "key": "offer-coach-clase",
@@ -602,7 +603,8 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T13:48:38.475Z"
+   "hecho": "2026-11-18T13:48:38.475Z",
+   "play": "abajo-derecha"
   },
   {
    "key": "funnel-clase-anuncios",
