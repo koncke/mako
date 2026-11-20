@@ -110,7 +110,9 @@ test('6. sin el canal del código (la app, HTTP) las filas van en lo que lee el 
   assert.equal(R.persona.encontrados, 1);
   assert.equal(R.persona.por_campana, undefined, 'un nombre de persona no es una campaña');
   assert.deepEqual([R.muchos.encontrados, R.muchos.coinciden, R.muchos.omitidos], [20, 22, 2], 'con más de 20 se dice cuántos quedaron afuera');
-  assert.deepEqual(R.nadie, { encontrados: 0, leads: [] }, 'nadie se llama así y no habla de una campaña: lo de siempre');
+  // Desde el ticket #121 (20/11/2026) el cero trae la orden de buscar por la otra pista (tests/ticket-121-buscar-leads-aproximados.test.ts).
+  assert.deepEqual({ ...R.nadie, instruccion: undefined }, { encontrados: 0, leads: [], instruccion: undefined }, 'nadie se llama así y no habla de una campaña: lo de siempre');
+  assert.match(String(R.nadie.instruccion), /reuniones_recientes/);
   assert.deepEqual(R.noExiste.campanas_parecidas.map((c: { nombre: string }) => c.nombre), ['RECON - Finca Cortesín 2026', 'Prospección Marbella']);
   assert.match(R.noExiste.instruccion, /No le pidas la fecha/);
 });
