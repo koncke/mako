@@ -99,5 +99,7 @@ test('3. las guardas: leen ESTRICTO, miran el rebote y lo ponen; /onboarding no 
 
 test('4. /second-brain no redirige al chat «Onboarding» si el pedido ya elige chat: el destino trae `?chat=`, y anotarlo puede fallar', () => {
   const p = sinComentarios(leer('app/second-brain/page.tsx'));
-  assert.match(p, /const eligeChat = !!\(q\.chat \|\| q\.reto\);\n\s*const hiloNuevo = eligeChat \? null : await hiloParaQuienYaTermino\(\)\.catch\(\(\) => null\);\n\s*if \(hiloNuevo\) redirect\(await rutaConWs\(rutaDelHilo\(hiloNuevo\)\)\);/);
+  assert.match(p, /const eligeChat = !!\(q\.chat \|\| q\.reto\);/);
+  // (Entre las dos, `alReto`: la primera vez va al reto, sin llevar al chat «Onboarding»; tests/hola-de-nuevo-primero.test.ts.)
+  assert.match(p, /const hiloNuevo = eligeChat \? null : await hiloParaQuienYaTermino\(\)\.catch\(\(\) => null\);\n\s*if \(hiloNuevo && !alReto\) redirect\(await rutaConWs\(rutaDelHilo\(hiloNuevo\)\)\);/);
 });

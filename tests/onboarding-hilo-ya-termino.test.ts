@@ -68,5 +68,5 @@ test('quien ya terminó lo recibe en su primera visita al Ops Center, y entra a 
   assert.match(relleno, /if \('error' in \(await wsDelOnboarding\(\)\)\) return null;/, 'un closer o un setter no se lo lleva');
   const pagina = sinComentarios(leer('app/second-brain/page.tsx'));
   // Nunca sobre un pedido que ya elige chat (20/11/2026: el destino trae `?chat=`, y anotar `hiloChat` puede fallar).
-  assert.match(pagina, /const hiloNuevo = eligeChat \? null : await hiloParaQuienYaTermino\(\)\.catch\(\(\) => null\);\s*if \(hiloNuevo\) redirect\(await rutaConWs\(rutaDelHilo\(hiloNuevo\)\)\);/);
+  assert.match(pagina, /const hiloNuevo = eligeChat \? null : await hiloParaQuienYaTermino\(\)\.catch\(\(\) => null\);\s*if \(hiloNuevo && !alReto\) redirect\(await rutaConWs\(rutaDelHilo\(hiloNuevo\)\)\);/);
 });

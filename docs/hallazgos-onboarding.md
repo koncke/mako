@@ -3989,8 +3989,10 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
 - **El bucle de «Entrar a MaKo» (20/11, 18:43–18:50 UTC):** el síntoma, lo que se midió, por qué el diagnóstico obvio era el
   equivocado y el arreglo por construcción (con su test) están en «El ida y vuelta entre la app y el onboarding», más arriba (ec7425bf2).
 - **Lo que se encontró en el código y quedó SIN hacer al 20/11, 19:30 UTC** (dueño entre paréntesis):
-  - RESET (la barra del Cliente de Prueba) no borra `perfil.recorridos` del dueño, y «Hola de nuevo» no vuelve a salir. «Reiniciar
-    onboarding» sí borra los `tutorial-*` (`perfilReiniciado`) (onboarding-v2).
+  - ~~RESET (la barra del Cliente de Prueba) no borra `perfil.recorridos` del dueño, y «Hola de nuevo» no vuelve a salir~~ HECHO:
+    RESET usa `perfilReiniciado`. Y quien termina en el teléfono llega a la PC sin `?reto=1`: /second-brain abre el reto la primera
+    vez (empezó el V2 y no vio el recorrido), sin llevar al chat «Onboarding», que salteaba la llegada (tests/hola-de-nuevo-primero).
+    Sin mirar en producción todavía (onboarding-v2).
   - «Sigamos en tu computadora» promete «el link que te mandamos a tu correo» y nadie lo manda (app/onboarding/SeguirEnPc.tsx:44-46; onboarding-v2).
   - ~~Guardar el nombre del negocio llama a `asegurarGrupoMaKo` y renombra el grupo~~ HECHO en 5e6e3e181 (onboarding-v2).
   - `/api/plan/prueba` lee el negocio propio, no el que se mira (app/api/plan/prueba/route.ts:17-18; onboarding-v2).

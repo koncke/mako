@@ -29,6 +29,7 @@ import { getSupabaseServer } from './supabase';
 import { exigirClienteDePrueba } from './auth-session';
 import { TABLAS_DE_INQUILINO } from './tablas-de-inquilino';
 import { PERFIL_EXTRA } from './datos-mau';
+import { perfilReiniciado } from './reiniciar-onboarding';
 import { leerTodo } from './supabase-paginado';
 import { laCajaNoEsta as migracionSinAplicar } from './mako-tokens-caja';
 
@@ -396,8 +397,12 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
     const db = getSupabaseServer();
     const { data, error } = await db.from('usuarios').select('id, perfil').eq('workspace_id', ws);
     if (error) avisos.push(`los usuarios del workspace: ${error.message}`);
+    // Y lo visto del onboarding V2 (20/11/2026, la llamada con Leila: «Hola de nuevo» no salía después de un RESET): la marca del V2
+    // y los `tutorial-*` viven en el perfil, que RESET no tocaba. Lo mismo que «Reiniciar onboarding» (`perfilReiniciado`), con su
+    // marca: el layout le limpia el navegador una vez (si no, el navegador le devuelve lo visto a la base).
+    const ahora = new Date().toISOString();
     for (const u of (data ?? []) as Array<{ id: number; perfil: Record<string, unknown> | null }>) {
-      const perfil: Record<string, unknown> = { ...(u.perfil ?? {}) };
+      const perfil: Record<string, unknown> = perfilReiniciado(u.perfil, ahora).perfil;
       for (const k of PERFIL_EXTRA) delete perfil[k];
       const r = await db.from('usuarios').update({ nombre: NOMBRE_WS_PRUEBA, foto_url: null, perfil }).eq('id', u.id).eq('workspace_id', ws);
       if (r.error) avisos.push(`el usuario ${u.id}: ${r.error.message}`);
