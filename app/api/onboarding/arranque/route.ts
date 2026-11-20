@@ -30,7 +30,7 @@ import { estaImpersonando } from '@/lib/workspace';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
 import { AVISOS_SIN_SOPORTE } from '@/lib/avisos-telefono-reglas';
-import { CODIGO_CARGADO, MENSAJE_MANDADO, etapaDeArranque, funnelDelArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, primerNombre, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
+import { CODIGO_CARGADO, E_TELEFONO_INCOMPLETO, MENSAJE_MANDADO, etapaDeArranque, funnelDelArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, primerNombre, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
 import { loQueContesto } from '@/lib/onboarding-historial';
 import {
   FaltaParaCerrar, anotarRespuesta, asegurarFunnelPrincipal, hechosConfirmados, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
@@ -128,8 +128,12 @@ export async function POST(req: NextRequest) {
         if (freno) return NextResponse.json({ ok: false, error: freno.error, ...(freno.bloqueado ? { bloqueado: true } : {}), vista: await vistaArranque() }, { status: freno.status });
 
         // EL CÓDIGO DEL V2 (19/11/2026): el que MaKo le contestó por WhatsApp, pegado aquí. Sin grupo (lib/mako-grupo.ts → verificarCodigoV2).
-        if (h.v2 && etapa === 'codigo' && texto && /\d/.test(texto)) {
-          const r = await verificarCodigoV2(g.ws, texto);
+        // Lo escrito en la caja (20/11, OA-06): el grupo de 6 números seguidos, o lo que hay si son menos («Faltan números»). Un texto
+        // con MÁS números y sin un grupo de 6 (un teléfono) no se trata como código: sigue como cualquier respuesta.
+        const digitosCodigo = texto ? texto.replace(/\D/g, '') : '';
+        const grupoDe6 = texto ? /(?<!\d)\d{6}(?!\d)/.exec(texto)?.[0] : undefined;
+        if (h.v2 && etapa === 'codigo' && texto && (grupoDe6 || (digitosCodigo.length > 0 && digitosCodigo.length < 6))) {
+          const r = await verificarCodigoV2(g.ws, grupoDe6 ?? digitosCodigo);
           if (!r.ok) return no(422, r.error);
           await guardarEstadoArranque({ telefono: 'verificado' });
           await anotarRespuesta(e, h, CODIGO_CARGADO, confirmado);
@@ -226,7 +230,7 @@ export async function POST(req: NextRequest) {
         if (etapaDeArranque(e, h) !== 'telefono') return no(409, 'Ahora no estoy esperando tu teléfono.');
         const crudo = typeof body.telefono === 'string' ? body.telefono : '';
         const digitos = crudo.replace(/\D/g, '');
-        if (digitos.length < 8) return no(422, 'Escribe tu número completo, con el código de país.');
+        if (digitos.length < 8) return no(422, h.v2 ? E_TELEFONO_INCOMPLETO : 'Escribe tu número completo, con el código de país.');
         return await pedirCodigo(e, h, confirmado, digitos);
       }
 

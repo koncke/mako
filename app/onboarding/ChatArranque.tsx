@@ -499,7 +499,11 @@ function VisorPdf({ sesionId, url, onCerrar }: { sesionId: number; url: string; 
 
 /** «SIGAMOS EN TU COMPUTADORA» (V2, en el teléfono): lo que sigue del onboarding (el video, el recorrido y el reto) va en una pantalla
  *  grande. Lo contestado ya quedó guardado: al entrar desde la computadora sigue justo donde quedó. */
-export function SeguirEnPc({ nombre, email, video = null }: { nombre: string; email: string; video?: ReactNode }) {
+/**
+ * «Sigamos en tu computadora». Con `maqueta` (el V2, 20/11, OA-11 y OD-F3), como la maqueta: la estrellita contenta arriba y, abajo,
+ * «Te mandamos el link a {correo}». Sin él, la de siempre.
+ */
+export function SeguirEnPc({ nombre, email, video = null, maqueta = false }: { nombre: string; email: string; video?: ReactNode; maqueta?: boolean }) {
   const paso = (n: number, t: string, x: string) => (
     <li style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
       <span style={{ flex: 'none', width: 26, height: 26, borderRadius: 999, display: 'grid', placeItems: 'center', background: 'var(--ink)', color: 'var(--surface)', fontSize: 13, fontWeight: 700 }}>{n}</span>
@@ -509,6 +513,7 @@ export function SeguirEnPc({ nombre, email, video = null }: { nombre: string; em
   return (
     <div role="dialog" aria-modal="true" aria-label="Sigamos en tu computadora" style={{ position: 'fixed', inset: 0, zIndex: 900, background: 'var(--bg)', color: 'var(--ink)', overflow: 'auto', display: 'grid', placeItems: 'center', padding: '24px max(20px, env(safe-area-inset-left, 0px))' }}>
       <div style={{ width: 'min(380px, 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
+        {maqueta && <span aria-hidden="true" data-seguir-criatura=""><CriaturaMako size={64} reaccion="contenta" /></span>}
         <h1 style={{ margin: 0, fontSize: 22, lineHeight: 1.25, fontWeight: 700 }}>{nombre ? `${nombre}, sigamos` : 'Sigamos'} en tu computadora</h1>
         <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: 'var(--dim)' }}>Tu onboarding sigue en una pantalla grande: ahí te muestro MaKo por dentro, con tu reto de 7 días.</p>
         {video}
@@ -517,6 +522,7 @@ export function SeguirEnPc({ nombre, email, video = null }: { nombre: string; em
           {paso(2, 'Entra con tu cuenta', email)}
           {paso(3, 'Sigues justo donde quedaste', 'Lo que contestaste ya está guardado.')}
         </ol>
+        {maqueta && email && <p data-seguir-correo="" style={{ margin: 0, fontSize: 'var(--fs-meta)', color: 'var(--dim)', overflowWrap: 'anywhere' }}>Te mandamos el link a <b style={{ color: 'var(--ink)' }}>{email}</b>.</p>}
       </div>
     </div>
   );

@@ -51,6 +51,17 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
   - *El primer mensaje espera al video.* «¡Hola! Para empezar…» sale cuando el video termina o cuando la persona toca la caja, lo que
     pase primero, con MaKo escribiendo antes (`primero` en `ChatArranqueV2`). Si el manifiesto no trae el video, sale solo a los 2,5 s:
     sin esa salida, el chat quedaba mudo.
+- **La auditoría del Cerebro (20/11, tramo «onboarding-antes»): lo que no se veía en la prueba feliz.**
+  - *Un botón apagado esconde el error que lo explica.* Con menos de 6 números, «Confirmar» estaba apagado y Enter no hacía nada:
+    el error «Faltan números» no salía nunca. Lo mismo «Seguir» del WhatsApp. Ahora los dos están siempre activos y el error rojo
+    dice qué falta (la maqueta).
+  - *Pegar el mensaje de MaKo entero mete la hora y otras cifras.* El campo tomaba los primeros 6 números de lo pegado. Ahora toma el
+    grupo de 6 seguidos (`codigoDeLoEscrito`), y la ruta hace lo mismo con lo escrito en la caja. Un teléfono escrito en la caja
+    (más de 6 números sin un grupo de 6) ya no se trata como un código equivocado.
+  - *Con el código vencido el link de WhatsApp sigue.* `vistaDeEntrante` lo manda igual. La tarjeta lo escondía y ponía «Pedir
+    otro», mientras el error decía «toca Abrir WhatsApp». Escribirle de nuevo a MaKo ya trae un código nuevo.
+  - *El número se guarda en dígitos y se formatea al dibujarlo* (`telefonoVisible`: «+54 911 5555 0101», en grupos de 4 desde el
+    final). La burbuja que espera muestra lo que escribió, con la lada.
 - **Lo que quedó sin hacer:**
   - la tarjeta de contacto que manda MaKo con el código: va por `/message/sendContact`, con la forma de Evolution v2, y no se probó
     contra la línea;
