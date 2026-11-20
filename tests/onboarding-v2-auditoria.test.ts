@@ -133,3 +133,18 @@ test('11. OD-03: «Tu panel» abre la barra ENTERA mientras dura el paso, y al p
   assert.match(m, /const abreLaBarra = presentaLaBarra\(paso\.sel\);\n\s*if \(abreLaBarra\) barraEntera\(true\);/);
   assert.match(m, /if \(abreLaBarra\) barraEntera\(false\); \};\n\s*\}, \[paso, senal\.tipo, siguiente, modoVideo\]\);/, 'al pasar, plegada');
 });
+
+test('12. OA-10 / OD-12: en el teléfono, «Sigamos en tu computadora» se queda hasta ver el recorrido en la PC', () => {
+  const srv = leer('lib/onboarding-arranque-server.ts');
+  const f = srv.slice(srv.indexOf('export async function seguirEnPcPendiente'), srv.indexOf('export async function hiloOnboardingGuardado'));
+  assert.match(f, /if \(!veOnboardingV2\(/, 'sólo con el V2');
+  assert.match(f, /if \(await estaImpersonando\(\)\.catch\(\(\) => true\)\) return false;/, 'mirando a un cliente, nunca');
+  assert.match(f, /return !Object\.prototype\.hasOwnProperty\.call\(vistosDePerfil\([^)]*\)\?\.perfil\), ID_RECORRIDO_PC\);/);
+  assert.match(srv, /const ID_RECORRIDO_PC = 'tutorial-ops-center';/, 'el id con que lo anota el motor');
+  assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /const id = `tutorial-\$\{t\.pestana\}`;/, 'el motor anota `tutorial-<pestaña>`');
+  const onb = sinComentarios(leer('app/onboarding/page.tsx'));
+  assert.match(onb, /if \(\(await prefiereMovil\(\)\.catch\(\(\) => false\)\) && \(await seguirEnPcPendiente\(\)\)\) \{[\s\S]{0,300}return <SeguirEnPc [^>]*maqueta \/>;/);
+  assert.ok(onb.indexOf('seguirEnPcPendiente()') < onb.indexOf('redirect(await rutaConWs(destinoDeTabVieja(tab)))'), 'antes de mandarlo a la app');
+  const ini = sinComentarios(leer('app/inicio/page.tsx'));
+  assert.match(ini, /if \(telefono && \(await seguirEnPcPendiente\(\)\)\) redirect\(await rutaConWs\('\/onboarding'\)\);\n\s*if \(telefono\) redirect\(await rutaConWs\(ENTRADA_MOVIL\)\);/);
+});

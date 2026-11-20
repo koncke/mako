@@ -62,6 +62,10 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
     otro», mientras el error decía «toca Abrir WhatsApp». Escribirle de nuevo a MaKo ya trae un código nuevo.
   - *Para ordenar la lista no se llama a `hiloDelOnboarding`: ARMA el chat si falta* (con su reserva y sus mensajes). El Ops Center
     del V2 lee el id ya guardado con `hiloOnboardingGuardado` (sólo lee) y pone «Onboarding» enseguida del Ops Center (OD-08).
+  - *«Sigamos en tu computadora» era un estado de la pantalla*, y el onboarding ya se había cerrado: al volver a abrir desde el
+    teléfono, /onboarding mandaba a la app. Ahora se decide en el servidor (`seguirEnPcPendiente`: V2 y sin `tutorial-ops-center`
+    en `usuarios.perfil`, el mismo dato que guarda /api/recorridos): /inicio manda el teléfono a /onboarding, y /onboarding muestra
+    esa pantalla en vez de la app (OA-10, OD-12).
   - *El número se guarda en dígitos y se formatea al dibujarlo* (`telefonoVisible`: «+54 911 5555 0101», en grupos de 4 desde el
     final). La burbuja que espera muestra lo que escribió, con la lada.
 - **Lo que quedó sin hacer:**
