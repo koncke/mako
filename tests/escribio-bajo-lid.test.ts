@@ -58,5 +58,6 @@ test('sin código no queda «respondido»: si no salió, se vuelve atrás', () =
   const src = fuenteSinComentarios('lib/mako-grupo.ts');
   const r = bloque(src, 'export async function responderPedidoV2(', 'export async function reenviarCodigoV2(');
   assert.match(r, /if \(r\.ok\) return;/);
-  assert.match(r, /cambiarSettingSi\(KEY_VERIFICACION, JSON\.stringify\(anotado\), JSON\.stringify\(\{ \.\.\.anotado, respondido: false \}\)\)/);
+  // Con `sinLineaAt` (20/11, wa-04): la tarjeta dice que no le pudo contestar (tests/whatsapp-v2-auditoria.test.ts).
+  assert.match(r, /cambiarSettingSi\(KEY_VERIFICACION, JSON\.stringify\(anotado\), JSON\.stringify\(\{ \.\.\.anotado, respondido: false, sinLineaAt: Date\.now\(\) \}\)\)/);
 });

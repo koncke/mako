@@ -22,6 +22,9 @@ export const TUTORIAL_CLASSROOM_CLIENTS: TutorialPestana = {
       lado: 'abajo',
       haz: 'Haz clic en Cargar un cliente',
       clic: true,
+      // En el kanban (sin la checklist ni la tabla) el lugar es «⋯ › Nuevo cliente» de cada etapa: el motor abre el de la primera
+      // (20/11, la verificación de classroom-clients-5). Con la marca a la vista, esto no corre.
+      antes: 'button[aria-label^="Opciones de la etapa"]',
     },
   ],
 };

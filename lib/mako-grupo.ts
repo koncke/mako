@@ -32,7 +32,7 @@ import { agenciasAprobadasDe } from './agencia';
 import { KEY_VOZ_INSTANCIA } from './linea-plataforma';
 import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
 import { MINUTOS_ENTRANTE, codigoDelTexto, codigoNuevo, decidirCodigoTipeado, decidirLlegada, linkWaMe, textoParaMandar, vistaDeEntrante, type EstadoVerificacion, type VistaEntrante } from './verificacion-entrante';
-import { E_REESCRIBIR_V2, E_SIN_CODIGO_V2, MAKO_SIN_LINEA_V2, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, errorDelTelefono, escribioDesdeElOtro, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, renovarCodigoV2, respuestaOtroNumeroV2, unicaEsperandoV2 } from './verificacion-entrante';
+import { E_REESCRIBIR_V2, E_SIN_CODIGO_V2, KEY_LID_SIN_NUMERO, MAKO_SIN_LINEA_V2, sumarLidSinNumero, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, errorDelTelefono, escribioDesdeElOtro, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, renovarCodigoV2, respuestaOtroNumeroV2, unicaEsperandoV2 } from './verificacion-entrante';
 import { chatDelMensaje, esSuTelefono } from './mako-bot-reglas';
 import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, leEscribioEnLasFilas, pausaDeEscritura, puedeEscribirleAPersona, type FilaQuienEscribio } from './mako-salida-reglas';
 import { respondiendoA } from './respuesta-en-curso';
@@ -999,7 +999,8 @@ export async function pedirConfirmacionV2(
   const r = await mandarCodigoV2(contestada, num);
   if (r.ok) return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero, contestado: true };
   console.error(`[mako-grupo] ws${ws}: no salió el código al otro número: ${r.error}`);
-  await guardarVerificacion(ws, nueva);
+  // Vuelve a «esperando», y la tarjeta dice que no le pudo contestar (wa-04).
+  await guardarVerificacion(ws, { ...nueva, sinLineaAt: Date.now() });
   return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero, contestado: false };
 }
 
@@ -1029,7 +1030,7 @@ async function mandarCodigoV2(v: EstadoVerificacion, destino: string): Promise<{
  * de esto: así sigue al bot como cualquier otro. Lo que habla con WhatsApp va en `responder`, para correr después.
  */
 export async function responderPedidoV2(instancia: string, m: Record<string, unknown>): Promise<{ resultado: string; responder?: () => Promise<void> } | null> {
-  const key = (m?.key ?? {}) as { remoteJid?: string; fromMe?: boolean; remoteJidAlt?: string; senderPn?: string };
+  const key = (m?.key ?? {}) as { id?: string; remoteJid?: string; fromMe?: boolean; remoteJidAlt?: string; senderPn?: string };
   if (key.fromMe) return null;
   const msg = (m?.message ?? {}) as Record<string, unknown>;
   const texto = typeof msg.conversation === 'string' ? msg.conversation : String((msg.extendedTextMessage as { text?: string } | undefined)?.text ?? '');
@@ -1050,7 +1051,7 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
     // uno nuevo», y MaKo se callaba (vencido) o mandaba el mismo (tope). `hayQueRenovarV2`, lib/verificacion-entrante.ts.
     const base = d === 'renovar' ? renovarCodigoV2(v!, Date.now(), codigoNumerico()) : v!;
     // `destino`: el chat por donde escribió (así le llega aunque el número se haya tipeado de otra forma).
-    const anotado: EstadoVerificacion = { ...base, destino: chat.telefono ?? v!.destino, respondido: true, escribioAt: Date.now(), otroNumero: undefined };
+    const anotado: EstadoVerificacion = { ...base, destino: chat.telefono ?? v!.destino, respondido: true, escribioAt: Date.now(), otroNumero: undefined, sinLineaAt: undefined, sinNumeroAt: undefined };
     // De dos llegadas del mismo mensaje (dos líneas de la misma cuenta), contesta una.
     const gane = await runWithWorkspace(ws, () => cambiarSettingSi(KEY_VERIFICACION, fila.value, JSON.stringify(anotado))).catch(() => false);
     if (!gane) return { resultado: `ws${ws}: ya contestado por otra llegada` };
@@ -1062,15 +1063,23 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
         console.error(`[mako-grupo] ws${ws}: no salió el código del V2: ${r.error}`);
         // ⚠️ «Respondido» sin código es un «listo» falso (19/11/2026): la pantalla esperaba un código que nunca salió, y «Reenviar» lo
         // daba por mandado. Se vuelve atrás (sólo si nadie lo cambió después): el próximo «Hola, quiero confirmar…» lo vuelve a intentar.
-        await runWithWorkspace(ws, () => cambiarSettingSi(KEY_VERIFICACION, JSON.stringify(anotado), JSON.stringify({ ...anotado, respondido: false }))).catch(() => {});
+        await runWithWorkspace(ws, () => cambiarSettingSi(KEY_VERIFICACION, JSON.stringify(anotado), JSON.stringify({ ...anotado, respondido: false, sinLineaAt: Date.now() }))).catch(() => {});
       },
     };
   }
   // NADIE ESPERABA ESTE NÚMERO (20/11/2026, wa-04): MaKo se callaba y la pantalla no decía nada. Le contesta en ese chat qué hacer y, si
   // UNA sola verificación espera en esta línea, se le anota `otroNumero` (la pantalla pasa a `'otro-numero'`). Contesta sólo la línea que
   // recibe: con dos líneas de la misma cuenta, el mensaje llega dos veces. Un @lid sin número no se puede contestar: queda en el log.
+  const filas = ((data ?? []) as Array<{ workspace_id: number; value: string }>).map((f) => ({ ...f, v: parseVerificacion(f.value) }));
   if (!chat.telefono) {
+    // wa-04 (20/11): sin número el código no puede ir a nadie. Se CUENTA (el log se pierde: había que medir cuántos llegan así) y,
+    // si UNA sola verificación espera en esta línea, su tarjeta lo dice (`sinNumeroAt` → `avisoDelPedidoV2`).
     console.warn(`[mako-grupo] pedido del V2 por @lid sin número (${chat.jid}): no sé de quién es`);
+    const suya = unicaEsperandoV2(filas, instancia, Date.now());
+    await contarLidSinNumero(String(key.id || chat.jid), !!suya);
+    if (suya) {
+      await runWithWorkspace(Number(suya.workspace_id), () => cambiarSettingSi(KEY_VERIFICACION, suya.value, JSON.stringify({ ...suya.v!, sinNumeroAt: Date.now() }))).catch(() => false);
+    }
     return null;
   }
   if (instancia !== (await instanciaVoz())) return null;
@@ -1081,7 +1090,6 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
   if (ya) {
     return { resultado: 'ya confirmado', responder: async () => { await enviarAPersonaMaKo(tel, YA_CONFIRMADO_V2); } };
   }
-  const filas = ((data ?? []) as Array<{ workspace_id: number; value: string }>).map((f) => ({ ...f, v: parseVerificacion(f.value) }));
   const suya = unicaEsperandoV2(filas, instancia, Date.now());
   if (suya && suya.v!.otroNumero !== tel) {
     await runWithWorkspace(Number(suya.workspace_id), () => cambiarSettingSi(KEY_VERIFICACION, suya.value, JSON.stringify({ ...suya.v!, otroNumero: tel, otroNumeroAt: Date.now() }))).catch(() => false);
@@ -1093,6 +1101,17 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
       if (!r.ok) console.error(`[mako-grupo] no salió la respuesta al pedido desde otro número: ${r.error}`);
     },
   };
+}
+
+/** Suma un pedido por @lid sin número a la cuenta (una vez por mensaje). Best-effort: nunca frena la respuesta del webhook. */
+async function contarLidSinNumero(id: string, conUna: boolean): Promise<void> {
+  await runWithWorkspace(OWNER_WS, async () => {
+    for (let i = 0; i < 3; i++) {
+      const crudo = await getSetting(KEY_LID_SIN_NUMERO);
+      const nueva = sumarLidSinNumero(crudo, id, conUna, Date.now());
+      if (!nueva || (await cambiarSettingSi(KEY_LID_SIN_NUMERO, crudo, JSON.stringify(nueva)))) return;
+    }
+  }).catch((e) => console.error(`[mako-grupo] no pude contar el @lid sin número: ${e instanceof Error ? e.message : String(e)}`));
 }
 
 export const YA_CONFIRMADO_V2 = 'Tu WhatsApp ya está confirmado en MaKo ✓ Vuelve a MaKo y sigue desde ahí.';
@@ -1188,10 +1207,15 @@ export async function enviarAlGrupoSuperAdmin(texto: string, o: { sinCopia?: tru
   // texto de pie, en el hilo de la app y en WhatsApp (un texto largo va aparte: el pie de WhatsApp corta en ~1000). Si el archivo no sale por
   // WhatsApp, sale el texto solo: el aviso no se pierde por el adjunto.
   const conPie = texto.length <= PIE_MAX;
-  const media: MediaGrupo | null = o.archivo ? { tipo: o.archivo.mime === 'application/pdf' ? 'document' : 'image', mimetype: o.archivo.mime, fileName: o.archivo.nombre } : null;
-  const partes: PartePreparada[] | null = o.archivo && media
-    ? [{ tipo: 'media', base64: o.archivo.base64, media, ...(conPie ? { caption: texto } : {}) }, ...(conPie ? [] : [{ tipo: 'texto' as const, texto }])]
-    : null;
+  // UN AUDIO (20/11/2026, el día 7 del reto: «Lo escucha Martín»): el texto primero y el audio después (un audio no lleva pie). Antes
+  // todo lo que no era PDF salía como imagen.
+  const esAudio = !!o.archivo?.mime.startsWith('audio/');
+  const media: MediaGrupo | null = o.archivo && !esAudio ? { tipo: o.archivo.mime === 'application/pdf' ? 'document' : 'image', mimetype: o.archivo.mime, fileName: o.archivo.nombre } : null;
+  const partes: PartePreparada[] | null = o.archivo && esAudio
+    ? [{ tipo: 'texto', texto }, { tipo: 'audio', base64: o.archivo.base64, mime: o.archivo.mime }]
+    : o.archivo && media
+      ? [{ tipo: 'media', base64: o.archivo.base64, media, ...(conPie ? { caption: texto } : {}) }, ...(conPie ? [] : [{ tipo: 'texto' as const, texto }])]
+      : null;
   const app = o.sinCopia ? null : await grupoApp();
   const wsApp = app ? await wsSuperAdmin().catch(() => null) : null;
   const copia = app && wsApp != null ? await app.copiarAlGrupo(wsApp, { texto, de: 'mako', ...(partes ? { partes } : {}) }) : null;

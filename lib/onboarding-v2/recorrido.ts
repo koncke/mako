@@ -26,8 +26,8 @@ export const TUTORIAL_RECORRIDO: TutorialPestana = {
     { sel: '[data-recorrido="sb-reto-chat"]', titulo: 'El reto de 7 días de MaKo', texto: RETO_SUB, sub: 'Y tu reto de 7 días tiene su propio chat: cada día un video para que avances con tu negocio.', lado: 'derecha' },
     { sel: 'aside[data-sidebar]', titulo: 'Tu panel', texto: 'Aquí están todas tus pestañas: tus ventas, tu marketing y todo lo que creas.', sub: 'Y a la izquierda aparece tu panel, con todas las pestañas de MaKo.', lado: 'derecha' },
     { sel: SECOND_BRAIN, titulo: 'Tu Second Brain', texto: 'Es todo lo que MaKo sabe de tu negocio.', sub: 'Toca Second Brain: es todo lo que MaKo sabe de tu negocio.', lado: 'derecha', haz: 'Haz clic en Second Brain', clic: true },
-    // Sin el video, el paso abre el Second Brain él mismo (`antes`); con el video, lo abre el clic de la persona en su pausa (o
-    // «Siguiente», que hace el mismo clic; si no se tocó, el motor toca el `antes`: 20/11).
+    // Lo abre el clic de la persona en el paso de arriba (con video y sin él: espera su clic), o «Siguiente», que hace el mismo clic.
+    // El motor toca el `antes` sólo si ese paso no se tocó: tocado, el Second Brain alterna y lo cerraba (20/11, la verificación de OD-10).
     // `haz` en el Second Brain y en la flecha (20/11, OD-10): «Toca Second Brain…» y «Y para volver, la flecha…» no empiezan con
     // «toca aquí», y el motor ponía «Haz clic en lo marcado».
     { sel: '[data-recorrido="sb-grafo"]', titulo: 'Lo que MaKo sabe de ti', texto: 'Por ahora, esto es lo que sé de ti. A medida que te conozco, voy armando tu Second Brain automáticamente.', sub: 'A medida que te conozco, voy armando tu Second Brain automáticamente.', antes: SECOND_BRAIN, soloComputadora: true },

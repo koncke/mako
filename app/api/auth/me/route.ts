@@ -36,6 +36,13 @@ export async function GET() {
   const [ws, impersonando, vista, rolWs, capa, planEsencial, clienteDeAgencia] = await Promise.all([
     getWorkspaceActual(), estaImpersonando(), vistaDeOtro(), getRolWsEfectivo(), getCapaActual(), esEsencialDeLaSesion(), cuentaActualEsDeAgencia(),
   ]);
+  // LO DE PRO QUE EL RETO LE ABRE EN LA PRUEBA (20/11/2026, R57-03): un Essential en su prueba usa UNA vez cada función de Pro
+  // de los días 4 a 6 (lib/reto/pro-del-reto.ts). El servidor ya la dejaba pasar, pero la pantalla ponía el candado sin
+  // preguntarle (`useSoloPro` miraba sólo `planEsencial`): «Replicar» del Copywriting cortaba sin llamar, Web Generator no
+  // mandaba la réplica y el carrusel con IA mostraba «Pasar a Pro» mientras se armaba. Ahora va la lista de lo que el reto le
+  // abre AHORA (lo que no usó todavía, o la ventana de su uso), con la misma regla y SIN anotar ningún uso: el uso lo anota la
+  // acción que usa la función. Sólo para Essential (a Pro no le pone candado nadie), y fuera del Promise.all: lo espera sólo él.
+  const proDelReto = planEsencial ? await (await import('@/lib/reto/pro-del-reto-server')).loQueAbreElReto(ws) : [];
 
   // ⚠️ LA SALIDA ES UN DATO, NO UNA CONSTANTE. El botón «Salir de la vista»
   // apuntaba hardcodeado a '/admin' en tres lugares, y '/admin' está en
@@ -89,6 +96,8 @@ export async function GET() {
     capa,
     // MaKo Essential por la pasarela (23/10/2026): la barra dibuja las tabs de Pro con candado (lib/plan-esencial-reglas.ts).
     planEsencial,
+    // Lo de Pro que el reto le abre ahora en la prueba (arriba): `useSoloPro` no le pone el candado (app/_components/solo-pro.ts).
+    proDelReto,
     clienteDeAgencia,
     legacy: sesion.sub === 'legacy',
     impersonando,

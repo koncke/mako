@@ -2661,6 +2661,18 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
 - **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
   desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 
+# Lo que importa el layout raíz no arrastra un servidor pesado (tampoco con un `import()`)
+
+El 20/11/2026 el build de producción de Vercel se quedó colgado en «Creating an optimized production build» más de 25 minutos
+(antes compilaba en 2-3). La causa: lib/movil-guard.ts, que importa `app/layout.tsx`, sumó un `await import('./onboarding-arranque-server')`
+y pasó de 53 a 1786 módulos del repo. Un `import()` dentro de una función NO saca nada del build: el bundler lo sigue igual, y
+todo eso entra al análisis de CADA ruta.
+
+- **Lo que importa el layout raíz, y lo que importan sus imports, va en módulos CHICOS.** Si una guarda necesita una lectura del
+  servidor de otra área, esa lectura va a su propio módulo con dependencias mínimas (el caso: lib/seguir-en-pc.ts).
+- **Se mide, no se adivina:** tests/seguir-en-pc-liviano.test.ts arma el grafo con esbuild (`metafile`) y falla si el guard pasa
+  de su techo o arrastra un servidor pesado. Para otro módulo del layout, el mismo patrón.
+
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 
 Si algo vive en `app/layout.tsx`, se lo come **todo el mundo**. Y si además arranca desde

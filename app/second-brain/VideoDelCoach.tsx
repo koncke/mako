@@ -14,7 +14,7 @@
 import { useCallback, useMemo } from 'react';
 import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
-import { esRevision } from '@/lib/onboarding-v2/revision';
+import { useEsRevision } from '@/app/_ui/tutorial/store';
 import { ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, type CoachDelOps } from '@/lib/chat-mako-reglas';
 import type { EnMensaje } from '@/app/_chat/HiloMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
@@ -35,7 +35,8 @@ const LINEA: Record<CoachDelOps, string> = {
 export function useVideoDelCoach(cual: CoachDelOps, dosCoaches: boolean, saludo: readonly ItemHilo[], dalePlay = false) {
   const clave = CLAVE_VIDEO_DEL_COACH[cual];
   const video = useVideoTutorial(dosCoaches ? clave : null);
-  const revision = esRevision(dosCoaches);
+  // La placa, sólo en la revisión de Martín (20/11, la verificación de V10): no en todo el Cliente de Prueba.
+  const revision = useEsRevision() && dosCoaches;
   const conVideo = dosCoaches && (video != null || revision);
   const id = `video-${clave}`;
   const items = useMemo<readonly ItemHilo[]>(() => {

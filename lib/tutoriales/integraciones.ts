@@ -21,6 +21,9 @@ export const TUTORIAL_INTEGRACIONES: TutorialPestana = {
       texto: 'El Claude, el GPT o el Gemini con el que trabaja MaKo.',
       sub: 'Toca aquí, en tus cuentas de IA, y elige con cuál trabaja MaKo: Claude, GPT o Gemini.',
       lado: 'abajo',
+      // En el teléfono la fila lleva a /m/cuenta/ia, y WhatsApp y Zernio quedaban sin marcar: ahí no espera el clic (20/11, la
+      // verificación de settings-integraciones-4/5). En la computadora abre su panel y espera como siempre.
+      clicSoloComputadora: true,
     },
     {
       sel: '[data-recorrido="tour-int-whatsapp"]',

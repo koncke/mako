@@ -65,7 +65,7 @@ test('3. la tarjeta del «dale play»: sólo el título y la X roja (sin «Lo ha
   const g = sinComentarios(leer('app/_ui/tutorial/useDalePlay.ts'));
   assert.match(g, /\{ sel: `\[data-dale-play="\$\{marca\}"\]`, titulo: tituloDalePlay\(titulo\), texto: '', haz: '', lado: 'derecha' \}/);
   assert.match(g, /\{ invita: true, alOmitir: visto \}/);
-  assert.match(g, /tocaDalePlay\(\{ activo, aLaVista, motorLibre: senal == null, cerrado \}\)/);
+  assert.match(g, /tocaDalePlay\(\{ activo, aLaVista, motorLibre: senal == null, cerrado: cerrado \|\| dalePlayCerrado\(clave\) \}\)/);
   assert.match(g, /if \(sueltaDalePlay\(\{ activo, aLaVista \}\)\) \{ soltarSenal\(mia\.current\); mia\.current = null; \}/);
   assert.match(g, /new IntersectionObserver\(/);
   assert.match(g, /useEffect\(\(\) => \(\) => \{ if \(mia\.current != null\) soltarSenal\(mia\.current\); \}, \[\]\);/, 'al irse, la marca se va con el video');
@@ -76,7 +76,7 @@ test('4. el reproductor del chat lo pide quieto, y el onboarding y la llegada lo
   assert.match(v, /useDalePlay\(raiz, \{ clave, titulo, activo: dalePlay && !!v && estado === 'quieto' && !flotando \}\);/);
   assert.match(v, /<div ref=\{raiz\} className="mk-vmom"/);
   const a = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
-  assert.match(a, /<VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="Bienvenida a MaKo" revision=\{false\} onTermina=\{soltarPrimero\} dalePlay \/>/);
+  assert.match(a, /<VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="Bienvenida a MaKo" revision=\{false\} onTermina=\{soltarPrimero\} onPausa=\{soltarPrimero\} onEmpieza=\{empezoVideo\} dalePlay \/>/);
   // El del WhatsApp llega en medio de la charla, junto a la tarjeta del código: marcado, las tapas no dejarían escribirlo.
   assert.match(a, /<VideoDelMomento clave=\{VIDEO_WHATSAPP\} titulo="Tu WhatsApp con MaKo" revision=\{false\} \/>/);
   const l = sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx'));

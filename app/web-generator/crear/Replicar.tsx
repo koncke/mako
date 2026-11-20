@@ -64,7 +64,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { useWs } from '@/app/_ui/Link';
 import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
 import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components/solo-pro';
-import { usePlanEsencial } from '@/app/_components/useClienteDeAgencia';
+import { useCandadoEsencial } from '@/app/_components/useClienteDeAgencia';
 import { textoSoloPro } from '@/lib/topes-plan';
 import type { Lectura } from '@/lib/editor-landing/lectura-tipos';
 import type { TemaPropio } from '@/lib/editor-landing/api-tipos';
@@ -565,12 +565,15 @@ export type PropsReplicarUnaPagina = {
 
 /**
  * «Replicar landing», a la derecha del Panel. SÓLO MaKo Pro (14/11/2026, `CandadoReplicar`): un Essential ve el candado y
- * nada arranca. Hasta saber el plan (`usePlanEsencial`, /api/auth/me) tampoco: con `auto` (el ↑ de la caja, «Copiar su sitio»,
+ * nada arranca. Hasta saber el plan (`useCandadoEsencial`, /api/auth/me) tampoco: con `auto` (el ↑ de la caja, «Copiar su sitio»,
  * la tarjeta de un outlier) leería sola, y eso ya paga IA. Ante la duda (no se pudo leer), es Pro: lo frena el servidor, y su
  * 403 prende el candado (`useSoloPro`, app/_components/solo-pro.ts).
+ * ⚠️ POR LA FUNCIÓN, NO POR EL PLAN (20/11/2026, R57-03): en la prueba de Essential el reto abre UNA réplica el día 4
+ *    (lib/reto/pro-del-reto.ts). Con `useSoloPro` ya sin candado y `usePlanEsencial` en true quedaba el título solo, girando
+ *    para siempre: ni abierto ni candado. Las dos preguntas son por la misma función.
  */
 export function ReplicarUnaPagina(props: PropsReplicarUnaPagina) {
-  const plan = usePlanEsencial();
+  const plan = useCandadoEsencial('replicar-landing');
   const candado = useSoloPro('replicar-landing');
   if (!candado && plan === false) return <ReplicarAbierto {...props} />;
   return <ReplicarConCandado url={props.url} candado={candado} />;

@@ -10,6 +10,30 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## El candado de la PANTALLA no puede ser más estricto que el del servidor (20/11/2026, R57-03)
+
+**Vive en:** `app/_components/solo-pro.ts` · `app/_components/useClienteDeAgencia.ts` (`candadoEsencial`) · `app/api/auth/me/route.ts`
+(`proDelReto`) · `lib/reto/pro-del-reto.ts` (`queAbreElReto`) · `app/ai-avatar/acceso.ts` (`cartelDeAiAvatar`) · test:
+`tests/reto-pro-pantalla.test.ts`
+
+- **Síntoma:** en la prueba de Essential, el reto le abre UNA vez cada función de Pro de los días 4 a 6, y el servidor la dejaba
+  pasar (`abreElReto` en cada candado). Pero «Replicar» del Copywriting cortaba sin llamar, Web Generator no mandaba la réplica y
+  el carrusel con IA mostraba «Pasar a Pro» mientras se armaba.
+- **El diagnóstico obvio era el equivocado:** se miró el servidor (que estaba bien). La causa era la pantalla: `useSoloPro` decidía
+  con `planEsencial` de /api/auth/me, que es «el plan», no «esta función para este negocio ahora». Un candado cosmético que corta
+  ANTES de llamar se vuelve la defensa de verdad, y más estricta que la de verdad.
+- **Regla:** cuando el servidor abre una excepción por función (el reto, un regalo, una prueba), la pantalla pregunta por la
+  FUNCIÓN, con la misma regla y sin anotar nada: /api/auth/me manda `proDelReto` (lo que el reto abre ahora) y `useSoloPro(f)` /
+  `esSoloPro(f)` lo descuentan. El candado vuelve solo con el 403 del servidor (`marcarSoloPro`) cuando el uso se gastó.
+  Quien gatee con `usePlanEsencial` algo que tiene excepción, usa `useCandadoEsencial(f)` (lo tenían Replicar.tsx, que quedaba
+  girando, y PanelMakoIA.tsx).
+- **La trampa de al lado:** el candado que ANOTA el uso (`abreElReto(..., { usar: true })`) no va donde se DIBUJA. /ai-avatar lo
+  llamaba al dibujarse: con sólo abrir la pantalla se gastaba la ventana de 2 h de su único uso. Para dibujar, `cartelDeAiAvatar`
+  (`usar: false`); para generar, `candadoDeAiAvatar`.
+- **Sin hacer:** /api/auth/me se lee una vez por pestaña. Si el día que abre la función empieza con la pestaña ya abierta, la
+  pantalla sigue con el candado hasta recargar (el servidor ya la deja pasar). Vive en `leerQuienMira`
+  (app/_components/useClienteDeAgencia.ts).
+
 ## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
 
 **Vive en:** `docs/costos-ia-y-planes.md:725,935` · `app/admin/dev/pricing/modelo.ts:661-705`

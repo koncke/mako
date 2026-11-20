@@ -237,6 +237,22 @@ export function PantallaCrear(p: PropsPantallaCrear) {
   const enPortada = !!p.portada || (centro === 'nueva' && p.nueva != null);
   const [listaEnPortada, setListaEnPortada] = useState(false);
   const ctxPortada = useMemo(() => ({ verProyectos: () => setListaEnPortada(true) }), []);
+  // ESCAPE CIERRA LA LISTA Y VUELVE AL CHAT (20/11, la verificación de offer-5): el motor de los tutoriales cierra lo que abrió una
+  // frase con Escape (`cierra_despues`), y la lista (un role=complementary, no un diálogo) quedaba abierta: la frase siguiente («toca
+  // aquí, en Analicemos mi oferta») hablaba de un chat que no se veía. También el Escape sintético del motor; nunca dentro de un campo.
+  const enLista = cara === 'lista' || listaEnPortada;
+  useEffect(() => {
+    if (!enLista) return;
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      const t = e.target as HTMLElement | null;
+      if (t && t.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="menu"]')) return;
+      setListaEnPortada(false);
+      alChat();
+    };
+    window.addEventListener('keydown', tecla);
+    return () => window.removeEventListener('keydown', tecla);
+  }, [enLista, alChat]);
   if (enPortada) {
     return (
       <div className="cr" data-portada="si" data-movil={listaEnPortada ? 'mako' : 'pieza'}>
@@ -323,7 +339,9 @@ function ListaDeProyectos({ tab, nuevo, proyectos, errorProyectos, onReintentar,
         )}
       </div>
       <nav className="cr-lista__items" aria-label={`Tus proyectos de ${tab}`}>
-        <button type="button" className="cr-item cr-item--nuevo" aria-current={creando ? 'true' : undefined} onClick={onNuevo}>
+        {/* Su marca (R57-18): desde el editor de Video, «Tu personaje con IA» se alcanza con la «←» y este renglón. */}
+        <button type="button" className="cr-item cr-item--nuevo" aria-current={creando ? 'true' : undefined} onClick={onNuevo}
+          data-recorrido={marcaCrear(tab, 'nuevo')}>
           <span className="cr-item__ico"><IconoMas /></span><span className="cr-item__nombre">{nuevo}</span>
         </button>
         {errorProyectos ? (

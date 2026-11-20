@@ -5746,3 +5746,30 @@ titular), no se tiñe.
   - **Regla:** nunca prometer en un tutorial lo que la app no hace. Antes de grabar «MaKo te sugiere qué contestar» se miró en el
     código que el botón MaKo de la caja de Chats sugiere en WhatsApp para todos los planes. Lo de Pro es otra cosa, el setter que
     contesta solo.
+
+## La verificación de las pausas, las marcas y los videos (20/11/2026, chat «onboarding-v2»; tests/onboarding-v2-verificacion.test.ts)
+
+- **El t_fin no era el único punto de pausa** (motor-2/b, motor-3/c). Un clic durante la voz pausaba en el acto y cortaba la frase.
+  Ahora `retenerAlFin` (pausas.ts) deja que la frase termine y retiene en su t_fin. El tope subió de 6 a 8 s.
+- **Sin video, el `antes` volvía a tocar lo que la persona acababa de tocar** (OD-10). El Second Brain alterna, así que el segundo
+  toque lo cerraba. **Regla:** el paso que sigue a un clic de la persona no toca su `antes` de un solo control (`trasSuClic`). Mientras
+  la pantalla carga, el paso espera hasta `TOPE_CARGA_MS`.
+- **La barra volvía con el «dale play»** (OD-03). El diagnóstico obvio («el atributo se pierde al recargar») era sólo la mitad: `fin`
+  también la mostraba al terminar la marca `invita`. Ahora la invita no la muestra, el respaldo de 9 s espera mientras el chat presenta
+  el recorrido, y al recargar la esconde el servidor (app/second-brain/page.tsx).
+- **`useVideoTutorial` arrancaba en null en cada montaje** (F1). Con `useState` y `useEffect`, el primer cuadro decía «no hay video»
+  aunque el manifiesto ya estuviera leído, y la placa se veía un instante. **Regla:** `useSyncExternalStore`, con null como foto del
+  servidor (así la hidratación no choca).
+- **Lo visto vivía en un Set del módulo** (V5), y cada recarga lo borraba. Ahora va en localStorage por clave (`mk-entrada:<clave>`,
+  `mk-dale-play:<clave>`), y `useDalePlay` relee lo cerrado: otro camino lo anota sin pasar por él.
+- **«Mira aquí» no impide el toque.** Con `espera_clic: false`, una voz que dice «Toca aquí» igual hace tocar: Llamadas, la vista del
+  alumno, una plantilla que crea un diseño. El motor se recupera con el `antes` del paso siguiente (volver a la semana, «Volver a
+  editar»), y la voz se regraba (pendiente).
+- **Una frase puede esperar el clic en la computadora y no en el teléfono** (`clicSoloComputadora`, settings-integraciones-4/5). En el
+  teléfono, «Tus cuentas de IA» navega a /m/cuenta/ia, y WhatsApp y Zernio quedaban sin marcar.
+- **La placa de revisión salía en todo el ws 3** (V10): `esRevision` sólo miraba el interruptor. Ahora mira también el email; el
+  navegador lo recibe por el motor (`useEsRevision`).
+- **Escape no cerraba la lista de Create** (offer-5): es un `role=complementary`, no un diálogo, y `cerrarLoAbierto` no la tocaba.
+  PantallaCrear la cierra con Escape, también el sintético.
+- **El video de la esquina usa el reproductor de la maqueta** (F2, ./VideoEnLaEsquina.tsx): chico cuando está quieto, grande cuando
+  corre, con «Agrandar/Achicar».

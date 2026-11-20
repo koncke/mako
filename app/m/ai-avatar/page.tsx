@@ -14,7 +14,7 @@ import { requireMovil } from '@/lib/movil-guard';
 import { inicioAvatarAction } from '@/app/ai-avatar/actions';
 import { ErrorM, PantallaM } from '@/app/m/_ui';
 import { CartelSoloPro } from '@/app/_components/CartelSoloPro';
-import { candadoDeAiAvatar } from '@/app/ai-avatar/acceso';
+import { cartelDeAiAvatar } from '@/app/ai-avatar/acceso';
 import { requireAiAvatarM } from './puerta';
 import { EstudioM } from './EstudioM';
 
@@ -27,8 +27,9 @@ export default async function AiAvatarPagina({ searchParams }: { searchParams: P
   await requireMovil({ navKey: 'ai-avatar' });
   await requireAiAvatarM();
   // SÓLO MaKo Pro (14/11/2026, app/ai-avatar/acceso.ts): el MISMO cartel que en la computadora, que en el teléfono va sin el
-  // link (T5, docs/tiendas-play-appstore.md: el teléfono no vende; lo decide `CartelSoloPro`).
-  const pro = await candadoDeAiAvatar();
+  // link (T5, docs/tiendas-play-appstore.md: el teléfono no vende; lo decide `CartelSoloPro`). Sin gastar el uso del reto al
+  // mirar (`cartelDeAiAvatar`, 20/11/2026, R57-03): se gasta al generar.
+  const pro = await cartelDeAiAvatar();
   if (pro) return <PantallaM><CartelSoloPro texto={pro} /></PantallaM>;
   const sp = await searchParams;
   const inicio = await inicioAvatarAction();

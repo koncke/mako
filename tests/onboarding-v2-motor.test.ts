@@ -14,8 +14,10 @@ test('el onboarding V2 lo ve sólo la revisión de Martín (sus cuentas y el Cli
   assert.equal(veOnboardingV2({ email: 'otra@cliente.com', ws: 3 }), true, 'cualquiera adentro del Cliente de Prueba');
   assert.equal(veOnboardingV2({ email: 'otra@cliente.com', ws: 9 }), false);
   assert.equal(veOnboardingV2({}), false);
-  assert.equal(esRevision(true), true, 'mientras no está para todos, lo que ve es una revisión');
-  assert.equal(esRevision(false), false);
+  // Sólo las cuentas de Martín (20/11, la verificación de V10): el Cliente de Prueba lo ve como un cliente.
+  assert.equal(esRevision(true, 'martinkoncke@gmail.com'), true, 'mientras no está para todos, lo de Martín es una revisión');
+  assert.equal(esRevision(true, 'otra@cliente.com'), false);
+  assert.equal(esRevision(false, 'martinkoncke@gmail.com'), false);
 });
 
 test('el video de cada tutorial sale del manifiesto, y sólo de /tutoriales', () => {
@@ -36,7 +38,7 @@ test('el video de cada tutorial sale del manifiesto, y sólo de /tutoriales', ()
 
 test('el motor se monta sólo para la revisión, y la guía no pregunta donde él se ocupa', () => {
   const layout = readFileSync(new URL('../app/layout.tsx', import.meta.url), 'utf8');
-  assert.match(layout, /\{sesion && veV2 && <MotorTutorial revision=\{esRevision\(veV2\)\} \/>\}/);
+  assert.match(layout, /\{sesion && veV2 && <MotorTutorial revision=\{esRevision\(veV2, sesion\.email\)\} \/>\}/);
   const guia = readFileSync(new URL('../app/_ui/guia/useGuiaDeLaTab.ts', import.meta.url), 'utf8');
   assert.match(guia, /if \(motorSeOcupa\(window\.location\.pathname\)\)/);
   const motor = readFileSync(new URL('../app/_ui/tutorial/MotorTutorial.tsx', import.meta.url), 'utf8');
@@ -93,7 +95,7 @@ test('los videos de los momentos del onboarding: sus keys, el recorrido la prime
   assert.doesNotMatch(motor, /if \(f\.espera_clic\) v\.pause\(\);/, 'nunca la pausa en el t_inicio');
   const chat = leer('app/onboarding/ChatArranque.tsx');
   for (const k of ['onboarding-bienvenida', 'onboarding-whatsapp', 'onboarding-seguir-pc']) assert.match(chat, new RegExp(`clave[=:] ?["']${k}["']`), `el lugar de ${k}`);
-  assert.match(leer('app/onboarding/page.tsx'), /videos=\{v2 \? \{ revision: esRevision\(v2\) \} : null\}/, 'sólo el onboarding V2 tiene los videos');
+  assert.match(leer('app/onboarding/page.tsx'), /videos=\{v2 \? \{ revision: esRevision\(v2, sesion\?\.email\) \} : null\}/, 'sólo el onboarding V2 tiene los videos');
   assert.doesNotMatch(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /landing|vsl/i, 'nunca otro video en su lugar');
 });
 

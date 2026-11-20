@@ -2317,3 +2317,12 @@ debe, en filas que se leen, y los meses (del más nuevo al más viejo, los corta
 **Sin hacer (resto de P25):** el prorrateo del diferencial (hoy un ajuste a mano), el monto de una suscripción de la pasarela que
 sale del lead y no del cobro (lib/cobrado-lead.ts), y cambiar el medio de un pago ya cobrado (no hay operación). El teléfono no
 registra pagos ni cambia el monto: «en la computadora».
+
+## «Sigamos en tu computadora» desde cualquier pantalla del teléfono (20/11/2026, la verificación de OA-10 y OD-12)
+
+- **El guard de /m (`requireMovil`) no lo miraba**: un push, un link guardado o una ruta de escritorio desviada a /m entraban a MaKo
+  Mobile. Ahora, con el V2 y sin el recorrido visto en la PC, manda a /onboarding.
+- **La cookie «Versión completa» lo salteaba.** `prefiereMovil` da false con ella; para esta pantalla se usa `esTelefono`, que sólo
+  lee el user-agent (/inicio, /onboarding y el Ops Center de escritorio).
+- **Quien opera la plataforma, nunca** (`seguirEnPcPendiente` → `quienOpera`). El email de Martín está en la revisión del V2, así que
+  sin el recorrido visto en la PC el guard nuevo lo dejaba fuera de su propio teléfono.

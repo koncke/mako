@@ -799,3 +799,16 @@ tests/onboarding-v2-coaches-videos.test.ts.
   T sin restricción y la propiedad leída como `unknown`; y devolver `T[]`, porque `ChatCliente.items` no es de sólo lectura.
 - **Las portadas de las clases y de los coaches tenían el play encima del título.** El manifiesto les pone `play: 'abajo-derecha'`.
   La portada no cambia, y pantallas-onboarding/poster.mjs lo vuelve a poner después de un `hacer.mjs … web`.
+
+## La verificación de la llegada y la lista (20/11/2026, chat «onboarding-v2»)
+
+- **Con el V2, nada arriba del Ops Center** (OD-08): el grupo de WhatsApp del negocio y su esqueleto de carga van después de los
+  coaches. Lo de arriba se dibujaba antes de que la lista tuviera la fila del Ops Center.
+- **El velo de la llegada entra con el barrido** (OD-F2): ahora es la sombra de un hueco con `barrer`. Antes era un fundido de
+  opacidad. **Trampa:** el hueco se mide sobre la PÍLDORA de MaKo escribiendo, no sobre la fila. La fila se estira al ancho del chat, y
+  el hueco quedaba de 712 px: una franja clara arriba y el círculo centrado en el medio de la pantalla (medido en el navegador).
+- **El play del video de llegada va abajo a la derecha**: abajo a la izquierda tapaba el logo «MaKo» de la portada.
+- **El mensaje de llegada va con el video arriba** (F4).
+- **El recorrido de la lista de videos de «Onboarding» corre con sus marcas** (V9): `VideoDeUnChat.tutorial`. Antes se veía suelto
+  en la esquina.
+- **En el catálogo, «Tu WhatsApp con MaKo» es el video del V2** (V1): `onboarding-whatsapp` era el de la pantalla vieja.

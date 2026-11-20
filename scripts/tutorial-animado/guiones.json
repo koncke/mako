@@ -809,7 +809,7 @@
  },
  {
   "id": "reto-dia-1",
-  "pestana": "Reto · Día 1: tu oferta y tu sistema de adquisición",
+  "pestana": "Reto · Día 1: tu oferta y tu sistema para conseguir clientes",
   "ruta": "/second-brain?reto=1",
   "icono": "lucide:trophy",
   "soloTexto": true,
@@ -829,7 +829,7 @@
     "rol": "cosa"
    },
    {
-    "dice": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+    "dice": "Cuando termine este video, te marco Offer Coach: empecemos por tu oferta.",
     "rol": "cierre"
    }
   ]
@@ -2147,7 +2147,7 @@
     "tipo": "toca"
    },
    {
-    "dice": "Toca aquí, en Llamadas, y las ves todas juntas, sin nada alrededor.",
+    "dice": "Mira aquí, en Llamadas: las ves todas juntas, sin nada alrededor.",
     "rol": "accion",
     "sel": "a[href=\"/calendario?vista=llamadas\"]",
     "cierra": true,
@@ -2751,7 +2751,7 @@
     "tipo": "mira"
    },
    {
-    "dice": "Toca aquí, en Vista del alumno, para verlo tal como lo ve tu cliente.",
+    "dice": "Mira aquí, Vista del alumno: lo ves tal como lo ve tu cliente.",
     "rol": "accion",
     "sel": "[data-recorrido=\"vista-alumno\"]",
     "cierra": true,
@@ -3024,7 +3024,7 @@
     }
    },
    {
-    "dice": "Toca aquí, en la portada de Lista o tips: ya trae el nombre de tu negocio.",
+    "dice": "Mira aquí, la portada de Lista o tips: ya trae el nombre de tu negocio.",
     "rol": "accion",
     "sel": "span[aria-label=\"Lista o tips: portada\"]",
     "cierra": true,
