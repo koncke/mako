@@ -94,17 +94,18 @@ export const DIAS_RETO: readonly DiaReto[] = [
     // oferta con el Offer Coach y después el sistema para conseguir clientes con el Funnel Coach. La marca lleva de uno al otro: la
     // fila de cada coach (app/second-brain/ChatSecondBrain.tsx, `sb-offer` y `sb-funnel`). El reto es del onboarding V2, y con él
     // están los dos coaches (el mismo interruptor). ⚠️ El id de la segunda sigue siendo 'funnel': lo guardado antes (`1:funnel`) vale.
-    // Los textos, de la maqueta (20/11, auditoría D1-14). «Tu onboarding» va primero y ya hecha: el reto empieza al terminarlo
+    // Los textos, de la maqueta (20/11, auditoría D1-14), salvo uno: «tu sistema para conseguir clientes» y no «de adquisición» (el
+    // Cerebro, 20/11: palabras simples, sin jerga; es el subtítulo de Funnel Coach en la barra, y lo que dice el video del día 1). «Tu onboarding» va primero y ya hecha: el reto empieza al terminarlo
     // (`siempre`: no hay nada que leer ni que marcar).
-    n: 1, titulo: 'Tu onboarding, tu oferta y tu sistema de adquisición', video: 'reto-dia-1',
-    mensaje: 'Hoy es tu día 1. Tu onboarding ya está; ahora tu oferta, con Offer Coach, y tu sistema de adquisición de clientes, con Funnel Coach. Empecemos por tu oferta.',
+    n: 1, titulo: 'Tu onboarding, tu oferta y tu sistema para conseguir clientes', video: 'reto-dia-1',
+    mensaje: 'Hoy es tu día 1. Tu onboarding ya está; ahora tu oferta, con Offer Coach, y tu sistema para conseguir clientes, con Funnel Coach. Empecemos por tu oferta.',
     tareas: [
       { id: 'onboarding', titulo: 'Tu onboarding', donde: 'En el Ops Center', detalle: 'Lo hiciste al entrar.', marcas: [], siempre: true },
       { id: 'offer', titulo: 'Tu oferta, con Offer Coach', donde: 'En el Ops Center', detalle: 'Con su diagnóstico y el PDF.',
         // Con SU texto (`propia`, auditoría D1-14): sin eso, la tarjeta decía el título de la tarea («Tu oferta, con Offer Coach»).
         marcas: [{ sel: '[data-recorrido="sb-offer"]', titulo: 'Tu día 1 sigue en Offer Coach', texto: 'Ahí armamos tu oferta.', haz: 'Haz clic en Offer Coach', lado: 'derecha', propia: true }] },
-      { id: 'funnel', titulo: 'Tu sistema de adquisición, con Funnel Coach', donde: 'En el Ops Center', detalle: 'Elige tu funnel.',
-        marcas: [{ sel: '[data-recorrido="sb-funnel"]', titulo: 'Ahora, Funnel Coach', texto: 'Ahí armas tu sistema de adquisición de clientes.', haz: 'Haz clic en Funnel Coach', lado: 'derecha', propia: true }] },
+      { id: 'funnel', titulo: 'Tu sistema para conseguir clientes, con Funnel Coach', donde: 'En el Ops Center', detalle: 'Elige tu funnel.',
+        marcas: [{ sel: '[data-recorrido="sb-funnel"]', titulo: 'Ahora, Funnel Coach', texto: 'Ahí armas tu sistema para conseguir clientes.', haz: 'Haz clic en Funnel Coach', lado: 'derecha', propia: true }] },
     ],
   },
   {
@@ -540,7 +541,7 @@ export const RETO_PILOTO = (funnel?: string | null): string => (FUNNELS_CON_ANUN
   ? 'El piloto automático lo prendemos cuando tus anuncios estén corriendo: te aviso.'
   : 'El piloto automático lo prendemos cuando publiques tu primera semana: te aviso.');
 const FALTA_TAREA: Readonly<Record<string, string>> = {
-  app: 'instalar la app de MaKo en tu teléfono', extension: 'la extensión de MaKo para Chrome', onboarding: 'tu onboarding', offer: 'tu oferta', funnel: 'tu sistema de adquisición', integraciones: 'conectar tus integraciones',
+  app: 'instalar la app de MaKo en tu teléfono', extension: 'la extensión de MaKo para Chrome', onboarding: 'tu onboarding', offer: 'tu oferta', funnel: 'tu sistema para conseguir clientes', integraciones: 'conectar tus integraciones',
   perfil: 'tu perfil y tu foto', contactos: 'cargar tus clientes en el CRM', automatizacion: 'tu primera automatización',
   calendar: 'conectar tu calendario', spy: 'agregar a tus competidores', web: 'tu página', carrusel: 'tu carrusel', guion: 'tu guion',
   personaje: 'tu personaje con IA', clip: 'tu clip de regalo', copilot: 'abrir tu Marketing CoPilot', semana: 'tu semana en el Plan',
@@ -552,7 +553,7 @@ export function finDelDia(d: DiaReto, siguiente: DiaReto | undefined, hora: stri
     const queda = falta.length ? ` Te queda pendiente ${enLista(falta.map((id) => FALTA_TAREA[id] ?? id))}: lo retomas cuando quieras.` : '';
     return `¡Terminaste tu reto de 7 días${nombre ? `, ${nombre}` : ''}! Tu negocio ya está armado en MaKo.${queda}`;
   }
-  if (d.n === 1) return `¡Terminaste tu día 1${nombre ? `, ${nombre}` : ''}! Tu oferta y tu sistema de adquisición ya están. El día 2 es conectar todo: si quieres, lo adelantas ahora.`;
+  if (d.n === 1) return `¡Terminaste tu día 1${nombre ? `, ${nombre}` : ''}! Tu oferta y tu sistema para conseguir clientes ya están. El día 2 es conectar todo: si quieres, lo adelantas ahora.`;
   const sigue = siguiente ? ` Mañana a las ${hora} sigue el día ${siguiente.n}: ${siguiente.titulo.charAt(0).toLowerCase()}${siguiente.titulo.slice(1)}.` : '';
   return falta.length ? `Tu día ${d.n} quedó casi listo: te falta ${falta.map((id) => FALTA_TAREA[id] ?? id).join(' y ')}.${sigue}` : `¡Listo tu día ${d.n}!${sigue}`;
 }

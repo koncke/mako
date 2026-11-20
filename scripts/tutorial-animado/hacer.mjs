@@ -242,7 +242,7 @@ g.pasos.forEach((p, i) => {
     beats.push({ type: 'app', text: pal.map((w) => w.t).join(' '), img: './app.png', marca: rects[i] || null, pulso: (clave || pal[Math.floor(pal.length / 2)]).s, w0: pal[0], w1: pal[pal.length - 1] });
   } else {
     NOMBRE_ACCION = nombreDeAccion(pal);
-    for (const ch of trozos(pal, (g.pasos[i].rol || (i === 0 ? "gancho" : "")) === "gancho" ? 13 : 10)) beats.push({ text: ch.map((w) => w.t).join(' '), emphIdx: enfasis(ch), w0: ch[0], w1: ch[ch.length - 1], n: ch.length, paso: i });
+    for (const ch of trozos(pal, (g.pasos[i].rol || (i === 0 ? "gancho" : "")) === "gancho" ? 13 : 10)) beats.push({ text: ch.map((w) => w.t).join(' '), emphIdx: enfasis(ch), w0: ch[0], w1: ch[ch.length - 1], n: ch.length, paso: i, ws: ch });
   }
 });
 // The character (engine3.js): each step's role decides how it stands. gancho, que-es and cierre → «heroe» (big, centered, the
@@ -255,6 +255,32 @@ beats.forEach((b, k) => {
   const rol = rolDe(b.paso), primeraDelPaso = k === 0 || beats[k - 1].paso !== b.paso;
   b.modo = rol === 'gancho' || rol === 'cierre' || (rol === 'que-es' && primeraDelPaso) ? 'heroe' : 'lado';
 });
+// TEXTO QUE NO ENTRA: SE PARTE, NO SE ACHICA (20/11, el Cerebro: «y después tu sistema para conseguir clientes con Funnel Coach.»,
+// en reto-dia-1, salía con la letra bastante más chica que las otras). Al lado del personaje la letra es de 112 px en el 52 % del
+// ancho y hasta 3 renglones (engine3.js, textoLado), y lo que no entraba el motor lo achicaba hasta 72 px. Ahora esa escena se parte
+// en dos, en el corte más natural (antes de «y», «para», «con»… o después de una coma) donde las dos mitades entran. Se mide con un
+// ancho de letra promedio de media letra (17 letras por renglón): sólo parte lo que claramente no entra. Las escenas grandes
+// (gancho, «Eso es…», cierre) no cambian: tienen otro ancho y otro tope.
+const LADO_CAR = Math.floor((1920 * 0.52) / (112 * 0.5));
+const renglones = (ws, porRenglon) => { let n = 1, l = 0; for (const w of ws) { const x = w.t.length; if (l && l + 1 + x > porRenglon) { n++; l = x; } else l += (l ? 1 : 0) + x; } return n; };
+const UNE_CORTE = /^(y|que|para|con|en|a|de|sin|o|tu|tus|el|la|lo|pero|porque|cuando|donde)$/i;
+for (let k = 0; k < beats.length; k++) {
+  const b = beats[k];
+  if (b.modo !== 'lado' || !b.ws || renglones(b.ws, LADO_CAR) <= 3) continue;
+  let mejor = null;
+  for (let c = 2; c <= b.ws.length - 2; c++) {
+    const a = b.ws.slice(0, c), z = b.ws.slice(c);
+    if (renglones(a, LADO_CAR) > 3 || renglones(z, LADO_CAR) > 3) continue;
+    const natural = UNE_CORTE.test(z[0].t) || finComa(a[a.length - 1].t);
+    const p = (natural ? 0 : 100) + Math.abs(a.map((w) => w.t).join(' ').length - z.map((w) => w.t).join(' ').length);
+    if (!mejor || p < mejor.p) mejor = { c, p };
+  }
+  if (!mejor) continue;
+  const parte = (ws) => ({ ...b, text: ws.map((w) => w.t).join(' '), emphIdx: enfasis(ws), w0: ws[0], w1: ws[ws.length - 1], n: ws.length, ws });
+  beats.splice(k, 1, parte(b.ws.slice(0, mejor.c)), parte(b.ws.slice(mejor.c)));
+  paso(`partida (no entraba con la letra de siempre): «${beats[k].text}» | «${beats[k + 1].text}»`);
+  k++;
+}
 const golpe = beats.findIndex((b, k) => k > 0 && k < beats.length - 1 && b.modo === 'lado' && b.n <= 4 && finFrase(b.w1.t) && finFrase(beats[k - 1].w1.t));
 if (golpe > 0) { beats[golpe].bg = 'blue'; beats[golpe].modo = 'titulo'; }
 // a different pose on every screen, so he is never the same: hello on the hook, open arms when he presents, pointing at the text
