@@ -45,6 +45,7 @@ import { aplicarPagoDeAgencia, avisarAMartin, cerrarElPagoDeAgencia, mensualidad
 import { crearPendiente } from './mako-pendientes';
 import { getGrupoSuperAdminJid, type ArchivoDelAviso } from './mako-grupo';
 import { claveDeLaApp, conSalidaDelGrupo } from './grupo-salida';
+import { esPreguntaYNoPago } from './agencia-mes-consulta-reglas';
 import { calzarConBinance, HORAS_DE_ESPERA, momentoDelComprobante, numerosUsados, seVencioLaEspera, TEXTO_ESPERANDO_EL_PAGO, type Calce } from './binance-pay-reglas';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -84,7 +85,7 @@ export type Atendido = { atendido: boolean; que: string };
  * ATIENDE UN ARCHIVO del grupo de una agencia. `atendido: false` = no era un comprobante (o no hay nada que hacer con él): sigue
  * al turno de MaKo. `atendido: true` = ya se contestó en el grupo (o se había contestado): el turno no corre. Nunca tira.
  */
-export async function atenderComprobanteDeAgencia(p: { agenciaWs: number; waMensajeId: string; bytes: Uint8Array }): Promise<Atendido> {
+export async function atenderComprobanteDeAgencia(p: { agenciaWs: number; waMensajeId: string; bytes: Uint8Array; pie?: string | null }): Promise<Atendido> {
   const ag = p.agenciaWs;
   const mime = mimeDeComprobante(p.bytes);
   if (!mime) return { atendido: false, que: 'no es una foto ni un PDF' };
@@ -107,6 +108,11 @@ export async function atenderComprobanteDeAgencia(p: { agenciaWs: number; waMens
   }
   const l = leida.lectura;
   if (!l.esComprobante) return { atendido: false, que: 'no es un comprobante' };
+  // ⚠️ UNA FOTO CON UNA PREGUNTA NO ES UN PAGO (20/11/2026, grupo_mensajes 1047 de Código Inmobiliario): la captura de la app con «para
+  // ponerlo como activo tiene que pagar USD 23,50, confírmame si está bien» se leyó como comprobante (sin fecha, sin medio, sin N.º, con
+  // «Vence hoy» en las dudas): «Recibí tu comprobante» a la agencia y a Martín para revisar algo que no era un pago. Con una pregunta en
+  // el texto y sin N.º de operación, va al turno de MaKo, que la contesta (lib/agencia-mes-consulta-reglas.ts). Antes de guardar nada.
+  if (esPreguntaYNoPago(l, p.pie)) return { atendido: false, que: 'es una pregunta con una captura, no un pago' };
 
   // 3. Lo que se debe hoy.
   const m = await mensualidadDeAgencia(ag);

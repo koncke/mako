@@ -12753,3 +12753,11 @@ decide «usado» con el MISMO registro (`ordenesAnotadas` + `numerosUsados`, que
 debe, mira si la orden ya está en el libro: si no, la segunda corrida ve «no se debía nada» y le avisa a Martín de un pago que la otra
 acaba de aplicar. Y `aplicado_a` vacío en `comprobantes_leidos` NO quiere decir «abierto»: lo que Martín cierra a mano queda vacío.
 Lo fija tests/binance-sin-captura.test.ts.
+
+## Lo que se le paga a MaKo lo contesta el código; una foto con una pregunta no es un comprobante (20/11/2026)
+- «¿Cuánto hay que pagar para activar la cuenta de X?» o «¿cuánto debo?» en el turno de una agencia lo contesta
+  `respuestaDelPagoDeLaAgencia` (lib/agencia-mes-consulta.ts) ANTES del clasificador y del modelo. El monto sale de la mensualidad y el Pay ID del
+  ajuste de cobro (`leerDatosDePagoDirecto`), nunca escrito a mano. Una frase nueva de ese tipo se suma a `pidePagoDeLaMensualidad`, con su caso en
+  tests/agencia-pago-consulta.test.ts (y uno que NO, del CRM).
+- Todo lector de comprobantes recibe el TEXTO que vino con la foto (`pie`). Una pregunta sin N.º de operación es una pregunta (`esPreguntaYNoPago`),
+  no un pago: va al turno, sin «Recibí tu comprobante» ni aviso a Martín. Detalle: docs/hallazgos-agencias.md.
