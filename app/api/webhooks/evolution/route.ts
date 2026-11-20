@@ -21,6 +21,7 @@ import { manejarEntranteDoer, wsDeGrupoJid } from '@/lib/mako-doer-in';
 import { INSTANCIA_SUPERADMIN, esNombreDeCanal, instanciaCanal, usarCanalComoVoz } from '@/lib/mako-canal';
 import { confirmarPorMensajeEntrante, instanciaVoz, responderPedidoV2 } from '@/lib/mako-grupo';
 import { manejarEntranteBot } from '@/lib/mako-bot';
+import { responderAlReto } from '@/lib/reto/respuestas';
 import { lineaPuedeSerDelBot } from '@/lib/mako-bot-reglas';
 import { configDelBot } from '@/lib/mako-salida';
 import { upsertContacto } from '@/lib/evolution-contactos';
@@ -228,10 +229,22 @@ export async function POST(req: NextRequest) {
           console.error(`[webhook:evolution] verificación V2: ${e instanceof Error ? e.message : String(e)}`);
           return null;
         });
-        if (!v2) continue;
+        if (v2) {
+          deVerificacion.add(m);
+          console.log(`[webhook:evolution] verificación V2 en ${instance}: ${v2.resultado}`);
+          if (v2.responder) after(v2.responder);
+          continue;
+        }
+        // EL RETO DE 7 DÍAS (20/11/2026, lib/reto/respuestas.ts): la hora del día 2 («prefiero que me escribas a las 18:00…») se guarda
+        // y MaKo le contesta; BAJA apaga los WhatsApp del reto. Sólo de quien verificó por el V2 y tiene reto; si no, sigue al bot.
+        const reto = await responderAlReto(instance, m).catch((e: unknown) => {
+          console.error(`[webhook:evolution] reto: ${e instanceof Error ? e.message : String(e)}`);
+          return null;
+        });
+        if (!reto) continue;
         deVerificacion.add(m);
-        console.log(`[webhook:evolution] verificación V2 en ${instance}: ${v2.resultado}`);
-        if (v2.responder) after(v2.responder);
+        console.log(`[webhook:evolution] reto en ${instance}: ${reto.resultado}`);
+        if (reto.responder) after(reto.responder);
       }
       const noEsVerificacion = (m: Record<string, unknown>) => !deVerificacion.has(m);
 

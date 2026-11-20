@@ -10,7 +10,6 @@ import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { avisarFinDePruebas } from '@/lib/prueba-plan';
 import { avisarPlanesAManoVencidos } from '@/lib/plan-a-mano';
-import { avisarDiasDelReto } from '@/lib/reto/correos';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -27,12 +26,9 @@ export async function GET(req: NextRequest) {
     const aMano = await avisarPlanesAManoVencidos({ enSeco }).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
     if ('error' in aMano) console.error('[cron:aviso-fin-de-prueba] planes a mano:', aMano.error);
     else if (aMano.avisados || aMano.errores) console.log(`[cron:aviso-fin-de-prueba] planes a mano: ${aMano.avisados} avisados, ${aMano.errores} errores`);
-    // Y el correo de cada día del reto de 7 días (18/11/2026, lib/reto/correos.ts): «Día N del reto de MaKo». Aparte: si falla, lo de
-    // arriba ya salió. Sólo a quien ve el onboarding V2.
-    const reto = await avisarDiasDelReto({ enSeco }).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
-    if ('error' in reto) console.error('[cron:aviso-fin-de-prueba] reto:', reto.error);
-    else if (reto.avisados || reto.errores) console.log(`[cron:aviso-fin-de-prueba] reto: ${reto.avisados} avisados, ${reto.errores} errores`);
-    return Response.json({ ok: true, ...r, aMano, reto });
+    // El reto de 7 días ya no sale de acá (20/11/2026): tiene su cron de cada hora, a la hora que eligió cada persona
+    // (app/api/cron/reto-avisos).
+    return Response.json({ ok: true, ...r, aMano });
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     console.error('[cron:aviso-fin-de-prueba]', error);

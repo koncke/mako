@@ -181,7 +181,7 @@ test('lo tocado durante el video del día cuenta como hecho: la tarea cuya últi
   // 20/11 (D1-03, d24-09 y R57-12): nada se marca solo a los 0,9 s; lo que falta, al terminar o cerrar el video del día.
   assert.ok(!chat.includes('}, 900)'), 'sin la marca automática a los 900 ms');
   assert.ok(chat.includes('alTerminar: () => onFin?.()') && chat.includes('onEnded={() => onFin?.()}'), 'la marca de lo que falta sale al terminar el video');
-  assert.ok(chat.includes("marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); })"), 'el día 1 sin «Lo hago después» (F1)');
+  assert.ok(chat.includes("marcarTarea(marcasDeLaTarea(t), () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); })"), 'el día 1 sin «Lo hago después» (F1)');
   assert.match(chat, /¡Hiciste todo lo del día \{dia\.n\}!/, 'con todo hecho, la felicita y pasa a WhatsApp');
 });
 
@@ -301,6 +301,17 @@ test('Essential en prueba: el reto abre UNA vez cada cosa de Pro de los días 4 
   assert.ok(chat.includes('NOTA_PRO_UNA_VEZ') && !/Pasar a Pro/.test(chat), 'la tarjeta lo dice, sin «Pasar a Pro»');
   const { NOTA_PRO_UNA_VEZ } = await import('../lib/reto/pro-del-reto');
   assert.equal(NOTA_PRO_UNA_VEZ, 'Esto es de Pro: en tu prueba lo usas una vez.');
+});
+
+test('la marca de cada tarea lleva la tarea, y la tarjeta del día su título (20/11, f24-03, f24-04, R57-15, R57-F2)', async () => {
+  const { marcasDeLaTarea } = await import('../lib/reto/dias');
+  const contactos = DIAS_RETO[2].tareas[0];
+  const ms = marcasDeLaTarea(contactos);
+  assert.equal(ms.at(-1)!.titulo, contactos.titulo); assert.equal(ms.at(-1)!.texto, contactos.detalle);
+  const perfil = DIAS_RETO[1].tareas.find((x) => x.id === 'perfil')!;
+  assert.equal(marcasDeLaTarea(perfil)[0].titulo, perfil.marcas[0].titulo, 'las del camino quedan como están');
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.ok(chat.includes("{hoy ? 'Lo que te toca hoy' : 'Lo que te tocó'}") && chat.includes('<p className="rt-tarjeta__t">{dia.titulo}</p>'));
 });
 
 test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, sin clip de regalo, sin la tab AI Avatar', () => {

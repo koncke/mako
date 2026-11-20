@@ -3,6 +3,32 @@
 El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-state.ts`) y
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
+## Los avisos del reto: un correo diario no podía cumplir el «te escribo a las {hora}» (20/11/2026, claude5)
+
+**Vive en:** `lib/reto/avisos.ts` (qué sale) · `lib/reto/avisos-salida.ts` (la vuelta) · `app/api/cron/reto-avisos` (cada hora, a los
+:02) · `lib/reto/respuestas.ts` (la hora y BAJA que llegan por WhatsApp, desde el webhook). Test: `tests/reto-avisos.test.ts`.
+
+- **Síntoma:** el chat del reto promete «mañana a las 18:00 te escribo» y lo único que salía era un correo a las 10:00 de Argentina.
+  **Causa:** el correo colgaba del cron diario de aviso-fin-de-prueba, «para no sumar otro cron». Con una hora de las 12:00 en
+  adelante, a las 10:00 el día todavía no estaba abierto (`diaAbierto` resta un día antes de la hora elegida) y el correo llegaba al
+  día siguiente. **Regla:** un aviso que depende de la hora de cada persona va en una vuelta de cada hora, nunca en un cron diario.
+- **Trampa:** ese cron escribía `{ ...e, avisado }` sobre el `reto.estado` que había leído al empezar: una tarea marcada mientras
+  tanto se perdía, sin error. **Regla:** un cron nunca reescribe un estado que edita la persona. Lo suyo va en otra clave
+  (`reto.avisos`), con compare-and-set ANTES de mandar: de dos vueltas a la vez, manda una.
+- **Ventana de 3 horas:** un día que se abrió hace más no se avisa, porque llegaría tarde; se da por avisado. Por eso, al desplegar, no
+  sale nada atrasado.
+- **`!adelantado` sobra hoy:** el adelanto vale desde el inicio del reto, así que un día adelantado nunca «se acaba de abrir» y la
+  ventana ya lo deja afuera (la rotura R1 no da rojo). Queda para cuando `diaAbierto` cuente desde el último día abierto (d24-01).
+- **WhatsApp:** sale sólo con la hora elegida (así la manda la maqueta), sólo a quien verificó su número por el V2 (`v2 && verificado`),
+  por `enviarAPersonaMaKo` (regla 1) y sólo a `WS_REVISION_V2` hasta que el V2 esté para todos (`retoPorWhatsApp`).
+- **Lo que quedó sin hacer:** las respuestas de los días 3, 4, 5 y 7 (el lead del audio en el CRM, la competencia, el guion, el audio
+  a Martín) son del bot y del doer en el chat privado. `manejarEntranteBot` sólo corre en `mako.bot.instancia`, que apunta a la línea
+  vieja, no a la que recibe; y `lib/mako-salida.ts` saca los mensajes privados por esa misma instancia, con la ventana de 24 horas.
+  Hasta que el bot pase a la línea que recibe (pide la frase de Martín), MaKo se calla en esos días. La hora (día 2) y BAJA las contesta
+  el código y no dependen del bot.
+- **Distinto de la maqueta, a propósito:** el saludo cambia con la hora (a las 18:00, «¡Buenas tardes»); la noche dice «Mañana te lo
+  dejo primero.» porque ninguna tarea sabe cuántos minutos lleva.
+
 
 ## El onboarding V2 en la app = la maqueta: no estaba construido, y el WhatsApp armaba un grupo (19/11/2026)
 
@@ -3435,4 +3461,13 @@ filas de los coaches tachaban el día 1 entero.
   lo que usa: sólo lee.
 - **Adelantar no corría los días:** el calendario se contaba desde `inicio`, así que adelantar el 2 y el 3 el lunes dejaba el martes
   en el 3. Ahora se guarda `adelantadoEn`.
+- **Abrir una función de Pro en la prueba (Essential, la A del Cerebro) es tocar CINCO tests que fijan el texto exacto de su candado:**
+  replicar-solo-pro, copywriter-replicar-solo-pro, editores-ia-solo-pro, ai-avatar y planes-tres-bloques. El filtro de la punta los
+  frenó de a uno. Antes de tocar un candado, buscar su texto en tests/ (`grep -lF "textoSoloPro('ai-avatar')" tests/*.ts`).
+- **«Una vez» es un uso, no una llamada:** una réplica pasa por el candado varias veces (analizar, generar, guardar). El uso dura una
+  ventana (2 h, lib/reto/pro-del-reto.ts). Anotarlo en la primera llamada habría cortado la réplica a la mitad.
+- **Un «Cómo funciona ${pestaña}» en cualquier pantalla da rojo** (tests/tutorial-sin-presentacion.test.ts: Martín, 20/11, nunca más).
+  El catálogo del reto lo tenía en sus tarjetas.
+- **Cada push a la punta cancela la corrida del anterior en GitHub.** Hoy cinco pushes seguidos dejaron todo «cancelled» y nada llegaba
+  a main. Se juntan los commits, se sube una vez y se espera la corrida.
 - **Lo que quedó sin hacer**, en orden, está en `docs/relevo/reto-tutoriales.md`.

@@ -46,6 +46,24 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
   - La prueba por WhatsApp va al final del día.
   - Sin «te escribo»: el WhatsApp de cada mañana todavía no existe.
 
+## Hecho (tanda 4, en main en a537f946f)
+
+- **Essential, la A (R57-03).** Durante la prueba, el reto abre UNA vez cada cosa de Pro de los días 4 a 6: la réplica de página, el
+  carrusel con IA, el guion replicado y el personaje. Vive en lib/reto/pro-del-reto.ts (la regla, pura) y en -server.ts (`abreElReto`).
+  - Los cuatro candados le preguntan (replicar-candado, replica-candado, editores-ia-pro, ai-avatar/acceso).
+  - Un uso dura 2 h; después, el candado de siempre.
+  - Se anota en `reto.estado.pro` (desde y hasta); el gasto en MaKo Tokens está en sus movimientos de esa ventana.
+  - La tarjeta dice «Esto es de Pro: en tu prueba lo usas una vez.».
+- **El catálogo sin «Cómo funciona…»** (el rojo de tests/tutorial-sin-presentacion.test.ts: Martín, 20/11). Cada pestaña va con su nombre.
+- **El clip del día 6:** lo hace la sesión de AI Avatar (local_a2f3a36c…).
+  - Su contrato: app/ai-avatar/regalo/actions.ts → `clipDeRegaloAction()` y `pedirClipDeRegaloAction({ frase })`, con SalidaClip y
+    ClipRegalo en lib/reto/clip-regalo-reglas.ts.
+  - El lugar es `ClipDelReto` en ChatDelReto.tsx (hoy no dibuja nada). Se conecta cuando su hash esté en main.
+  - La tarjeta consulta el estado al abrirse y cada 10 s mientras diga 'generando'.
+  - La frase viene prellenada con el gancho del guion del día 5.
+- **⚠️ Cada push a la punta CANCELA la corrida del anterior.** Hoy por eso no llegaba nada a main. Se juntan los commits y se sube UNA
+  vez; después se espera la corrida, en verde o en rojo.
+
 ## Lo que decidió el Cerebro (20/11)
 
 - **R57-02, el clip de 10 s del día 6: SÍ, por ApiMart.** Martín decidió el 17/11 que el video de los CLIENTES va por ApiMart (Flow es
@@ -122,6 +140,4 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
 
 ## Esperando al Cerebro (20/11)
 
-- **Essential (R57-03):** A o B. Ver arriba.
-- **La caja del chat del reto (D1-09, R57-13):** a quién le escribe. La propuesta es al MaKo del Ops Center, con el contexto del reto.
-- **El clip del día 6 por ApiMart:** toca el estudio de AI Avatar, donde trabaja la sesión «ai-avatar-codigo». Lo hace ella o se espera a que termine.
+- **La caja del chat del reto (D1-09, R57-13):** decidido, al MaKo del Ops Center con el contexto del reto, y entra en lib/cajas-de-chat.ts. Pero el chat lo elige el servidor por `desde.tab` (app/api/mako/chat/route.ts, como los coaches): se le preguntó al Cerebro si la hace este chat o el del onboarding, dueño de ese motor.

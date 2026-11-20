@@ -118,7 +118,8 @@ test('4. el WhatsApp: el pedido sin el código, MaKo contesta con el código, y 
   assert.ok(esPedidoDeConfirmacion('quiero confirmar mi whatsapp'));
   assert.ok(!esPedidoDeConfirmacion('Hola MaKo, ¿cómo estás?'));
   assert.match(codigoNumerico(), /^\d{6}$/);
-  assert.equal(mensajeDelCodigoV2('Valentina', '482913'), 'Hola Valentina, soy MaKo.\nTu código para confirmar tu WhatsApp es 482913.');
+  // En dos grupos, como la maqueta (20/11/2026, la auditoría wa-f2: decía «482913»).
+  assert.equal(mensajeDelCodigoV2('Valentina', '482913'), 'Hola Valentina, soy MaKo.\nTu código para confirmar tu WhatsApp es 482 913.');
   // MaKo contesta sólo al número que dio, por la línea del link, mientras esté vigente.
   const ahora = Date.now();
   assert.equal(decidirPedidoV2(PEDIDO, { instancia: 'mako', telefono: '5491155550101', ahora }), 'responder');
