@@ -124,7 +124,9 @@ test('4. el WhatsApp: el pedido sin el código, MaKo contesta con el código, y 
   assert.equal(decidirPedidoV2(PEDIDO, { instancia: 'mako', telefono: '5491155550101', ahora }), 'responder');
   assert.equal(decidirPedidoV2(PEDIDO, { instancia: 'mako', telefono: '5491166660202', ahora }), 'no-es-este');
   assert.equal(decidirPedidoV2(PEDIDO, { instancia: 'otra', telefono: '5491155550101', ahora }), 'no-es-este');
-  assert.equal(decidirPedidoV2({ ...PEDIDO, expira: ahora - 1 }, { instancia: 'mako', telefono: '5491155550101', ahora }), 'vencido');
+  // Vencido o con el tope lleno: un código NUEVO, nunca el silencio (19/11/2026, tests/codigo-v2-vencido.test.ts).
+  assert.equal(decidirPedidoV2({ ...PEDIDO, expira: ahora - 1 }, { instancia: 'mako', telefono: '5491155550101', ahora }), 'renovar');
+  assert.equal(decidirPedidoV2({ ...PEDIDO, intentos: TOPE_INTENTOS_V2 }, { instancia: 'mako', telefono: '5491155550101', ahora }), 'renovar');
   assert.equal(decidirPedidoV2({ ...PEDIDO, v2: undefined }, { instancia: 'mako', telefono: '5491155550101', ahora }), 'no-es-este', 'el flujo de antes no se toca');
   // El código pegado: antes de que MaKo conteste, no; equivocado, suma un intento; al tope, pide otro; el bueno, sí.
   assert.deepEqual(decidirCodigoV2(PEDIDO, '482913', ahora), { ok: false, error: E_SIN_CODIGO_V2 });
