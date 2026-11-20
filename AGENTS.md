@@ -2671,6 +2671,8 @@ van dos marcas en el mismo render).
   ni un `scrollTop = scrollHeight` en un efecto. Una fila que no sale de la lista del chat avisa con `avisarMensajeNuevo()`.
 - **Sus mensajes salen por la cola (`useColaDeSalida`, app/_chat/useColaDeSalida.ts):** de a uno, con puntitos según su largo, y la
   tarjeta, el recuadro o el botón después del texto. El historial, de una.
+- **Lo que aparece porque cambió algo en el servidor (una tarea hecha, un paso que se abre) también es una fila de la cola**, no estado
+  derivado que se dibuja de golpe. Qué sale lo dice UNA función que usan la cola y el dibujo (como lib/reto/en-el-dia.ts).
 - **Un chat con PERSONAS usa app/_chat/grupo/useSeguirElHilo.ts** (como WhatsApp: no arrastra a quien lee arriba, cuenta lo nuevo).
 - **Un mensaje que nombra algo de un video sale cuando la voz llega ahí** (app/_ui/tutorial/useMensajeDelVideo.ts) y nunca deja a nadie
   esperando: sin play, con error, pausado o ya visto, sale igual.

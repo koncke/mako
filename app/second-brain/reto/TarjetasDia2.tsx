@@ -31,15 +31,17 @@ export function TarjetaQrApp({ qr, onDespues }: { qr: string; onDespues: () => v
   );
 }
 
-export function TarjetaIntegraciones({ ints, onMostrar, despues = false, onDespues }: { ints: readonly IntegracionConEstado[]; onMostrar: () => void;
+export function TarjetaIntegraciones({ ints, onMostrar, despues = false, onDespues, conTarjeta = true }: { ints: readonly IntegracionConEstado[]; onMostrar: () => void;
   /** «Lo hago después» en la tarjeta (verificación del 20/11, d24-05 y d24-08): el día sigue sin conectarlas ahora. */
-  despues?: boolean; onDespues?: () => void }) {
+  despues?: boolean; onDespues?: () => void;
+  /** La tarjeta, después del texto (la cola de salida del chat del reto, lib/reto/en-el-dia.ts). */
+  conTarjeta?: boolean }) {
   const todas = ints.every((i) => i.conectada);
   return (
     <>
       {/* «Te falta integrar esto» sólo si falta algo (verificación d24-05: salía aunque estuvieran todas). */}
       <Burbuja><p>{todas ? RETO_D2_INT_LISTAS : RETO_D2_INT}</p></Burbuja>
-      <Burbuja ancho>
+      {conTarjeta && <Burbuja ancho>
         <div className="rt-tarjeta rt-int" data-recorrido="sb-integra" data-tarea="2:integraciones">
           <p className="rt-tarjeta__t">{todas ? 'Tus integraciones' : 'Te falta integrar esto'}</p>
           <ol className="rt-tareas">
@@ -55,7 +57,7 @@ export function TarjetaIntegraciones({ ints, onMostrar, despues = false, onDespu
           {!todas && (despues ? <p className="rt-wa__ej">◐ Las conectas después: el día sigue.</p>
             : onDespues && <button type="button" className="rt-tarea__donde" onClick={onDespues}>Lo hago después</button>)}
         </div>
-      </Burbuja>
+      </Burbuja>}
     </>
   );
 }

@@ -243,7 +243,7 @@ test('la entrada y la cola de salida (auditoría de chats, reto-3, reto-4 y reto
   // La llegada (el video del recorrido) primero; lo del reto, recién con el recorrido visto (terminado u omitido).
   const iLlegada = chat.indexOf('<LlegadaAlReto nombre={nombre} listo={listo} onMostrada={() => setLlegadaMostrada(true)} />');
   assert.ok(iLlegada > 0 && iLlegada < chat.indexOf("{ver('hola') && <Burbuja>"), 'la llegada, arriba de todo');
-  assert.ok(chat.includes('const puerta = llegadaMostrada && recorridoVisto;') && chat.includes('retenido: () => historia !== amb || !amb || !puerta,'), 'retenido hasta la llegada y el recorrido');
+  assert.ok(chat.includes('const puerta = llegadaMostrada && recorridoVisto;') && chat.includes('retenido: (id) => historia !== amb || !amb || !puerta || esperaSuDia(id),'), 'retenido hasta la llegada y el recorrido');
   // Cada mensaje con su texto (los puntitos según el largo); el recuadro y la muestra, como filas de la cola.
   assert.ok(chat.includes("{ id: 'hola', de: 'mako', texto: RETO_HOLA(nombre) },"));
   assert.ok(chat.includes('...(muestraPendiente ? [{ id: `muestra:${muestraPendiente.pestana}`, de: \'mako\', texto: RETO_MUESTRA(muestraPendiente) }] : []),'), 'la muestra pedida, con su clave desde el clic');

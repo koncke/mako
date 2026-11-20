@@ -313,6 +313,8 @@ export const RETO_D2_EXT = 'Ahora la extensión de MaKo para Chrome: te acompañ
 export const RETO_D2_INT = 'Por lo que elegiste con Offer Coach y Funnel Coach, te falta integrar esto. Se conecta en Settings, en Integraciones: te muestro dónde.';
 /** Con todas conectadas, sin «te falta» (verificación d24-05). */
 export const RETO_D2_INT_LISTAS = 'Por lo que elegiste con Offer Coach y Funnel Coach, éstas son tus integraciones: ya están conectadas.';
+/** El mensaje de MaKo antes de la tarjeta de la hora, en el día 2 (la maqueta, `tarjeta('hora')`; wa-08). */
+export const RETO_D2_HORA = 'Una más: dile a MaKo a qué hora te escribe por WhatsApp sobre el reto. Le escribes tú primero, así WhatsApp no frena sus mensajes.';
 const NOMBRE_INTEGRACION: Readonly<Record<string, string>> = {
   meta: 'Meta Ads', whatsapp: 'WhatsApp', zernio: 'Instagram (Zernio)', panda: 'Tu reproductor de video (Panda Video u otro)', youtube: 'YouTube',
 };
