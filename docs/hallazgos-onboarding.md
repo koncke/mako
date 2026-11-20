@@ -3481,6 +3481,18 @@ app/api/onboarding/arranque/route.ts, app/api/onboarding/plan-arranque/route.ts.
 - **Lo que se hizo:** un revisor por tramo (antes de entrar, después de entrar, día 1, días 2 a 4, días 5 a 7, WhatsApp, videos) contra la memoria de decisiones con sus rondas, la maqueta y los guiones, leyendo origin/main sin correrlo. Cada diferencia la intentó refutar otro revisor con las dos evidencias. Quedaron **147 diferencias confirmadas** (de 154); la lista vive en las notas del Cerebro (`auditoria-onboarding-reto-20-11.md`) y se repartió por dueño de archivos.
 - **Regla:** antes de dar por terminado un flujo que tiene maqueta aprobada, se compara EL FLUJO ENTERO contra la maqueta y la memoria de decisiones, no sólo lo que tocó el cambio. Lo que no se comparó no está «bien», está sin mirar.
 - **La segunda vuelta:** los tres chats entregaron sus tablas con «0 falta», y una verificación independiente sobre main (un revisor por tramo y un escéptico que intenta tumbar lo «resuelto») encontró **65 de 215 pendientes o a medias**. Por ejemplo, la caja que no acepta el código como lo manda MaKo («482 913») y la barra que aparece al tocar un play. La tabla de un chat no cierra una auditoría: la cierra la verificación sobre main.
+- **La tercera vuelta (tarde, sobre 5993355b5): 191 de 215.** Los 24 que quedaron tienen dos formas, y las dos se repiten:
+  - **«Decidido» sólo en la tabla del chat que tenía que hacerlo.** Por ejemplo, que el video de los días 2 a 7 arranque en la esquina, o que «Reenviar el código» mande directo dentro de las 24 h. No era una decisión: era el chat eligiendo lo que le resultaba más fácil, a veces contra la memoria. Lo decide el Cerebro, en la memoria (onboarding-16-11-decisiones, «20/11, tarde»), y recién ahí cuenta.
+  - **El camino principal anda y el de al lado no.** Algunos casos:
+    - la marca que sale al terminar el video en su lugar, pero no si terminó en la esquina;
+    - la barra oculta al navegar, pero visible al RECARGAR;
+    - la llegada que se redibuja al volver de otro panel;
+    - la caja del código que lee «esperé 5 minutos» como un código de un número.
+- **Regla:** al probar un arreglo de UI, probar también el desvío:
+  - el video que termina flotando;
+  - la recarga en vez de la navegación;
+  - volver desde otra pantalla;
+  - escribir algo que no es lo esperado.
 
 ## Las pausas «en el momento incorrecto» de los tutoriales no eran los tiempos (20/11/2026, Cerebro, claude5)
 
