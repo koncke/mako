@@ -19,10 +19,10 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 
 test('1. OA-06: la caja lee el código como lo manda MaKo («482 913») o su mensaje pegado; vacío, según si MaKo ya contestó', async () => {
   const { codigoEnLaCaja } = await import('../lib/onboarding-arranque');
-  const { decidirCodigoV2, mensajeDelCodigoYAgendarV2, E_SIN_CODIGO_V2, E_ESCRIBE_CODIGO_V2, E_CODIGO_LARGO_V2 } = await import('../lib/verificacion-entrante');
+  const { decidirCodigoV2, mensajeDelCodigoV2, E_SIN_CODIGO_V2, E_ESCRIBE_CODIGO_V2, E_CODIGO_LARGO_V2 } = await import('../lib/verificacion-entrante');
   assert.equal(codigoEnLaCaja('482 913'), '482913', 'en dos grupos, como lo escribe MaKo');
   assert.equal(codigoEnLaCaja('482913'), '482913');
-  assert.equal(codigoEnLaCaja(mensajeDelCodigoYAgendarV2('Juan', '482913')), '482913', 'el mensaje de MaKo entero');
+  assert.equal(codigoEnLaCaja(mensajeDelCodigoV2('Juan', '482913')), '482913', 'el mensaje de MaKo entero');
   assert.equal(codigoEnLaCaja('48 29 13'), '482913');
   assert.equal(codigoEnLaCaja('[10:30] MaKo: Tu código para confirmar tu WhatsApp es 482 913.'), '482913', 'pegado con la hora de WhatsApp: el grupo de 3 y 3');
   assert.equal(codigoEnLaCaja('482'), '482', 'los menos: «Faltan números»');

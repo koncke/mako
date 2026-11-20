@@ -1,8 +1,8 @@
 // EL WHATSAPP DEL ONBOARDING V2 CONTRA LA MAQUETA: lo que quedaba de la auditoría del 20/11/2026 (el tramo «whatsapp», lado servidor).
 //
 //   wa-f2  el código llega en dos grupos («482 913»), como la maqueta.
-//   wa-09  el pedido de guardar el contacto va pegado al código: solo, era el mismo texto para todos y el tope de «el mismo texto a
-//          muchos» lo frenaba desde la sexta persona en una hora (y el error se descartaba).
+//   wa-09  el código, la tarjeta de MaKo y «Guárdame en tus contactos…» en TRES mensajes (Martín, 20/11 ~13:00 UTC). El pedido es el
+//          mismo texto para todos: va como respuesta a su mensaje (`contesta`), así el tope de «el mismo texto a muchos» no lo frena.
 //   wa-05  con la línea caída, el V2 no promete «lo resuelves después» (el WhatsApp es obligatorio).
 //   wa-14  los errores del número son los de la maqueta y dicen qué hacer.
 //   wa-04  el pedido desde otro número: MaKo contesta qué hacer y, si una sola verificación espera, se le anota `otroNumero`.
@@ -12,7 +12,10 @@
 //
 // PROBADO ROMPIÉNDOLO (20/11/2026), cada rotura por separado y vuelta atrás:
 //   W1 el código otra vez pegado                                → falla «el código en dos grupos»
-//   W2 el pedido de guardar el contacto otra vez aparte         → falla «el código en dos grupos»
+//   W2 el código y el pedido otra vez en un mensaje             → falla «el código en dos grupos»
+//   S1 el pedido antes de la tarjeta                            → falla «el código en dos grupos»
+//   S2 el pedido sin `contesta` (lo frena el tope)              → falla «el código en dos grupos»
+//   S3 `contesta` no saltea el tope del mismo texto             → falla «el código en dos grupos»
 //   W3 pedirConfirmacionV2 con el MAKO_SIN_LINEA de antes       → falla «la línea caída»
 //   W4 «Reenviar» vuelve a mandar el código directo             → falla «Reenviar»
 //   W5 la única que espera, contando también las vencidas       → falla «otro número»
@@ -41,7 +44,7 @@ import {
   AGENDAR_V2, AVISO_SIN_LINEA_V2, AVISO_SIN_NUMERO_V2, E_CODIGO_LARGO_V2, E_ESCRIBE_CODIGO_V2, E_SIN_CODIGO_V2, KEY_LID_SIN_NUMERO,
   avisoDelPedidoV2, decidirCodigoV2, sumarLidSinNumero, vistaDeEntrante,
   E_REESCRIBIR_V2, E_TEL_CORTO, E_TEL_NO_WA, MAKO_SIN_LINEA_V2, VENTANA_REENVIAR_MS, codigoEnGrupos, errorDelTelefono,
-  escribioDesdeElOtro, mensajeDelCodigoV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, respuestaOtroNumeroV2, unicaEsperandoV2, type EstadoVerificacion,
+  escribioDesdeElOtro, mensajeDelCodigoV2, reenviarDirecto, respuestaOtroNumeroV2, unicaEsperandoV2, type EstadoVerificacion,
 } from '../lib/verificacion-entrante';
 import { codigoDeLoEscrito, reenviarAbreWhatsapp } from '../lib/onboarding-arranque';
 import { fuenteSinComentarios } from './_fuente-sin-comentarios';
@@ -55,20 +58,29 @@ function bloque(src: string, desde: string, hasta: string): string {
 }
 const grupo = () => fuenteSinComentarios('lib/mako-grupo.ts');
 
-test('el código en dos grupos, y el pedido de guardar el contacto pegado a él (wa-f2, wa-09)', () => {
+test('el código en dos grupos; el código, la tarjeta y «Guárdame…» en tres mensajes (wa-f2, wa-09, Martín 20/11 ~13:00 UTC)', () => {
   assert.equal(codigoEnGrupos('482913'), '482 913');
   assert.equal(codigoEnGrupos('48291'), '48291', 'lo que no son 6 números queda igual');
   assert.equal(mensajeDelCodigoV2('Valentina', '482913'), 'Hola Valentina, soy MaKo.\nTu código para confirmar tu WhatsApp es 482 913.');
-  const m = mensajeDelCodigoYAgendarV2('Valentina', '482913');
-  assert.ok(m.startsWith(mensajeDelCodigoV2('Valentina', '482913')) && m.endsWith(AGENDAR_V2));
-  assert.notEqual(mensajeDelCodigoYAgendarV2('Ana', '111111'), mensajeDelCodigoYAgendarV2('Ana', '222222'), 'cada uno es distinto: no lo frena el tope');
+  assert.doesNotMatch(mensajeDelCodigoV2('Valentina', '482913'), /Guárdame/, 'el código va solo');
+  assert.equal(AGENDAR_V2, 'Guárdame en tus contactos para que pueda mandarte avances de tu negocio. Si no estoy guardado, WhatsApp puede frenar mis mensajes.');
   // Lo pegado del mensaje (el código con el espacio, o el mensaje entero) queda en sus 6 números en el campo de la app.
   assert.equal(codigoDeLoEscrito('482 913'), '482913');
-  assert.equal(codigoDeLoEscrito(mensajeDelCodigoYAgendarV2('Valentina', '482913')), '482913');
+  assert.equal(codigoDeLoEscrito(mensajeDelCodigoV2('Valentina', '482913')), '482913');
   assert.ok(fuenteSinComentarios('app/onboarding/ChatArranqueV2.tsx').includes('codigoDeLoEscrito(e.target.value)'), 'el campo limpia lo pegado');
+  // El orden: el código, la tarjeta de MaKo y el pedido, cada uno en su mensaje.
   const mandar = bloque(grupo(), 'async function mandarCodigoV2(', 'export async function responderPedidoV2(');
-  assert.match(mandar, /enviarAPersonaMaKo\(destino, mensajeDelCodigoYAgendarV2\(v\.nombre \?\? '', v\.codigo\)\)/);
-  assert.doesNotMatch(mandar, /AGENDAR_V2/, 'el pedido aparte vuelve a chocar con el tope del mismo texto');
+  const codigo = mandar.indexOf("await enviarAPersonaMaKo(destino, mensajeDelCodigoV2(v.nombre ?? '', v.codigo), { contesta: true });");
+  const tarjeta = mandar.indexOf('/message/sendContact/');
+  const pedido = mandar.indexOf('await enviarAPersonaMaKo(destino, AGENDAR_V2, { contesta: true });');
+  assert.ok(codigo > 0 && tarjeta > codigo && pedido > tarjeta, 'el código, la tarjeta y después «Guárdame…»');
+  assert.doesNotMatch(grupo(), /mensajeDelCodigoYAgendarV2/, 'volvió el mensaje que juntaba el código y el pedido');
+  // El pedido es el mismo texto para todos: como respuesta a su mensaje, el tope del mismo texto no lo frena (la regla 1 sigue).
+  const voz = bloque(grupo(), 'async function enviarTextoVozMaKo(', 'async function ponerNombre(');
+  const regla1 = voz.indexOf('puedeEscribirleAPersona(');
+  const tope = voz.indexOf('if (respondiendoA() !== jidONumero && !o.contesta && !(await cupoMismoTexto(jidONumero, texto))) {');
+  assert.ok(regla1 > 0 && tope > regla1, 'la regla 1 primero; `contesta` sólo saltea el tope');
+  assert.ok(bloque(grupo(), 'export async function enviarAPersonaMaKo(', 'export async function idsEnviadosAlGrupo(').includes('await enviarTextoVozMaKo(num, texto, undefined, o);'));
 });
 
 test('la línea caída, sin «lo resuelves después»; los errores del número dicen qué hacer (wa-05, wa-14)', () => {
