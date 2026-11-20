@@ -453,7 +453,9 @@ function FilaTarea({ item, fecha, estado, enLinea, onCompletar, onAbrir }: {
 }) {
   const plazo = plazoCorto(item.deadline, fecha);
   return (
-    <div className="m-plan-item" data-estado={estado}>
+    // `data-prioridad`: la marca del tutorial del Plan («Toca aquí, en una de tus prioridades»), la misma que la fila de la
+    // computadora (app/plan/board/BoardShell.tsx). Sin ella, en el teléfono el video no tenía qué marcar (20/11, plan-4).
+    <div className="m-plan-item" data-estado={estado} data-prioridad={item.id}>
       <div className="m-plan-item__in">
         <FilaM
           titulo={(

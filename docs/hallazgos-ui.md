@@ -5637,7 +5637,23 @@ titular), no se tiñe.
 - **Un `play()` diferido necesita saber si todavía hay capa.** El reintento viejo no se cancelaba: cerrar el video durante la espera
   dejaba un `v.play()` sobre el `<video>` desmontado, y la voz seguía sonando sin video. Todos los play pasan por `reproducir`, que
   mira si la capa sigue montada y si el video sigue en la página.
-- **Lo que quedó sin hacer** (las marcas una por una de la auditoría, en su propia tanda): la flecha de volver del Second Brain en
-  la computadora (recorrido-6, `VistaCerebro` sin `alCerrar`), el «+» de Llamadas (calendar-5), «Tus tickets (n)» y la consulta en
-  `TutorialDeLaRuta` (ticketera-5), `data-prioridad` en el Plan del teléfono (plan-4), el lienzo de Automations, el botón de
-  reuniones sin reuniones, las marcas de la Entrada del CoPilot, Image y Video sin query, y el resto de la lista.
+- **Las marcas que faltaban en la página (la tanda siguiente, tests/tutorial-marcas-auditoria.test.ts):**
+  - *Una función no viaja del servidor: la flecha de volver del grafo no existía en la computadora* (recorrido-6). El Grafo la
+    dibuja sólo con `alCerrar`, y el mapa de escritorio lo arma el servidor (`pagina.tsx`). El volver de escritorio ya llegaba por
+    contexto (`VolverDelGrafo`), pero sólo para un botón de la cabecera escondido arriba de 720 px. Ahora ese volver es la flecha
+    del grafo en todos los anchos, y la de la cabecera se sacó.
+  - *El tutorial de la pestaña se elegía sin la consulta* (ticketera-5): `TutorialDeLaRuta` usaba sólo `usePathname()`, y la
+    Ticketera vive en `/second-brain?ticketera=tickets`. Ahora lleva `useSearchParams()`, con su `Suspense`: sin él, el build no
+    prerenderiza las páginas estáticas que tienen el motor en el layout.
+  - `data-prioridad` en el Plan del teléfono (plan-4) y «Cargar un cliente» marcado también en el vacío y en la tabla
+    (classroom-clients-5; `EmptyState` acepta `marca`, sólo con `onClick`: `ButtonLink` no pasa atributos).
+  - El recorrido viejo de tarjetas (Spy, Dashboard, la ficha del CRM, el curso) ya no se abre solo donde el motor corre el video
+    de la pestaña (`useRecorrido`, OD-F4).
+- **Lo que quedó sin hacer, a propósito:**
+  - el botón de reuniones del CRM sin reuniones (crm-5) y mover la marca de Agency y de Partners al CTA de «Pásate a MaKo Pro»
+    (agency-5, partners-3). Lo primero cambia el CRM para todos los clientes, fuera del interruptor del V2. Lo segundo convierte un
+    CTA de compra en un «toca aquí» del tutorial. Con el motor nuevo esas frases se saltean sin congelar;
+  - el «+» de Llamadas (calendar-5): el alta de una llamada (la agenda, Calendly, la anotación) vive en `CalendarioApp`, y la
+    lista de llamadas es otra página;
+  - lo que se arregla en el guion o en el catálogo (`lib/tutoriales/*.ts`, el `sel` o el `espera_clic` del manifiesto): spy,
+    dashboard, copilot, automations-3, offer-5, report-problem, image y video. Queda para quien lleve el catálogo.

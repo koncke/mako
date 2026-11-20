@@ -31,12 +31,16 @@ import { Button, ButtonLink, type ButtonVariant } from './Button';
 import { TONO, type Tono } from './tokens';
 import { ReportarASoporte } from './ReportarASoporte';
 
-/** La salida del estado: o navega (href) o hace algo (onClick). Nunca las dos. */
-type Accion = { label: string; onClick?: () => void; href?: string };
+/**
+ * La salida del estado: o navega (href) o hace algo (onClick). Nunca las dos. `marca`: el `data-recorrido` de los tutoriales
+ * (lib/tutoriales/marcas.ts), cuando el vacío es justo donde el video dice «toca aquí» (20/11: «Cargar un cliente» de Classroom).
+ * Sólo con `onClick` (ButtonLink no pasa atributos).
+ */
+type Accion = { label: string; onClick?: () => void; href?: string; marca?: string };
 
 function Boton({ a, variant = 'primary' }: { a: Accion; variant?: ButtonVariant }) {
   if (a.href) return <ButtonLink href={a.href} size="sm" variant={variant}>{a.label}</ButtonLink>;
-  return <Button size="sm" variant={variant} onClick={a.onClick}>{a.label}</Button>;
+  return <Button size="sm" variant={variant} onClick={a.onClick} data-recorrido={a.marca}>{a.label}</Button>;
 }
 
 function Marco({ tono, ico, titulo, detalle, accion, secundaria, inline, extra }: {

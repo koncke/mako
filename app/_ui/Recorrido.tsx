@@ -42,6 +42,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useCapaModal } from '@/app/_components/pila-modales';
+import { motorSeOcupa } from './tutorial/store';
 import { Button, IconButton } from './Button';
 import {
   PREFIJO_LOCAL, Z_PISO_RECORRIDO, anteriorVisible, claveLocal, contadorDe, necesitaScroll, posicionTarjeta,
@@ -548,7 +549,11 @@ export function useRecorrido(id: string, opciones?: { soloLocal?: boolean; autoa
     marcarVisto();
   }, [marcarVisto]);
 
-  const abierto = modo === 'abierto' || (modo === 'auto' && autoabrir && visto === false);
+  // UN SOLO RECORRIDO POR PESTAÑA (20/11, OD-F4): para quien ve el onboarding V2, el motor de los tutoriales (./tutorial/) ya corre el
+  // video de la pestaña; el recorrido viejo de tarjetas (Competitor Spy, Dashboard, la ficha del CRM, el curso) no se abre solo encima.
+  // Los del motor (`tutorial-…`) son los suyos. Se puede seguir abriendo a mano (`reabrir`).
+  const delMotor = id.startsWith('tutorial-');
+  const abierto = modo === 'abierto' || (modo === 'auto' && autoabrir && visto === false && (delMotor || typeof window === 'undefined' || !motorSeOcupa(window.location.pathname)));
   return { visto, abierto, reabrir, marcarVisto, onCerrar };
 }
 

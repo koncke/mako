@@ -23,9 +23,9 @@
 //     mientras dura su voz). Después de un clic que navega o abre algo, el video se queda quieto en el silencio de la frase tocada
 //     hasta que aparece la marca siguiente (con tope).
 // =============================================================================
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Button } from '../Button';
 import { cssRecorrido, useRecorrido } from '../Recorrido';
 import { Z_PISO_RECORRIDO, necesitaScroll, posicionTarjeta, recorteDe, type Caja, type Medida, type PosicionTarjeta } from '@/lib/recorridos';
@@ -155,7 +155,8 @@ export function MotorTutorial({ revision }: { revision: boolean }) {
           <button type="button" onClick={salirDelEnsayo}>Salir del ensayo</button>
         </div>
       )}
-      <TutorialDeLaRuta />
+      {/* useSearchParams en el layout: con su Suspense (si no, el build no prerenderiza las páginas estáticas). */}
+      <Suspense fallback={null}><TutorialDeLaRuta /></Suspense>
       {senal && senal.tipo === 'video' && <VideoFlotante key={senal.id} senal={senal} />}
       {senal && senal.tipo !== 'video' && <Capa key={senal.id} senal={senal} revision={revision} />}
     </>
@@ -164,7 +165,10 @@ export function MotorTutorial({ revision }: { revision: boolean }) {
 
 /** La primera vez en una pestaña con tutorial: lo arranca solo, cuando su primer paso ya está en la pantalla. */
 function TutorialDeLaRuta() {
-  const ruta = usePathname() ?? '/';
+  // CON LA CONSULTA (20/11, ticketera-5): la Ticketera vive en /second-brain?ticketera=tickets, y con sólo el pathname su «?» abría
+  // el video del Ops Center. tutorialDeRuta (lib/tutoriales) ya elige por la consulta cuando el tutorial la pide.
+  const consulta = useSearchParams()?.toString() ?? '';
+  const ruta = (usePathname() ?? '/') + (consulta ? `?${consulta}` : '');
   const t = tutorialDeRuta(ruta);
   return t ? <><PrimeraVez key={t.pestana} t={t} /><BotonDelVideo t={t} /></> : null;
 }

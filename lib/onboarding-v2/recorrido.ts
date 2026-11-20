@@ -25,10 +25,13 @@ export const TUTORIAL_RECORRIDO: TutorialPestana = {
   pasos: [
     { sel: '[data-recorrido="sb-reto-chat"]', titulo: 'El reto de 7 días de MaKo', texto: RETO_SUB, sub: 'Y tu reto de 7 días tiene su propio chat: cada día un video para que avances con tu negocio.', lado: 'derecha' },
     { sel: 'aside[data-sidebar]', titulo: 'Tu panel', texto: 'Aquí están todas tus pestañas: tus ventas, tu marketing y todo lo que creas.', sub: 'Y a la izquierda aparece tu panel, con todas las pestañas de MaKo.', lado: 'derecha' },
-    { sel: SECOND_BRAIN, titulo: 'Tu Second Brain', texto: 'Es todo lo que MaKo sabe de tu negocio.', sub: 'Toca Second Brain: es todo lo que MaKo sabe de tu negocio.', lado: 'derecha' },
-    // Sin el video, el paso abre el Second Brain él mismo (`antes`); con el video, lo abre el clic de la persona en su pausa.
+    { sel: SECOND_BRAIN, titulo: 'Tu Second Brain', texto: 'Es todo lo que MaKo sabe de tu negocio.', sub: 'Toca Second Brain: es todo lo que MaKo sabe de tu negocio.', lado: 'derecha', haz: 'Haz clic en Second Brain' },
+    // Sin el video, el paso abre el Second Brain él mismo (`antes`); con el video, lo abre el clic de la persona en su pausa (o
+    // «Siguiente», que hace el mismo clic; si no se tocó, el motor toca el `antes`: 20/11).
+    // `haz` en el Second Brain y en la flecha (20/11, OD-10): «Toca Second Brain…» y «Y para volver, la flecha…» no empiezan con
+    // «toca aquí», y el motor ponía «Haz clic en lo marcado».
     { sel: '[data-recorrido="sb-grafo"]', titulo: 'Lo que MaKo sabe de ti', texto: 'Por ahora, esto es lo que sé de ti. A medida que te conozco, voy armando tu Second Brain automáticamente.', sub: 'A medida que te conozco, voy armando tu Second Brain automáticamente.', antes: SECOND_BRAIN, soloComputadora: true },
-    { sel: FLECHA, titulo: 'Vuelve a tus chats', texto: 'Con la flecha del Second Brain vuelves al Ops Center.', sub: 'Y para volver, la flecha de arriba.', lado: 'derecha', soloComputadora: true },
+    { sel: FLECHA, titulo: 'Vuelve a tus chats', texto: 'Con la flecha del Second Brain vuelves al Ops Center.', sub: 'Y para volver, la flecha de arriba.', lado: 'derecha', soloComputadora: true, haz: 'Haz clic en la flecha' },
     { sel: '[data-recorrido="sb-ticketera"]', titulo: 'La Ticketera', texto: '¿Algo falla, o quieres proponer una función nueva? Mándale un audio o un mensaje a MaKo aquí: daremos todo nuestro esfuerzo para resolverlo.', sub: 'Si tienes un problema o quieres proponer algo, escríbele a MaKo en la Ticketera: daremos todo nuestro esfuerzo para resolverlo.', antes: FLECHA, lado: 'derecha' },
   ],
 };

@@ -34,7 +34,6 @@ import { AREAS, CAPA_CONSTRUCCION, type AreaId, type Cerebro } from '@/lib/cereb
 import { vistaValida } from '@/lib/secciones-negocio';
 import { filtroDeCapa, filtroVacio, type EstadoFiltro } from '@/lib/cerebro-filtro';
 import { filtroDelNegocio, soloElNegocio } from '@/lib/cerebro-union';
-import { Icon } from '@/app/_components/icons';
 import { Grafo } from './Grafo';
 import { AreasHub } from './AreasHub';
 import { BotonExportar } from './BotonExportar';
@@ -107,6 +106,11 @@ export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false,
   const vistaInicial = areaInicial ? vistaValida(areaInicial, params?.get('vista')) : null;
   const [editando, setEditando] = useState<AreaId | null>(movil ? null : areaInicial);
   const volver = useVolverDelGrafo();
+  // LA FLECHA DE VOLVER, TAMBIÉN EN LA COMPUTADORA (20/11, la auditoría de las pausas: recorrido-6). El Grafo la dibuja sólo con
+  // `alCerrar`, y el mapa de escritorio lo arma el SERVIDOR (app/second-brain/pagina.tsx), que no puede pasar una función: la flecha
+  // no existía y el paso «Vuelve a tus chats» del recorrido se salteaba. El volver de escritorio llega por contexto (volver.ts):
+  // ahora es la flecha del grafo, en todos los anchos (la de la cabecera, que era sólo de la ventana angosta, se sacó).
+  const atras = alCerrar ?? volver ?? undefined;
 
   // `?capa=construccion` (el link de /admin/dev y de las bitácoras) abre el mapa YA filtrado a esa capa.
   const [filtro, setFiltro] = useState<EstadoFiltro>(() => (
@@ -131,28 +135,14 @@ export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false,
         .sb-cab__titulo { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; color: var(--ink); }
         .sb-cab__sub { margin: 2px 0 0; font-size: 13.5px; color: var(--dim); line-height: 1.4; }
         .sb-cab__cuenta { margin-left: 10px; color: var(--faint); white-space: nowrap; }
-        .sb-cab__volver {
-          display: none; align-items: center; justify-content: center; flex: none;
-          width: 36px; height: 36px; border-radius: 10px; border: none; background: none; color: var(--dim); cursor: pointer;
-        }
-        .sb-cab__volver:hover { background: var(--surface-2); color: var(--ink); }
-        .sb-cab__volver:focus-visible { outline: 2px solid var(--mako); outline-offset: 2px; }
-        /* El volver es de la ventana angosta: ahí la lista de chats y el panel no entran juntos
-           (app/admin/operaciones/centro.css, el mismo corte de 720 px). */
         @media (max-width: 720px) {
           .sb-cab { padding: 12px 12px 8px; }
-          .sb-cab__volver { display: inline-flex; }
           .sb-cab__titulo { font-size: 19px; }
           .sb-cab__sub { font-size: 12.5px; }
         }
       `}</style>
       {!movil && (
         <header className="sb-cab">
-          {volver && (
-            <button type="button" className="sb-cab__volver" onClick={volver} aria-label="Volver a los chats">
-              <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
-            </button>
-          )}
           <div style={{ minWidth: 0 }}>
             <h1 className="sb-cab__titulo">{TITULO_SECOND_BRAIN}</h1>
             <p className="sb-cab__sub">{conObra ? SUBTITULO_UNIDO : SUBTITULO_SECOND_BRAIN}{cerebro.cuenta?.total ? <span className="sb-cab__cuenta">{cuantoSabe(cerebro.cuenta)}</span> : null}</p>
@@ -168,7 +158,7 @@ export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false,
         filtro={filtro}
         onFiltro={setFiltro}
         movil={movil}
-        alCerrar={alCerrar}
+        alCerrar={atras}
         lateral={<ChatDelSecondBrain movil={movil} />}
         accion={movil ? accionMovil : filtroExportable ? <BotonExportar cerebro={delNegocio} filtroMapa={filtroExportable} recorte={verse} /> : undefined}
       />
