@@ -430,8 +430,9 @@ export const mensajeEscrito = (p: PruebaWhatsApp, hora = '9:00') => (p.escrito ?
  * EL CORREO «DÍA N DEL RETO DE MaKo» (Martín, 18/11: «el asunto "Martín MaKo · Día 3 tu video de hoy" no tiene sentido. Va "Día 3 del
  * reto de MaKo", y lo mismo en todos los días»). Corto: qué toca hoy y el link al chat del reto. Lo manda lib/reto/avisos-salida.ts.
  */
-export function correoDelDia(n: number, link: string): { asunto: string; preheader: string; cuerpo: string } {
-  const d = DIAS_RETO.find((x) => x.n === n) ?? DIAS_RETO[0];
+export function correoDelDia(n: number, link: string, dias: readonly DiaReto[] = DIAS_RETO): { asunto: string; preheader: string; cuerpo: string } {
+  // `dias`: los del negocio (`diasDelReto(funnel)`), así lo que toca los días 4 a 6 es lo de SU funnel (20/11/2026).
+  const d = dias.find((x) => x.n === n) ?? dias[0];
   return {
     asunto: `Día ${d.n} del reto de MaKo`,
     preheader: d.titulo,

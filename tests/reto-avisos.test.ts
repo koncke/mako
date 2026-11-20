@@ -24,6 +24,8 @@
 //   X1 tocar una hora la guarda otra vez (sin que ella escriba)               → falla «la tarjeta de la hora»
 //   X2 sin releer al volver de WhatsApp (la confirmación no aparece)          → falla «la tarjeta de la hora»
 //   X3 el mensaje escrito con 9:00 fijo                                       → falla «la tarjeta de la hora»
+//   F1 el correo con los días genéricos (sin su funnel)                       → falla «el correo del día lleva lo de SU funnel»
+//   F2 `correoDelDia` ignora los días que recibe                              → falla «el correo del día lleva lo de SU funnel»
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -181,6 +183,14 @@ test('primero se guarda lo que va a salir, en su propia clave; el WhatsApp por e
   assert.match(s, /v\?\.v2 === true && v\.verificado === true/, 'sólo al número verificado por el V2');
   assert.doesNotMatch(s, /enviarAlGrupoMaKo|enviarAGrupoJid|enviarTextoVozMaKo/, 'nunca a un grupo: por la puerta de los DM');
   assert.equal(CLAVE_AVISOS, 'reto.avisos');
+});
+
+test('el correo del día lleva lo de SU funnel (los días 4 a 6 cambian con lo que eligió en Funnel Coach)', async () => {
+  const { correoDelDia, diasDelReto, DIAS_RETO } = await import('../lib/reto/dias');
+  const suyo = diasDelReto('organico')[4].tareas[0].titulo;
+  assert.notEqual(suyo, DIAS_RETO[4].tareas[0].titulo, 'el funnel de Instagram cambia el carrusel del día 5');
+  assert.ok(correoDelDia(5, 'https://app/x', diasDelReto('organico')).cuerpo.includes(suyo));
+  assert.match(fuenteSinComentarios('lib/reto/avisos-salida.ts'), /correoDelDia\(dia, link, diasDelReto\(funnelDe\(valor\(ws, KEY_PLAN_FUNNEL\)\)\)\)/);
 });
 
 test('cada hora, a los :02; el cron de las 10:00 ya no manda el reto', () => {

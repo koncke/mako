@@ -21,13 +21,19 @@ import { crearNotificacion } from '../notificaciones';
 import { enviarPush } from '../push';
 import { enviarAPersonaMaKo } from '../mako-grupo';
 import { PARA_TODOS, WS_REVISION_V2, veOnboardingV2 } from '../onboarding-v2/revision';
-import { CLAVE_RETO, correoDelDia, leerEstado } from './dias';
+import { CLAVE_RETO, correoDelDia, diasDelReto, leerEstado } from './dias';
 import {
   CLAVE_AVISOS, PREHEADER_DIA, RUTA_RETO, avisoDeLaNoche, avisoDelDia, hayQueGuardar, horaAr, leerAvisos, queMandar,
   whatsappDeAbandono, whatsappDelDia,
 } from './avisos';
 
 const KEY_VERIFICACION = 'mako.contacto.verificacion';
+/** El plan de Funnel Coach: su funnel principal arma los días 4 a 6 (`diasDelReto`). */
+const KEY_PLAN_FUNNEL = 'funnel_coach.plan';
+
+function funnelDe(crudo: string | null): string | null {
+  try { const p = JSON.parse(crudo ?? 'null') as { funnel?: unknown } | null; return typeof p?.funnel === 'string' ? p.funnel : null; } catch { return null; }
+}
 
 export type VueltaReto = { revisados: number; manana: number; noche: number; abandono: number; whatsapp: number; errores: number };
 
@@ -56,7 +62,7 @@ export async function avisarDelReto(opts: { ahoraMs?: number; enSeco?: boolean }
   const wss = retos.map((f) => Number(f.workspace_id));
 
   const [otras, gente] = await Promise.all([
-    db.from('app_settings').select('workspace_id, key, value').in('workspace_id', wss).in('key', [CLAVE_AVISOS, KEY_VERIFICACION]),
+    db.from('app_settings').select('workspace_id, key, value').in('workspace_id', wss).in('key', [CLAVE_AVISOS, KEY_VERIFICACION, KEY_PLAN_FUNNEL]),
     db.from('usuarios').select('workspace_id, email, rol_ws, estado, ultimo_login').in('workspace_id', wss).limit(2000),
   ]);
   if (otras.error) throw new Error(`No pude leer los avisos del reto: ${otras.error.message}`);
@@ -91,7 +97,7 @@ export async function avisarDelReto(opts: { ahoraMs?: number; enSeco?: boolean }
         const app = avisoDelDia(dia);
         await crearNotificacion({ ws, tipo: 'reto-dia', titulo: app.titulo, descripcion: app.texto, link: RUTA_RETO, entityType: 'reto', entityId: String(dia) });
         await enviarPush(ws, { tipo: 'reto-dia', titulo: app.titulo, cuerpo: app.texto, ruta: RUTA_RETO, tag: `reto-dia-${dia}`, soloAdmins: true });
-        const m = { ...correoDelDia(dia, link), preheader: PREHEADER_DIA };
+        const m = { ...correoDelDia(dia, link, diasDelReto(funnelDe(valor(ws, KEY_PLAN_FUNNEL)))), preheader: PREHEADER_DIA };
         for (const to of para) {
           const c = await avisarDePlataforma({ to, tag: 'reto-dia', asunto: m.asunto, preheader: m.preheader, cuerpo: m.cuerpo, idempotencyKey: `reto-${ws}-${dia}-${to}` });
           if (!c.enviado) console.warn(`[reto] no salió el correo del día ${dia} a ${to} (ws ${ws}): ${c.error ?? 'sin detalle'}`);
