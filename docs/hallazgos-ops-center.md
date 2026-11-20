@@ -8,6 +8,20 @@ Acá va lo que costó y no se deduce leyendo el código.
 
 ---
 
+## El foco en los coaches: con tres o más ideas, cuatro preguntas de a una (20/11/2026, chat «onboarding-v2», claude5)
+
+Martín en la llamada con Leila (01:17–01:30): quien trae muchas cosas a la vez necesita un paso de foco antes de seguir. La forma la
+cerró el Cerebro, y vive en el CONTEXTO de los dos coaches del V2 (`PASO_DEL_FOCO`, lib/asesores/contexto.ts), sin un motor nuevo:
+con TRES o más ideas, negocios, ofertas o funnels, las cuatro preguntas de a una; después proponer UNA con el porqué de sus respuestas;
+si insiste, se respeta y no se vuelve a preguntar; con una o dos, nada.
+
+- **Choque con lo que ya había:** `HASTA_TRES_FUNNELS` decía «si elige varios, pregúntale por qué»: con DOS funnels interrogaba, y la
+  regla nueva dice que con dos no aparece. Ahora con dos propone empezar por uno; con tres, va el foco.
+- **La cuarta pregunta venía con género** («¿Qué estás dispuesto…?»): quedó «¿Qué puedes dejar de lado por ahora?».
+- El coach único (el que no es del V2) no cambia: un test lo compara.
+- Como es una regla del modelo, el test mira que el contexto la diga entera (tests/coaches-foco.test.ts); que el modelo la cumpla se
+  mira en una conversación de verdad. Sin mirar en producción.
+
 ## El grupo, como uno de WhatsApp: lo que se miró con capturas (4/11/2026)
 
 **Cómo se miró sin `next dev`:** un arnés fuera del repo. esbuild empaqueta `ChatDelGrupo` y `HojaDelGrupo` reales para el navegador, el CSS de `app/globals.css` se compila con `@tailwindcss/postcss` (esbuild no entiende `@import "tailwindcss"`), y un `fetch` falso contesta `/api/grupos/7/*`. Chromium saca las capturas a 390 y 1280, en claro y en oscuro (`data-tema="oscuro"` en `<html>`).

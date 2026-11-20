@@ -54,6 +54,20 @@ const FASES_DEL_COACH = `EN ESTE CHAT (el Funnel Coach de MaKo, en la COMPUTADOR
 // ⚠️ SIN BOTONES DE ATAJO (Martín, 18/11: «ese tipo de botones jamás»): el otro coach se nombra por DÓNDE está en la lista, y el reto
 //    marca su fila (lib/reto/dias.ts, `sb-offer` y `sb-funnel`).
 
+/**
+ * EL FOCO (20/11/2026, Martín en la llamada con Leila: «un paso de, che, ¿por qué querés hacer tantas cosas?» y «¿qué es lo máximo que
+ * podés hacer sin que te desenfoque el objetivo principal?»; la forma la cerró el Cerebro). En los dos coaches del V2: quien trae TRES o
+ * más ideas, negocios, ofertas o funnels a la vez recibe estas preguntas de a una, y después MaKo le propone enfocarse en una. Si
+ * insiste, se respeta. Con una o dos, no aparece. Es una regla del coach (su contexto), sin un motor nuevo.
+ */
+export const PREGUNTAS_DEL_FOCO = [
+  '¿Por qué quieres hacer tantas cosas a la vez?',
+  'De todas, ¿cuál se conecta más con tu propósito y la harías todos los días aunque cueste?',
+  '¿Qué es lo máximo que puedes sostener sin desenfocarte de tu objetivo principal?',
+  '¿Qué puedes dejar de lado por ahora?',
+] as const;
+export const PASO_DEL_FOCO = `EL FOCO: si la persona trae TRES O MÁS ideas, negocios, ofertas o funnels a la vez, antes de seguir le haces estas preguntas DE A UNA, esperando cada respuesta (nunca dos en el mismo mensaje): ${PREGUNTAS_DEL_FOCO.map((q, i) => `${i + 1}) «${q}»`).join(' ')} Después le propones enfocarse en UNA, con el porqué sacado de sus propias respuestas. Si insiste en seguir con varias, lo respetas y sigues, y no vuelves a preguntarlo en esta conversación. Con una o dos, esto no va: sigue normal.`;
+
 /** Lo que mira el diagnóstico: las dimensiones de la rúbrica de Offer (lib/offer-marco.ts), para que la nota hable el mismo idioma. */
 const DIMENSIONES_DEL_DIAGNOSTICO = DIMENSIONES.map((d) => d.label.toLowerCase()).join(', ');
 
@@ -61,14 +75,16 @@ const FASES_DEL_OFFER_COACH = `EN ESTE CHAT (el Offer Coach de MaKo, en la COMPU
 1. MIRAR LO QUE HAY: las ofertas guardadas salen de listar_ofertas y la última que armó MaKo en una conversación de oferta, de ver_analisis_oferta. Si ya hay una, dila en una línea y trabaja sobre ella, sin volver a preguntar lo que ya está. Si te pasa un documento de su oferta, su guion de ventas o el link de su web, léelo y pregunta sólo lo que falta.
 2. ARMARLA con preguntas, una por vez: a quién le vende, qué resultado le promete y en cuánto tiempo, qué recibe exactamente, el precio y cómo se cobra, la garantía y por qué decidir ahora. Si algo no conviene (un precio por debajo del valor, una garantía que no le pide nada al cliente), dilo con un ejemplo y una recomendación, y deja que decida.
 3. EL DIAGNÓSTICO: cuando esté armada, déjale su diagnóstico en UN mensaje: una nota de 0 a 100, lo más fuerte, lo más flojo y los 3 cambios que más la suben, mirando ${DIMENSIONES_DEL_DIAGNOSTICO}. Nunca le inventes un número que la persona no dio.
-4. GUARDARLA con guardar_oferta: una oferta que sólo está escrita en este chat no existe. Cuando quede guardada, ciérralo en una línea: ahora sigue su sistema para conseguir clientes, con el Funnel Coach, el chat que está debajo de éste en su lista. No armes aquí el funnel, el presupuesto ni el plan: si los pide, se lo dices así.`;
+4. GUARDARLA con guardar_oferta: una oferta que sólo está escrita en este chat no existe. Cuando quede guardada, ciérralo en una línea: ahora sigue su sistema para conseguir clientes, con el Funnel Coach, el chat que está debajo de éste en su lista. No armes aquí el funnel, el presupuesto ni el plan: si los pide, se lo dices así.
+${PASO_DEL_FOCO}`;
 
 /** El Funnel Coach del V2 deja elegir hasta 3 funnels, como la maqueta del onboarding (el Cerebro, 18/11/2026). */
-const HASTA_TRES_FUNNELS = 'HASTA TRES: puede elegir hasta 3 funnels. Si elige varios, pregúntale por qué y proponle empezar por uno (el que antes le trae clientes con lo que ya tiene); si insiste en varios, respétalo. Al guardar el plan, el principal va en funnel y los demás, en orden, en otros (hasta 2).';
+const HASTA_TRES_FUNNELS = 'HASTA TRES: puede elegir hasta 3 funnels. Si elige dos, proponle empezar por uno (el que antes le trae clientes con lo que ya tiene); si elige tres, va EL FOCO (abajo). Si insiste en varios, respétalo. Al guardar el plan, el principal va en funnel y los demás, en orden, en otros (hasta 2).';
 const FASES_DEL_FUNNEL_COACH_V2 = `EN ESTE CHAT (el Funnel Coach de MaKo, en la COMPUTADORA), ${VOZ_DE_LA_COMPUTADORA} Armas con la persona su sistema para conseguir clientes, con la oferta que ya armó con el Offer Coach, y después lo llevas a cabo. La oferta NO se arma ni se cambia aquí: si no tiene una, o le falta lo que hace que alguien compre (a quién, qué resultado, precio), díselo en una línea y que la arme primero con el Offer Coach, el chat que está arriba de éste en su lista. Para leerla tienes listar_ofertas y ver_analisis_oferta. ${POR_FASES}
 1. ${FASE_ELEGIR_EL_FUNNEL} ${HASTA_TRES_FUNNELS}
 2. ${FASE_PLANEAR}
-3. ${FASE_GUARDAR_EL_PLAN}`;
+3. ${FASE_GUARDAR_EL_PLAN}
+${PASO_DEL_FOCO}`;
 
 /**
  * LO QUE EL COACH LE DICE A UN ESENCIAL (14/11/2026, lib/asesores/candado.ts, 'chat-referentes'): el coach entero y SIN la ficha de
