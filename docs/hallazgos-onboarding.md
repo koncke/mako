@@ -23,6 +23,23 @@ Lo pedido por Martín (Fathom 205366178, 00:29:00): al terminar el video del dí
   - `Muneco` no lleva hooks ni ids de SVG, porque lo dibujan el server y varios a la vez. Por eso no importa `MakoLogo` (useId y
     gradientes con id): dibuja la misma baldosa y la misma chispa en su viewBox, con colores lisos.
   - El test lo prueba sobre lo dibujado (renderToStaticMarkup), no sobre el texto: tests/reto-icono-app.test.ts.
+- **«Toca aquí» siempre marca** (00:32:37). Las reglas de las pausas del 20/11 dejaban pasar, sin pausar, una frase cuya marca no
+  estaba. La voz decía «toca aquí» sin recuadro en dos casos:
+  - Competitor Spy sin competidores: las pestañas existen sólo con uno abierto.
+  - Los cierres de Offer y de «Report a problem»: no tenían `sel`, y se marcaban recién al terminar el video.
+
+  Ahora una frase que manda a tocar algo que no está, y que nada abre (`antes` o la barra), se salta en el silencio de antes de su
+  voz (`saltarSinMarca`, app/_ui/tutorial/pausas.ts). Y los dos cierres llevan su `sel`, en el manifiesto y en guiones.json, que es
+  de donde lo saca hacer.mjs al regenerar. Hay dos trampas:
+  - Una auditoría vieja les había sacado ese `sel` a propósito, porque el motor pausaba en el t_inicio. El test que lo fijaba
+    (tutorial-catalogo-auditoria 3) se puso al día con su porqué.
+  - `\b` no ve el borde de la «í»: «toca aquí,» no calzaba. El regex usa límites de letra Unicode.
+- **El video de Spy sin la espera de 6 s** (00:32:05). `PrimeraVez` esperaba el lugar del primer paso, y en Spy ese lugar existe sólo con
+  un competidor abierto. Ahora arranca también con lo que lo abre a la vista, o con la página quieta 1,2 s (`arrancaLaPrimeraVez`).
+- **«Hola de nuevo» cortado en «auto…» (00:28:37): sin tocar**, porque el Cerebro pidió medirlo antes. Por código ningún camino pausa a
+  mitad de una frase sin clic, y el `<video>` es el mismo en el mensaje y en la esquina. Medirlo pide correr el recorrido en la app
+  con una cuenta que no lo vio. Pista: la retención después de «Toca Second Brain» puede soltar sin el grafo, porque el grafo se
+  dibuja sin mutar el DOM y la página parece quieta.
 - **Sin probar en el uso:** nada se abrió en un navegador. Está probado por el código y por los tests, rompiendo cada arreglo.
 
 ## Los avisos del reto: un correo diario no podía cumplir el «te escribo a las {hora}» (20/11/2026, claude5)

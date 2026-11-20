@@ -51,16 +51,23 @@ test('2. ticketera-5 y automations-3: los selectores que existen siempre', () =>
   assert.match(leer('app/automations/SimuladorWhatsApp.tsx'), /<div style=\{ESTILO_LIENZO\} data-recorrido="au-lienzo">/);
 });
 
-test('3. lo que navega es «Mira aquí»; lo que abre un modal se cierra; lo que no existe todavía no se marca', () => {
+test('3. lo que navega es «Mira aquí»; lo que abre un modal se cierra; lo que no existe todavía se marca sólo si aparece', () => {
   for (const [k, n] of [['calendar', 4], ['classroom', 4], ['image', 3]] as const) assert.equal(frase(k, n)?.espera_clic, false, `${k}-${n}`);
   assert.equal(frase('classroom-community', 3)?.cierra_despues, true);
-  for (const [k, n] of [['report-problem', 4], ['report-problem', 5], ['offer', 5]] as const) assert.equal(frase(k, n)?.sel, null, `${k}-${n}`);
+  // El ticket, «Mandárselo al equipo» y «Analicemos mi oferta» aparecen recién cuando MaKo los arma. Esta auditoría les había sacado la
+  // marca porque el motor PAUSABA en el t_inicio de una frase sin su marca. Desde las reglas del 20/11 (app/_ui/tutorial/pausas.ts) ya
+  // no pausa ahí, y la llamada con Leila pidió que «toca aquí» marque siempre: llevan su marca y, si el botón no está, la frase
+  // «toca aquí» no se dice (tests/tutorial-toca-aqui.test.ts). Nunca esperan algo que no existe.
+  for (const [k, n] of [['report-problem', 4], ['report-problem', 5], ['offer', 5]] as const) assert.equal(frase(k, n)?.espera_clic, false, `${k}-${n}: no espera`);
+  assert.equal(frase('offer', 5)?.sel, '[aria-label="Respuestas rápidas"] button');
+  assert.equal(frase('report-problem', 5)?.sel, '[data-tarjeta="ticket"] button.co-chip--primario');
   // El guion de donde sale el manifiesto, igual (si no, la próxima subida lo pisaba).
   const g = JSON.parse(leer('scripts/tutorial-animado/guiones.json')) as Array<{ id: string; pasos: Array<{ sel?: string; tipo?: string; cierra?: boolean }> }>;
   const pg = (id: string, n: number) => g.find((x) => x.id === id)?.pasos[n - 1];
   assert.equal(pg('calendar', 4)?.tipo, 'mira');
   assert.equal(pg('classroom-community', 3)?.cierra, true);
-  assert.equal(pg('report-problem', 5)?.sel, undefined);
+  assert.equal(pg('report-problem', 5)?.sel, '[data-tarjeta="ticket"] button.co-chip--primario');
+  assert.equal(pg('offer', 5)?.sel, '[aria-label="Respuestas rápidas"] button');
   assert.equal(pg('automations', 3)?.sel, '[data-recorrido="au-lienzo"]');
   assert.equal(pg('ticketera', 5)?.sel, 'button[aria-label^="Tus tickets"]', 'la Ticketera (los «Tus tickets» de un guion v3 viejo no se suben)');
 });

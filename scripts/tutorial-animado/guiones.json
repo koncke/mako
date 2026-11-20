@@ -1614,6 +1614,7 @@
    },
    {
     "dice": "Para ir a fondo, toca aquí, en Analicemos mi oferta: te marca qué falta y la mejora, en PDF.",
+    "sel": "[aria-label=\"Respuestas rápidas\"] button",
     "rol": "cierre"
    }
   ],
@@ -4458,11 +4459,13 @@
    },
    {
     "dice": "Mira aquí, el ticket que arma Máko: revisa que diga lo que pasó antes de mandarlo.",
+    "sel": "[data-tarjeta=\"ticket\"]",
     "rol": "accion",
     "tipo": "mira"
    },
    {
     "dice": "Cuando esté claro, toca aquí, en Mandárselo al equipo: si te preguntan algo, verás Espera tu respuesta.",
+    "sel": "[data-tarjeta=\"ticket\"] button.co-chip--primario",
     "rol": "cierre"
    }
   ],

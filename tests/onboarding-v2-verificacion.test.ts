@@ -315,6 +315,10 @@ test('23. motor-7 y offer-5, segunda verificación (20/11, tarde): lo que abrió
   const av = m.slice(m.indexOf('const alAvanzar = () => {'), m.indexOf('const alTerminar = () =>'));
   // Antes de buscar la próxima frase CON marca (fraseParaMarcar salta las que no tienen).
   // Y la frase siguiente se marca con el panel ya cerrado (MS_CIERRE, lo mismo que espera el cierre del video).
-  assert.match(av, /if \(porCerrar\.current && cierraYa\(frases, porCerrar\.current, t\)\) \{ porCerrar\.current = null; cerrarLoAbierto\(\); cerrandoHasta\.current = Date\.now\(\) \+ MS_CIERRE; return; \}\n\s*if \(Date\.now\(\) < cerrandoHasta\.current\) return;\n\s*const f = fraseParaMarcar\(frases, t, hechas\.current\);/);
+  assert.match(av, /if \(porCerrar\.current && cierraYa\(frases, porCerrar\.current, t\)\) \{ porCerrar\.current = null; cerrarLoAbierto\(\); cerrandoHasta\.current = Date\.now\(\) \+ MS_CIERRE; return; \}\n\s*if \(Date\.now\(\) < cerrandoHasta\.current\) return;\n/);
+  // Entre la guarda del cierre y la frase que se marca, sólo el salto de «toca aquí» sin su marca (20/11, la llamada con Leila:
+  // tests/tutorial-toca-aqui.test.ts), que tampoco corre mientras se cierra.
+  const guarda = av.indexOf('if (Date.now() < cerrandoHasta.current) return;');
+  assert.ok(guarda > 0 && guarda < av.indexOf('const q = fraseQueSuena(frases, t, hechas.current);') && av.indexOf('const q = fraseQueSuena(frases, t, hechas.current);') < av.indexOf('const f = fraseParaMarcar(frases, t, hechas.current);'));
   assert.match(m, /if \(f\.cierra_despues\) porCerrar\.current = f\.id;/);
 });
