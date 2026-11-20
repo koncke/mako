@@ -248,8 +248,9 @@ test('el desplegable del reto: «El reto de 7 días de MaKo», el video de cada 
 
 test('los tres puntitos: cada mensaje del reto llega después de que MaKo escribe, de a uno (20/11, D1-10 y d24-11)', () => {
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
-  assert.ok(chat.includes('const ap = useAparicion(claves);'), 'los mensajes pasan por la aparición');
-  assert.ok(chat.indexOf('const ap = useAparicion(claves);') < chat.indexOf('ap.escribiendo]'), 'ap se declara antes de usarlo en un efecto');
+  // Con lo visto de ESTE reto (20/11, ~13:00): lo visto en otro negocio no los deja salir juntos.
+  assert.ok(chat.includes("const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');"), 'los mensajes pasan por la aparición');
+  assert.ok(chat.indexOf("const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');") < chat.indexOf('ap.escribiendo]'), 'ap se declara antes de usarlo en un efecto');
   for (const k of ["ap.ver('hola')", "ap.ver('interes')", 'ap.ver(`dia:${dia.n}`)', 'ap.ver(`fin:${actual.n}`)']) assert.ok(chat.includes(k), `${k} espera su turno`);
   assert.ok(chat.includes('co-trabajando__puntos'), 'los puntitos del Ops Center');
   assert.ok(chat.includes('!empezo1 && !muestraPendiente && ap.listo && !ap.escribiendo'), 'las opciones, recién cuando MaKo terminó de escribir');
@@ -372,7 +373,8 @@ test('cambiar el reto no pisa la hora que guardó el WhatsApp en el medio (20/11
 
 test('cada día abre con el velo y MaKo escribiendo, y su video con «dale play»; el día 2 termina en el perfil (20/11, V5, V14, d24-19)', () => {
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
-  assert.ok(chat.includes("const fase = useEntrada(`reto-dia-${dia.n}`, hoy && nuevo);") && chat.includes('<EntradaEscribiendo foto='), 'la entrada del motor (no una propia)');
+  // Con la clave de ESTE reto (20/11, ~13:00: lo visto en otro negocio no la saltea).
+  assert.ok(chat.includes("const fase = useEntrada(delReto(`reto-dia-${dia.n}`), hoy && nuevo);") && chat.includes('<EntradaEscribiendo foto='), 'la entrada del motor (no una propia)');
   assert.ok(chat.includes('useDalePlay(raiz, {') && chat.includes('dalePlay={dalePlay && !visto} />'), 'el «dale play» del motor, en los dos videos');
   assert.ok(!chat.includes('<video ref='), 'sin el reproductor del navegador (V14)');
   assert.ok(chat.indexOf('<TarjetaHora p={p}') > 0 && chat.indexOf('<TarjetaHora p={p}') < chat.indexOf('<Burbuja><p>{RETO_D2_PERFIL}</p></Burbuja>'), 'la hora antes del perfil');
@@ -605,7 +607,8 @@ test('f24-01 y R57-F5 (20/11): el reto abierto en el teléfono dice «Sigamos en
   const i = m.indexOf("if (uno(sp.reto) === '1') {");
   assert.ok(i > 0, 'mira el ?reto=1 del link del correo');
   // El MISMO componente del onboarding (segunda verificación de R57-F5), en su archivo: app/onboarding/SeguirEnPc.tsx.
-  assert.ok(m.includes('if (yo && ws != null && veOnboardingV2({ email, ws })) return <PantallaM><SeguirEnPc nombre={primerNombre(yo.nombre ?? \'\')} email={email} para="reto" maqueta /></PantallaM>;'), 'la pantalla del reto, adentro de PantallaM (tests/movil-refrescar.test.ts)');
+  // Con el nombre del onboarding del negocio (20/11, ~13:00: la vista como administrador muestra lo que ve el cliente).
+  assert.ok(m.includes('if (yo && ws != null && veOnboardingV2({ email, ws })) return <PantallaM><SeguirEnPc nombre={await nombreDelReto(yo.nombre)} email={email} para="reto" maqueta /></PantallaM>;'), 'la pantalla del reto, adentro de PantallaM (tests/movil-refrescar.test.ts)');
   assert.ok(!m.includes('onboarding/ChatArranque'), 'sin el chat del onboarding: le sumaría sus rutas al Ops Center (tests/d6b-rutas.test.ts)');
   assert.ok(i < m.indexOf("if (ctx.sesion.rol === 'admin' && !ctx.impersonando) redirect(await rutaConWs(RUTA_CENTRO_M));"), 'antes del desvío al Centro (perdería el ?reto=)');
   const avisos = fuente('../lib/reto/avisos.ts');

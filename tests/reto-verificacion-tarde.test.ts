@@ -145,7 +145,7 @@ test('R57-F5: en el teléfono el reto SIEMPRE dice «Sigamos en tu computadora»
   assert.ok(seguir.includes('export function SeguirEnPc(') && !/from '\.\/ChatArranque'/.test(seguir), 'en su archivo, sin traer el chat del onboarding (tests/d6b-rutas.test.ts)');
   const arr = fuente('../app/onboarding/ChatArranque.tsx');
   assert.ok(arr.includes("import { SeguirEnPc } from './SeguirEnPc';\nexport { SeguirEnPc };") && !arr.includes('export function SeguirEnPc('), 'el onboarding usa el mismo');
-  assert.ok(fuente('../app/m/second-brain/page.tsx').includes('<SeguirEnPc nombre={primerNombre(yo.nombre ?? \'\')} email={email} para="reto" maqueta />'));
+  assert.ok(fuente('../app/m/second-brain/page.tsx').includes('<SeguirEnPc nombre={await nombreDelReto(yo.nombre)} email={email} para="reto" maqueta />'));
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(chat.includes('const telefono = useSyncExternalStore(sinSuscribir, () => esTelefono(navigator.userAgent), () => false);\n  if (telefono) return <RetoEnElTelefono nombre={nombre} />;'), 'el chat del reto con su freno de teléfono');
   assert.ok(chat.includes('<SeguirEnPc nombre={(nombre ?? \'\').trim().split(/\\s+/)[0] ?? \'\'} email={email} para="reto" maqueta />'));
@@ -153,6 +153,23 @@ test('R57-F5: en el teléfono el reto SIEMPRE dice «Sigamos en tu computadora»
 
 test('V5: el «dale play» del día dice el título del video («Día 2: conecta todo»)', () => {
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
-  assert.ok(chat.includes('const titulo = v ? tituloDelVideo(v, dia.n) : `Día ${dia.n}`;\n  useDalePlay(raiz, { clave: dia.video, titulo, activo: dalePlay && conMarcas && !visto && !corre });'));
+  assert.ok(chat.includes('const titulo = v ? tituloDelVideo(v, dia.n) : `Día ${dia.n}`;\n  useDalePlay(raiz, { clave: delReto(dia.video), titulo, activo: dalePlay && conMarcas && !visto && !corre });'));
   assert.ok(chat.includes('<VideoDelMomento clave={dia.video} titulo={titulo}'), 'también el del día 1');
+});
+
+test('la entrada al reto (20/11, ~13:00): el nombre del onboarding del negocio, y lo visto es de ESTE reto', async () => {
+  const { nombreDelArranque, primerNombreDe } = await import('../lib/reto/nombre-reglas');
+  assert.equal(nombreDelArranque(JSON.stringify({ nombre: 'Lala Pérez', negocio: 'Lalaland' })), 'Lala');
+  assert.equal(nombreDelArranque(JSON.stringify({ negocio: 'x' })), null, 'sin nombre, ninguno');
+  assert.equal(nombreDelArranque('basura'), null);
+  assert.equal(primerNombreDe('  Martin  Koncke '), 'Martin');
+  const nombre = fuente('../lib/reto/nombre.ts');
+  assert.ok(nombre.includes("if (await estaImpersonando().catch(() => true)) return '';"), 'mirando a un cliente, nunca el del administrador');
+  assert.ok(!/from '[^']*onboarding-arranque-server'/.test(nombre), 'liviano: sin el servidor del onboarding (tests/d6b-rutas.test.ts)');
+  assert.ok(fuente('../app/second-brain/page.tsx').includes('const nombrePersona = retoV2 ? await nombreDelReto(sesion?.nombre) :'), 'el Ops Center');
+  const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
+  assert.ok(chat.includes('const e = d?.estado ?? null;\n  fijarAmbitoDelReto(e?.inicio);'), 'el chat fija de qué reto es lo visto');
+  assert.ok(chat.includes("const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');"), 'cada mensaje con sus puntitos, en cada reto');
+  assert.ok(chat.includes('localStorage.getItem(VISTO + ambito + k)'), 'lo visto, del reto');
+  assert.ok(chat.includes('const fase = useEntrada(delReto(`reto-dia-${dia.n}`), hoy && nuevo);'), 'la entrada del día, del reto');
 });

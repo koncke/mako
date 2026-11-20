@@ -37,6 +37,7 @@ import { hiloOnboardingGuardado, hiloParaQuienYaTermino } from '@/lib/onboarding
 import { RUTA_SEGUIR_EN_PC, seguirEnPcPendiente } from '@/lib/seguir-en-pc';
 import { esTelefono } from '@/lib/movil-guard';
 import { rutaDelHilo } from '@/lib/onboarding-arranque';
+import { nombreDelReto } from '@/lib/reto/nombre';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -73,7 +74,9 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   // Y los DOS coaches (Offer Coach y Funnel Coach, Martín 15/11), con el mismo interruptor: `dosCoaches` (ChatSecondBrain.tsx).
   const sesion = await getUsuarioActual().catch(() => null);
   const retoV2 = !!sesion && veOnboardingV2({ email: sesion.email, ws: await getWorkspaceActual().catch(() => null) });
-  const nombrePersona = (sesion?.nombre ?? '').trim().split(/\s+/)[0] ?? '';
+  // El nombre del ONBOARDING del negocio, no el de quien inició sesión (20/11, Martín como administrador en Lalaland: «¡Hola, Martin!»
+  // en el negocio de «Lala»; la vista como administrador muestra lo mismo que ve el cliente). Lo usan el reto y la llegada.
+  const nombrePersona = retoV2 ? await nombreDelReto(sesion?.nombre) : (sesion?.nombre ?? '').trim().split(/\s+/)[0] ?? '';
   // El chat «Onboarding» (sólo con el V2), para ponerlo enseguida del Ops Center en la lista (20/11, OD-08).
   const hiloOnboarding = retoV2 ? await hiloOnboardingGuardado() : null;
   // LA BARRA OCULTA AL RECARGAR (20/11, OD-03): la pone el layout raíz en el <html> del server (app/layout.tsx), no un <script> de

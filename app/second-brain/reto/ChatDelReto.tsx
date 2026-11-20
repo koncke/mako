@@ -111,8 +111,16 @@ export function useReto(activo = true) {
 // LO VISTO EN ESTE NAVEGADOR, POR DÍA (verificación del 20/11, d24-11 y V5): la entrada de un día (el velo con MaKo escribiendo) sale
 // la PRIMERA vez que se ve, no en cada carga de la página; y el «dale play» del video, mientras ese video no se vio.
 const VISTO = 'mako.reto.visto.';
-export const yaVisto = (k: string) => { try { return !!localStorage.getItem(VISTO + k); } catch { return false; } };
-export const anotarVisto = (k: string) => { try { localStorage.setItem(VISTO + k, new Date().toISOString()); } catch { /* sin storage */ } };
+// DE QUÉ RETO ES LO VISTO (20/11, ~13:00, Martín probando en Lalaland como administrador): las claves eran del NAVEGADOR, no del
+// reto. Lo que vio en otro negocio (o en un reto de antes) salía de una, sin sus puntitos: el saludo, «Me dijiste que…» y la pregunta
+// llegaban juntos, y el día sin su entrada. Ahora llevan el inicio del reto (uno por negocio y por reto; el ensayo «desde cero» tiene
+// el suyo). Lo fija el chat del reto al dibujarse, antes que sus mensajes (`fijarAmbitoDelReto`).
+let ambito = '';
+export function fijarAmbitoDelReto(inicio: string | null | undefined): void { ambito = inicio ? `${inicio}|` : ''; }
+/** Una clave de este reto (la entrada del día y su «dale play» en el motor, app/_ui/tutorial/entrada.ts). */
+export const delReto = (k: string): string => `${k}@${ambito}`;
+export const yaVisto = (k: string) => { try { return !!localStorage.getItem(VISTO + ambito + k); } catch { return false; } };
+export const anotarVisto = (k: string) => { try { localStorage.setItem(VISTO + ambito + k, new Date().toISOString()); } catch { /* sin storage */ } };
 
 /** El ícono de la pestaña de una tarea (R57-15; la maqueta, `mq-cx__ico`): el de su fila en la barra; lo de Settings, la tuerca. */
 export function iconoDeTarea(t: TareaReto): string | null {
@@ -134,7 +142,7 @@ export const lugarDelDia = (dia: DiaReto): string => `[data-video-lugar="${dia.v
  */
 export function verVideoDelDia(dia: DiaReto, conMarcas: boolean, titulo: string, o: { alTocar?: (sel: string) => void; alTerminar?: () => void } = {}): void {
   anotarVisto(`video:${dia.n}`);
-  cerrarDalePlay(dia.video);
+  cerrarDalePlay(conMarcas ? delReto(dia.video) : dia.video);
   if (conMarcas) {
     document.querySelector(lugarDelDia(dia))?.scrollIntoView({ block: 'center' });
     mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true, lugar: lugarDelDia(dia), ...(o.alTocar ? { alTocar: o.alTocar } : {}), alTerminar: () => o.alTerminar?.() });
@@ -156,21 +164,21 @@ export function marcarTarea(marcas: readonly MarcaReto[], alTerminar: () => void
 // que se ve, MaKo «escribe» y recién después llega, de a uno y en orden. Lo ya visto (en este navegador) sale de una.
 const VISTOS = 'mako.reto.vistos';
 export const MS_ESCRIBE = 1200;
-export function useAparicion(claves: readonly string[]): { ver: (k: string) => boolean; escribiendo: boolean; listo: boolean } {
+export function useAparicion(claves: readonly string[], amb = ''): { ver: (k: string) => boolean; escribiendo: boolean; listo: boolean } {
   const [vistos, setVistos] = useState<Set<string> | null>(null);
   useEffect(() => { try { setVistos(new Set(JSON.parse(localStorage.getItem(VISTOS) ?? '[]') as string[])); } catch { setVistos(new Set()); } }, []);
-  const falta = vistos ? claves.find((k) => !vistos.has(k)) : undefined;
+  const falta = vistos ? claves.find((k) => !vistos.has(amb + k)) : undefined;
   useEffect(() => {
     if (!vistos || !falta) return;
     // Un día nuevo no espera acá: su entrada es la del motor (el velo con MaKo escribiendo, `useEntrada` en `Dia`; V5).
     const espera = falta.startsWith('dia:') ? 0 : MS_ESCRIBE;
     const t = window.setTimeout(() => {
-      const n = new Set(vistos); n.add(falta);
+      const n = new Set(vistos); n.add(amb + falta);
       try { localStorage.setItem(VISTOS, JSON.stringify([...n].slice(-300))); } catch { /* sin storage: igual se ve */ }
       setVistos(n);
     }, espera);
     return () => window.clearTimeout(t);
-  }, [vistos, falta]);
+  }, [vistos, falta, amb]);
   const corte = !vistos ? 0 : falta ? claves.indexOf(falta) : claves.length;
   return { ver: (k) => { const i = claves.indexOf(k); return i < 0 || i < corte; }, escribiendo: !!vistos && !!falta && !falta.startsWith('dia:'), listo: !!vistos };
 }
@@ -249,6 +257,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   // video; mientras corre, el video marca dónde tocar; recién al terminar (o al cerrarlo) se marca lo que quedó, una vez por visita.
   // Tocar lo marcado sólo LLEVA al lugar: la tarea queda hecha cuando MaKo lee que se hizo (/api/reto, lib/reto/senales.ts).
   const e = d?.estado ?? null;
+  fijarAmbitoDelReto(e?.inicio);
   // Corre las marcas de una tarea. «Lo hago después» la deja guardada y SIGUE con la próxima del día (R57-F1, la maqueta: «sigue con la
   // próxima»); un «Entendido» que deja el paso para después (`despues`: las integraciones, la extensión, la foto) también (d24-05).
   const correr = useCallback((t: TareaReto, n: number, seguir?: () => void) => {
@@ -316,7 +325,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     ...(enElPlan3 ? ['plan'] : []),
     ...(termino && eligioManana && siguiente ? [`manana:${siguiente.n}`] : []),
   ];
-  const ap = useAparicion(claves);
+  const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');
   const vePlan = enElPlan3 && ap.ver('plan');
   useEffect(() => {
     if (!vePlan || yaMarcada('plan-dia-3') || senalAhora()) return;
@@ -545,7 +554,7 @@ export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy =
   // su mensaje con el video, marcado con «dale play» mientras está quieto (el motor lo marca sólo a la vista y con el motor libre).
   // Lo visto se recuerda POR DÍA en este navegador (d24-11): antes vivía en la memoria de la página y volvía en cada carga.
   const [nuevo] = useState(() => !yaVisto(`entrada:${dia.n}`));
-  const fase = useEntrada(`reto-dia-${dia.n}`, hoy && nuevo);
+  const fase = useEntrada(delReto(`reto-dia-${dia.n}`), hoy && nuevo);
   useEffect(() => { if (hoy && nuevo) anotarVisto(`entrada:${dia.n}`); }, [hoy, nuevo, dia.n]);
   // El recordatorio del QR (d24-07; la maqueta, RECORDATORIO): al volver al chat otro rato con la app todavía sin instalar.
   const [qrDeAntes] = useState(() => yaVisto('qr-app'));
@@ -685,7 +694,7 @@ function VideoDelDia({ dia, onTocado, onFin, dalePlay = false }: { dia: DiaReto;
   // dale play»), mientras nadie lo tocó y sólo si ese video todavía no se vio en este navegador (V5).
   const [visto] = useState(() => yaVisto(`video:${dia.n}`));
   const titulo = v ? tituloDelVideo(v, dia.n) : `Día ${dia.n}`;
-  useDalePlay(raiz, { clave: dia.video, titulo, activo: dalePlay && conMarcas && !visto && !corre });
+  useDalePlay(raiz, { clave: delReto(dia.video), titulo, activo: dalePlay && conMarcas && !visto && !corre });
   // Con frases que marcan lugares (los días 2 a 7), EN SU MENSAJE (V4 y R57-21): este es su lugar; el video lo pasa el motor encima
   // (marca cada lugar cuando la voz lo nombra y pausa hasta el clic) y lo baja a la esquina al scrollear o navegar.
   if (v && conMarcas) {

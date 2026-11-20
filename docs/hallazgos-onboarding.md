@@ -3749,3 +3749,19 @@ existía y el test pasaba, pero el camino de la persona se cortaba. El test comp
     no a la vista.
   - `tareasQueCierra` (lib/reto/dias.ts) ya no la usa la app: lo tocado no da nada por hecho (D1-01).
   - Un adelanto de antes de este cambio no tiene `adelantados`, así que su «Adelantar al día N» no sale como mensaje.
+
+## La entrada al reto vista como administrador: lo visto era del navegador, y el nombre de la sesión (20/11, ~13:00, chat «reto-tutoriales», claude5)
+
+- **El síntoma:** Martín, como administrador en Lalaland, vio el saludo, «Me dijiste que…» y la pregunta salir JUNTOS, sin los
+  puntitos entre uno y otro, y con «¡Hola, Martin!» en el negocio de «Lala».
+- **La causa de lo junto:** lo visto del chat del reto (`mako.reto.vistos`, `mako.reto.visto.*`) y la entrada del día del motor
+  (`mk-entrada:reto-dia-N`) eran claves del NAVEGADOR, no del reto. Todo lo que ya había visto en otro negocio salía de una, sin
+  aparecer. Cuesta verlo porque sólo pasa a quien prueba en varios negocios, que es justo quien prueba.
+- **La regla:** lo visto del reto lleva el inicio del reto (`fijarAmbitoDelReto`, `delReto`, el ámbito de `useAparicion`;
+  app/second-brain/reto/ChatDelReto.tsx). Las marcas «una por visita» (`yaMarcada`) quedan sin ámbito a propósito: las comparte con
+  Offer Coach (usePasoAlFunnel), que no conoce el reto.
+- **El nombre:** salía de `getUsuarioActual()`, quien inició sesión. La vista como administrador muestra lo que ve el cliente, así
+  que el nombre sale del onboarding del negocio (`onboarding.arranque` → `nombre`, lib/reto/nombre.ts). Si falta, se usa el de la
+  sesión sólo si no se está mirando a un cliente; si no, ninguno. Lo usan el Ops Center (el reto y la llegada) y su página del teléfono.
+- **Lo que quedó sin hacer:** el «dale play» del día 1 (VideoDelMomento, con la clave del video) sigue siendo del navegador. Y el
+  correo de «Sigamos en tu computadora» en el teléfono sigue siendo el de la sesión.
