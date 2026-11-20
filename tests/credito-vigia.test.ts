@@ -142,6 +142,14 @@ test('4. el aviso se entiende (19/11/2026, «no entiendo lo que me quiere decir�
   ];
   const res = resumenCredito({ vinculadas: { claude1: true, claude2: true }, gastos, wsConClave: new Map(), ahora, wsPlataforma: 9, cuentas: [{ cuenta: 'claude1', clave: 'ANTHROPIC_CREDITO_CUENTA1' }, { cuenta: 'claude2', clave: 'ANTHROPIC_CREDITO_CUENTA2' }] });
   assert.deepEqual(res.map((f) => f.clientes), [[13], [23]], 'la plataforma o una llamada sin crédito contó como un cliente que usó el crédito');
+  assert.equal(res[0].sinCreditoAt, '2026-11-19T21:10:00.000Z');
+
+  // El crédito vuelve solo (20/11/2026, las dos cuentas a la noche): una llamada COBRADA después del corte borra el «sin crédito».
+  // Una falla en 0 (sobrecarga) no prueba nada: sigue sin crédito.
+  const vuelta = (extra: typeof gastos) => resumenCredito({ vinculadas: { claude1: true }, gastos: [...gastos, ...extra], wsConClave: new Map(), ahora: Date.parse('2026-11-20T13:00:00Z'), wsPlataforma: 9, cuentas: [{ cuenta: 'claude1', clave: 'ANTHROPIC_CREDITO_CUENTA1' }] })[0];
+  assert.equal(vuelta([{ workspace_id: 19, created_at: '2026-11-20T09:11:53Z', motivo: '⚠ crédito de Claude de la plataforma (cuenta 1) · grupo', cuenta: 1, cost_usd: 0.0025, provider: 'anthropic', model: 'claude-haiku-4-5' }]).sinCreditoAt, null, 'volvió a cobrar y seguía diciendo «sin crédito»');
+  assert.equal(vuelta([{ workspace_id: 19, created_at: '2026-11-20T09:11:53Z', motivo: '⚠ crédito de Claude de la plataforma (cuenta 1) · grupo', cuenta: 1, cost_usd: 0, provider: 'anthropic', model: 'fallo:claude-haiku-4-5' }]).sinCreditoAt, '2026-11-19T21:10:00.000Z', 'una falla en 0 borró el «sin crédito»');
+  assert.equal(vuelta([{ workspace_id: 13, created_at: '2026-11-19T20:00:00Z', motivo: '⚠ crédito de Claude de la plataforma (cuenta 1) · grupo', cuenta: 1, cost_usd: 0.01, provider: 'anthropic', model: 'claude-haiku-4-5' }]).sinCreditoAt, '2026-11-19T21:10:00.000Z', 'una llamada de ANTES del corte borró el «sin crédito»');
 
   // Cuando lo gastó MaKo, cuadra: no se manda a mirar en qué se fue.
   const nuestra = avisosDelCredito([fila('claude2', 199, { sinCreditoAt: '2026-11-19T21:10:44.699Z' })], new Set(), ahora);
@@ -157,3 +165,4 @@ test('4. el aviso se entiende (19/11/2026, «no entiendo lo que me quiere decir�
 //   V5 el vigía guarda aunque el % esté incompleto (pisa el último con {})         → falla el 2
 //   V6 la plataforma cuenta como 0% una cuenta que falta en el %                   → falla el 1
 //   V7 (19/11/2026) una cuenta con «sin crédito» cuenta como que todavía paga        → falla el 4 («dijo que seguía con otra cuenta»)
+//   V8 (20/11/2026) el «sin crédito» queda aunque después se cobre una llamada       → falla el 4 («volvió a cobrar…»)

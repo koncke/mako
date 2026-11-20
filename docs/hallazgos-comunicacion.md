@@ -127,8 +127,15 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   (`otroNumeroAt`) y, dentro de las 24 horas, el pedido nuevo nace contestado y MaKo manda el código ahí, sin que lo escriba otra
   vez. **Trampa:** rehacer el pedido (`pedirConfirmacionV2`) pisa la verificación entera, con `otroNumero` y su hora: la ruta lo
   lee ANTES (`otroNumeroQueEscribioV2`). Si el código no sale, la verificación vuelve a «esperando» y que escriba ella.
+- **«Reenviar el código» ya no manda nada** (wa-f3, el Cerebro, 20/11 a la tarde): abre SIEMPRE WhatsApp con el pedido escrito, como
+  la maqueta. La ventana de 24 h para mandarlo directo la había elegido este chat. Como en el onboarding casi siempre se está dentro de
+  esas 24 h, en la práctica «Reenviar» nunca abría WhatsApp. Ahora `reenviarCodigoV2` devuelve `E_REESCRIBIR_V2`, y con eso la tarjeta
+  abre el link. El código nuevo (vencido o con el tope lleno) lo arma `responderPedidoV2` cuando ella escribe. `reenviarDirecto` queda
+  sólo para «Usar el +…», que contesta un mensaje suyo que ya llegó. **Regla:** una decisión de producto que no está escrita se pregunta;
+  el chat no la elige y la marca «hecho».
 - **Lo que quedó para la tarjeta (es del chat del onboarding, app/onboarding/ChatArranqueV2.tsx):** mostrar `vista.whatsapp.aviso`
-  cuando viene (el otro número y «Reenviar» pasadas las 24 h ya los dibujó, 5aacc73cf).
+  cuando viene (el otro número ya lo dibujó, 5aacc73cf). Sus comentarios de «Reenviar» y los de lib/onboarding-arranque.ts todavía dicen
+  «fuera de las 24 h»: desde wa-f3 es siempre.
 
 ## «Hola, quiero confirmar mi WhatsApp» y MaKo no mandó el código: la regla 1 no veía a quien escribió bajo un `@lid` (19/11/2026, claude5)
 

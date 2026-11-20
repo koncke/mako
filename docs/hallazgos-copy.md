@@ -201,6 +201,10 @@ rioplatenses (el voseo)», `video.run.ts:363`) en vez de citarlas, y **no se abr
 `FUERA_DE_ALCANCE` va por archivo (por prefijo de ruta), así que exceptuar una nota apaga el
 guard para todo el runner, con cada string que se le agregue después.
 
+**Pasa lo mismo con un detector de lo que ESCRIBE la persona (20/11/2026).** La regex que reconoce «cargame» en el audio del reto
+(lib/reto/pruebas-whatsapp.ts) hizo caer el guard en la punta. El guard lee el texto de la regex, no sólo los strings. Se arregla
+escribiendo la raíz (`carg\w*`, `[aá]rmame`) en vez de listar cada forma, sin abrir excepción.
+
 **Vive en:** `tests/puente-panel-copy.test.ts` (`archivosDelRepo`, `FUERA_DE_ALCANCE`) ·
 `lib/api-mako/areas/video.run.ts:363` · *2026-09-16 api-mako-areas*
 

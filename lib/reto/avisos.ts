@@ -34,6 +34,9 @@ export type AvisosReto = {
   cierre?: string;
   /** El día (de su zona) en que salió «MaKo atendió a N clientes por ti»: una sola vez, como la maqueta (`vioRespuestas`). */
   atendio?: number;
+  /** El id del último mensaje de una prueba (días 3, 4 y 5) que se está contestando: con dos líneas de la misma cuenta llega dos
+   *  veces, y la IA corre una sola (lib/reto/respuestas.ts, `reclamarElMensaje`). */
+  probando?: string;
 };
 
 export const CLAVE_AVISOS = 'reto.avisos';
@@ -69,7 +72,7 @@ export function leerAvisos(crudo: unknown, e: EstadoReto | null): AvisosReto {
   const dia = Number.isInteger(o.dia) ? Math.max(1, Math.min(7, Number(o.dia))) : Math.max(1, Math.min(7, e?.avisado ?? 1));
   const fecha = (s: unknown) => (typeof s === 'string' && !Number.isNaN(Date.parse(s)) ? s : undefined);
   const abandono = fecha(o.abandono), baja = fecha(o.baja), cierre = fecha(o.cierre);
-  return { v: 1, dia, ...(Number.isInteger(o.noche) ? { noche: Number(o.noche) } : {}), ...(abandono ? { abandono } : {}), ...(baja ? { baja } : {}), ...(cierre ? { cierre } : {}), ...(Number.isInteger(o.atendio) ? { atendio: Number(o.atendio) } : {}) };
+  return { v: 1, dia, ...(Number.isInteger(o.noche) ? { noche: Number(o.noche) } : {}), ...(abandono ? { abandono } : {}), ...(baja ? { baja } : {}), ...(cierre ? { cierre } : {}), ...(Number.isInteger(o.atendio) ? { atendio: Number(o.atendio) } : {}), ...(typeof o.probando === 'string' && o.probando ? { probando: o.probando.slice(0, 120) } : {}) };
 }
 
 export type PlanDeAvisos = {
