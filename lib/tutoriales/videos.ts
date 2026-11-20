@@ -19,7 +19,11 @@ export const RUTA_MANIFIESTO = '/tutoriales/manifiesto.json';
  */
 export type FraseVideo = { id: string; t_inicio: number; t_fin: number; texto: string; sel: string | null; espera_clic: boolean; cierra_despues: boolean };
 
-export type VideoTutorial = { key: string; archivo: string; duracion_s?: number; guion?: string; poster?: string; frases?: FraseVideo[] };
+/**
+ * `play`: dónde va el play sobre la portada, si no es el centro (20/11: «el play cae sobre un espacio vacío»; en la bienvenida, el
+ * centro es la cabeza del personaje o el texto en todos los cuadros). Lo escribe scripts/tutorial-animado/pantallas-onboarding/poster.mjs.
+ */
+export type VideoTutorial = { key: string; archivo: string; duracion_s?: number; guion?: string; poster?: string; frases?: FraseVideo[]; play?: 'abajo-derecha' };
 
 /** Las frases válidas del manifiesto, en orden de tiempo, con los valores por defecto. Una frase rara se descarta (nunca rompe). */
 export function frasesDe(crudo: unknown): FraseVideo[] {

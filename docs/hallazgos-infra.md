@@ -12883,3 +12883,17 @@ dos versiones no puede ser el nombre: tiene que ser algo que las dos ramas compa
 vieja que entra deshace la limpieza, y la guarda que cuenta por la misma clave no lo ve.
 
 **Vive en:** `scripts/unir-indice-hallazgos.mjs` · `tests/unir-indice-hallazgos.test.ts` · `docs/hallazgos.md`.
+
+## %TEMP% es de todas las sesiones: un script con nombre genérico corre el de otra (20/11/2026)
+
+**Síntoma:** escribí `/tmp/romper.py` desde Git Bash y corrí `python -I /tmp/romper2.py`. Corrió el `romper2.py` de OTRA sesión, del 14/11
+(roturas de cuotas), DENTRO de mi worktree: tocó 5 archivos de pagos y los «restauró» con LF en lugar de CRLF. Quedaron modificados en
+`git status` sin cambiar una línea.
+
+**La causa:** el `/tmp` de Git Bash es `%TEMP%` (`C:\Users\<u>\AppData\Local\Temp`), compartido por todas las sesiones. Y la MISMA ruta
+escrita dentro del código de Python, `open('/tmp/x')`, Windows la lee como `C:\tmp`. Mi script nunca se escribió donde creía, y el nombre
+genérico encontró el ajeno.
+
+**La regla:** los scripts de un chat van al scratchpad de SU sesión, con ruta absoluta de Windows y nunca con nombres genéricos en
+`/tmp`. Un script que restaura un archivo lo lee y lo escribe con `newline=''`, para devolverlo byte por byte. Y un heredoc de Git Bash
+se come las barras invertidas: un script con rutas de Windows va a un archivo, no a un heredoc.

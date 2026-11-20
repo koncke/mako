@@ -791,3 +791,14 @@ PostgREST de mentira), una rotura por vez, restaurada:
   primer gasto del mes. Hoy nadie la llama (el AI Avatar pide `saldoMt` y nadie se lo pasa), pero quien la use para decir «te quedan X» antes del primer gasto
   del mes va a decir 0 o lo del mes pasado.
 - **Sin hacer:** `scripts/probar-concurrencia-saldo.mjs` no se corrió (escribe en el ws 9 y prueba el `update` de la 0412, no las funciones nuevas).
+
+## Un regalo no entra en el libro de MaKo Tokens (20/11/2026)
+
+**El diagnóstico obvio era el equivocado:** «anotar el regalo con `gastarMt(ws, 0, { costoUsd })`». La función de la 0416 sale antes con
+un costo 0 y no escribe ningún movimiento. Y la tabla no lo aceptaría igual: `mako_tokens_movimientos` exige `delta <> 0` y un `motivo` de
+('cupo', 'compra', 'gasto', 'ajuste', 'devolucion'). Lo que MaKo paga y no cobra no tiene lugar ahí sin una migración.
+
+**La regla:** lo que paga MaKo y no se le cobra a nadie, como el clip de 10 s del día 6 del reto, va a `anthropic_usage` con
+`recordCostoDeMedio` (lib/anthropic-usage.ts), por negocio (`ws`) y con provider 'apimart'. Va SIN `reportarCostoReal`: avisar al medidor
+liquidaría ese costo contra los MaKo Tokens de quien tenga el medidor abierto. El estimado sigue siendo la fila «Un clip de 10 segundos»
+de los MEDIOS (US$0,24).

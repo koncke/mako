@@ -23,7 +23,7 @@
 
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
@@ -164,6 +164,17 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
     if (fase !== 'escribe') return;
     const t = window.setTimeout(() => setFase('chat'), MS_ESCRIBE);
     return () => window.clearTimeout(t);
+  }, [fase]);
+  // El centro del barrido: la fila de MaKo escribiendo (OA-13).
+  const velo = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (fase !== 'escribe') return;
+    const fila = document.querySelector<HTMLElement>('.arr-v2 .arr-v2__resalte');
+    const v = velo.current;
+    if (!fila || !v) return;
+    const r = fila.getBoundingClientRect();
+    v.style.setProperty('--iris-x', `${Math.round(r.left + 22)}px`);
+    v.style.setProperty('--iris-y', `${Math.round(r.top + r.height / 2)}px`);
   }, [fase]);
   // EL PRIMER MENSAJE, A SU TIEMPO (Martín, 19/11: «no está bueno de que apenas se me manda el video y automáticamente se me manda el
   // mensaje de abajo… que salga cuando corresponda, con los tres puntitos»). Al empezar, el video va solo; la primera pregunta sale
@@ -337,7 +348,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
         </div>
       </main>
       {/* La pantalla oscura del tutorial, salvo MaKo escribiendo (Martín, 19/11: «se pone opaco y MaKo con los 3 puntitos»). */}
-      {fase === 'escribe' && <div className="arr-v2__velo" aria-hidden="true" />}
+      {fase === 'escribe' && <div ref={velo} className="arr-v2__velo" aria-hidden="true" />}
       {fase === 'intro' && <EntradaMako onFin={() => {
         setFase('escribe');
         try { sessionStorage.setItem(CLAVE_ENTRADA_MOVIL, '1'); } catch { /* sin storage */ }
@@ -569,8 +580,14 @@ const CSS_V2 = `
 .arr-v2 .of-escribiendo i:nth-child(3) { animation-delay: .3s; }
 @keyframes arr-v2-escribe { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
 /* LA PANTALLA OSCURA DEL TUTORIAL, salvo MaKo escribiendo. */
-.arr-v2__velo { position: fixed; inset: 0; z-index: 5; background: rgba(18, 21, 27, .62); animation: arr-v2-velo .45s ease both; pointer-events: none; }
-@keyframes arr-v2-velo { from { opacity: 0; } to { opacity: 1; } }
+/* EL BARRIDO DEL SOL Y LA LUNA (20/11, OA-13: la maqueta, «iris»): el velo entra como un círculo de luz que se cierra hacia MaKo
+   escribiendo (--iris-x/--iris-y, medidos sobre su fila), en .72 s. Con menos movimiento, sin animación: el velo entero de una. */
+@property --arr-iris { syntax: '<length>'; inherits: false; initial-value: 0px; }
+.arr-v2__velo { position: fixed; inset: 0; z-index: 5; background: rgba(18, 21, 27, .62); pointer-events: none;
+  -webkit-mask: radial-gradient(circle at var(--iris-x, 50%) var(--iris-y, 50%), transparent var(--arr-iris), #000 calc(var(--arr-iris) + 1px));
+  mask: radial-gradient(circle at var(--iris-x, 50%) var(--iris-y, 50%), transparent var(--arr-iris), #000 calc(var(--arr-iris) + 1px));
+  animation: arr-v2-iris .72s cubic-bezier(.65, 0, .35, 1) both; }
+@keyframes arr-v2-iris { from { --arr-iris: 150vmax; } to { --arr-iris: 0px; } }
 .arr-v2__resalte { position: relative; z-index: 6; }
 .arr-v2__resalte .co-el { padding: 6px 12px 6px 8px; border-radius: 999px; background: var(--bg); box-shadow: 0 0 0 2px var(--ink), 0 10px 30px rgba(0, 0, 0, .25); width: max-content; }
 @media (prefers-reduced-motion: reduce) { .arr-v2__velo, .arr-v2 .of-escribiendo i, .arr-capa--sale { animation: none; transition: none; } }
