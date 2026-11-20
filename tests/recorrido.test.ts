@@ -328,18 +328,21 @@ test('es un diálogo accesible: role, aria-modal, título y foco atrapado', () =
   assert.match(RECORRIDO, /tabIndex=\{-1\}/, 'la tarjeta recibe el foco en cada paso');
 });
 
-test('por encima de la sidebar y de la barra de agencia (medido del fuente, no de una tabla)', () => {
+test('por encima de la sidebar y DEBAJO de la barra de agencia (medido del fuente, no de una tabla)', () => {
   const zDe = (src: string, ancla: RegExp, que: string): number => {
     const m = sinComentarios(src).match(ancla);
     assert.ok(m, `no encontré el z-index de ${que}`);
     return Number(m![1]);
   };
   const sidebar = zDe(leer('../app/_components/Sidebar.tsx'), /<aside data-sidebar[^>]*?zIndex:\s*(\d+)/, 'la sidebar');
-  const barra = zDe(leer('../app/_components/ImpersonationBanner.tsx'), /position:\s*'fixed',\s*top:\s*0,[^}]*?zIndex:\s*(\d+)/, 'la barra de agencia');
+  // La barra de la vista de administrador, por ENCIMA del velo (20/11/2026, el Cerebro: con el «dale play» del recorrido puesto,
+  // «Reiniciar onboarding» no respondía). Antes el recorrido la tapaba.
+  const barra = zDe(leer('../app/_components/ImpersonationBanner.tsx'), /export const Z_BARRA_ADMIN = (\d+);/, 'la barra de agencia');
+  assert.match(sinComentarios(leer('../app/_components/ImpersonationBanner.tsx')), /position:\s*'fixed',\s*top:\s*0,[^}]*?zIndex:\s*Z_BARRA_ADMIN/);
   const toast = zDe(leer('../app/_ui/Toast.tsx'), /position:\s*'fixed'[^}]*?zIndex:\s*(\d+)/, 'el toast');
   const confirm = zDe(leer('../app/_ui/Confirm.tsx'), /const Z_CONFIRM = (\d+);/, 'el confirm');
   assert.ok(Z_PISO_RECORRIDO > sidebar, `piso ${Z_PISO_RECORRIDO} ≤ sidebar ${sidebar}`);
-  assert.ok(Z_PISO_RECORRIDO > barra, `piso ${Z_PISO_RECORRIDO} ≤ barra de agencia ${barra}`);
+  assert.ok(Z_PISO_RECORRIDO < barra, `piso ${Z_PISO_RECORRIDO} ≥ barra de agencia ${barra}: la barra del administrador quedaría tapada`);
   assert.ok(Z_PISO_RECORRIDO < toast, `piso ${Z_PISO_RECORRIDO} ≥ toast ${toast}: un «Deshacer» quedaría tapado`);
   assert.ok(Z_PISO_RECORRIDO < confirm, `piso ${Z_PISO_RECORRIDO} ≥ confirm ${confirm}`);
   assert.match(RECORRIDO, /const z = Math\.max\(capa\.z, Z_PISO_RECORRIDO\)/, 'el piso se aplica');

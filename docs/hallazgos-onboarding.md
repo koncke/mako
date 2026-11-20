@@ -3987,6 +3987,12 @@ de la vista de administrador y scripts/reiniciar-onboarding.mts. RESET (lib/rese
   onboarding anterior trae la de su oferta (`onboarding:<id>`). Ahora se archivan todos los chats «Onboarding» que ya tenía
   (`esContextoDelHilo`): salen de la lista y la conversación queda. Mirando como administrador la lista es la del ADMINISTRADOR (su
   `chart_key`), así que ahí no aparece el del dueño: eso lo decide el Cerebro.
+- **El navegador de QUIEN MIRA también guarda el onboarding:** el reinicio limpiaba el del dueño (el layout, una vez), pero el
+  administrador que reinicia desde su vista conservaba el «dale play», lo ya escrito del arranque y la llegada de ese negocio, y el
+  onboarding arrancaba con «¿cómo te llamas?» antes del video. «Sí, reiniciar» limpia también ahí (`limpiarClavesDelOnboarding`).
+- **La barra del administrador va POR ENCIMA del velo de los tutoriales** (`Z_BARRA_ADMIN`, 1000): con el «dale play» del recorrido
+  puesto, «Reiniciar onboarding» no respondía. Antes el recorrido la tapaba a propósito (tests/recorrido.test.ts lo pedía); cambió
+  el 20/11.
 - **«Sí, reiniciar» no daba señal:** el aviso salía chico, abajo a la izquierda, y la pantalla quedaba igual. Ahora lo dice el mismo
   panel y lleva al onboarding del negocio (navegación completa, con el `?ws=`).
 - **Encontrado de paso:** RESET no borra `perfil.onboardingV2` ni `perfil.recorridos`. Después de un RESET del ws 3, la barra oculta, la

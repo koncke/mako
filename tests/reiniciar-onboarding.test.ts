@@ -14,7 +14,8 @@ import { join, resolve } from 'node:path';
 import {
   LO_QUE_QUEDA, SETTINGS_QUE_MIRA, SETTINGS_QUE_SE_BORRAN, TABLAS_QUE_TOCA, PREFIJO_TUTORIAL, perfilReiniciado, planDeSettings,
 } from '../lib/reiniciar-onboarding';
-import { CLAVES_DEL_NAVEGADOR, CLAVE_LIMPIADO, CLAVE_REINICIO, reinicioDelPerfil, scriptDelReinicio } from '../lib/reinicio-en-el-navegador';
+import { CLAVES_DEL_NAVEGADOR, CLAVE_LIMPIADO, CLAVE_REINICIO, limpiarClavesDelOnboarding, reinicioDelPerfil, scriptDelReinicio } from '../lib/reinicio-en-el-navegador';
+import { Z_PISO_RECORRIDO } from '../lib/recorridos';
 import { estadoDeLoGuardado } from '../lib/onboarding-contrato';
 import { CARPETA_RESPALDOS_WINDOWS, carpetaDeRespaldos, escribirRespaldo, repoQueLaContiene } from '../lib/respaldo-fuera-del-repo';
 
@@ -145,7 +146,8 @@ test('6. el botón, al lado de RESET en la vista de administrador: dice que no b
   assert.match(b, /body: JSON\.stringify\(\{ aplicar: true \}\)/);
   // Al terminar dice que quedó y lleva al onboarding de ESE negocio (20/11, el Cerebro: «no da ninguna señal y deja la pantalla como
   // estaba»): navegación completa, con el `?ws=` de la pestaña.
-  assert.match(b, /setHecho\(true\);\n\s*setTimeout\(\(\) => window\.location\.assign\(conWs\('\/onboarding', ws\)\), \d+\);/);
+  // (Entre las dos, limpia el navegador de quien mira: test 8.)
+  assert.match(b, /setHecho\(true\);\n[\s\S]{0,300}?setTimeout\(\(\) => window\.location\.assign\(conWs\('\/onboarding', ws\)\), \d+\);/);
   assert.match(b, /\{hecho \? `Listo: el onboarding de \$\{cliente\} empieza de cero\.`/, 'lo dice el mismo panel');
   const ruta = sinComentarios(leer('app/api/admin/reiniciar-onboarding/route.ts'));
   assert.match(ruta, /if \(!\(await getSesionAdmin\(\)\)\) return NextResponse\.json\(\{ ok: false, error: '[^']+' \}, \{ status: 403 \}\);/);
@@ -183,4 +185,27 @@ test('7. el respaldo va FUERA de cualquier repo (el primero, el de Leila, quedó
   const respaldo = script.indexOf('escribirRespaldo(respaldoEn,');
   assert.ok(respaldo > 0 && respaldo < script.indexOf('aplicar: true'), 'el respaldo se escribe ANTES de tocar la base');
   assert.match(leer('.gitignore'), /^respaldo-\*\.json$/m);
+});
+
+test('8. «Sí, reiniciar» limpia también el navegador de QUIEN MIRA, y la barra del administrador queda por encima de todo velo', () => {
+  // Un almacén de mentira: borra sólo lo del onboarding.
+  const datos = new Map<string, string>([
+    ['mk-dale-play:onboarding-bienvenida', '1'], ['mk-onb-salidos:abc', '[]'], ['mk-llegada-mostrada:abc', '1'], ['mk-entrada:offer', '1'],
+    ['mako.recorrido.abc.tutorial-ops-center', '1'], ['mako-wa-empresa-leido', '1'], ['mako.tema', 'oscuro'],
+  ]);
+  const st = { get length() { return datos.size; }, key: (i: number) => [...datos.keys()][i] ?? null, removeItem: (k: string) => { datos.delete(k); } };
+  assert.equal(limpiarClavesDelOnboarding([st]), 5);
+  assert.deepEqual([...datos.keys()].sort(), ['mako-wa-empresa-leido', 'mako.tema'], 'lo que no es del onboarding queda');
+  assert.equal(limpiarClavesDelOnboarding([{ get length(): number { throw new Error('bloqueado'); }, key: () => null, removeItem: () => {} }]), 0, 'nunca tira');
+  const boton = sinComentarios(leer('app/_components/ReiniciarOnboarding.tsx'));
+  const iLimpia = boton.indexOf('limpiarClavesDelOnboarding([window.localStorage, window.sessionStorage])');
+  assert.ok(iLimpia > 0 && iLimpia < boton.indexOf("window.location.assign(conWs('/onboarding', ws))"), 'limpia ANTES de ir al onboarding');
+
+  // La barra: arriba del velo del recorrido (Z_PISO_RECORRIDO), del de la entrada y del de la llegada; abajo de sus paneles (3000).
+  const z = Number(/export const Z_BARRA_ADMIN = (\d+);/.exec(leer('app/_components/ImpersonationBanner.tsx'))?.[1]);
+  assert.match(sinComentarios(leer('app/_components/ImpersonationBanner.tsx')), /position: 'fixed', top: 0, left: 0, right: 0, zIndex: Z_BARRA_ADMIN,/);
+  const zEntrada = Number(/\.mk-entrada \{[^}]*z-index: (\d+)/.exec(leer('app/_ui/tutorial/EntradaEscribiendo.tsx'))?.[1]);
+  const zLlegada = Number(/\.sbl-capa \{[^}]*z-index: (\d+)/.exec(leer('app/second-brain/LlegadaAlReto.tsx'))?.[1]);
+  for (const [n, v] of [['recorrido', Z_PISO_RECORRIDO], ['entrada', zEntrada], ['llegada', zLlegada]] as const) assert.ok(z > v, `la barra (${z}) debajo del velo de ${n} (${v})`);
+  assert.ok(z < 3000, 'los paneles de la barra (3000) quedan arriba de ella');
 });

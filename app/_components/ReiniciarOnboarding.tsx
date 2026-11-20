@@ -19,6 +19,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
+import { limpiarClavesDelOnboarding } from '@/lib/reinicio-en-el-navegador';
 import { AvisoFlotante } from './AvisoFlotante';
 
 const MONO = "'Geist Mono', monospace";
@@ -83,6 +84,9 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
       if (!j.ok) { setAviso({ texto: j.error || 'No se pudo reiniciar el onboarding.', tono: 'error' }); setBusy(false); return; }
       // Lo dice el MISMO panel (a la vista, donde se tocó), y lleva al onboarding. `busy` queda prendido: no se vuelve a tocar.
       setHecho(true);
+      // Y ESTE navegador también (el de quien mira): si no, conserva el «dale play», lo ya escrito del arranque y la llegada de ese
+      // negocio, y el onboarding arrancaba con «¿cómo te llamas?» antes del video (20/11/2026, el Cerebro en producción).
+      try { limpiarClavesDelOnboarding([window.localStorage, window.sessionStorage]); } catch { /* sin almacenamiento */ }
       setTimeout(() => window.location.assign(conWs('/onboarding', ws)), 1200);
     } catch (e) {
       setAviso({ texto: e instanceof Error ? e.message : 'No se pudo reiniciar el onboarding.', tono: 'error' });

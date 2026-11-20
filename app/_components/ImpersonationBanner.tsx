@@ -15,6 +15,9 @@ import type { VistaDeOtro } from '@/lib/vista-de-otro';
 
 const MONO = "'Geist Mono', monospace";
 
+/** La barra de la vista de administrador va por encima de todo velo de tutorial (ver el estilo de abajo). */
+export const Z_BARRA_ADMIN = 1000;
+
 /**
  * `inicial` lo arma el layout en el server (lib/vista-de-otro.ts): con eso la barra sale en el PRIMER cuadro
  * (#881). Antes nacía vacía y aparecía cuando contestaba `/api/auth/me`, corriendo la pantalla 50 px.
@@ -104,7 +107,10 @@ export function ImpersonationBanner({ inicial = null }: { inicial?: VistaDeOtro 
       // izquierda y, al scrollear, el contenido le pasaba por debajo. Ahora el
       // documento se corre `--barra-agencia` hacia abajo (ver globals.css), así
       // que ocupa su lugar en vez de robarlo.
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 300,
+      // POR ENCIMA DEL VELO DE LOS TUTORIALES (20/11/2026, el Cerebro: con el «dale play» del recorrido puesto, «Reiniciar onboarding» no
+      // respondía). El velo del recorrido arranca en `Z_PISO_RECORRIDO` (400) y el de la entrada y la llegada en 650; los paneles que
+      // abre la barra (3000) y los avisos (4000) quedan arriba de ella.
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: Z_BARRA_ADMIN,
       display: 'flex', alignItems: 'center', gap: 12,
       padding: '9px 18px', background: '#14161B', color: '#F3F0E7',
       borderBottom: '1px solid rgba(200,135,12,.4)',

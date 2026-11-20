@@ -29,6 +29,26 @@ export const CLAVES_DEL_NAVEGADOR: readonly RegExp[] = [
   /^mako\.v2\.desde-cero/, // el «desde cero» de la revisión (sessionStorage, app/_ui/tutorial/desde-cero.ts)
 ];
 
+/** Lo mínimo de un almacén del navegador (localStorage, sessionStorage, o uno de mentira en el test). */
+export type AlmacenDelNavegador = { readonly length: number; key(i: number): string | null; removeItem(k: string): void };
+
+/**
+ * Borra de los almacenes lo de `CLAVES_DEL_NAVEGADOR` y devuelve cuántas claves sacó. Lo usa «Sí, reiniciar» en el navegador de QUIEN
+ * MIRA (20/11/2026, el Cerebro: después de reiniciar desde la vista de administrador, ese navegador conservaba el «dale play», lo ya
+ * escrito del arranque y la llegada de ese negocio, y el onboarding arrancaba con «¿cómo te llamas?» antes del video). Nunca tira.
+ */
+export function limpiarClavesDelOnboarding(almacenes: readonly AlmacenDelNavegador[]): number {
+  let n = 0;
+  for (const st of almacenes) {
+    try {
+      const borrar: string[] = [];
+      for (let i = 0; i < st.length; i++) { const c = st.key(i); if (c && CLAVES_DEL_NAVEGADOR.some((p) => p.test(c))) borrar.push(c); }
+      for (const c of borrar) { st.removeItem(c); n++; }
+    } catch { /* un almacén bloqueado no frena el reinicio */ }
+  }
+  return n;
+}
+
 /** En el navegador: el último reinicio ya limpiado (así limpia una sola vez). */
 export const CLAVE_LIMPIADO = 'mk-onboarding-reiniciado';
 
