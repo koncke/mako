@@ -6,6 +6,26 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## `/video-editor` a secas no es «Nuevo video»: un recorrido que marca algo de ahí espera para siempre (20/11/2026, R57-18)
+
+**Vive en:** `app/video-editor/vista.ts` (`abreElEditor`) · `app/video-editor/VideoEditorCliente.tsx` (el salto al editor y la marca
+`video-editor-abierto`) · `app/_crear/PantallaCrear.tsx` (la «←» `tour-video-proyectos` y «Nuevo video» `tour-video-nuevo`)
+
+- **Síntoma:** la tarea «Tu personaje con IA» del día 6 del reto marcaba la fila Video de la barra, después
+  `a[href="/video-editor?ver=crear"]` («Crear desde cero») y la marca quedaba esperando para siempre.
+- **Causa:** la fila de la barra lleva a `/video-editor`, y desde el 11/11 eso abre el EDITOR del último proyecto (sin proyectos en
+  ese navegador, crea «Mi video» y lo abre). «Crear desde cero» sólo existe en la portada de outliers (`?ver=outliers`). Los dos
+  casos, con proyectos y sin, terminan en el mismo editor.
+- **El camino real desde el editor:** la «←» de la tarjeta del chat → la lista → «Nuevo video» (primer renglón) → las plantillas,
+  con «Tu personaje con IA». Selectores: `[data-recorrido="video-editor-abierto"] [data-recorrido="tour-video-proyectos"]`,
+  `[data-recorrido="tour-video-nuevo"]`, `button.cr-plantilla[aria-label="Usar la plantilla Tu personaje con IA"]`.
+- **La trampa:** mientras carga la lista de proyectos (y mientras arma «Mi video», que trae el motor entero), `/video-editor` dibuja
+  «Nuevo video» con su propia «←» y sus plantillas, y recién después salta al editor. Una marca sin acotar se pone en esa «←»; la
+  persona la toca y el salto borra la lista. Por eso la «←» se busca adentro de `[data-recorrido="video-editor-abierto"]`.
+- **Sin hacer:** si la persona plegó la tarjeta del chat (`mk-crear-plegada:Video` en el navegador), la «←» queda en una sección
+  `hidden` y se ve el riel (`button.cr-riel`). Ningún selector arregla eso (el camino tiene un paso más): quien corre las marcas
+  tiene que desplegarla antes (`desplegarCrear('Video')`, app/_crear/PantallaCrear.tsx).
+
 ## «No active project» al SALIR de un proyecto, no al entrar (19/11/2026, ticket 118)
 
 **Síntoma:** un ticket automático de Leila (ws 11), «La pantalla Video se rompió», con `Error: No active project` en

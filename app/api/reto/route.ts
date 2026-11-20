@@ -65,14 +65,15 @@ async function conLoLeido(e: EstadoReto | null): Promise<EstadoReto | null> {
     if (reservo) await alPlan();
   } else if (delPlan && Object.keys(nuevas).length) await alPlan();
   const conPlan = (x: EstadoReto): EstadoReto => (reservo || x.enElPlan ? { ...x, enElPlan: true } : x);
-  // La primera vez que se ve abierto un día, su fecha (R57-F3: la que lo separa en el hilo). El día 1, la del inicio.
-  const abierto = String(diaAbierto(e, Date.now()));
-  const sinFecha = !e.abiertoEl?.[abierto];
+  // La primera vez que se ve abierto un día, su fecha (R57-F3: la que lo separa en el hilo). El día 1, la del inicio. También los días
+  // que se abrieron sin que nadie mirara (verificación d24-11: uno que se salteaba entero quedaba sin fecha): la de cuando se ven.
+  const abiertos = Array.from({ length: diaAbierto(e, Date.now()) }, (_, i) => String(i + 1));
+  const sinFecha = abiertos.some((n) => !e.abiertoEl?.[n]);
   if (!Object.keys(nuevas).length && !sinFecha) return conPlan(e);
   const cuando = new Date().toISOString();
   // Con compare-and-set (lib/reto/cambiar.ts): sólo suma lo leído, sobre lo último guardado, y no pisa la hora del WhatsApp.
   const r = await cambiarReto(IO, (x) => ({ ...x, hechas: { ...x.hechas, ...Object.fromEntries(Object.keys(nuevas).filter((k) => !x.hechas[k]).map((k) => [k, cuando])) }, leidas: { ...(x.leidas ?? {}), ...nuevas },
-    ...(x.abiertoEl?.[abierto] ? {} : { abiertoEl: { ...(x.abiertoEl ?? {}), [abierto]: abierto === '1' ? x.inicio : cuando } }) })).catch(() => null);
+    abiertoEl: { ...Object.fromEntries(abiertos.map((n) => [n, n === '1' ? x.inicio : cuando])), ...(x.abiertoEl ?? {}) } })).catch(() => null);
   return conPlan(r ?? e);
 }
 

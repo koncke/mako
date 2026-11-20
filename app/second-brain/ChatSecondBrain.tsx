@@ -121,6 +121,7 @@ import { PREVIA_DEL_FUNNEL_COACH_V2, previaDelCoach, previaDelOfferCoach } from 
 import { ASPECTO_FUNNEL_COACH_V2 } from './useChatDelCoach';
 import { usePasoAlFunnel } from './reto/usePasoAlFunnel';
 import { useVueltaAlReto } from './reto/useVueltaAlReto';
+import { MensajeVueltaAlReto } from './reto/MensajeVueltaAlReto';
 
 /** Cuántas filas se ven debajo del Cerebro antes de «Mostrar N más». */
 const FILAS_VISIBLES = SUBS_VISIBLES;
@@ -554,7 +555,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const seVeLaConversacion = idOffer != null && !conCoach && !enOtroChat && !verMapa && !ticketera;
   usePasoAlFunnel({ activo: dosCoaches && seVeLaConversacion, entregadaEn: entregadaOffer, ocupado: k.enCurso || k.tarjeta != null, contenedor: useCallback(() => hilo.current, []) });
   // Terminado el día 1 en Funnel Coach, «Vuelve a tu reto» sobre la fila del reto (20/11, D1-05: ./reto/useVueltaAlReto.ts).
-  useVueltaAlReto(retoV2 && dosCoaches && verFunnel && !reto);
+  const vueltaAlReto = useVueltaAlReto(retoV2 && dosCoaches && verFunnel && !reto);
   const coaches = (
     <div className="co-cuenta co-cuenta--coaches">
       {/* LOS DOS COACHES (onboarding V2): el Offer Coach con las conversaciones de oferta colgando de él, y después el Funnel Coach. */}
@@ -791,7 +792,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       })}
       {funnelAbierto && (
         <div style={{ display: verFunnel ? 'contents' : 'none' }}>
-          <ChatDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} dosCoaches={dosCoaches} visible={verFunnel} />
+          <ChatDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} alFinal={vueltaAlReto ? <MensajeVueltaAlReto /> : undefined} dosCoaches={dosCoaches} visible={verFunnel} />
         </div>
       )}
       {offerAbierto && dosCoaches && (

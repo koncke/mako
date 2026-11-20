@@ -104,8 +104,12 @@ export function VideoEditorCliente(props: Props) {
     fijarEspacio(ws);
     wsPrevio.current = ws;
   }
+  // La marca del editor ABIERTO (20/11/2026, R57-18): `/video-editor` a secas dibuja un momento «Nuevo video» (con su «←») y recién
+  // después salta al último proyecto, o a uno nuevo. Las marcas que van del editor a una plantilla («←» → «Nuevo video» → la
+  // tarjeta) se buscan ADENTRO de ésta: si no, la «←» de ese momento se marcaba, se tocaba, y el salto al editor la borraba.
   return (
-    <div key={ws ?? 0} className="ce" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div key={ws ?? 0} className="ce" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      data-recorrido={props.vista === 'editor' ? 'video-editor-abierto' : undefined}>
       <TooltipProvider>
         <Toaster />
         <SenalesNegocioProvider senales={senales}>

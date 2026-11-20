@@ -350,7 +350,7 @@ export function tituloSeccion(s: Pick<DefSeccionMas, 'label' | 'titulo'>): strin
  */
 export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> = {
   calendario: ['vista', 'fecha', 'persona'], // app/calendario/page.tsx
-  'second-brain': ['area', 'vista', 'grupo'], // app/second-brain/VistaCerebro.tsx (los arma `rutaSeccion`, lib/secciones-negocio.ts); `grupo`: el push del grupo de la app (lib/grupo-app.ts)
+  'second-brain': ['area', 'vista', 'grupo', 'reto'], // app/second-brain/VistaCerebro.tsx (los arma `rutaSeccion`, lib/secciones-negocio.ts); `grupo`: el push del grupo de la app (lib/grupo-app.ts); `reto`: el aviso del reto (?reto=1, lib/reto/avisos-salida.ts) abre el chat del reto, y en el teléfono «Sigamos en tu computadora» (verificación F3, 20/11)
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
   offer: ['oferta', 'funnel', 'sesion'], // app/offer/page.tsx (el «Analizar oferta →» del CRM; `sesion`: «Seguir en Offer» del Ops Center, 20/10/2026)
   copywriting: ['nuevo', 'nueva', 'ver'], // app/copywriter/page.tsx (`?nuevo=<tipo>`: sus templates primero; `?nueva=1`: las plantillas; `?ver=guiones`: la última página, D18). El `?tab=` del Ads Writer va aparte.

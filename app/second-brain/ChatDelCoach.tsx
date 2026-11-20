@@ -43,7 +43,7 @@ import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ErrorDelOfferCoach, useHiloDelCoach, useOfertaEnMensaje, vozDelCoach } from './coach-compartido';
 
 
-export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVolver, cual = 'funnel', dosCoaches = false, visible = false }: {
+export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVolver, cual = 'funnel', dosCoaches = false, visible = false, alFinal }: {
   referente: IdAsesor | null;
   /** Con qué oferta abre (lib/funnel-plan.ts → `ofertaDelCoach`); null = todavía no se sabe. */
   oferta: OfertaDelCoach | null;
@@ -57,6 +57,8 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
   dosCoaches?: boolean;
   /** Está a la vista (queda montado y escondido): el paso a Funnel Coach sólo corre con el Offer Coach en pantalla. */
   visible?: boolean;
+  /** Un mensaje de MaKo al final del hilo: «Tu día 1 está completo…» del reto (20/11, D1-05; app/second-brain/reto/MensajeVueltaAlReto.tsx). */
+  alFinal?: import('react').ReactNode;
 }) {
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
@@ -125,6 +127,7 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
               <HiloMako items={portada.items} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null} enMensaje={dosCoaches ? conVoz(true, portada.enMensaje as never) : portada.enMensaje}
                 onTarjeta={() => {}} onReintentar={() => {}} onRecargar={k.recargar} onResponder={(t) => k.enviar(t)} />
             ) : <HiloDelCliente k={hiloCoach} enMensaje={enMensajeDelHilo} />}
+        {!mostrandoPlan && alFinal && <div className="co-hilo__col">{alFinal}</div>}
       </PanelDeChat>
       {eligiendo && <ElegirReferente titulo={titulo} elegido={referente} onCerrar={() => setEligiendo(false)} onElegir={(id) => { setEligiendo(false); onReferente(id); }} />}
       {k.conectando && (

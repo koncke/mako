@@ -53,7 +53,7 @@ import { kitElegido } from '@/lib/marca/kits';
 import { Dropdown } from '@/app/components/Dropdown';
 import { RecortarAlAbrir } from '../quitar-fondo';
 import { useSoloPro } from '@/app/_components/solo-pro';
-import { usePlanEsencial } from '@/app/_components/useClienteDeAgencia';
+import { useCandadoEsencial } from '@/app/_components/useClienteDeAgencia';
 import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
 
 const HILO_SERVER: Hilo = { mensajes: [], corriendo: false };
@@ -167,8 +167,9 @@ export function PanelMakoIA() {
   const ocupado = hilo.corriendo || aplicando;
   // EDITAR CON IA ES SÓLO DE MaKo PRO (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes; a un Essential, en vez
   // del chat, el candado con «Pasar a Pro» (abajo). `plan`: `null` mientras no se sabe (lo espera «Usar plantilla», que escribe solo).
+  // Por la función y no por el plan (20/11/2026, R57-03): en la prueba de Essential el reto abre la IA de los editores una vez.
   const soloPro = useSoloPro('ia-editores');
-  const plan = usePlanEsencial();
+  const plan = useCandadoEsencial('ia-editores');
   // La marca del negocio (5/11/2026, lib/marca/kits.ts): el kit de por defecto, o el que elija la persona si tiene varios.
   const marca = useKitsDeMarca();
   // MAKO TOMA LA INICIATIVA (5/11/2026, docs/mako-iniciativa/plan.md T12): con el diseño en blanco y la charla vacía pregunta

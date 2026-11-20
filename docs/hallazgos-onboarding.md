@@ -3601,3 +3601,38 @@ filas de los coaches tachaban el día 1 entero.
 - **Sin hacer todavía**: la voz de calendar-4, classroom-4 e image-3 todavía dice «Toca aquí» en frases que ya no esperan el clic. La
   regrabación espera el OK del Cerebro al guion. Mientras tanto, el motor se recupera si alguien toca (lib/tutoriales/calendar.ts y
   classroom.ts, `antes`).
+## La verificación del 20/11: lo que el reto daba por hecho y no lo estaba (chat «reto-tutoriales», claude5)
+
+Lo que dejó a la vista la verificación independiente del Cerebro (verificacion-pendientes-20-11.md): en todos estos casos el commit
+existía y el test pasaba, pero el camino de la persona se cortaba. El test comparaba texto; nadie recorrió el camino.
+
+- **Una marca cuyo lugar no está en la página espera para siempre.** El motor saltea las marcas de un *tutorial* a los 3 s, pero
+  nunca las de tipo `marca` (senalarDondeTocar): sin hueco, la tarjeta queda invisible y el motor queda ocupado. Cada selector de
+  una cadena del reto hay que comprobarlo contra la pantalla a la que lleva el clic anterior, no contra el repo. Ejemplo: el día 6
+  marcaba `a[href="/video-editor?ver=crear"]`, que sólo existe en los outliers, pero la barra abre el editor. Para algo que puede
+  faltar (las etapas del CRM en la vista de lista), conviene un selector con alternativa: `[data-colkey], [data-lead-id]`.
+- **El motor no navega.** `mostrarTutorial` en una pantalla donde no están sus marcas las saltea todas, y el video corre en la
+  esquina sin mostrar nada. Para mostrar una pestaña hay que marcarla en la barra y arrancar su video al tocarla
+  (app/second-brain/reto/enSuPestana.ts). Ojo con el orden: `terminar` (store.ts) limpia el motor ANTES de llamar a `alTerminar`.
+  Si la marca siguiente se encadena con un `setTimeout`, el tutorial de la pestaña, que la primera vez se abre solo (PrimeraVez),
+  encuentra el motor libre y vuelve a correr encima. Hay que encadenarla en el acto.
+- **El título de la tarea va en la fila de la BARRA, no en la última marca.** Con dos marcas, la última (el «⋮» del CRM) perdía su
+  frase («cárgalos con un CSV») y la de la barra decía sólo «CRM». La regla quedó en `marcasDeLaTarea`: lo lleva la primera marca
+  de la barra; sin barra (el día 2), la última; nunca una `propia`.
+- **Un «Entendido» que no cierra nada traba el día.** La última marca de las integraciones pedía «Entendido», que sólo relee. La
+  tarea se cierra cuando están TODAS conectadas, así que el paso 3 del día 2 nunca llegaba. Una marca `despues` deja la tarea «para
+  después» al tocar «Entendido»: el día sigue, como en la maqueta.
+- **Lo «visto» en memoria de la página se repite en cada carga.** La entrada de cada día (`useEntrada`) y el «dale play»
+  volvían en cada recarga: terminado el reto, «Día 7: dale play» para siempre. Lo visto por día va en localStorage (`yaVisto`).
+- **`QUERY_DE_SECCION` borra en silencio la consulta que no conoce.** El aviso del reto (`?reto=1`) pasaba por
+  `aSeccion('second-brain')` y perdía el `reto`. En el teléfono abría MaKo Mobile en vez de «Sigamos en tu computadora», y en la
+  computadora el Ops Center sin el reto. Toda consulta nueva de una sección va a esa lista (lib/movil-rutas.ts).
+- **Google Calendar no puede estar en las integraciones del día 2.** En la app no tiene tarjeta en Settings › Integraciones
+  (`google`, `oculto: true`; se conecta en Calendar), así que no hay `tour-int-google` adonde bajar. Además, conectarlo es la
+  tarea del día 3. Es la única diferencia con la tabla de la maqueta, y está escrita en `INTEGRA_POR_FUNNEL`.
+- **Quedó sin hacer, con su dueño:**
+  - la voz de reto-dia-1: dice «tu sistema para conseguir clientes» y «Debajo de este video están tus tareas», y el día 1 ya no
+    tiene tarjeta (D1-14, F2, D1-15). Es del chat de los videos;
+  - las respuestas por WhatsApp de los días 3 a 7 (d24-16, R57-10) y el aviso de las 20:00 que lee lo hecho (d24-04). Son del chat
+    de WhatsApp (lib/reto/respuestas.ts, avisos*);
+  - la pausa en el t_fin de la frase tocada (reto-dia-2-14, reto-dia-3-11 = motor-3/c). Es de MotorTutorial.tsx, del onboarding.
