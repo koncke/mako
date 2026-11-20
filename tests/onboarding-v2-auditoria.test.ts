@@ -11,7 +11,8 @@
 //   · OA-14, OA-18, OA-F2: «Escribe otra cosa» en el contacto, «¿Cómo llegaste a MaKo?» sin el nombre, «Ya lo guardé» en la caja;
 //   · OA-F1: el WhatsApp de la burbuja, con la lada y en grupos;
 //   · OA-11 / OD-F3: «Sigamos en tu computadora» con la estrellita, el correo y el nombre del chat.
-// Probado rompiéndolo (20/11/2026, una rotura por vez y restaurada): cada test cae con su arreglo sacado.
+//   · OA-16: en el V2 no se siembra el origen (la pregunta se hace siempre); OD-13: «Entrar a MaKo» pausa los videos (no flotan).
+// Probado rompiéndolo (20/11/2026, una rotura por vez y restaurada): 9 roturas, y cada una tumba su test.
 // =============================================================================
 
 import test from 'node:test';
@@ -92,4 +93,16 @@ test('7. OA-11 / OD-F3: «Sigamos en tu computadora» con la estrellita, el corr
   assert.match(s, /\{maqueta && <span aria-hidden="true" data-seguir-criatura=""><CriaturaMako size=\{64\} reaccion="contenta" \/><\/span>\}/);
   assert.match(s, /\{maqueta && email && <p data-seguir-correo=""[^>]*>Te mandamos el link a <b[^>]*>\{email\}<\/b>\.<\/p>\}/);
   assert.match(v2(), /<SeguirEnPc nombre=\{primerNombre\(vista\.nombre \|\| persona\?\.nombre \|\| ''\)\} email=\{persona\?\.email \?\? ''\} maqueta \/>/);
+});
+
+test('8. OA-16: en el V2 no se siembra el origen: «¿Cómo llegaste a MaKo?» se pregunta siempre y la contesta ella', () => {
+  const p = sinComentarios(leer('app/onboarding/page.tsx'));
+  assert.match(p, /const v2 = !!sesion && veOnboardingV2\(\{ email: sesion\.email, ws: wsOrigen \}\);\n\s*if \(wsOrigen != null && !v2\) await sembrarArranqueDesdeOrigen\(wsOrigen\);/);
+});
+
+test('9. OD-13: «Entrar a MaKo» pausa los videos del onboarding (no pasan flotando), y la primera vez vuelve a mirar con el motor libre', () => {
+  assert.match(v2(), /for \(const v of Array\.from\(document\.querySelectorAll<HTMLVideoElement>\('\.arr-v2 video'\)\)\) v\.pause\(\);/);
+  const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
+  assert.match(m, /const ocupadoElMotor = !!useSenal\(\);/);
+  assert.match(m, /\}, \[abierto, onCerrar, t, ocupadoElMotor\]\);/);
 });

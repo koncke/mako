@@ -52,15 +52,17 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   if (!done) {
     // De qué landing vino (23/10/2026, lib/origen-negocio.ts): lo que el origen ya contesta queda contestado, sin pisar nada.
     const wsOrigen = await getWorkspaceActual();
-    if (wsOrigen != null) await sembrarArranqueDesdeOrigen(wsOrigen);
+    const sesion = await getUsuarioActual().catch(() => null);
+    const v2 = !!sesion && veOnboardingV2({ email: sesion.email, ws: wsOrigen });
+    // En el V2 NO se siembra (20/11, OA-16): «¿Cómo llegaste a MaKo?» se pregunta siempre y la contesta ella. Con lo sembrado, el V2
+    // salteaba la pregunta y dibujaba una burbuja «de ella» que nunca escribió. El V2 tampoco usa el `interes` sembrado (tiene los suyos).
+    if (wsOrigen != null && !v2) await sembrarArranqueDesdeOrigen(wsOrigen);
     const vista = await vistaArranque();
     // ⚠️ `key` CON EL WORKSPACE (18/10/2026, Martín: al abrir otro negocio aparecieron las respuestas de «Consultesis»,
     // que sólo existían en el ws 3). El chat guarda la conversación en su estado (`useState(inicial)`), y pasar de un
     // `?ws=` a otro sin recargar deja montado el MISMO componente: React le pasa la vista nueva y él sigue mostrando las
     // respuestas del negocio anterior. Con la key, otro workspace es otro chat, de cero. tests/onboarding-otro-ws.test.ts.
     // El onboarding V2 en un TELÉFONO (18/11/2026): el primer paso acá y, al terminar, «Continuar el onboarding desde la PC».
-    const sesion = await getUsuarioActual().catch(() => null);
-    const v2 = !!sesion && veOnboardingV2({ email: sesion.email, ws: wsOrigen });
     const seguirEnPc = v2 && (await prefiereMovil().catch(() => false));
     const persona = sesion ? { nombre: (sesion.nombre ?? '').trim().split(/\s+/)[0] ?? '', email: sesion.email } : undefined;
     const ws = await getWorkspaceActual();

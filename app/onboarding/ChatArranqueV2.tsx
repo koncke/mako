@@ -207,6 +207,8 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'hilo' }), signal: AbortSignal.timeout(20_000),
     }).then((x) => x.json()).catch(() => null) as { ok?: boolean; chat?: number | null } | null;
     setSaliendo(true);
+    // Un video del onboarding que sigue corriendo NO pasa flotando al Ops Center (20/11, OD-13): flotaba, y el recorrido no arrancaba.
+    for (const v of Array.from(document.querySelectorAll<HTMLVideoElement>('.arr-v2 video'))) v.pause();
     // La barra lateral, escondida hasta que el recorrido la presente (Martín, 19/11: app/_ui/tutorial/barra-oculta.ts).
     esconderLaBarra();
     router.push(rutaDelHilo(r?.ok && typeof r.chat === 'number' ? r.chat : null));

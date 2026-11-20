@@ -198,6 +198,8 @@ function PrimeraVez({ t }: { t: TutorialPestana }) {
   const id = `tutorial-${t.pestana}`;
   const r = useRecorrido(id, { autoabrir: !ensayo.activo });
   const pedido = useRef(false);
+  // Vuelve a mirar cuando el motor queda libre (20/11, OD-13): con un video flotando al llegar, el recorrido no arrancaba nunca.
+  const ocupadoElMotor = !!useSenal();
   const abierto = ensayo.activo ? !vistoEnEnsayo(id) : r.abierto;
   const cerrarDeVerdad = r.onCerrar;
   const onCerrar = useCallback((m: MotivoFin) => { if (ensayo.activo) marcarVistoEnEnsayo(id); else cerrarDeVerdad(m); }, [ensayo.activo, id, cerrarDeVerdad]);
@@ -223,7 +225,7 @@ function PrimeraVez({ t }: { t: TutorialPestana }) {
     };
     const id = window.setTimeout(mirar, 600);
     return () => { vivo = false; window.clearTimeout(id); };
-  }, [abierto, onCerrar, t]);
+  }, [abierto, onCerrar, t, ocupadoElMotor]);
   return null;
 }
 
