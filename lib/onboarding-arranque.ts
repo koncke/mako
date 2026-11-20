@@ -379,6 +379,10 @@ export const TITULO_HILO = 'Onboarding';
 export const contextoDelHilo = (sesionId: number | undefined): string =>
   `Este chat guarda el onboarding del negocio: lo que contó al empezar en MaKo (onboarding:${sesionId ?? 'arranque'}).`;
 
+/** ¿Es el `contexto` de un chat «Onboarding»? (con cualquier marca: la de la oferta de un onboarding anterior también). */
+export const esContextoDelHilo = (contexto: string | null | undefined): boolean =>
+  typeof contexto === 'string' && /\(onboarding:[^)]*\)\.?\s*$/.test(contexto);
+
 /** Cuánto vale una reserva del chat «Onboarding» antes de darla por abandonada. */
 export const RESERVA_HILO_MS = 120_000;
 

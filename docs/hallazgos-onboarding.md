@@ -3938,6 +3938,10 @@ de la vista de administrador y scripts/reiniciar-onboarding.mts. RESET (lib/rese
 - **Repetir el onboarding renombraba el grupo de WhatsApp:** guardar el nombre del negocio llamaba a `asegurarGrupoMaKo` si el
   negocio tenía grupo (app/api/onboarding/arranque/route.ts). Con Leila (ws 11, «MaKo Leila») reiniciada, era tráfico contra la línea.
   Martín, 20/11: no hay más grupos con clientes. Ya no se llama, y la salida del chat «Onboarding» no nombra ningún grupo.
+- **Después de reiniciar quedaban dos filas «Onboarding»:** al crear el chat nuevo se borraban sólo los de la MISMA marca, y la del
+  onboarding anterior trae la de su oferta (`onboarding:<id>`). Ahora se archivan todos los chats «Onboarding» que ya tenía
+  (`esContextoDelHilo`): salen de la lista y la conversación queda. Mirando como administrador la lista es la del ADMINISTRADOR (su
+  `chart_key`), así que ahí no aparece el del dueño: eso lo decide el Cerebro.
 - **«Sí, reiniciar» no daba señal:** el aviso salía chico, abajo a la izquierda, y la pantalla quedaba igual. Ahora lo dice el mismo
   panel y lleva al onboarding del negocio (navegación completa, con el `?ws=`).
 - **Encontrado de paso:** RESET no borra `perfil.onboardingV2` ni `perfil.recorridos`. Después de un RESET del ws 3, la barra oculta, la

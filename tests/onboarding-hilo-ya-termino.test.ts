@@ -13,7 +13,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { TITULO_HILO, mensajesDelHilo, salidaDelOnboarding } from '../lib/onboarding-arranque';
+import { TITULO_HILO, contextoDelHilo, esContextoDelHilo, mensajesDelHilo, salidaDelOnboarding } from '../lib/onboarding-arranque';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -55,7 +55,9 @@ test('se crea UNA vez, con el chart_key del cliente: mirando como super admin, n
   // Desde la revisión del 20/10 se reconoce por su marca (`contextoDelHilo`), no por el título, y se reserva antes de crear
   // (tests/onboarding-hilo-carrera.test.ts lo prueba con la base de mentira).
   assert.match(hilo, /if \(!raw \|\| !\(await cambiarSettingSi\(CLAVE, raw, reservado\)\)\) return null;/, 'sin la reserva, dos pestañas crean dos');
-  assert.match(hilo, /for \(const s of sesiones\.filter\(\(x\) => x\.contexto === marca\)\) await deleteSession\(s\.id\);/, 'uno a medias se borra y se rehace');
+  // Uno a medias, o el de un onboarding ANTERIOR (otra marca: la de su oferta), se ARCHIVA y se rehace: una sola fila, y la
+  // conversación vieja queda (20/11/2026, después de «Reiniciar onboarding» quedaban dos).
+  assert.match(hilo, /for \(const s of sesiones\.filter\(\(x\) => esContextoDelHilo\(x\.contexto\) && !x\.archived\)\) await setArchived\(s\.id, true\);/, 'uno a medias o el de antes se archiva y se rehace');
   assert.equal(TITULO_HILO, 'Onboarding');
 });
 
@@ -69,4 +71,12 @@ test('quien ya terminó lo recibe en su primera visita al Ops Center, y entra a 
   const pagina = sinComentarios(leer('app/second-brain/page.tsx'));
   // Nunca sobre un pedido que ya elige chat (20/11/2026: el destino trae `?chat=`, y anotar `hiloChat` puede fallar).
   assert.match(pagina, /const hiloNuevo = eligeChat \? null : await hiloParaQuienYaTermino\(\)\.catch\(\(\) => null\);\s*if \(hiloNuevo && !alReto\) redirect\(await rutaConWs\(rutaDelHilo\(hiloNuevo\)\)\);/);
+});
+
+test('el chat «Onboarding» se reconoce con CUALQUIER marca (la del onboarding anterior trae la de su oferta), y uno propio no', () => {
+  assert.equal(esContextoDelHilo(contextoDelHilo(undefined)), true, 'el del V2 (sin oferta)');
+  assert.equal(esContextoDelHilo(contextoDelHilo(812)), true, 'el de un onboarding con oferta');
+  assert.equal(esContextoDelHilo(null), false);
+  assert.equal(esContextoDelHilo('Mi chat de ventas'), false);
+  assert.equal(esContextoDelHilo('Hablamos del onboarding de un cliente'), false, 'un chat propio que nombra el onboarding no es éste');
 });
