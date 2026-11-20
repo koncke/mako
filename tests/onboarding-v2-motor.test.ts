@@ -86,9 +86,10 @@ test('los videos de los momentos del onboarding: sus keys, el recorrido la prime
   const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8');
   const motor = leer('app/_ui/tutorial/MotorTutorial.tsx');
   // 18/11, Martín: la primera vez en el Ops Center, el recorrido APROBADO, y su video sólo si sigue sus pasos.
-  assert.match(motor, /mostrarTutorial\(t\.pestana === 'ops-center' \? TUTORIAL_RECORRIDO : t,/, 'la primera vez en el Ops Center, el recorrido aprobado');
+  // El recorrido aprobado del Ops Center lo arranca el «dale play» de la llegada, nunca el motor solo (20/11/2026).
+  assert.match(motor, /if \(t\.pestana === 'ops-center'\) return;/, 'el Ops Center no arranca solo');
   // Martín, 18/11, noche: sin la tarjeta al entrar a una pestaña (su video, directo) y el «?» que lo vuelve a abrir.
-  assert.match(motor, /\.\.\.\(t\.pestana === 'ops-center' \? \{\} : \{ directo: true \}\)/, 'una pestaña abre directo su video');
+  assert.match(motor, /mostrarTutorial\(t, \{ alTerminar: onCerrar, directo: true \}\)/, 'una pestaña abre directo su video');
   assert.match(motor, /onClick=\{\(\) => mostrarTutorial\(t, \{ directo: true \}\)\}/, 'el «?» vuelve a abrir el video de la pestaña');
   assert.match(motor, /VIDEO_FIEL\.has\(senal\.tutorial\.pestana\) && !sigueLosPasos\(/, 'un video que no sigue los pasos no se usa');
   // La pausa al FINAL de la frase, no al empezar (la voz terminaba la frase con la marca ya en la siguiente).
