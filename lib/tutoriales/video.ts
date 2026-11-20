@@ -10,6 +10,9 @@ export const TUTORIAL_VIDEO: TutorialPestana = {
   pasos: [
     {
       sel: '[data-caja-pedido]',
+      // Sin `?ver=`, la pestaña abre los outliers (o el editor): las marcas son de «Nuevo video». Desde los outliers, el motor toca
+      // «＋ Crear desde cero» y sigue ahí (20/11, auditoría de las pausas: video-3 a 5). Si no está, se saltea como siempre.
+      antes: 'a[href="/video-editor?ver=crear"]',
       titulo: 'Pídelo en una línea',
       texto: 'Un reel de 30 segundos sobre tu programa, y MaKo lo arma.',
       sub: 'Mira aquí, la caja de arriba: escribe en una línea lo que quieres.',

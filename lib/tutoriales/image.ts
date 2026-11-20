@@ -10,6 +10,9 @@ export const TUTORIAL_IMAGE: TutorialPestana = {
   pasos: [
     {
       sel: 'span[aria-label="Lista o tips: portada"]',
+      // Sin `?ver=`, la pestaña abre el explorador de carruseles: las marcas son de «Crear desde cero». El motor toca «＋ Nuevo
+      // carrusel» y sigue ahí (20/11, auditoría de las pausas: image-3 a 5).
+      antes: 'a[href="/image-editor?ver=crear"]',
       titulo: 'Con tu marca',
       texto: 'El nombre de tu negocio ya está puesto en cada lámina.',
       sub: 'Toca aquí, en la portada de Lista o tips: ya trae el nombre de tu negocio.',
