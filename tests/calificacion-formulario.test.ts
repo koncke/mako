@@ -15,7 +15,7 @@ import {
   type ReglasFormulario, type CondicionRegla,
 } from '../lib/calificacion-formulario';
 import {
-  parsearMapaReglas, serializarMapaReglas, conReglas, reglasDe, hayReglasPara, claveMeta, claveWeb, tipoDeClave,
+  parsearMapaReglas, serializarMapaReglas, conReglas, reglasDe, hayReglasPara, claveMeta, claveWeb, tipoDeClave, claveFuenteValida,
   parsearAsignacionesMeta, serializarAsignacionesMeta, alternarFormularioMeta, type MapaReglas, type AsignacionesMeta,
 } from '../lib/fuentes-formularios';
 
@@ -172,6 +172,9 @@ test('el guardado: reglas por funnel y por formulario, sin romper con basura', (
   assert.equal(claveWeb('https://a.com/contacto'), 'web:https://a.com/contacto');
   assert.equal(tipoDeClave('web:https://a.com'), 'web');
   assert.equal(tipoDeClave('form:x'), 'wg');
+  assert.equal(tipoDeClave('agenda:12:p1'), 'wg', 'la agenda y el pago de Web Generator siguen siendo fuentes (el modal de antes las asignaba)');
+  assert.equal(claveFuenteValida('pago:12:p1'), true);
+  assert.equal(claveFuenteValida('otra:cosa'), false);
 });
 
 test('los formularios de Meta asignados: prender suma el funnel al final, apagar el último lo desasigna', () => {

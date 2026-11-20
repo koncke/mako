@@ -36,13 +36,15 @@ export const claveWeb = (pagina: string): string => `web:${pagina}`;
 /** Un id de formulario de Meta: sólo dígitos (como los de las campañas). */
 export const esIdFormMeta = (v: unknown): v is string => typeof v === 'string' && /^\d{5,30}$/.test(v.trim());
 
-const FORMA_CLAVE = /^(meta:\d{5,30}|form:[A-Za-z0-9_-]{1,40}|web:\S{3,500})$/;
+// La agenda y el pago de una página de Web Generator (`agenda:<doc>:<pág>`, `pago:<doc>:<pág>`) también son fuentes que se
+// asignan desde acá —el modal de antes las tenía—, aunque no tengan respuestas que calificar.
+const FORMA_CLAVE = /^(meta:\d{5,30}|form:[A-Za-z0-9_-]{1,40}|(agenda|pago):\d{1,12}:[A-Za-z0-9_-]{1,40}|web:\S{3,500})$/;
 export const claveFuenteValida = (v: unknown): v is string => typeof v === 'string' && FORMA_CLAVE.test(v);
 
 /** El tipo de fuente de una clave. */
 export function tipoDeClave(clave: string): 'meta' | 'wg' | 'web' | null {
   if (clave.startsWith('meta:')) return 'meta';
-  if (clave.startsWith('form:')) return 'wg';
+  if (clave.startsWith('form:') || clave.startsWith('agenda:') || clave.startsWith('pago:')) return 'wg';
   if (clave.startsWith('web:')) return 'web';
   return null;
 }

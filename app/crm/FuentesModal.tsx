@@ -70,11 +70,11 @@ export function filaDeFormulario(f: FormularioFila, ahora = Date.now()): FilaFue
   const ultimo = haceCuanto(f.ultimo, ahora);
   const detalle = f.tipo === 'meta'
     ? [f.pagina ? `Página ${f.pagina}` : null, f.leads != null ? plural(f.leads, 'lead', 'leads') : null, ultimo ? `último ${ultimo}` : null]
-    : [f.tipo === 'wg' ? host(f.pagina) : null, f.tipo === 'wg' ? 'Web Generator' : 'Tu página, con el Pixel de MaKo',
+    : [f.tipo === 'wg' ? host(f.pagina) : null, f.tipo === 'wg' ? (f.rotulo ? `${f.rotulo} de Web Generator` : 'Web Generator') : 'Tu página, con el Pixel de MaKo',
       f.leads == null ? null : f.leads === 0 ? 'sin envíos todavía' : plural(f.leads, 'envío', 'envíos'), ultimo ? `último ${ultimo}` : null];
   return {
     id: f.clave, tipo: f.tipo, nombre: f.nombre, detalle: detalle.filter(Boolean).join(' · '), prendida: f.prendido,
-    tambien: f.otros, calificacion: { activa: f.reglas?.activa ?? false, reglas: f.reglas?.n ?? 0 }, sinEnvios: f.leads === 0,
+    tambien: f.otros, calificacion: f.califica ? { activa: f.reglas?.activa ?? false, reglas: f.reglas?.n ?? 0 } : null, sinEnvios: f.leads === 0,
   };
 }
 

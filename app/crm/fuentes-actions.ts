@@ -68,6 +68,10 @@ export type FormularioFila = {
   otros: string[];
   /** Sus reglas en este funnel. */
   reglas: { activa: boolean; n: number } | null;
+  /** ¿Trae respuestas que calificar? La agenda y el pago de Web Generator no. */
+  califica: boolean;
+  /** Qué pieza es, si no es un formulario («Agenda», «Pago», «Encuesta», «Quiz»). */
+  rotulo?: string;
 };
 
 export type EstadoFormularios = {
@@ -101,23 +105,25 @@ export async function formulariosAction(funnelId: number | null): Promise<Estado
         const funnels = asigMeta[x.id]?.funnels ?? [];
         return {
           clave: claveMeta(x.id), tipo: 'meta', nombre: x.nombre, pagina: meta.pagina, leads: x.leads, ultimo: x.ultimo,
-          prendido: funnels.includes(f.id), otros: funnels.filter((id) => id !== f.id).map(nombreDe), reglas: reglasFila(claveMeta(x.id)),
+          prendido: funnels.includes(f.id), otros: funnels.filter((id) => id !== f.id).map(nombreDe), reglas: reglasFila(claveMeta(x.id)), califica: true,
         };
       })
       : null;
 
-    // Los de Web Generator: formularios, encuestas y quizzes (la agenda y el pago no son formularios que se califiquen).
+    // Los de Web Generator: formularios, encuestas y quizzes, y también la agenda y el pago de una página (el modal de antes las
+    // asignaba; no traen respuestas, así que van sin calificación).
     const web: FormularioFila[] = [];
     const urlsWg = new Set<string>();
     for (const l of landings) {
       if (l.url) { const u = normalizarUrl(l.url); if (u) urlsWg.add(u); }
       for (const p of l.piezas) {
-        if (p.tipo !== 'formulario' && p.tipo !== 'encuesta' && p.tipo !== 'quiz') continue;
+        const califica = p.tipo === 'formulario' || p.tipo === 'encuesta' || p.tipo === 'quiz';
         const asignados = (asigPiezas as Record<string, number[]>)[p.clave] ?? [];
         const e = p.formularioId ? envios?.get(p.formularioId) : undefined;
         web.push({
-          clave: p.clave, tipo: 'wg', nombre: p.nombre, pagina: l.url, leads: envios ? e?.n ?? 0 : null, ultimo: e?.ultimo ?? null,
-          prendido: asignados.includes(f.id), otros: asignados.filter((id) => id !== f.id).map(nombreDe), reglas: reglasFila(p.clave),
+          clave: p.clave, tipo: 'wg', nombre: p.nombre, pagina: l.url, leads: califica && envios ? e?.n ?? 0 : null, ultimo: e?.ultimo ?? null,
+          prendido: asignados.includes(f.id), otros: asignados.filter((id) => id !== f.id).map(nombreDe),
+          reglas: califica ? reglasFila(p.clave) : null, califica, ...(p.tipo !== 'formulario' ? { rotulo: p.rotulo } : {}),
         });
       }
     }
@@ -130,7 +136,7 @@ export async function formulariosAction(funnelId: number | null): Promise<Estado
       const asignados = landingDe(config, pag)?.funnelIds ?? [];
       web.push({
         clave: claveWeb(pag), tipo: 'web', nombre: pag.replace(/^https?:\/\//, '').replace(/\/$/, ''), pagina: pag, leads: e.n, ultimo: e.ultimo,
-        prendido: asignados.includes(f.id), otros: asignados.filter((id) => id !== f.id).map(nombreDe), reglas: reglasFila(claveWeb(pag)),
+        prendido: asignados.includes(f.id), otros: asignados.filter((id) => id !== f.id).map(nombreDe), reglas: reglasFila(claveWeb(pag)), califica: true,
       });
     }
     return { ok: true, funnel: f, meta: filasMeta, metaError: meta.ok ? null : meta.error, web };
