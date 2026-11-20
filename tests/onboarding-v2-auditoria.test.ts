@@ -148,3 +148,9 @@ test('12. OA-10 / OD-12: en el teléfono, «Sigamos en tu computadora» se queda
   const ini = sinComentarios(leer('app/inicio/page.tsx'));
   assert.match(ini, /if \(telefono && \(await seguirEnPcPendiente\(\)\)\) redirect\(await rutaConWs\('\/onboarding'\)\);\n\s*if \(telefono\) redirect\(await rutaConWs\(ENTRADA_MOVIL\)\);/);
 });
+
+test('13. OA-12: el sol y la luna también en la entrada («Hola, soy MaKo»), y su clic no la empieza', () => {
+  const e = sinComentarios(leer('app/onboarding/EntradaMako.tsx'));
+  assert.match(e, /<span className="en-modo" role="presentation" onClick=\{\(e\) => e\.stopPropagation\(\)\}><InterruptorModo variante="sitio" \/><\/span>/);
+  assert.match(e, /\.en-modo \{ position: absolute; top: 27px; right: max\(16px, calc\(\(100% - 960px\) \/ 2\)\); z-index: 1; \}/, 'alineado al bloque de 960, como la cabecera del chat');
+});
