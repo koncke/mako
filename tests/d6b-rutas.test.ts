@@ -94,6 +94,8 @@ const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: str
  * se vuelve a mirar: si ahora le pide algo a una IA, va adentro de `conSuIADelNegocio`.
  */
 const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> = [
+  // El GET del reto (20/11, d24-05) salió de acá: al leer el estado de las integraciones del día 2 (`getIntegracion`) pasa por
+  // `conSoloSuIA`, así que ya prende el contexto. Sigue sin pedirle nada a una IA: sólo lee (lib/reto/senales.ts).
   // La descarga del instalador de MaKo en tu computadora (0.4.x, 18/11/2026): `personaDelRequest` sólo lee la sesión, el rol y el negocio.
   { unidad: 'app/api/ia-pc/descargar/route.ts#GET', usa: ['VERSION_PC', 'limitePorIp', 'personaDelRequest', 'getSupabaseServer', 'archivoDelInstalador', 'archivoDelInstaladorMac', 'nombreDelInstalador', 'nombreDelInstaladorMac', 'registrarError'], porque: 'devuelve el instalador de MaKo para la computadora (Windows o Mac): no le pide nada a una IA' },
   // La voz de los coaches del V2 (33b61d4f0, montada en ChatDelCoach el 18/11): dice el mensaje con ElevenLabs y la key de la plataforma

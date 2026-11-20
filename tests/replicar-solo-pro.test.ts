@@ -56,10 +56,11 @@ test('la regla: copiar landings es de Pro, y el candado dice qué es y cómo ten
 
 test('el candado del servidor: Essential por la pasarela, ante la duda pasa, y la forma del scraper para las rutas', () => {
   const api = cuerpo(CANDADO, 'candadoDeReplicar');
-  assert.match(api, /return w != null && \(await esEsencialDe\(w\)\) \? textoSoloPro\('replicar-landing'\) : null;/);
+  // 20/11: la prueba del reto lo abre UNA vez (lib/reto/pro-del-reto.ts, R57-03); después, el candado de siempre.
+  assert.ok(api.includes("return w != null && (await esEsencialDe(w)) && !(await abreElReto('replicar-landing', { ws: w, usar: true })) ? textoSoloPro('replicar-landing') : null;"));
   assert.match(api, /\} catch \{\n\s*return null;\n\s*\}/, 'si no se puede leer el plan, no hay candado');
   const pantalla = cuerpo(CANDADO, 'candadoDeReplicarEnPantalla');
-  assert.match(pantalla, /if \(!\(await esEsencialDeLaSesion\(\)\)\) return null;/);
+  assert.ok(pantalla.includes("if (!(await esEsencialDeLaSesion()) || (await abreElReto('replicar-landing', { usar: true }))) return null;"));
   assert.match(pantalla, /return \{ error: textoSoloPro\('replicar-landing'\), pasarAPro: await rutaConWs\(RUTA_CAMBIAR_PLAN\) \};/);
 });
 

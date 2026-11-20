@@ -28,11 +28,17 @@ export const MARCA = {
   equipoInvitar: 'tour-equipo-invitar',
   /** La foto de la barra lateral, que abre el menú de Configuración (app/_components/Sidebar.tsx). Sólo computadora. */
   barraFoto: 'tour-barra-foto',
+  /** El botón de la foto en Settings › Perfil (app/perfil/InformacionPersonal.tsx): el último lugar del perfil del día 2 (OD-11). */
+  settingsFoto: 'tour-settings-foto',
   /** «Mover a…» de la ficha rápida (app/_ui/TarjetaKanban.tsx → CuerpoFichaRapida), en la computadora y en el teléfono. */
   crmMoverA: 'tour-crm-mover-a',
   // Las que pide el manifiesto de los videos (public/tutoriales/manifiesto.json → frases[].sel), con sus ids.
   /** El botón «WhatsApp» de conectar un canal en Chats (app/chats/ConectarCanal.tsx). */
   chatsWhatsapp: 'tour-chats-whatsapp',
+  /** «Conectar un canal» en el desplegable Canal de Chats (app/chats/FiltrosChats.tsx): el camino al WhatsApp con canales (20/11). */
+  chatsConectar: 'tour-chats-conectar',
+  /** Chats vacío, sin ningún canal conectado (app/chats/ChatsApp.tsx): el motor corre ahí el tutorial de Chats vacío (20/11). */
+  chatsSinCanales: 'tour-chats-sin-canales',
   /** «Avisos al celular» del detalle del canal Celular (app/perfil/NotificacionesPanel.tsx, ?canal=celular). */
   notifAvisosCelular: 'tour-settings-notificaciones-avisos-celular',
   /** La fila «Extensión para Chrome» de Instalar la app (app/perfil/instalar/InstalarApp.tsx). */

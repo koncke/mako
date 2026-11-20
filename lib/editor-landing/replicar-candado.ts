@@ -18,6 +18,8 @@ import 'server-only';
 import { getWorkspaceActual, rutaConWs } from '../workspace';
 import { esEsencialDe, esEsencialDeLaSesion } from '../plan-esencial';
 import { RUTA_CAMBIAR_PLAN, textoSoloPro } from '../topes-plan';
+// El reto le abre una réplica en la prueba (20/11, lib/reto/pro-del-reto.ts): la primera vez, sin candado.
+import { abreElReto } from '../reto/pro-del-reto-server';
 
 /**
  * El texto del candado si el negocio paga MaKo Essential, o null. `ws`: el negocio (la API de MaKo pasa `ctx.ws`); sin él, el
@@ -26,7 +28,7 @@ import { RUTA_CAMBIAR_PLAN, textoSoloPro } from '../topes-plan';
 export async function candadoDeReplicar(ws?: number | null): Promise<string | null> {
   try {
     const w = ws === undefined ? await getWorkspaceActual() : ws;
-    return w != null && (await esEsencialDe(w)) ? textoSoloPro('replicar-landing') : null;
+    return w != null && (await esEsencialDe(w)) && !(await abreElReto('replicar-landing', { ws: w, usar: true })) ? textoSoloPro('replicar-landing') : null;
   } catch {
     return null;
   }
@@ -34,6 +36,6 @@ export async function candadoDeReplicar(ws?: number | null): Promise<string | nu
 
 /** El de las rutas de la pantalla: el texto y a dónde lleva «Pasar a Pro» (la forma de `candadoDePro` del scraper). */
 export async function candadoDeReplicarEnPantalla(): Promise<{ error: string; pasarAPro: string } | null> {
-  if (!(await esEsencialDeLaSesion())) return null;
+  if (!(await esEsencialDeLaSesion()) || (await abreElReto('replicar-landing', { usar: true }))) return null;
   return { error: textoSoloPro('replicar-landing'), pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) };
 }

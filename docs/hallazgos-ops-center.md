@@ -775,3 +775,27 @@ funnel van en DOS chats. Volvieron, sólo para quien ve el V2 (`lib/onboarding-v
 - **Trampa del entorno:** el filtro local de la punta corre sólo los tests «suyos» de lo tocado y no incluyó d6b-rutas (sí entra
   cuando se toca el test). El verde local no cubre esto: lo ve recién GitHub, con los tests afectados por el grafo.
 
+
+## Los videos de cada coach contra la maqueta: la lista, la clase en el hilo y la portada que queda (20/11/2026, V6, V7, V12, F3, F4)
+
+Lo que pedía la auditoría del Cerebro (auditoria-onboarding-reto-20-11.md, «Videos»). Lo puro está en lib/onboarding-v2/videos-coach.ts.
+El hilo lo arma `useHiloDelCoach` (app/second-brain/coach-compartido.tsx) para la computadora y el teléfono. El test es
+tests/onboarding-v2-coaches-videos.test.ts.
+- **El hilo del coach se escribía dos veces**: en ChatDelCoach.tsx y en HojaDelCoach.tsx (el teléfono), con la misma lógica copiada.
+  Un arreglo de la computadora (la portada que se iba, la clase clavada) no llegaba nunca al teléfono, que ni siquiera tenía la
+  clase. Ahora los dos llaman a `useHiloDelCoach`. **Regla:** lo del hilo de un coach va ahí, nunca en una de las dos pantallas.
+- **La clase no se guarda: se arma con el plan** (`itemClaseFunnel`) y se mete en el hilo según la hora (`conLaClase`), después
+  de todo lo que pasó hasta `guardadoEn`. Sin hora (un plan viejo), al final. Ojo: el hilo junta mensajes de distintas fuentes, y
+  uno sin hora no corre a la clase.
+- **La portada queda siempre** (V12). Por eso el «dale play» se pide sólo mientras es la portada del chat vacío (`dalePlay` en
+  `useVideoDelCoach`). Si no, con la charla empezada, subir hasta el video volvía a oscurecer la pantalla.
+- **Un video de la lista se ve en su mensaje** (F3, `verEnSuMensaje` en app/_ui/tutorial/VideosDelChat.tsx). Se baja de una (sin
+  animar) y recién ahí arranca. Con un scroll suave arrancaba fuera de la vista, y `useVideoQueFlota` lo mandaba a la esquina en el
+  acto.
+- **El rojo de tipos de 06c76ba31 (la «weak type detection»).** Una función genérica sobre los elementos del hilo (`conLaClase`)
+  pedía `T extends { at?: string | null }`. Las tarjetas, los avisos y los bloques del hilo (`ItemHilo`) no tienen `at`, y
+  TypeScript no deja pasar a un tipo de sólo opcionales uno que no comparte NINGUNA propiedad. Los tests en node no lo ven
+  (tsx no chequea tipos), y el tsc acotado no corre en la PC con menos de 4 GB libres. **Regla:** para algo genérico sobre el hilo,
+  T sin restricción y la propiedad leída como `unknown`; y devolver `T[]`, porque `ChatCliente.items` no es de sólo lectura.
+- **Las portadas de las clases y de los coaches tenían el play encima del título.** El manifiesto les pone `play: 'abajo-derecha'`.
+  La portada no cambia, y pantallas-onboarding/poster.mjs lo vuelve a poner después de un `hacer.mjs … web`.

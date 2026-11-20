@@ -5601,3 +5601,148 @@ titular), no se tiñe.
   sobrevive a la navegación de adentro de la app; al recargar no está. **La trampa: si el tutorial no arranca, la barra quedaría
   escondida para siempre.** Por eso tiene tres salidas: el paso que marca `aside[data-sidebar]` (y la frase del video que lo presenta,
   ANTES de buscarlo: escondido no se encuentra), el final del tutorial, y 9 s sin ningún tutorial.
+  En «Tu panel» se abre ENTERA y al pasar se vuelve a plegar (20/11, OD-03). La barra no expone cómo abrirse: el motor manda
+  el evento `mk-barra-entera` (barra-oculta.ts) y la barra lo oye como si fuera su flecha (`abiertaAca`), sin tocar lo que la
+  persona guardó. Se pliega en la limpieza del efecto del paso: vale igual si se pasa con el clic, con «Siguiente» o cerrando el video.
+
+
+## Las pausas a destiempo de los videos de los tutoriales: era el motor, no los tiempos (20/11/2026)
+
+**Vive en:** `app/_ui/tutorial/MotorTutorial.tsx` (el efecto «0. El video manda», `seguirVideo`, `siguiente`) ·
+`app/_ui/tutorial/pausas.ts` (las reglas, puras) · `tests/tutorial-pausas.test.ts` · la auditoría del Cerebro:
+`side-session-notes/…/auditoria-pausas-tutoriales-20-11.md`.
+
+- **El diagnóstico obvio era el equivocado.** Martín: «había muchos videos que se pausaban en el tiempo incorrecto». Parecía que los
+  tiempos del manifiesto estaban corridos. El Cerebro midió las 58 pausas contra la voz sola y TODAS caen en el silencio del final de
+  su frase. El que pausaba mal era el motor:
+  - con la marca de una frase ausente, pausaba en su t_inicio (el primer `timeupdate`, 0 a 250 ms adentro de la voz: cortaba la
+    primera sílaba) y esperaba hasta 4 s sin tarjeta ni velo. El video parecía colgado. Pasaba con una marca que no existe, con
+    una de otro rol, con una vista vacía (un CRM sin leads, un feed sin posts), en el teléfono con los pasos `soloComputadora` y
+    con las «Mira aquí», que el propio contrato decía que nunca pausan;
+  - después de un clic que navega o abre algo lento (el grafo tarda ~3 s, /perfil, /automations con su fetch) seguía en el acto: la
+    frase siguiente empezaba 0,4 s después, sin su marca, y frenaba a mitad de la voz;
+  - «Siguiente» no hacía el clic, y `pasoDeFrase` tiraba el `antes` del paso. Todo lo que dependía de ese clic (el menú de la foto,
+    Settings, el grafo) congelaba 4 s por frase, en cascada: hasta 6 × 4 s en el día 2 del reto.
+- **Las reglas (pausas.ts):** nunca se pausa en el t_inicio, y una marca que falta se busca mientras dura su voz. El único lugar de
+  pausa es el t_fin: ahí espera una frase marcada que pide el clic, y una sin marca espera sólo si la página está CARGANDO. Después
+  de un clic, el video queda quieto en el silencio de la frase tocada hasta que aparece la marca siguiente, con tope de 6 s.
+- **Cómo se sabe que la página «todavía va a cambiar»:** `CargandoMako` (`.cm-carga`) o una pantalla de carga con `aria-busy` (de
+  200 px o más: hay `aria-busy` chicos que quedan fijos); un link (`<a href>`) a otra ruta o consulta, mientras la URL no cambió
+  (/perfil no tiene `loading.tsx`: la página vieja sigue hasta que llega la nueva, sin ningún indicador); y la página que sigue
+  cambiando (un MutationObserver, sin contar lo del propio motor). Sin ninguna de esas, a los 600 ms y con medio segundo quieta, se
+  suelta: lo que iba a aparecer ya apareció.
+- **El clic de «Siguiente» es sintético (`el.click()`), y el de la persona no.** El motor escucha los clics en captura para saber
+  que tocaron lo marcado: sin mirar `isTrusted`, el clic de «Siguiente» contaba como tocado por la persona y el reto daba la tarea
+  por hecha (`alTocar` → `tareasQueCierra`).
+- **El `antes`, sólo si la marca falta y la frase anterior no se tocó.** El efecto de cada paso tocaba el `antes` al marcar; en el
+  modo video eso volvía a tocar el Second Brain con el grafo ya abierto. Ahora en el modo video lo toca el efecto 0, y sólo cuando la
+  marca no está.
+- **Un `play()` diferido necesita saber si todavía hay capa.** El reintento viejo no se cancelaba: cerrar el video durante la espera
+  dejaba un `v.play()` sobre el `<video>` desmontado, y la voz seguía sonando sin video. Todos los play pasan por `reproducir`, que
+  mira si la capa sigue montada y si el video sigue en la página.
+- **El manifiesto de los videos se pedía con `force-cache`** (`useVideoTutorial`): un navegador que ya lo tenía seguía con la lista
+  de antes de un deploy y no veía los videos nuevos (con «sin video, NADA», el lugar quedaba vacío). Ahora `no-cache`: revalida en
+  cada visita. Y «cargando» no es «no hay»: `useManifiestoListo` deja que la placa «Todavía no está grabado» salga sólo con el
+  manifiesto ya leído (antes se veía un momento aunque el video existiera). V10 y F1 de la auditoría.
+- **El video que pasa a la esquina era de ida nomás** (`useVideoQueFlota`): salía de la vista y flotaba, y al volver a verse había
+  dos reproductores del mismo video. Ahora el flotante anota su segundo en el store (`anotarTiempoFlotante`), y el mismo
+  IntersectionObserver, al verse otra vez, lo cierra (`volverAlChat`) y sigue en el chat desde ahí. Mientras flota, su lugar dice
+  «Se está viendo en la esquina ↘» (F2 de la auditoría).
+- **Las marcas que faltaban en la página (la tanda siguiente, tests/tutorial-marcas-auditoria.test.ts):**
+  - *Una función no viaja del servidor: la flecha de volver del grafo no existía en la computadora* (recorrido-6). El Grafo la
+    dibuja sólo con `alCerrar`, y el mapa de escritorio lo arma el servidor (`pagina.tsx`). El volver de escritorio ya llegaba por
+    contexto (`VolverDelGrafo`), pero sólo para un botón de la cabecera escondido arriba de 720 px. Ahora ese volver es la flecha
+    del grafo en todos los anchos, y la de la cabecera se sacó.
+  - *El tutorial de la pestaña se elegía sin la consulta* (ticketera-5): `TutorialDeLaRuta` usaba sólo `usePathname()`, y la
+    Ticketera vive en `/second-brain?ticketera=tickets`. Ahora lleva `useSearchParams()`, con su `Suspense`: sin él, el build no
+    prerenderiza las páginas estáticas que tienen el motor en el layout.
+  - `data-prioridad` en el Plan del teléfono (plan-4) y «Cargar un cliente» marcado también en el vacío y en la tabla
+    (classroom-clients-5; `EmptyState` acepta `marca`, sólo con `onClick`: `ButtonLink` no pasa atributos).
+  - El recorrido viejo de tarjetas (Spy, Dashboard, la ficha del CRM, el curso) ya no se abre solo donde el motor corre el video
+    de la pestaña (`useRecorrido`, OD-F4).
+- **Lo que quedó sin hacer, a propósito:**
+  - el botón de reuniones del CRM sin reuniones (crm-5) y mover la marca de Agency y de Partners al CTA de «Pásate a MaKo Pro»
+    (agency-5, partners-3). Lo primero cambia el CRM para todos los clientes, fuera del interruptor del V2. Lo segundo convierte un
+    CTA de compra en un «toca aquí» del tutorial. Con el motor nuevo esas frases se saltean sin congelar;
+  - el «+» de Llamadas (calendar-5): el alta de una llamada (la agenda, Calendly, la anotación) vive en `CalendarioApp`, y la
+    lista de llamadas es otra página;
+- **El catálogo (la tanda siguiente, tests/tutorial-catalogo-auditoria.test.ts):** los `antes` de Spy (abrir el competidor, tocar
+  Contenido) y de API (tocar Tokens); «Tus tickets» con «empieza con»; el lienzo de Automations con una marca fija (`au-lienzo`);
+  «Mira aquí» en lo que navega al tocarlo (calendar-4, classroom-4, image-3); `cierra_despues` en el modal de Categorías; sin marca
+  lo que todavía no existe (la tarjeta del ticket, las respuestas rápidas de Offer). Dos trampas:
+  - *El `antes` del paso llega a la frase sólo si los dos marcan lo mismo* (`mismoLugar`): cambiar el `sel` de un lado sin el
+    otro deja la frase sin su `antes`, sin ningún error. El test lo mira para cada frase con `antes`.
+  - *La fuente del manifiesto es `guiones.json`* (C:/dev/tutoriales-video, con la copia en scripts/tutorial-animado). Cambiar sólo el
+    manifiesto dura hasta la próxima subida, que lo vuelve a armar desde el guion. Se cambian los dos. Todos estos videos son
+    `soloTexto`: el `sel` no sale en el video, así que no hay que renderizar nada.
+  - Quedaron para el motor (se saltean sin pausar): dashboard («Nueva hoja» está dentro de un desplegable: dos clics, y el `antes`
+    es uno), chats-5 (no hay un selector fijo para «conectar»), copilot-3/4 (la Entrada ya hecha) y video/image sin consulta.
+- **El velo del motor entraba de golpe (OD-F2; app/_ui/tutorial/iris.ts, tests/tutorial-iris.test.ts).** Lo oscuro del motor no
+  es un elemento: es la sombra de 200vmax del hueco. Una MÁSCARA no sirve, porque recorta al borde del elemento (`mask-clip`,
+  border-box) y se lleva la sombra entera. Sirve un `clip-path: path(evenodd, …)`, que no recorta al borde: la pantalla entera menos
+  un círculo centrado en el hueco, que se achica desde la esquina más lejana hasta 0 en 720 ms, con la curva del barrido.
+  - Barre sólo cuando el hueco APARECE para una marca que todavía no barrió, y nunca con menos movimiento. La tarjeta aparece al
+    terminar.
+  - Es sólo del motor (V2): el Recorrido de todos no se tocó.
+  - Para mirarlo a mitad de camino sin `next dev`: el motor de verdad en un bundle de esbuild, con el reloj de los cuadros a mano
+    (`requestAnimationFrame` y `performance.now` reemplazados, `window.avanzarA(ms)`).
+  - Ese bundle necesita `window.process` definido. next/link lo lee al cargar, y sin él la página queda sin motor y sin error a la
+    vista.
+- **La entrada de un video en un chat y su «dale play» (V5; app/_ui/tutorial/entrada.ts, EntradaEscribiendo.tsx, useDalePlay.ts;
+  tests/tutorial-entrada.test.ts).** Una sola pieza para los coaches, la llegada al Ops Center, la bienvenida del onboarding y cada
+  día del reto (lo arma el chat del reto con las mismas piezas):
+  - `useEntrada(clave, activa)` + `<EntradaEscribiendo foto quien />`: la primera vez, 1,8 s con quien escribe y todo lo demás
+    oscuro;
+  - `<VideoDelMomento dalePlay />`, o `useDalePlay(ref, …)` para otro botón de play: quieto, el motor lo marca con «{título}: dale
+    play» y la X.
+  Las trampas:
+  - *Los coaches quedan montados y escondidos (`display: none`).* Una marca sobre un video escondido ocupa el motor sin verse, y
+    ninguna otra marca puede salir. Por eso el «dale play» marca sólo con el video a la vista (IntersectionObserver, más de la
+    mitad), y lo suelta al salir de la vista (`soltarSenal(id)`: sólo la suya, sin avisar). La entrada también espera a `visible`;
+    el Funnel Coach no lo recibía.
+  - *La fila de los tres puntitos se estira al ancho del chat.* Medir `.co-el` daba un hueco de 600 px, con la fila vacía
+    iluminada. Se mide la foto y los puntitos.
+  - *Tocar lo marcado termina la marca en el `pointerdown`*, antes del `click` que arranca el video. Con el video todavía quieto
+    se volvería a marcar. Por eso tocarlo cuenta como visto, igual que la X. (Es por construcción: no se midió).
+  - *Las portadas de los coaches tenían el play encima del título* («ningún anuncio la salva»). Ahora el manifiesto los pone
+    `abajo-derecha`. pantallas-onboarding/poster.mjs acepta `null` como segundo: corre el play sin tocar la portada.
+  - *El barrido es uno*: `barrer(nodo)` (./iris.ts) lo usan el motor y la entrada.
+  Lo que quedó sin hacer:
+  - el video del WhatsApp del onboarding va sin «dale play», a propósito. Llega junto a la tarjeta del código, y las tapas de la
+    marca no dejarían escribirlo;
+  - el «?» del motor (`.mk-tuto-ayuda`, z-index 900) queda encendido sobre cualquier velo, también sobre los de antes;
+  - los días del reto los cablea el chat del reto (app/second-brain/reto/ChatDelReto.tsx).
+- **Las marcas que ya no frenan pero tampoco salían (la auditoría de las pausas, lo que quedó).** Con el motor nuevo, una marca que
+  no está se saltea sin pausar. Eso esconde un caso: la voz dice «toca aquí» y no se marca nada.
+  - *Video e Image (video-3 a 5, image-3 a 5) no se marcaban NUNCA, tampoco a una cuenta nueva.* Sin `?ver=`, la pestaña abre
+    los outliers o el explorador de carruseles, y las marcas son de «Crear desde cero». El primer paso de cada tutorial lleva un
+    `antes` con el link que va ahí: `a[href="/video-editor?ver=crear"]` y `a[href="/image-editor?ver=crear"]`
+    (tests/tutorial-catalogo-auditoria.test.ts, el 4). El motor lo toca sólo si la marca falta, y la ruta nueva da el mismo tutorial.
+  - *Las demás sólo faltan en una cuenta con datos*: dashboard-3 a 5 (la galería, con hojas ya armadas), chats-5 (la bandeja con
+    chats), copilot-3/4 (el tablero ya armado). La auditoría las midió en una cuenta así. A la cuenta nueva del onboarding se le
+    marcan. Para que salgan siempre hay que tocar el componente de cada pestaña (un `antes` de dos clics en el Dashboard, una marca
+    en el botón de conectar de Chats). Queda anotado en side-session-notes/…/auditoria-estado-onboarding.md.
+  - **Regla:** antes de dar por «rota» una marca de un tutorial, mirarla con una cuenta NUEVA, que es para quien corre el
+    tutorial la primera vez. Y si falta también ahí, buscar a qué pantalla lleva el link de la entrada de la pestaña.
+- **El `antes` en cadena: lo que está detrás de dos clics** (20/11; Chats con canales, «Canal › Conectar un canal», y el Dashboard
+  con hojas, «las hojas › Nueva hoja»). `antes` acepta una lista (lib/tutoriales/tipos.ts). El motor (`tocarAntes`) arranca en el
+  ÚLTIMO eslabón que ya está a la vista (`pasoDeLaCadena`, ./pausas.ts), porque la frase anterior pudo dejar el menú abierto, y
+  espera cada uno hasta `TOPE_CADENA_MS`. Si el siguiente no aparece (un closer no tiene «Conectar un canal»), cierra lo abierto:
+  nunca deja un menú colgado. Tests: tests/tutorial-pausas.test.ts, el 11 y el 12.
+  - *Sin video, el motor tocaba el `antes` OTRA VEZ apenas encontraba la marca.* El efecto vuelve a correr cuando cambia
+    `siguiente`, que depende de `el`. Con un `antes` de uno, ese segundo clic cerraba el menú que acababa de abrir. Con la cadena se
+    vio en el navegador: «Canal» y «Conectar» se tocaban dos veces. Ahora, sin video también, sólo si la marca falta (como con
+    video). Lo midió una página de mentira con el motor de verdad: el menú cerrado, el menú ya abierto y sin la opción.
+  - Un renglón del `Dropdown` lleva su lugar sólo si lo pide (`marca` → `data-recorrido`). El componente lo usan decenas de
+    pantallas, y las demás no cambian de marcado.
+- **El tutorial de Chats no podía mostrar nunca sus tres marcas** (leído en el código, 20/11; tests/tutorial-chats-vacio.test.ts).
+  Sin canales, que es lo que ve toda cuenta nueva del onboarding, la pantalla es sólo «Conecta un canal…»: no hay bandeja ni
+  «Canal», y la voz decía «toca aquí, en Todos» sin marcar nada. Con canales, WhatsApp vive dentro del modal de conectar.
+  - Ahora un tutorial puede traer una `variante`: un selector que existe sólo en otro estado de la pantalla, y el tutorial de ese
+    estado. El motor la mira con la pantalla ya pintada (`useVariante`, con un MutationObserver: los datos de Chats llegan después
+    del primer pintado).
+  - Cada uno anota su «visto» aparte. Quien conecta su primer canal ve después el de siempre, una vez.
+  - Chats vacío lleva su video (`chats-vacio`), con la única marca que existe ahí, el botón WhatsApp.
+  - **Regla:** nunca prometer en un tutorial lo que la app no hace. Antes de grabar «MaKo te sugiere qué contestar» se miró en el
+    código que el botón MaKo de la caja de Chats sugiere en WhatsApp para todos los planes. Lo de Pro es otra cosa, el setter que
+    contesta solo.

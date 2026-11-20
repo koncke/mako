@@ -13,31 +13,19 @@
     "rol": "gancho"
    },
    {
-    "dice": "Te doy la bienvenida a Máko: desde hoy tienes un equipo entero trabajando para tu negocio.",
+    "dice": "Muchas gracias por sumarte.",
     "rol": "gancho"
    },
    {
-    "dice": "Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho.",
+    "dice": "Ya activaste tu prueba gratuita de siete días, y no quiero que sea como tantas otras que activaste y no aprovechaste.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Por eso creé un reto de siete días: cada día, un paso, con un video mío, para que exprimas esta aplicación.",
     "rol": "cosa"
    },
    {
     "dice": "Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
-    "rol": "cosa"
-   },
-   {
-    "dice": "Una de ellas es tu WhatsApp: es por donde Máko te manda avances sobre tu negocio.",
-    "rol": "cosa"
-   },
-   {
-    "dice": "Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito.",
-    "rol": "cosa"
-   },
-   {
-    "dice": "Máko te contesta con un código, y lo pegas en el chat.",
-    "rol": "cosa"
-   },
-   {
-    "dice": "Y guarda el contacto de Máko en tu teléfono: así esos avances siempre te llegan.",
     "rol": "cierre"
    }
   ]
@@ -936,6 +924,14 @@
     "sel": "[data-recorrido=\"tour-settings-integraciones\"]"
    },
    {
+    "dice": "Una más: dile a Máko por WhatsApp a qué hora te escribe sobre el reto.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+    "rol": "cosa"
+   },
+   {
     "dice": "Y al final, toca aquí, en tu perfil, y sube tu foto: lo que contaste ya está guardado.",
     "rol": "accion",
     "tipo": "toca",
@@ -943,14 +939,6 @@
    },
    {
     "dice": "Hoy ganas velocidad: lo que pasa en tu negocio, lo ves en tu teléfono.",
-    "rol": "cierre"
-   },
-   {
-    "dice": "Para cerrar el día, dile a Máko por WhatsApp a qué hora te escribe sobre el reto.",
-    "rol": "cierre"
-   },
-   {
-    "dice": "Le escribes tú primero, y así WhatsApp no frena sus mensajes.",
     "rol": "cierre"
    }
   ],
@@ -990,7 +978,8 @@
    }
   ],
   "porque": "19/11: gancho → porqué con un ejemplo de los cursos → los toques de siempre → cierre (guiones-dias-2-7.md)",
-  "pesoMaxMb": 5
+  "pesoMaxMb": 5,
+  "nota": "20/11: el orden de la maqueta (d24-19): la hora de WhatsApp antes y el perfil último."
  },
  {
   "id": "reto-dia-3",
@@ -1625,8 +1614,7 @@
    },
    {
     "dice": "Para ir a fondo, toca aquí, en Analicemos mi oferta: te marca qué falta y la mejora, en PDF.",
-    "rol": "cierre",
-    "sel": "[aria-label=\"Respuestas rápidas\"] button"
+    "rol": "cierre"
    }
   ],
   "ajustes": "Paso 1: «en el onboarding» → «de tu oferta» (desde el 16/11 el onboarding no pregunta la oferta).",
@@ -2081,7 +2069,7 @@
    {
     "dice": "Pruébalo ya: toca aquí, en Tus tickets, para seguir su estado y la respuesta.",
     "rol": "cierre",
-    "sel": "button[aria-label=\"Tus tickets\"]"
+    "sel": "button[aria-label^=\"Tus tickets\"]"
    }
   ],
   "soloTexto": true,
@@ -2163,7 +2151,7 @@
     "rol": "accion",
     "sel": "a[href=\"/calendario?vista=llamadas\"]",
     "cierra": true,
-    "tipo": "toca"
+    "tipo": "mira"
    },
    {
     "dice": "Si tuviste una llamada fuera de la agenda, toca aquí, en el botón más de Ventas, y anótala.",
@@ -2244,7 +2232,7 @@
    {
     "dice": "Mira aquí, el lienzo: ahí se arma cada una, y nada sale hasta que la publicas y la activas.",
     "rol": "accion",
-    "sel": "[data-lienzo-vacio=\"true\"]",
+    "sel": "[data-recorrido=\"au-lienzo\"]",
     "tipo": "mira"
    },
    {
@@ -2767,7 +2755,7 @@
     "rol": "accion",
     "sel": "[data-recorrido=\"vista-alumno\"]",
     "cierra": true,
-    "tipo": "toca"
+    "tipo": "mira"
    },
    {
     "dice": "Tu turno: completa tu curso y toca aquí, en Invitar alumnos.",
@@ -3040,7 +3028,7 @@
     "rol": "accion",
     "sel": "span[aria-label=\"Lista o tips: portada\"]",
     "cierra": true,
-    "tipo": "toca"
+    "tipo": "mira"
    },
    {
     "dice": "Toca aquí, en Ver ejemplo, y mira cómo queda la pieza terminada.",
@@ -3196,6 +3184,40 @@
   "v5": true
  },
  {
+  "id": "chats-vacio",
+  "pestana": "Chats",
+  "ruta": "/chats",
+  "icono": "lucide:messages-square",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "ojo": "Chats VACÍO, sin ningún canal (lo que ve toda cuenta nueva del onboarding): sólo «Conecta un canal…» y los botones WhatsApp, Instagram, Messenger y Email. La única marca que existe ahí es el botón WhatsApp. Lo elige el motor con la marca tour-chats-sin-canales (lib/tutoriales/chats-vacio.ts). Guion aprobado por el Cerebro el 20/11; «Máko te sugiere qué contestar» comprobado en el código: el botón MaKo de la caja de Chats sugiere en WhatsApp para todos los planes (el setter que contesta solo es otra cosa, de Pro).",
+  "pasos": [
+   {
+    "dice": "WhatsApp, Instagram, Messenger y email, en una sola bandeja.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida a Chats: aquí lees los mensajes de tus clientes, escriban por donde escriban.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Todavía no conectaste ninguno: por eso la ves vacía.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Empieza por WhatsApp: es por donde más te escriben, y ahí Máko te sugiere qué contestar.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.",
+    "rol": "cierre",
+    "tipo": "toca",
+    "sel": "[data-recorrido=\"tour-chats-whatsapp\"]"
+   }
+  ]
+ },
+ {
   "id": "classroom-community",
   "pestana": "Community",
   "ruta": "/classroom/community",
@@ -3215,7 +3237,8 @@
     "dice": "Toca aquí, en Categorías, para ordenar los temas de tu comunidad.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-classroom-community-categorias\"]",
-    "tipo": "toca"
+    "tipo": "toca",
+    "cierra": true
    },
    {
     "dice": "Toca aquí, en el menú de un post, y elige Fijar arriba para lo que nadie se puede perder.",
@@ -4436,13 +4459,11 @@
    {
     "dice": "Mira aquí, el ticket que arma Máko: revisa que diga lo que pasó antes de mandarlo.",
     "rol": "accion",
-    "sel": "[data-tarjeta=\"ticket\"]",
     "tipo": "mira"
    },
    {
     "dice": "Cuando esté claro, toca aquí, en Mandárselo al equipo: si te preguntan algo, verás Espera tu respuesta.",
-    "rol": "cierre",
-    "sel": "[data-tarjeta=\"ticket\"] button.co-chip--primario"
+    "rol": "cierre"
    }
   ],
   "ojo": "Es EL MISMO chat de Soporte que el tutorial aprobado de la Ticketera (#2): se puede reusar ese guion en vez de éste. La pantalla se titula «Reportar problema» aunque en el menú diga «Report a problem». La ven todos los roles y no la frena el onboarding.",

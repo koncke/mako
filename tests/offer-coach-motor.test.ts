@@ -49,8 +49,10 @@ test('3. el Offer Coach sigue SU conversación de Offer con el motor de Offer', 
   const c = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.match(c, /if \(offerDirecto\) \{ setItems\(itemsDeOffer\(s\.mensajes, conWsDeAudio\)\); return; \}/, 'con el id de Offer en cada mensaje');
   const chat = sinComentarios(leer('app/second-brain/ChatDelCoach.tsx'));
-  assert.match(chat, /const hiloCoach = useHiloConPortada\(k, motorOffer && sinEscribir \? portada\.items : null\);/);
-  assert.match(chat, /<HiloDelCliente k=\{hiloCoach\} enMensaje=\{motorOffer \? enMensajeOffer : dosCoaches \? conVoz\(false\) : undefined\} \/>/);
+  // (20/11, V12: la portada queda siempre arriba, y el hilo lo arma coach-compartido.tsx → useHiloDelCoach: tests/onboarding-v2-coaches-videos.test.ts.)
+  assert.match(chat, /useHiloDelCoach\(\{ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta \}\)/);
+  assert.match(chat, /<HiloDelCliente k=\{hiloCoach\} enMensaje=\{enMensajeDelHilo\} \/>/);
+  assert.match(sinComentarios(leer('app/second-brain/coach-compartido.tsx')), /return conVoz\(false, motorOffer \? \(deLaOferta as never\) : undefined\)\(x\);/, 'con el motor de Offer, la oferta en su mensaje');
 });
 
 type Sesion = Record<string, unknown>;
@@ -117,7 +119,7 @@ test('6. el teléfono: la voz de los coaches y el mismo motor', () => {
   const h = sinComentarios(leer('app/m/second-brain/HojaDelCoach.tsx'));
   assert.match(h, /const conVoz = vozDelCoach\(k\.items\);/);
   assert.match(h, /enMensaje=\{dosCoaches \? conVoz\(true, portada\.enMensaje as never\) : portada\.enMensaje\}/, 'el saludo, con su voz');
-  assert.match(h, /<HiloDelCliente k=\{hiloCoach\} enMensaje=\{motorOffer \? enMensajeOffer : dosCoaches \? conVoz\(false\) : undefined\} \/>/);
+  assert.match(h, /<HiloDelCliente k=\{hiloCoach\} enMensaje=\{enMensajeDelHilo\} \/>/);
   assert.match(h, /useOfertaEnMensaje\(motorOffer \? k\.sesionOffer : null, \(\) => caja\.current\?\.focus\(\), true\)/, 'en el teléfono el PDF baja directo');
   // Sin el panel de la computadora: lo compartido vive aparte.
   assert.doesNotMatch(h, /from '@\/app\/second-brain\/ChatDelCoach'/);

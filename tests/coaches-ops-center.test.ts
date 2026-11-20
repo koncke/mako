@@ -65,7 +65,9 @@ test('2. el hilo del Funnel Coach no se repite en el resto de la lista: su fila 
 test('3. tiene su hilo propio, y la pantalla lo abre debajo del Ops Center, con las conversaciones de oferta colgando de él', () => {
   assert.ok(TABS_CON_CHAT_PROPIO.includes(TAB_FUNNEL_COACH));
   const p = leer('app/second-brain/ChatSecondBrain.tsx');
-  assert.match(p, /<div className="co-cuenta co-cuenta--cerebro">\{fila\(cerebroFila\)\}<\/div>\n\s*\{coaches\}/, 'el coach va debajo del Ops Center');
+  // Sin el onboarding V2, debajo del Ops Center; con el V2 (20/11, OD-08), después del chat «Onboarding» y del Reto (la maqueta).
+  assert.match(p, /<div className="co-cuenta co-cuenta--cerebro">\{fila\(cerebroFila\)\}<\/div>\n\s*\{!retoV2 && coaches\}/, 'el coach va debajo del Ops Center');
+  assert.match(p, /onElegir=\{abrirReto\} \/>\n\s*<\/div>\n\s*\)\}\n\s*\{retoV2 && coaches\}/, 'con el V2, después del Reto');
   // Sus herramientas son del admin, y un closer no ve Offer: lo cerraría la puerta de la tab.
   assert.match(p, /const verCoach = ops \|\| veMapa \|\| puedeElegir;/);
   assert.match(p, /\{verCoach && !dosCoaches && \(\n\s*<div className="co-jefe">\n\s*<FilaDeChat titulo=\{ORIGEN_FUNNEL_COACH\}/);
@@ -584,13 +586,15 @@ test('21. el Offer Coach tiene su conversación, fija en su fila, y su video la 
   assert.deepEqual(lista.map((f) => f.clave), ['jefe', 'a8'], 'las dos conversaciones de los coaches van en su fila fija, no en el resto');
   // Su video y el del Funnel Coach (las claves acordadas con el chat de los videos), sólo con los dos coaches y con el chat vacío.
   const v = leer('app/second-brain/VideoDelCoach.tsx');
-  assert.match(v, /<VideoDelMomento clave="offer-coach" titulo=\{ORIGEN_OFFER_COACH\} revision=\{revision\} \/>/);
-  assert.match(v, /<VideoDelMomento clave="funnel-coach" titulo=\{ORIGEN_FUNNEL_COACH\} revision=\{revision\} \/>/);
+  // (20/11, V5: quietos, marcados con «dale play»: tests/tutorial-entrada.test.ts.)
+  // (20/11, F4: arriba del texto; el «dale play» sólo mientras es la portada: tests/onboarding-v2-coaches-videos.test.ts.)
+  assert.match(v, /<VideoDelMomento clave="offer-coach" titulo=\{ORIGEN_OFFER_COACH\} revision=\{revision\} dalePlay=\{dalePlay\} \/>/);
+  assert.match(v, /<VideoDelMomento clave="funnel-coach" titulo=\{ORIGEN_FUNNEL_COACH\} revision=\{revision\} dalePlay=\{dalePlay\} \/>/);
   assert.match(v, /useVideoTutorial\(dosCoaches \? clave : null\)/);
   assert.match(v, /const conVideo = dosCoaches && \(video != null \|\| revision\);/);
   for (const f of ['app/second-brain/ChatDelCoach.tsx', 'app/m/second-brain/HojaDelCoach.tsx']) {
     const c = leer(f);
-    assert.match(c, /const portada = useVideoDelCoach\(cual, dosCoaches, saludo\);/, f);
+    assert.match(c, /const portada = useVideoDelCoach\(cual, dosCoaches, saludo(?:, enPortada)?\);/, f); // (20/11: el «dale play», sólo en la portada)
     assert.match(c, /<HiloMako items=\{portada\.items\} [^\n]*enMensaje=\{(?:dosCoaches \? conVoz\(true, portada\.enMensaje as never\) : )?portada\.enMensaje\}/, `${f}: en la portada (el chat vacío)`);
   }
   // El Funnel Coach del V2 no elige referente (su criatura); el Offer Coach sí.

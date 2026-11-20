@@ -190,7 +190,7 @@ function renderOption(
   if (!o.acciones?.length) {
     return (
       <button key={o.value} type="button" disabled={o.disabled} onClick={elegir}
-        data-fuente={o.fuente ? o.value : undefined}
+        data-fuente={o.fuente ? o.value : undefined} data-recorrido={o.marca}
         // Un renglón que se prende y se apaga es un botón de dos estados: `aria-pressed`
         // dice cuál, sin tener que declararle un rol a éste solo (ningún renglón de este
         // menú declara el suyo, y uno solo con rol es peor que ninguno).
@@ -272,6 +272,11 @@ export type DropdownOption = { value: string; label: string; /** Un ícono antes
    * (app/_cursos/SelectorFuente.tsx las pide al verse).
    */
   fuente?: string;
+  /**
+   * El lugar del renglón para el motor de los tutoriales (`data-recorrido`, lib/tutoriales/marcas.ts): sólo en el que lo pide (20/11,
+   * «Conectar un canal» de Chats). Sin él, el renglón no cambia de marcado.
+   */
+  marca?: string;
   /**
    * La salida para CREAR uno nuevo, no una opción más de la lista.
    *

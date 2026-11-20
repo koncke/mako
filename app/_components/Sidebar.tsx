@@ -45,6 +45,7 @@ import { InterruptorModo } from './InterruptorModo';
 import { useMakoAbierto } from '@/app/_chat/mako-abierto';
 import { iniciales } from '@/lib/unicode-seguro';
 import { CartelPrueba } from './CartelPrueba';
+import { EVENTO_BARRA_ENTERA } from '@/app/_ui/tutorial/barra-oculta';
 import { MedidorDeUso } from './MedidorDeUso';
 
 const MONO = "'Geist Mono', monospace";
@@ -546,6 +547,12 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const plegadaAca = enOpsCenter || angosta || makoAbierto;
   const [abiertaAca, setAbiertaAca] = useState(false);
   useEffect(() => { setAbiertaAca(false); }, [plegadaAca]);
+  // El recorrido del onboarding V2 la abre entera en «Tu panel» y la vuelve a plegar al pasar (app/_ui/tutorial/barra-oculta.ts).
+  useEffect(() => {
+    const alPedir = (e: Event) => setAbiertaAca((e as CustomEvent<boolean>).detail === true);
+    window.addEventListener(EVENTO_BARRA_ENTERA, alPedir);
+    return () => window.removeEventListener(EVENTO_BARRA_ENTERA, alPedir);
+  }, []);
   const fija = barraFija(fijaGuardada, plegadaAca, abiertaAca);
   const setFija = (v: boolean) => {
     const guardar = loQueGuardaLaFlecha(v, plegadaAca);

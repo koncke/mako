@@ -19,17 +19,25 @@
 // =============================================================================
 import { useRef, useState, type MouseEvent } from 'react';
 import { Icon } from '@/app/_components/icons';
-import { useVideoTutorial } from './useVideoTutorial';
+import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
+import { useSenal } from './store';
 import { useVideoQueFlota } from './useVideoQueFlota';
+import { useDalePlay } from './useDalePlay';
 
 type Estado = 'quieto' | 'reproduciendo' | 'pausado' | 'terminado';
 const VELOCIDADES = [1, 1.25, 1.5, 2] as const;
 const mmss = (s: number) => { const t = Math.max(0, Math.round(s || 0)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 const conMayuscula = (s: string) => (s ? s.charAt(0).toLocaleUpperCase('es') + s.slice(1) : s);
 
-/** `onTermina`: cuando el video llegó al final (el onboarding V2 suelta ahí su primera pregunta). */
-export function VideoDelMomento({ clave, titulo, revision, onTermina }: { clave: string; titulo: string; revision: boolean; onTermina?: () => void }) {
+/**
+ * `onTermina`: cuando el video llegó al final (el onboarding V2 suelta ahí su primera pregunta). `dalePlay`: mientras está quieto, el
+ * motor lo marca con «{título}: dale play» (V5, ./useDalePlay.ts): el video con el que abre un chat (los coaches, el reto, la bienvenida).
+ */
+export function VideoDelMomento({ clave, titulo, revision, onTermina, dalePlay = false }: { clave: string; titulo: string; revision: boolean; onTermina?: () => void; dalePlay?: boolean }) {
   const v = useVideoTutorial(clave);
+  const listo = useManifiestoListo();
+  const senal = useSenal();
+  const flotando = senal?.tipo === 'video' && senal.clave === clave;
   const ref = useRef<HTMLVideoElement>(null);
   // Si sale de la vista corriendo (o se navega), sigue abajo a la derecha (Martín, 18/11).
   useVideoQueFlota(ref, v ? clave : null, titulo);
@@ -39,9 +47,12 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina }: { clave:
   const [durLeida, setDur] = useState(0);
   const [vel, setVel] = useState<number>(1);
   const dur = durLeida || v?.duracion_s || 0;
+  const raiz = useRef<HTMLDivElement>(null);
+  useDalePlay(raiz, { clave, titulo, activo: dalePlay && !!v && estado === 'quieto' && !flotando });
 
+  // La placa, sólo con el manifiesto ya leído (F1): mientras carga, nada.
   if (!v) {
-    return revision
+    return revision && listo
       ? <><style>{CSS}</style><div className="mk-vmom mk-vmom--lugar" data-clave={clave} role="note"><b>Tu video: {titulo}</b><span>Todavía no está grabado: va aquí.</span></div></>
       : null;
   }
@@ -61,13 +72,15 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina }: { clave:
   const corre = estado === 'reproduciendo';
   const terminado = estado === 'terminado';
   return (
-    <div className="mk-vmom" data-clave={clave} data-estado={estado}>
+    <div ref={raiz} className="mk-vmom" data-clave={clave} data-estado={estado}>
       <style>{CSS}</style>
-      <div className="mk-vmom__pantalla" onClick={alternar}>
+      <div className={`mk-vmom__pantalla${v.play === 'abajo-derecha' ? ' mk-vmom__pantalla--abajo-derecha' : ''}`} onClick={alternar}>
         <video ref={ref} className="mk-vmom__video" src={v.archivo} poster={v.poster} playsInline preload="metadata"
           onPlay={() => setEstado('reproduciendo')} onPause={(e) => { if (!e.currentTarget.ended) setEstado('pausado'); }}
           onEnded={() => { setEstado('terminado'); onTermina?.(); }} onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
           onLoadedMetadata={(e) => { if (Number.isFinite(e.currentTarget.duration)) setDur(e.currentTarget.duration); }} />
+        {/* Mientras flota abajo a la derecha, su lugar lo dice (20/11, F2): vuelve solo cuando el mensaje se ve otra vez. */}
+        {flotando && <span className="mk-vmom__esquina" role="status">Se está viendo en la esquina ↘</span>}
         {/* Al terminar, otra vez la portada: nunca el último cuadro con los controles encima. */}
         {terminado && v.poster && <img className="mk-vmom__portada" src={v.poster} alt="" />}
         {/* La portada de verdad ya trae su título (el personaje y «¡Hola! Soy Martín…»): encima, sólo el play. */}
@@ -96,6 +109,9 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina }: { clave:
 const CSS = `
 .mk-vmom { width: 400px; max-width: 100%; box-sizing: border-box; border-radius: 14px; overflow: hidden; background: #0E1219; color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.12); margin: 2px 0 4px; }
 .mk-vmom__pantalla { position: relative; aspect-ratio: 16 / 9; display: grid; place-items: center; background: #000; overflow: hidden; cursor: pointer; }
+.mk-vmom__esquina { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 3; padding: 6px 12px; border-radius: 999px; background: rgba(0,0,0,.72); color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; pointer-events: none; }
+/* El play en otra esquina de la portada, cuando el centro no está vacío (lo dice el campo play del manifiesto). */
+.mk-vmom__pantalla--abajo-derecha { place-items: end end; padding: 12px; box-sizing: border-box; }
 .mk-vmom__video, .mk-vmom__portada { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
 .mk-vmom__play { position: relative; z-index: 1; width: 64px; height: 64px; border-radius: 50%; border: 0; background: rgba(0,0,0,.45); color: #fff; display: grid; place-items: center; cursor: pointer; transition: transform .15s ease, background .15s ease; }
 .mk-vmom__play:hover { background: rgba(0,0,0,.6); transform: scale(1.04); }

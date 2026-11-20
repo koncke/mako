@@ -60,10 +60,11 @@ test('3. la barra lateral, oculta desde «Entrar a MaKo» hasta el paso que la p
   assert.equal(presentaLaBarra('[data-recorrido="sb-second-brain"]'), false);
   assert.match(leer('app/_ui/ui.css'), /html\[data-barra-oculta\] aside\[data-sidebar\] \{ display: none !important; \}/);
   const v2 = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
-  assert.match(v2, /setSaliendo\(true\);\n\s*esconderLaBarra\(\);\n\s*router\.push\(rutaDelHilo\(/, '«Entrar a MaKo» la esconde');
+  // (20/11, OD-13: entre las dos, la pausa de los videos del onboarding, para que no pasen flotando al Ops Center.)
+  assert.match(v2, /setSaliendo\(true\);\n\s*for \(const v of Array\.from\(document\.querySelectorAll<HTMLVideoElement>\('\.arr-v2 video'\)\)\) v\.pause\(\);\n\s*esconderLaBarra\(\);\n\s*router\.push\(rutaDelHilo\(/, '«Entrar a MaKo» la esconde');
   const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
   assert.match(m, /if \(presentaLaBarra\(paso\.sel\)\) mostrarLaBarra\(\);/, 'el paso «Tu panel» la muestra');
-  assert.match(m, /if \(presentaLaBarra\(pasoDeFrase\(f, pasos\)\.sel\)\) mostrarLaBarra\(\);/, 'y la frase del video que la presenta, antes de buscarla');
+  assert.match(m, /const paso = pasoDeFrase\(f, pasos\);\n[^\n]*\n\s*if \(presentaLaBarra\(paso\.sel\)\) mostrarLaBarra\(\);\n\s*if \(lugarDe\(paso\.sel\)\)/, 'y la frase del video que la presenta, antes de buscarla');
   assert.match(m, /const fin = useCallback\(\(como: 'fin' \| 'omitido' \| 'hecho'\) => \{ mostrarLaBarra\(\); terminar\(senal\.id, como\); \}/, 'al terminar vuelve');
   assert.match(m, /window\.setTimeout\(mostrarLaBarra, ESPERA_BARRA_MS\)/, 'nunca queda escondida sin salida');
   // El recorrido presenta la barra (su paso «Tu panel»).

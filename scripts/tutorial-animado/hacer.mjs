@@ -89,8 +89,11 @@ if (W.length !== totalTokens) { console.log(`la alineación trae ${W.length} pal
 let _iw = 0;
 const FRASES = g.pasos.map((p, i) => {
   const ws = W.slice(_iw, _iw + tokensPaso[i]); _iw += tokensPaso[i];
+  // t_fin EN EL SILENCIO del final de la frase (el Cerebro, 20/11): la mitad del hueco hasta la palabra siguiente, 0,35 s como mucho.
+  // Con el final justo en la última palabra, la pausa del motor (t_fin - 0,05) cortaba su última sílaba.
+  const fin = ws[ws.length - 1].end, sigue = W[_iw]?.start ?? fin + 0.7;
   const fr = { id: `${id}-${i + 1}`, rol: p.rol || null, texto: p.dice.trim().replace(/Máko/g, 'MaKo'),
-    t_inicio: +ws[0].start.toFixed(2), t_fin: +ws[ws.length - 1].end.toFixed(2) };
+    t_inicio: +ws[0].start.toFixed(2), t_fin: +(fin + Math.min(0.35, Math.max(0, sigue - fin) / 2)).toFixed(2) };
   if (p.ver) for (const [a, b] of Object.entries(p.ver)) fr.texto = fr.texto.replace(new RegExp(`(^|[^\\p{L}])${a}(?=[^\\p{L}]|$)`, 'giu'), (m, pre) => pre + b);
   if (p.sel) fr.sel = p.sel;
   if (p.falta) { fr.falta = true; if (p.donde) fr.donde = p.donde; }
@@ -266,7 +269,9 @@ beats.forEach((b) => {
   // line passes behind his head; on the close, it sits above him
   if (b.modo === 'heroe' && (rol === 'gancho' || rol === 'que-es')) b.detras = true;
   // the hook: NOTHING of it is covered, in any frame (the Cerebro, 19/11: «la cabeza tapa el final del gancho», day 3)
-  if (b.detras && rol === 'gancho') b.gancho = true;
+  // 20/11, el Cerebro: «el texto nunca se tapa». Vale para TODA pantalla grande con letras por detrás: el gancho y «Te doy la
+  // bienvenida…» (la regla del 18/11 dejaba tapar el tercio de abajo, y en el día 2 el pelo tapaba «dos»). `gancho` = nada tapado.
+  if (b.detras) b.gancho = true;
   // an object in his hand when the sentence is about it: a microphone for a voice note, a phone for the phone
   if (/nota de voz|grábale|audio/i.test(b.text)) { b.objeto = 'mic'; b.pose = 'sostiene'; }
   else if (/celular|teléfono/i.test(b.text) && b.modo !== 'titulo') { b.objeto = 'tel'; b.pose = 'sostiene'; }

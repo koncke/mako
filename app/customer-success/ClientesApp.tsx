@@ -69,6 +69,7 @@ import { avanceDeCliente } from './aviso-tarjeta';
 import { guardarTarjetaClientesAction } from './tarjeta-actions';
 import { PersonalizarTarjetas } from '@/app/_ui/PersonalizarTarjetas';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import {
   CAMPOS_TARJETA_CLIENTE, NOMBRE_CAMPO_TARJETA_CLIENTE, PLANTILLAS_TARJETA_CLIENTE, prefsTarjetaClientesDe,
   type CampoTarjetaCliente, type FormaTarjetaCliente, type PlantillaTarjetaCliente, type PrefsTarjetaCliente,
@@ -1029,7 +1030,8 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
           <EmptyState
             titulo="Todavía no tienes clientes"
             detalle="Cárgalo aquí, o marca la venta de un lead como ganada en el CRM."
-            accion={{ label: 'Cargar un cliente', onClick: () => setCreando('') }}
+            // La marca del tutorial de Classroom · Clientes («Toca aquí, en Cargar un cliente»): sin clientes, la checklist no está (20/11).
+            accion={{ label: 'Cargar un cliente', onClick: () => setCreando(''), marca: MARCA.classroomClientsCargar }}
           />
         </>
       ) : (

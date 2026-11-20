@@ -22,11 +22,12 @@ import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { veOnboardingV2, esRevision } from '@/lib/onboarding-v2/revision';
 import { prefiereMovil } from '@/lib/movil-guard';
-import { ChatArranque } from './ChatArranque';
+import { ChatArranque, SeguirEnPc } from './ChatArranque';
 import { ChatArranqueV2 } from './ChatArranqueV2';
 import { requireRolWs } from '@/lib/tab-access';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
-import { vistaArranque } from '@/lib/onboarding-arranque-server';
+import { seguirEnPcPendiente, vistaArranque } from '@/lib/onboarding-arranque-server';
+import { primerNombre } from '@/lib/onboarding-arranque';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import { ARBOL_VACIO } from '../offer/arbol';
 import { sembrarArranqueDesdeOrigen } from '@/lib/origen-negocio';
@@ -52,15 +53,17 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   if (!done) {
     // De qué landing vino (23/10/2026, lib/origen-negocio.ts): lo que el origen ya contesta queda contestado, sin pisar nada.
     const wsOrigen = await getWorkspaceActual();
-    if (wsOrigen != null) await sembrarArranqueDesdeOrigen(wsOrigen);
+    const sesion = await getUsuarioActual().catch(() => null);
+    const v2 = !!sesion && veOnboardingV2({ email: sesion.email, ws: wsOrigen });
+    // En el V2 NO se siembra (20/11, OA-16): «¿Cómo llegaste a MaKo?» se pregunta siempre y la contesta ella. Con lo sembrado, el V2
+    // salteaba la pregunta y dibujaba una burbuja «de ella» que nunca escribió. El V2 tampoco usa el `interes` sembrado (tiene los suyos).
+    if (wsOrigen != null && !v2) await sembrarArranqueDesdeOrigen(wsOrigen);
     const vista = await vistaArranque();
     // ⚠️ `key` CON EL WORKSPACE (18/10/2026, Martín: al abrir otro negocio aparecieron las respuestas de «Consultesis»,
     // que sólo existían en el ws 3). El chat guarda la conversación en su estado (`useState(inicial)`), y pasar de un
     // `?ws=` a otro sin recargar deja montado el MISMO componente: React le pasa la vista nueva y él sigue mostrando las
     // respuestas del negocio anterior. Con la key, otro workspace es otro chat, de cero. tests/onboarding-otro-ws.test.ts.
     // El onboarding V2 en un TELÉFONO (18/11/2026): el primer paso acá y, al terminar, «Continuar el onboarding desde la PC».
-    const sesion = await getUsuarioActual().catch(() => null);
-    const v2 = !!sesion && veOnboardingV2({ email: sesion.email, ws: wsOrigen });
     const seguirEnPc = v2 && (await prefiereMovil().catch(() => false));
     const persona = sesion ? { nombre: (sesion.nombre ?? '').trim().split(/\s+/)[0] ?? '', email: sesion.email } : undefined;
     const ws = await getWorkspaceActual();
@@ -71,6 +74,13 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} seguirEnPc={seguirEnPc} persona={persona} videos={v2 ? { revision: esRevision(v2) } : null} />;
   }
 
+  // EL TELÉFONO, ya terminado el primer paso: «Sigamos en tu computadora» cada vez que entra, hasta que vea el recorrido en la PC
+  // (20/11, OA-10 y OD-12: antes era un estado de la pantalla, y al volver entraba a MaKo como siempre).
+  if ((await prefiereMovil().catch(() => false)) && (await seguirEnPcPendiente())) {
+    const sesionPc = await getUsuarioActual().catch(() => null);
+    const vistaPc = await vistaArranque().catch(() => null);
+    return <SeguirEnPc nombre={primerNombre(vistaPc?.nombre || sesionPc?.nombre || '')} email={sesionPc?.email ?? ''} maqueta />;
+  }
   // Ya onboardeado → Second Brain, a la sección que pedía el link (`?tab=`), o a su portada.
   // `rutaConWs` y no el path pelado: sin el `?ws=` el super admin que mira a un cliente
   // terminaría en SU propio Second Brain (AGENTS.md, «Hay CINCO formas de navegar»).

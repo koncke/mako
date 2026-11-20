@@ -73,6 +73,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/clip-regalo",
+      "schedule": "4,19,34,49 * * * *"
+    },
+    {
       "path": "/api/cron/videos-daily",
       "schedule": "35 13 * * *"
     },
@@ -99,6 +103,10 @@
     {
       "path": "/api/cron/transcribe-ads",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/reto-avisos",
+      "schedule": "2 * * * *"
     },
     {
       "path": "/api/cron/nutricion",

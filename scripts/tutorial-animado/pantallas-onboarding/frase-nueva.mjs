@@ -15,7 +15,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 const RAIZ = 'C:/dev/tutoriales-video';
 const ID = 'onboarding-bienvenida-whatsapp';
 const DIR = `${RAIZ}/trabajo/${ID}`;
-const UNIDO = `${RAIZ}/trabajo/onboarding-bienvenida`;
+// La voz APROBADA del unido, guardada aparte (20/11: la bienvenida pasó a ser su propio guion, OA-17, y su carpeta de trabajo ya es otra).
+const UNIDO = `${RAIZ}/trabajo/onboarding-bienvenida-unido`;
 const DESDE = 24.08;   // en el unido: el final de «…sobre tu negocio.»; de ahí sigue la voz aprobada (el silencio y «Para confirmarlo…»)
 mkdirSync(DIR, { recursive: true });
 

@@ -48,6 +48,7 @@ import { PanelContacto, type PestanaDrawer } from './PanelContacto';
 import VentanaChat from './VentanaChat';
 import { AvisoVentana, postJson, useAvisoRio } from './ventana-piezas';
 import './chats.css';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 // La ficha del lead del CRM, la misma de siempre: se baja sólo al abrirla.
 const LeadEditModal = dynamic(() => import('../crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
@@ -451,7 +452,8 @@ export function ChatsApp({ ws, esAdmin, productos }: {
     return (
       <main className="rio">
       <FuenteChats />
-        <div className="rio-vacio">
+        {/* Su lugar: con él, el motor corre el tutorial de Chats vacío (lib/tutoriales/chats-vacio.ts) y no el de siempre. */}
+        <div className="rio-vacio" data-recorrido={MARCA.chatsSinCanales}>
           {/* Conectar es del admin (/api/zernio y las líneas de /whatsapp lo exigen): al resto no se le
               pide algo que no puede hacer. */}
           <span className="rio-vacio-titulo">{esAdmin ? 'Conecta un canal para ver tus chats aquí.' : 'Todavía no hay canales conectados.'}</span>

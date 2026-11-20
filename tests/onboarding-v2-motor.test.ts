@@ -131,10 +131,14 @@ test('el video siempre a la vista y el del día paso a paso (Martín, 18/11)', a
   assert.ok(t2.pasos.length >= 4 && t2.pasos.every((p) => p.sel && p.titulo), 'sus pasos son las marcas de sus tareas, en orden');
   const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8');
   const reto = leer('app/second-brain/reto/ChatDelReto.tsx');
-  assert.match(reto, /mostrarTutorial\(tutorialDelDia\(dia\), \{ video: dia\.video, directo: true, alTocar: onTocado \}\)/, 'con frases, el video del día lo pasa el motor');
-  assert.match(reto, /useVideoQueFlota\(ref, v \? dia\.video : null/, 'el del día flota al salir de la vista');
+  assert.match(reto, /mostrarTutorial\(tutorialDelDia\(dia\), \{ video: dia\.video, directo: true, alTocar: onTocado(, alTerminar: \(\) => onFin\?\.\(\))? \}\)/, 'con frases, el video del día lo pasa el motor');
+  // 20/11 (V5 y V14): el video del día sin marcas es VideoDelMomento, que flota al salir de la vista y marca «dale play».
+  assert.ok(reto.includes('<VideoDelMomento clave={dia.video}'), 'el del día flota al salir de la vista (VideoDelMomento)');
   assert.match(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /useVideoQueFlota\(ref, v \? clave : null, titulo\)/, 'los del onboarding también');
   const motor = leer('app/_ui/tutorial/MotorTutorial.tsx');
   assert.match(motor, /senal\.tipo === 'video' && <VideoFlotante/, 'el flotante lo dibuja el motor');
-  assert.match(motor, /Date\.now\(\) - w\.desde > 4000/, 'un lugar de otra página se espera unos segundos antes de saltearlo');
+  // 20/11 (la auditoría de las pausas): ya no se espera con el video quieto en el t_inicio de la frase («un lugar de otra página se
+  // espera 4 s»: cortaba la voz). Después del clic que navega, el video espera en el SILENCIO de la frase tocada a que llegue lo
+  // marcado (app/_ui/tutorial/pausas.ts; tests/tutorial-pausas.test.ts).
+  assert.match(motor, /soltarRetencion\(r, \{/, 'un lugar de otra página se espera en el silencio de la frase tocada');
 });

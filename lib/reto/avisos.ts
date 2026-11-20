@@ -1,0 +1,181 @@
+// =============================================================================
+// LOS AVISOS DEL RETO: qué sale cada hora y por dónde (20/11/2026)
+// =============================================================================
+// La auditoría del 20/11 (wa-01, wa-06, d24-02/03/04, R57-04/05/11, D1-04): lo único que salía era un correo a las 10:00 de
+// Argentina, a la misma hora para todos, y el chat prometía «mañana a las {hora} te escribo». La especificación es la maqueta
+// (C:/dev/artefactos-onboarding/cuerpo.html, `nuevoDia` y `waMomentoHtml`):
+//
+//   · CADA MAÑANA, cuando el día se abre POR CALENDARIO a la hora que eligió (o a las 9:00): el WhatsApp de MaKo («¡Buen día,
+//     {n}! Ya está tu día {k} del reto: … Te espera en MaKo.»), SÓLO si ya eligió la hora por WhatsApp (le escribió primero el
+//     día 2: la maqueta lo manda sólo con `d.horaWa`); el aviso en la app («Día {k} de tu reto») y el correo «Día {k} del reto
+//     de MaKo» («Tu video de hoy ya está en MaKo.»). Un día ADELANTADO no se avisa: lo abrió ella.
+//   · A LAS 20:00, si al día le falta algo y mañana se abre otro: «Te falta: …» en la app y en el teléfono. Nunca por WhatsApp.
+//   · A LOS 2 DÍAS SIN ENTRAR: el WhatsApp de Martín («Vi que tu reto quedó en el día N. ¿Te trabaste en algo?», con «respóndeme
+//     BAJA»). Uno por semana como mucho; con BAJA, nunca más.
+//
+// Puro, sin base: lo corre lib/reto/avisos-salida.ts desde el cron de cada hora (app/api/cron/reto-avisos). Lo que ya salió va en
+// OTRA clave (`reto.avisos`), no en `reto.estado`: el cron escribía el estado entero que había leído, y una tarea marcada en el medio
+// se perdía.
+// =============================================================================
+import { DIAS_RETO, desfaseHoras, diaAbierto, proximaTarea, type EstadoReto } from './dias';
+
+/** Lo que ya salió, por negocio (`app_settings` → `reto.avisos`). */
+export type AvisosReto = {
+  v: 1;
+  /** El último día que se avisó (o que se dio por avisado: adelantado, o abierto hace rato). */
+  dia: number;
+  /** El día de calendario (de Argentina) del último aviso de las 20:00. */
+  noche?: number;
+  /** Cuándo salió el último WhatsApp de Martín por abandono. */
+  abandono?: string;
+  /** Cuándo contestó BAJA: desde ahí, ningún WhatsApp del reto. */
+  baja?: string;
+};
+
+export const CLAVE_AVISOS = 'reto.avisos';
+
+/** Un día que se abrió hace más que esto no se avisa: llegaría tarde (el cron no corrió). Se da por avisado. */
+export const VENTANA_AVISO_MS = 3 * 3_600_000;
+/** El aviso de lo que falta: a las 20:00, con una vuelta de margen. */
+export const HORA_NOCHE = 20;
+/** El WhatsApp de Martín: a los 2 días sin entrar, al mediodía, uno por semana como mucho. */
+export const DIAS_SIN_ENTRAR = 2;
+export const ABANDONO_CADA_DIAS = 7;
+export const HORA_ABANDONO = 12;
+/** Pasado esto desde el inicio, el reto ya no escribe más. */
+export const RETO_DURA_DIAS = 21;
+
+export const PREHEADER_DIA = 'Tu video de hoy ya está en MaKo.';
+export const RUTA_RETO = '/second-brain?reto=1';
+
+const HORA_MS = 3_600_000;
+const DIA_MS = 86_400_000;
+/** El día de calendario (días desde 1970) y la hora (con minutos, en horas) de un instante en la zona de la persona
+ *  (`reto.estado.zona`, 20/11); sin zona, la de Argentina. Con el mismo desfase que usa `diaAbierto` (lib/reto/dias.ts), así la
+ *  noche y el abandono caen a SU hora, como el día que se abre. */
+export const diaEnSuZona = (ms: number, zona?: string): number => Math.floor((ms + desfaseHoras(ms, zona) * HORA_MS) / DIA_MS);
+export const horaEnSuZona = (ms: number, zona?: string): number =>
+  ((((ms + desfaseHoras(ms, zona) * HORA_MS) % DIA_MS) + DIA_MS) % DIA_MS) / HORA_MS;
+
+/** Lo guardado, validado. Sin nada guardado, arranca desde el `avisado` del correo de antes (lib/reto/dias.ts). */
+export function leerAvisos(crudo: unknown, e: EstadoReto | null): AvisosReto {
+  let x: unknown = crudo;
+  if (typeof x === 'string') { try { x = JSON.parse(x); } catch { x = null; } }
+  const o = (x && typeof x === 'object' ? x : {}) as Partial<AvisosReto>;
+  const dia = Number.isInteger(o.dia) ? Math.max(1, Math.min(7, Number(o.dia))) : Math.max(1, Math.min(7, e?.avisado ?? 1));
+  const fecha = (s: unknown) => (typeof s === 'string' && !Number.isNaN(Date.parse(s)) ? s : undefined);
+  const abandono = fecha(o.abandono), baja = fecha(o.baja);
+  return { v: 1, dia, ...(Number.isInteger(o.noche) ? { noche: Number(o.noche) } : {}), ...(abandono ? { abandono } : {}), ...(baja ? { baja } : {}) };
+}
+
+export type PlanDeAvisos = {
+  /** El día que se abrió por calendario: el aviso en la app, el correo y, con `whatsapp`, el WhatsApp de MaKo. */
+  manana?: { dia: number; whatsapp: boolean };
+  /** Lo que falta, a las 20:00. */
+  noche?: { dia: number; tarea: string };
+  /** El WhatsApp de Martín: el día en que quedó. */
+  abandono?: { dia: number };
+  /** Lo que se guarda (antes de mandar: así dos vueltas a la vez no mandan dos veces). */
+  avisos: AvisosReto;
+};
+
+/**
+ * Qué sale en ESTA vuelta. `porWhatsApp`: el negocio puede recibir el WhatsApp del reto (verificó su número por el V2 y está
+ * habilitado). `ultimaVisita`: la última vez que alguien del negocio entró a MaKo (null si no se sabe: entonces no hay abandono).
+ */
+export function queMandar(p: { e: EstadoReto; a: AvisosReto; ahora: number; ultimaVisita: number | null; porWhatsApp: boolean }): PlanDeAvisos {
+  const { e, a, ahora } = p;
+  const avisos: AvisosReto = { ...a };
+  const plan: PlanDeAvisos = { avisos };
+  const abierto = diaAbierto(e, ahora);
+  const sinBaja = !a.baja;
+
+  if (abierto > a.dia) {
+    avisos.dia = abierto;
+    // Adelantado: lo abrió ella. Abierto hace rato: el aviso llegaría tarde (y el de antes ya se perdió). Ninguno de los dos se avisa.
+    const adelantado = abierto <= e.adelantado;
+    const recien = diaAbierto(e, ahora - VENTANA_AVISO_MS) < abierto;
+    if (!adelantado && recien) plan.manana = { dia: abierto, whatsapp: p.porWhatsApp && sinBaja && !!e.horaWa };
+  }
+
+  // Las 20:00 y el mediodía son los de SU zona (los de Argentina sin zona): a quien está en México no le llega a las 17:00.
+  const hora = horaEnSuZona(ahora, e.zona), hoy = diaEnSuZona(ahora, e.zona);
+  const pasados = hoy - diaEnSuZona(Date.parse(e.inicio), e.zona);
+  const falta = proximaTarea(e, ahora);
+
+  // A las 20:00, si falta algo y mañana se abre otro día (la maqueta: el aviso de la noche va en `nuevoDia`, del 2 al 7). No sobre un
+  // día que se acaba de abrir (con la hora de las 20:00, el día nuevo sale a las 20:00 y a las 21:00 ya le «faltaría» todo).
+  const quieto = diaAbierto(e, ahora - VENTANA_AVISO_MS) === abierto;
+  if (falta && abierto < 7 && quieto && hora >= HORA_NOCHE && hora < HORA_NOCHE + 2 && a.noche !== hoy && !plan.manana) {
+    plan.noche = { dia: falta.dia.n, tarea: falta.tarea.titulo };
+    avisos.noche = hoy;
+  }
+
+  // A los 2 días sin entrar, al mediodía: el WhatsApp de Martín. Nunca con el de la mañana en la misma vuelta.
+  const sinEntrar = p.ultimaVisita != null && ahora - p.ultimaVisita >= DIAS_SIN_ENTRAR * DIA_MS;
+  const yaEscribio = a.abandono ? ahora - Date.parse(a.abandono) < ABANDONO_CADA_DIAS * DIA_MS : false;
+  if (falta && p.porWhatsApp && sinBaja && sinEntrar && !yaEscribio && pasados >= DIAS_SIN_ENTRAR && pasados <= RETO_DURA_DIAS
+    && hora >= HORA_ABANDONO && hora < HORA_ABANDONO + 2 && !plan.manana?.whatsapp) {
+    plan.abandono = { dia: falta.dia.n };
+    avisos.abandono = new Date(ahora).toISOString();
+  }
+  return plan;
+}
+
+/** ¿Cambió algo para guardar? */
+export const hayQueGuardar = (antes: AvisosReto, despues: AvisosReto): boolean => JSON.stringify(antes) !== JSON.stringify(despues);
+
+// ── Los textos (los de la maqueta) ─────────────────────────────────────────────────────────────────────────────────────
+
+const primeraMinuscula = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+const nombreCorto = (nombre: string | null | undefined) => (nombre ?? '').trim().split(/\s+/)[0] ?? '';
+/** El saludo según la hora en que sale: «¡Buen día» a las 18:00 no va. */
+export const saludoDeLaHora = (hora: number): string => (hora < 12 ? '¡Buen día' : hora < 20 ? '¡Buenas tardes' : '¡Buenas noches');
+
+/** El WhatsApp de cada mañana: que el día está listo, sin pedirle nada (y sin link: así es en la maqueta). */
+export function whatsappDelDia(nombre: string | null | undefined, dia: number, horaDeSalida: number): string {
+  const d = DIAS_RETO.find((x) => x.n === dia) ?? DIAS_RETO[0];
+  const n = nombreCorto(nombre);
+  return `${saludoDeLaHora(horaDeSalida)}${n ? `, ${n}` : ''}! Ya está tu día ${d.n} del reto: ${primeraMinuscula(d.titulo)}. Te espera en MaKo.`;
+}
+
+/** El aviso de MaKo en la app y en el teléfono, el de cada mañana. */
+export function avisoDelDia(dia: number): { titulo: string; texto: string } {
+  const d = DIAS_RETO.find((x) => x.n === dia) ?? DIAS_RETO[0];
+  return { titulo: `Día ${d.n} de tu reto`, texto: `${d.titulo}.` };
+}
+
+/** El de las 20:00: lo que falta. La maqueta pone «Son N minutos.» cuando lo sabe; acá no se sabe. */
+export function avisoDeLaNoche(tarea: string): { titulo: string; texto: string } {
+  return { titulo: `Te falta: ${primeraMinuscula(tarea)}`, texto: 'Mañana te lo dejo primero.' };
+}
+
+export const SALIDA_BAJA = 'Si prefieres que no te escriba, respóndeme BAJA.';
+
+/** El WhatsApp de Martín a quien dejó el reto (la maqueta, `abandono`). */
+export function whatsappDeAbandono(nombre: string | null | undefined, dia: number): string {
+  const n = nombreCorto(nombre);
+  return `Hola${n ? `, ${n}` : ''}. Soy Martín, el creador de MaKo. Vi que tu reto quedó en el día ${dia}. ¿Te trabaste en algo?\n\n${SALIDA_BAJA}`;
+}
+
+/** ¿Contestó BAJA? Sólo la palabra (con o sin punto): «no me des de baja el plan» no es esto. */
+export const esBaja = (texto: string): boolean => /^\s*baja[\s.!]*$/i.test(texto);
+
+export const RESPUESTA_BAJA = 'Listo: no te escribo más sobre el reto. Tu reto sigue en MaKo para cuando quieras.';
+
+/**
+ * LA HORA DEL DÍA 2, DE SU MENSAJE (D1-12): «Hola MaKo, prefiero que me escribas a las {hora} sobre el reto.» Vale también si lo
+ * escribe a su manera («escríbeme a las 18», «a las 8:00 hs»), con una de las horas del reto. null: no es este mensaje.
+ */
+export function horaDelMensaje(texto: string, horas: readonly string[]): string | null {
+  const m = /escr[ií]b\p{L}*\s+(?:\p{L}+\s+)?a\s+las\s+(\d{1,2})(?:[:.](\d{2}))?/iu.exec(texto);
+  if (!m) return null;
+  const hora = `${Number(m[1])}:${m[2] ?? '00'}`;
+  return horas.includes(hora) ? hora : null;
+}
+
+/** Lo que contesta MaKo (la maqueta, `waMomentoHtml` d2). */
+export function respuestaDeLaHora(nombre: string | null | undefined, hora: string): string {
+  const n = nombreCorto(nombre);
+  return `¡Hecho${n ? `, ${n}` : ''}! Cada día te escribo a las ${hora} con tu día del reto. Guárdame en tus contactos para que no se pierda nada.`;
+}

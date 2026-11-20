@@ -87,6 +87,8 @@ import { BotonSecondBrainDe, CerebroDelGuru } from './SuSecondBrain';
 import { useCoaches, useGurusConCharla } from './useCoaches';
 import { ChatDelCentro, FilaDeChat, GruposPorJefe, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, RenglonDeFila, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
+import { BienvenidaOpsCenter } from './BienvenidaOpsCenter';
+import { VideosDelChat } from '@/app/_ui/tutorial/VideosDelChat';
 import { ChatNuevoCentro } from '@/app/admin/operaciones/ChatNuevo';
 import { TicketeraCentro } from '@/app/admin/operaciones/TicketeraCentro';
 import { esVistaTicketera, type VistaDeTicketera } from '@/app/tickets/decisiones/reglas';
@@ -117,6 +119,7 @@ import '@/app/_chat/chat.css';
 import { PREVIA_DEL_FUNNEL_COACH_V2, previaDelCoach, previaDelOfferCoach } from '@/lib/funnel-plan';
 import { ASPECTO_FUNNEL_COACH_V2 } from './useChatDelCoach';
 import { usePasoAlFunnel } from './reto/usePasoAlFunnel';
+import { useVueltaAlReto } from './reto/useVueltaAlReto';
 
 /** Cuántas filas se ven debajo del Cerebro antes de «Mostrar N más». */
 const FILAS_VISIBLES = SUBS_VISIBLES;
@@ -178,9 +181,18 @@ type Props = {
   dosCoaches?: boolean;
   /** `?reto=1`: abre el chat del reto. */
   retoInicial?: boolean;
+  /** El id del chat «Onboarding» (onboarding V2): en la lista va enseguida del Ops Center (20/11, OD-08). */
+  hiloOnboarding?: number | null;
   /** El primer nombre de la persona, para el saludo del reto. */
   nombrePersona?: string;
 };
+
+/** Los videos del chat «Onboarding» (20/11, V9): para volver a verlos terminado el onboarding (el ícono de videos de su cabecera). */
+const VIDEOS_DEL_ONBOARDING = [
+  { clave: 'onboarding-bienvenida', titulo: 'Bienvenida a MaKo' },
+  { clave: 'onboarding-bienvenida-whatsapp', titulo: 'Tu WhatsApp con MaKo' },
+  { clave: 'recorrido', titulo: 'Tu recorrido por MaKo' },
+] as const;
 
 export function ChatSecondBrain(props: Props) {
   // ⚠️ UNA VUELTA DEL SERVIDOR QUE FALLA NO DESARMA EL OPS CENTER (22/10/2026, el 503 de cada deploy, medido por el Cerebro):
@@ -208,7 +220,7 @@ const urlPelada = (e: Elegido | null): boolean => !!e && ('id' in e || 'offer' i
 /** El chat de Claude Code de entrada: el Cerebro (va primero) o el primero que puede recibir. */
 const centroDeEntrada = (k: Centro): string | null => (k.chats.find((c) => c.sesion) ?? k.chats[0])?.clave ?? null;
 
-function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, coachInicial = null, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', retoV2 = false, dosCoaches = false, retoInicial = false, nombrePersona = '' }: Omit<Props, 'centro'> & { centro: Centro | null }) {
+function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, coachInicial = null, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', retoV2 = false, dosCoaches = false, retoInicial = false, nombrePersona = '', hiloOnboarding = null }: Omit<Props, 'centro'> & { centro: Centro | null }) {
   // `?coach=offer` sin los dos coaches es el coach único: un link de la revisión no abre un chat que esta persona no tiene.
   const coachDeEntrada: CoachDelOps | null = coachInicial === 'offer' && !dosCoaches ? 'funnel' : coachInicial;
   const router = useRouter();
@@ -400,7 +412,12 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // Las de Offer van debajo del Funnel Coach (el coach único: trabaja la oferta), no en el resto.
   const filasOffer = filasDeLaLista.filter((f) => f.origen === 'offer');
   // Los gurús van debajo de los coaches (`coaches`), con el mismo lugar para el cliente y el super admin.
-  const todasLasFilas = filasDeLaLista.filter((f) => f.origen !== 'offer' && !f.guru);
+  // EL ORDEN DEL ONBOARDING V2 (20/11, OD-08: la maqueta; Martín, 16/11: «nunca nada arriba de Ops Center»): Ops Center, Onboarding y
+  // el Reto, después los coaches, el resto, y «Nuevo chat» al final. El chat «Onboarding» sale de la lista por actividad y va arriba.
+  const filaOnboarding = retoV2 && hiloOnboarding != null ? filasDeLaLista.find((f) => 'id' in f.elegido && f.elegido.id === hiloOnboarding) ?? null : null;
+  // ¿Está abierto el chat «Onboarding»? Ahí van la llegada (OD-05) y sus videos (V9).
+  const enElOnboarding = retoV2 && hiloOnboarding != null && !!elegido && 'id' in elegido && elegido.id === hiloOnboarding && !verMapa && !ticketera;
+  const todasLasFilas = filasDeLaLista.filter((f) => f.origen !== 'offer' && !f.guru && f !== filaOnboarding);
   // El filtro va sobre lo que ya dejó la búsqueda; el Cerebro queda siempre arriba.
   const restoFilas = filtros.length ? todasLasFilas.filter((f) => pasaFiltroChats({ titulo: f.titulo }, filtros)) : todasLasFilas;
   const corte = todas || busca.trim() || filtros.length ? restoFilas : restoFilas.filter((f, i) => i < FILAS_VISIBLES || esFilaDe(f, elegido));
@@ -534,6 +551,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   }, [ofertaAbierta, idOffer, k.enCurso]);
   const seVeLaConversacion = idOffer != null && !conCoach && !enOtroChat && !verMapa && !ticketera;
   usePasoAlFunnel({ activo: dosCoaches && seVeLaConversacion, entregadaEn: entregadaOffer, ocupado: k.enCurso || k.tarjeta != null, contenedor: useCallback(() => hilo.current, []) });
+  // Terminado el día 1 en Funnel Coach, «Vuelve a tu reto» sobre la fila del reto (20/11, D1-05: ./reto/useVueltaAlReto.ts).
+  useVueltaAlReto(retoV2 && dosCoaches && verFunnel && !reto);
   const coaches = (
     <div className="co-cuenta co-cuenta--coaches">
       {/* LOS DOS COACHES (onboarding V2): el Offer Coach con las conversaciones de oferta colgando de él, y después el Funnel Coach. */}
@@ -609,8 +628,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             </>
           )}
           {listaSB && (<>
-          {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude (y el del Ops Center del super admin). */}
-          <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!verMapa && !enOtroChat && enChatNuevo} />
+          {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude (y el del Ops Center del super admin). Con el V2, al final. */}
+          {!retoV2 && <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!verMapa && !enOtroChat && enChatNuevo} />}
           <FilasDelGrupo g={grupos} abierto={!verMapa && !ticketera ? grupo : null} onElegir={abrirGrupo} />
           {k.errorLista && <p className="co-lista__vacio">{k.errorLista}</p>}
           {/* UNA lista (21/10/2026): el Cerebro arriba y todos los demás por actividad, sin plegables; desde el 22/10, agrupados por
@@ -618,7 +637,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           {k.sesiones != null && (
             <>
               <div className="co-cuenta co-cuenta--cerebro">{fila(cerebroFila)}</div>
-              {coaches}
+              {!retoV2 && coaches}
+              {filaOnboarding && <div className="co-cuenta">{fila(filaOnboarding)}</div>}
               {retoV2 && (
                 <div className="co-cuenta">
                   <FilaDeChat titulo="Reto de 7 días" marca="sb-reto-chat" aspecto={ASPECTO_MAKO} animo="despierto" actual={reto && !verMapa && !ticketera} hace=""
@@ -626,6 +646,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
                     onElegir={abrirReto} />
                 </div>
               )}
+              {retoV2 && coaches}
               <div className="co-cuenta">
                 {/* Sin títulos de sección (22/10/2026, Martín): el grupo sin chat propio lleva su fila JEFE, con su criatura. */}
                 <GruposPorJefe chats={corte} fila={fila} jefe={(g) => { const j = jefeDelGrupo(g); return j ? { ...j, aspecto: aspectoDeChat(j.clave) } : null; }} />
@@ -637,6 +658,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
                 )}
                 {busca.trim() && !restoFilas.length && <p className="co-lista__vacio">Ningún chat con ese nombre.</p>}
               </div>
+              {retoV2 && <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!verMapa && !enOtroChat && enChatNuevo} />}
             </>
           )}
           </>)}
@@ -710,6 +732,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           cabecera={{ clave: JSON.stringify(elegido), titulo: k.nombre, criatura: k.nombreMuneco, aspecto: k.aspectoMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: () => setConChat(false),
             // En una conversación de Offer se ve quién aconseja (el referente del coach, del que cuelga) y se puede cambiar, como la
             // criatura de cualquier chat.
+            // Los videos del onboarding, para volver a verlos (20/11, V9): la bienvenida, el del WhatsApp y el recorrido.
+            ...(enElOnboarding ? { acciones: <VideosDelChat videos={VIDEOS_DEL_ONBOARDING} /> } : {}),
             ...(idOffer != null ? {
               onMuneco: puedeElegir ? () => setEligiendoReferente(true) : undefined,
               acciones: delCoach ? <><span className="co-cab__inspirado">{inspiradoEn(delCoach)}</span><BotonSecondBrainDe referente={delCoach} viendo={viendoCerebroOffer} onCambiar={(si) => setCerebroDeOffer(si ? idOffer : null)} /></> : undefined,
@@ -728,6 +752,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           </>}
           estado={estadoDelCliente(k)}>
           <HiloDelCliente k={k} apertura={apertura} />
+          {/* Al llegar del onboarding, en su chat: MaKo escribe y manda el video del recorrido con «Dale play…» (20/11, OD-05). */}
+          {enElOnboarding && <BienvenidaOpsCenter nombre={nombrePersona} retoEmpezo={!!datosReto.d?.estado} />}
           {enChatNuevo && !k.items.length && !k.trabajo && <GaleriaDeGurus onElegir={abrirGuru} soloPro={gurusSoloPro} />}
         </PanelDeChat>
       )}
@@ -760,7 +786,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       })}
       {funnelAbierto && (
         <div style={{ display: verFunnel ? 'contents' : 'none' }}>
-          <ChatDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} dosCoaches={dosCoaches} />
+          <ChatDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} dosCoaches={dosCoaches} visible={verFunnel} />
         </div>
       )}
       {offerAbierto && dosCoaches && (

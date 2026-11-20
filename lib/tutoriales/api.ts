@@ -32,6 +32,8 @@ export const TUTORIAL_API: TutorialPestana = {
     },
     {
       sel: '[data-recorrido="tour-api-generar"]',
+      // «Generar» vive en la pestaña Tokens: si se quedó en Documentación, el motor toca Tokens (20/11, api-5).
+      antes: '[data-recorrido="tour-api-tokens"]',
       titulo: 'Generar nuevo token',
       texto: 'Recién generado se ve una sola vez: cópialo ahí y pégalo en tu herramienta.',
       sub: 'Toca aquí, en Generar nuevo token, y cópialo apenas aparece: con él, tus herramientas trabajan solas con tu negocio.',

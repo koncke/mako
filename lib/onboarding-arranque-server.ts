@@ -49,6 +49,7 @@ import { NOMBRE_WS_PRUEBA } from './reset-workspace';
 import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
 import { CLAVE_HISTORIAL, anotarCon, conLoNuevo, leerHistorial, unirConOffer } from './onboarding-historial';
 import { getSupabaseServer } from './supabase';
+import { vistosDePerfil } from './recorridos';
 import { bloqueDeAudio } from './chat-mako-bloques';
 import {
   CLAVE_ENCUESTA, funnelDelArranque, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, opcionesDeCobro, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
@@ -201,6 +202,42 @@ export async function anotarRespuesta(e: EstadoArranque, h: HechosServer, dicho:
  *    Un chat marcado (`contextoDelHilo`) sin `hiloChat` es uno que quedó a medias: se borra y se rehace.
  * Devuelve el id del chat de esta persona, o null si no le toca (o si otro lo está armando).
  */
+/**
+ * El id del chat «Onboarding» de esta persona, SÓLO LEYENDO (sin armarlo, a diferencia de `hiloDelOnboarding`): para ordenar la lista
+ * del Ops Center del onboarding V2 (20/11, OD-08: «Onboarding» va enseguida del Ops Center). null si no hay o no se pudo leer.
+ */
+/**
+ * EN EL TELÉFONO, «SIGAMOS EN TU COMPUTADORA» SE QUEDA (20/11, OA-10 y OD-12: la maqueta; Martín, 18/11: «la PC es obligatoria»).
+ * ¿Le toca esa pantalla a quien entra desde el teléfono? Con el onboarding V2, terminado el primer paso (el onboarding ya no está
+ * pendiente) y mientras NO vio el recorrido del Ops Center en la computadora (`tutorial-ops-center` en `usuarios.perfil`, lo que
+ * guarda /api/recorridos). Mirando a un cliente, nunca. Si no se puede leer, no (la persona entra como siempre).
+ */
+export async function seguirEnPcPendiente(): Promise<boolean> {
+  try {
+    if (await estaImpersonando().catch(() => true)) return false;
+    const s = await getUsuarioActual();
+    const email = s?.email?.trim().toLowerCase();
+    if (!s || !email) return false;
+    if (!veOnboardingV2({ email: s.email, ws: await getWorkspaceActual().catch(() => null) })) return false;
+    const { data, error } = await getSupabaseServer().from('usuarios').select('perfil').eq('email', email).maybeSingle();
+    if (error) return false;
+    return !Object.prototype.hasOwnProperty.call(vistosDePerfil((data as { perfil?: unknown } | null)?.perfil), ID_RECORRIDO_PC);
+  } catch { return false; }
+}
+/** Lo visto del recorrido del Ops Center: el id con que lo anota el motor (`tutorial-<pestaña>`, app/_ui/tutorial/MotorTutorial.tsx). */
+const ID_RECORRIDO_PC = 'tutorial-ops-center';
+
+export async function hiloOnboardingGuardado(): Promise<number | null> {
+  try {
+    const persona = await getUsuarioActual();
+    const chartKey = persona ? chartKeyDePersona(persona) : null;
+    if (!chartKey) return null;
+    const e = parseEstado(await getSettingEstricto(CLAVE));
+    if (e.hiloDe && e.hiloDe !== chartKey) return null;
+    return typeof e.hiloChat === 'number' ? e.hiloChat : null;
+  } catch { return null; }
+}
+
 export async function hiloDelOnboarding(): Promise<number | null> {
   // Mirando a un cliente, NO: el chat quedaría con el chart_key del super admin. Se crea cuando entra el cliente.
   if (await estaImpersonando().catch(() => true)) return null;

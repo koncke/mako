@@ -86,7 +86,8 @@ test('una tab que todavía no se abrió no se promete; el avatar de IA es de Pro
   // Y el candado de Pro es el de `FUNCIONES_SOLO_PRO`, en las DOS puertas: la pantalla (el cartel en lugar del estudio) y cada
   // server action, que es donde se genera de verdad. Sin el de las actions, un Essential generaba desde una pestaña ya abierta.
   const acceso = fuente('app/ai-avatar/acceso.ts');
-  assert.match(acceso, /export async function candadoDeAiAvatar\(\): Promise<string \| null> \{\n\s*return \(await esEsencialDeLaSesion\(\)\) \? textoSoloPro\('ai-avatar'\) : null;/);
+  // 20/11: la prueba del reto abre el personaje UNA vez (lib/reto/pro-del-reto.ts, R57-03); después, el candado de siempre.
+  assert.ok(acceso.includes("export async function candadoDeAiAvatar(): Promise<string | null> {") && acceso.includes("return (await esEsencialDeLaSesion()) && !(await abreElReto('ai-avatar', { usar: true })) ? textoSoloPro('ai-avatar') : null;"));
   assert.match(fuente('app/ai-avatar/actions.ts'), /const pro = await candadoDeAiAvatar\(\);\n\s*if \(pro\) return \{ ok: false, error: pro \};/, 'las actions sin el candado');
   for (const rel of ['app/ai-avatar/page.tsx', 'app/m/ai-avatar/page.tsx']) {
     const p = fuente(rel);

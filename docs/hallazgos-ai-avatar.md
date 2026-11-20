@@ -716,3 +716,27 @@ Y una decisión de DÓNDE va el candado, que es la regla de este día: **va DESP
 Devolver una toma ya filmada no genera nada y no cuesta nada: es una LECTURA. Ponerlo antes habría repetido el error de la
 `puerta()` común —cerrar una lectura y apagarle al cliente algo que sí es suyo—. Lo fija `tests/ai-avatar.test.ts` ⑥, con el
 orden de los dos índices como aserción; probado rompíendolo: sacar el freno da 34 verdes y 1 rojo, el que lo nombra.
+
+## El clip de regalo del reto: la imagen del personaje vence a la hora (20/11/2026)
+
+**La trampa:** el personaje de AI Avatar (`Look.url`, app/ai-avatar/looks.ts) es el link FIRMADO de Google Flow
+(`flow-content.google/image/<id>?Expires=…`, lib/flow-imagen.ts), que vence a la hora. Pasárselo a ApiMart como primer cuadro anda en la
+prueba de la mañana y falla a la tarde, y ApiMart cobra el intento fallido.
+
+**La regla:** una imagen que sale hacia un generador de afuera se COPIA en el momento de pedir. Va al bucket privado de medios, con link
+firmado de 2 h. Si ya no se puede bajar, va su foto de referencia (link firmado de 6 h, lib/persona.ts). Vive en
+app/ai-avatar/regalo/clip.ts, `imagenDelClip`. Una prueba de Essential puede no tener personaje: crearlo es de Pro, salvo la vez que el
+reto lo abre (`abreElReto`). Entonces el clip sale con su foto.
+
+**Hecho el 20/11 (era SIN HACER):** el clip se terminaba SÓLO cuando la tarjeta del día 6 preguntaba. Si la persona no la volvía a abrir,
+ApiMart guardaba el video 24 h y se perdía, ya pagado. Ahora lo termina también el cron app/api/cron/clip-regalo, cada 15 min.
+
+**El arreglo obvio era el equivocado:** «un cron que llame a `avanzarClipRegalo` por cada negocio». Esa función empieza por la puerta de
+la tarjeta (`veAiAvatar`, `getUsuarioActual`, `veOnboardingV2`), que necesita la SESIÓN de quien mira. Un cron no tiene: habría contestado
+«lo pide quien administra el negocio» para todos, sin un error en el log. Se vería como «no había clips pendientes».
+
+**La regla:** lo que tienen que hacer la pantalla y un cron se parte en dos. La puerta queda en la acción de la pantalla, y la vuelta queda
+sin sesión y por negocio (`terminarClipDe(ws, …)`). El cron la llama dentro de `runWithWorkspace(ws)`, porque los settings se leen y se
+escriben en el negocio del CONTEXTO (lib/settings.ts). Y la vuelta se niega si el contexto no es su `ws`: un cron que se olvide el
+`runWithWorkspace` escribiría el clip de un negocio en otro. La tarjeta y el cron pasan por el mismo compare-and-set, así que, si caen a la
+vez, el clip lo guarda uno solo.

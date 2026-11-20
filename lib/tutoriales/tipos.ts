@@ -38,10 +38,17 @@ export type PasoTutorial = {
   /**
    * Un selector que se toca ANTES de marcar el paso (abrir un menú, «Mostrar más»), porque el control todavía no está en la
    * página. Si no se encuentra (ya se tocó, o en el teléfono no existe), se sigue sin tocarlo.
+   * Una CADENA (20/11): lo que está detrás de dos clics («Canal › Conectar un canal», «las hojas › Nueva hoja»). El motor
+   * arranca desde el último eslabón que ya está a la vista (el menú pudo quedar abierto) y espera cada uno antes de tocarlo.
    */
-  antes?: string;
+  antes?: string | readonly string[];
   /** Sin equivalente en el teléfono: el motor saltea el paso en MaKo Mobile. */
   soloComputadora?: true;
+  /**
+   * Sin las tapas alrededor de lo marcado: el mouse tiene que poder pasar por otro lado (el menú de la foto se cierra si el mouse
+   * sale de la foto y no llega al menú). Lo usan las marcas del reto (lib/reto/dias.ts, `MarcaReto.libre`).
+   */
+  libre?: true;
 };
 
 export type TutorialPestana = {
@@ -58,6 +65,12 @@ export type TutorialPestana = {
    * el tutorial de la pestaña (el que devuelve `tutorialDeRuta`); con él, lo pide el motor cuando la pantalla llega a ese estado.
    */
   estado?: string;
+  /**
+   * OTRO tutorial para la misma ruta cuando la pantalla está en otro estado (20/11: Chats vacío, sin canales). `si`: un selector que
+   * existe SÓLO en ese estado. El motor lo mira con la pantalla ya pintada y, si está, corre `tutorial`, con su video y su «visto»
+   * propios: quien conecta su primer canal ve después el de siempre, una vez.
+   */
+  variante?: { si: string; tutorial: TutorialPestana };
   /** La primera frase de Martín, antes del primer paso (sin marcar nada). */
   intro: string;
   pasos: PasoTutorial[];

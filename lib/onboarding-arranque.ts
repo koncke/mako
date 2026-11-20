@@ -38,6 +38,8 @@
 
 import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, type CanalId } from './fase-diagnostico';
 import { WHATSAPP_MAKO } from '../app/vsl/_sitio/contacto';
+import { numeroTecleado } from './paises';
+import { E_REESCRIBIR_V2 } from './verificacion-entrante';
 import { ENTRADAS, TIPOS_CRM, tipoCrmOfrecido, tipoCrmPorId, type EntradaId, type TipoCrm, type TipoCrmId } from './pipeline';
 import { CUANTOS_FUNNELS, nombreDelFunnel, recomendarFunnel, type FunnelRecomendado } from './funnel-recomendado';
 import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
@@ -189,7 +191,8 @@ export type MensajeArranque = {
   opciones?: string[];
   tarjeta?: TarjetaArranque;
   /** V2: cómo se dibujan sus opciones en el recuadro de arriba de la caja (el del Ops Center). `varias`: hasta cuántas. */
-  recuadro?: { tema: string; varias?: number; libre?: boolean; ayuda?: string };
+  /** `pregunta`: lo que dice el recuadro, si no es el texto del mensaje (20/11, OA-18: «¿Cómo llegaste a MaKo?», sin el nombre). */
+  recuadro?: { tema: string; varias?: number; libre?: boolean; ayuda?: string; pregunta?: string };
 };
 
 // ── Textos ──────────────────────────────────────────────────────────────────
@@ -1774,6 +1777,31 @@ export function fundirBrief(previas: Record<string, string>, nuevas: Record<stri
 
 // Sin «Soy MaKo» (Martín, 19/11: «elimina lo de soy Mako»): lo dice la cabecera y el video de bienvenida.
 export const V2_NOMBRE = '¡Hola! Para empezar, ¿cómo te llamas?';
+/**
+ * El WhatsApp como se lee en la burbuja (20/11, OA-F1): la lada y el número en grupos de 4 desde el final, nunca pegado
+ * («+5491155550101» → «+54 911 5555 0101»). Se guarda en dígitos; sólo se formatea al dibujarlo.
+ */
+export function telefonoVisible(guardado: string): string {
+  const d = guardado.replace(/\D/g, '');
+  if (d.length < 8) return guardado;
+  const { lada, numero } = numeroTecleado(`+${d}`);
+  if (!lada) return guardado;
+  const n = numero.replace(/\D/g, '');
+  const grupos: string[] = [];
+  for (let fin = n.length; fin > 0; fin -= 4) grupos.unshift(n.slice(Math.max(0, fin - 4), fin));
+  return `${lada} ${grupos.join(' ')}`;
+}
+
+/** El WhatsApp con menos dígitos (20/11, OA-15: el texto de la maqueta): en la tarjeta, y el mismo en la ruta. */
+export const E_TELEFONO_INCOMPLETO = 'A ese número le faltan dígitos. Revísalo y toca «Seguir».';
+/**
+ * El código, de lo que escribió o pegó (20/11, OA-06): el grupo de 6 números seguidos, si lo hay (el mensaje de MaKo entero trae la
+ * hora y otras cifras); si no, sus números, hasta 6. Lo usa la tarjeta del código y la ruta, para lo escrito en la caja.
+ */
+export function codigoDeLoEscrito(texto: string): string {
+  const seis = /(?<!\d)\d{6}(?!\d)/.exec(texto);
+  return seis ? seis[0] : texto.replace(/\D/g, '').slice(0, 6);
+}
 export const V2_TELEFONO = (n: string): string => `Un gusto, ${n}. ¿A qué WhatsApp te escribo con los avisos y los reportes?`;
 // A QUÉ NÚMERO va el mensaje (Martín, 19/11: «debería decir a qué número se le está por enviar»): el de MaKo, el del sitio.
 // De una pieza: con espacios que no cortan y el guion pegado (U+2060), el número no se parte en dos renglones (la captura a 1440
@@ -1838,16 +1866,17 @@ export function mensajesDeArranqueV2(e: EstadoArranque, h: HechosArranque): Mens
   if (h.conTelefono) {
     mako('telefono', V2_TELEFONO(n), etapa === 'telefono' ? { tarjeta: 'telefono' } : {});
     if (etapa === 'telefono') return out;
-    yo('telefono', e.telefonoNumero || 'Mi WhatsApp');
+    yo('telefono', e.telefonoNumero ? telefonoVisible(e.telefonoNumero) : 'Mi WhatsApp');
     mako('codigo', V2_CODIGO, etapa === 'codigo' ? { tarjeta: 'codigo' } : {});
     if (etapa === 'codigo') return out;
     yo('codigo', CODIGO_CARGADO);
     const enAgendado = etapa === 'agendado';
-    mako('agendado', V2_AGENDADO, enAgendado && !e.agendado ? { opciones: [...V2_AGENDADO_OPCIONES], recuadro: { tema: 'El contacto de MaKo' } } : {});
+    // «Escribe otra cosa» también aquí (20/11, OA-14: la maqueta lo trae siempre); leerRespuestaV2 ya lee lo escrito.
+    mako('agendado', V2_AGENDADO, enAgendado && !e.agendado ? { opciones: [...V2_AGENDADO_OPCIONES], recuadro: { tema: 'El contacto de MaKo', libre: true } } : {});
     if (enAgendado && !e.agendado) return out;
     yo('agendado', e.agendado === 'si' ? 'Sí' : 'No');
     if (e.agendado && e.agendado !== 'si') {
-      mako('agendado-no', V2_AGENDADO_NO, enAgendado ? { opciones: [...V2_AGENDADO_NO_OPCIONES], recuadro: { tema: 'El contacto de MaKo' } } : {});
+      mako('agendado-no', V2_AGENDADO_NO, enAgendado ? { opciones: [...V2_AGENDADO_NO_OPCIONES], recuadro: { tema: 'El contacto de MaKo', libre: true } } : {});
       if (enAgendado) return out;
       yo('agendado-no', e.agendado === 'guardado' ? V2_AGENDADO_NO_OPCIONES[0] : V2_AGENDADO_NO_OPCIONES[1]);
     }
@@ -1857,7 +1886,7 @@ export function mensajesDeArranqueV2(e: EstadoArranque, h: HechosArranque): Mens
   if (etapa === 'negocio') return out;
   yo('negocio', e.negocio);
 
-  mako('origen', V2_ORIGEN(n), etapa === 'origen' ? { opciones: [...V2_ORIGENES], recuadro: { tema: 'Cómo llegaste', libre: true } } : {});
+  mako('origen', V2_ORIGEN(n), etapa === 'origen' ? { opciones: [...V2_ORIGENES], recuadro: { tema: 'Cómo llegaste', libre: true, pregunta: '¿Cómo llegaste a MaKo?' } } : {});
   if (etapa === 'origen') return out;
   yo('origen', e.origen);
 
@@ -1922,6 +1951,27 @@ export function leerRespuestaV2(e: EstadoArranque, h: HechosArranque, r: Respues
   }
   // Lo escrito en la caja en las etapas de tarjeta: un número de WhatsApp o el código los toma la ruta antes de llegar acá.
   if (etapa === 'telefono') return { ok: false, error: 'Ese número no parece un WhatsApp. Escríbelo con el código de país, por ejemplo +54 9 11 5555 0101.' };
-  if (etapa === 'codigo') return { ok: false, error: 'Pega aquí el código de 6 números que te mandé por WhatsApp.' };
+  // Sin «Pega aquí» (20/11, OA-05): la tarjeta ya no tiene ese rótulo ni el botón «Pegar».
+  if (etapa === 'codigo') return { ok: false, error: 'Escribe el código de 6 números que te mandé por WhatsApp.' };
   return { ok: false, error: 'Ahora no estoy esperando eso.' };
 }
+
+// =============================================================================
+// LA TARJETA DEL CÓDIGO CON LO QUE LE PASA AL WHATSAPP (20/11/2026; el servidor es del chat de WhatsApp, 1a7f519ad)
+// =============================================================================
+// wa-04: escribió desde otro WhatsApp que el que dio. El servidor le contesta en ese chat y la vista pasa a 'otro-numero'
+// (lib/verificacion-entrante.ts → vistaDeEntrante); la tarjeta lo dice y ofrece usar ese o cambiar el número.
+// wa-f3: «Reenviar» escribe directo sólo dentro de las 24 h del último mensaje de ella; después devuelve E_REESCRIBIR_V2, y la
+// tarjeta abre WhatsApp con el mensaje ya escrito (la maqueta: «reenviar» → `abrirWhatsapp()`), en vez de un error.
+
+/** Lo que dice la tarjeta cuando le escribió a MaKo desde otro WhatsApp. `otro` y `suyo`, como los guarda el servidor (dígitos). */
+export function avisoOtroNumero(otro: string, suyo: string): { titulo: string; texto: string; usar: string } {
+  const o = telefonoVisible(otro), s = telefonoVisible(suyo);
+  return { titulo: 'Me escribiste desde otro WhatsApp', texto: `Llegó desde el ${o}, pero me diste el ${s}.`, usar: `Usar el ${o}` };
+}
+
+/** ¿«Reenviar el código» tiene que abrir WhatsApp? Cuando MaKo ya no puede escribirle (pasaron 24 h desde su último mensaje). */
+export const reenviarAbreWhatsapp = (error: string | null | undefined): boolean => error === E_REESCRIBIR_V2;
+
+/** Con WhatsApp abierto por «Reenviar»: lo que sigue lo hace ella (MaKo contesta, no escribe primero). */
+export const AVISO_WHATSAPP_ABIERTO = 'Te abrí WhatsApp con el mensaje escrito: mándamelo y te contesto con un código nuevo.';
