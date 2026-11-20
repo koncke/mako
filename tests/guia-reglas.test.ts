@@ -30,12 +30,13 @@ const todas = () => true;
 const sin = (...faltan: string[]) => (id: string) => !faltan.includes(id);
 
 test('1. la pregunta de la primera vez: la frase de Martín, sus botones, y los topes de una apertura', () => {
-  const os = objetivosOfrecidos(G, { sinApp: true, sinIA: true }, todas);
+  const os = objetivosOfrecidos(G, { sinIA: true }, todas);
   const a = preguntaDeLaGuia(G, os);
   assert.equal(a.texto, PREGUNTA_PRIMERA_VEZ);
   assert.equal(a.texto, '¿Quieres que te ayude a aprender a usar esta pestaña?', 'textual de Martín (29/10/2026)');
   assert.equal(a.id, 'guia:mako');
-  assert.deepEqual(a.botones.map((b) => b.rotulo), [SI_ENSENAME, 'Empezar otro tema', 'Ver tus reportes', 'Ya sé usarla']);
+  // «Pedirle algo» se ofrece aunque falte su IA: desde el 20/11/2026 ningún chat pide la app de escritorio para escribir.
+  assert.deepEqual(a.botones.map((b) => b.rotulo), [SI_ENSENAME, 'Pedirle algo a MaKo', 'Empezar otro tema', 'Ya sé usarla']);
   assert.deepEqual(problemasDeApertura(a, { primerPaso: true }), [], 'excepción por su id (guia:*), con su porqué en reglas.ts');
   for (const x of [a, preguntaQueHacer(G, os, true), preguntaDonde(G, todas), listoAlgoMas(G, os, 'conectar')]) {
     assert.deepEqual(problemasDeApertura(x, { primerPaso: false }), [], x.id);
@@ -48,18 +49,25 @@ test('1. la pregunta de la primera vez: la frase de Martín, sus botones, y los 
 });
 
 test('2. lo personalizado sin IA: los hechos suben su objetivo, y lo que no está en pantalla no se ofrece', () => {
-  // Sin la app: «Conectar tu IA» va primero, y «Pedirle algo» no se ofrece (la caja no escribe).
-  assert.deepEqual(objetivosOfrecidos(G, { sinApp: true, sinIA: false }, todas).map((o) => o.id), ['conectar', 'otro-tema', 'reportes']);
-  // Con la app y su IA: pedirle algo primero; conectar, no.
-  assert.deepEqual(objetivosOfrecidos(G, { sinApp: false, sinIA: false }, todas).map((o) => o.id), ['pedir', 'otro-tema', 'reportes']);
+  // Sin su IA: «Conectar tu IA» va primero. «Pedirle algo» se ofrece siempre: desde el 20/11/2026 ningún chat pide la app de
+  // escritorio para escribir (antes, sin la app, no se ofrecía).
+  assert.deepEqual(objetivosOfrecidos(G, { sinIA: true }, todas).map((o) => o.id), ['conectar', 'pedir', 'otro-tema', 'reportes']);
+  // Con su IA: pedirle algo primero; conectar, no.
+  assert.deepEqual(objetivosOfrecidos(G, { sinIA: false }, todas).map((o) => o.id), ['pedir', 'otro-tema', 'reportes']);
   // Sin la Ticketera en pantalla (fuera del plan), «Ver tus reportes» no se ofrece.
   assert.ok(!objetivosOfrecidos(G, {}, sin('sb-ticketera')).some((o) => o.id === 'reportes'));
-  // «Conectar» no está hasta tocar «Instalar MaKo» (su `antes`): se ofrece igual, y se señala primero el antes.
-  const conectar = G.objetivos.find((o) => o.id === 'conectar')!;
-  assert.ok(objetivosOfrecidos(G, { sinApp: true }, sin('mk-conectar')).some((o) => o.id === 'conectar'));
-  assert.deepEqual(anclaASenalar(G, conectar.pasos[0], sin('mk-conectar')), { ancla: 'mk-instalar', antes: true });
-  assert.deepEqual(anclaASenalar(G, conectar.pasos[0], todas), { ancla: 'mk-conectar', antes: false });
-  assert.equal(anclaASenalar(G, conectar.pasos[0], sin('mk-conectar', 'mk-instalar')), null, 'ninguno: «No lo veo»');
+  // Un ancla que aparece recién al tocar otra (su `antes`): se ofrece igual, y se señala primero el antes. En el Ops Center era
+  // «Conectar» detrás de «Instalar MaKo», hasta el 20/11/2026; el mecanismo sigue, con una guía de ejemplo.
+  const CON_ANTES = {
+    ...G,
+    anclas: [...G.anclas, { id: 'x-antes', nombre: 'Abrir', para: 'Toca aquí primero.' }, { id: 'x-despues', nombre: 'Después', para: 'Toca aquí.', antes: 'x-antes' }],
+    objetivos: [{ id: 'x', titulo: 'Hacer x', pasos: [{ ancla: 'x-despues' }] }],
+  } as GuiaDeTab;
+  const paso = CON_ANTES.objetivos[0].pasos[0];
+  assert.ok(objetivosOfrecidos(CON_ANTES, {}, sin('x-despues')).some((o) => o.id === 'x'));
+  assert.deepEqual(anclaASenalar(CON_ANTES, paso, sin('x-despues')), { ancla: 'x-antes', antes: true });
+  assert.deepEqual(anclaASenalar(CON_ANTES, paso, todas), { ancla: 'x-despues', antes: false });
+  assert.equal(anclaASenalar(CON_ANTES, paso, sin('x-despues', 'x-antes')), null, 'ninguno: «No lo veo»');
 });
 
 test('3. cuándo pregunta: con lo visto sabido, la tab lista hace 1,2 s, y nada encima', () => {
@@ -82,8 +90,9 @@ test('4. el toque, y el estado: pregunta → objetivo → «Listo. ¿Algo más?�
   assert.equal(queHacerConElToque({ enAncla: false, enChat: false, enGlobo: false }), 'pausa', 'tocar la tab pausa (no termina)');
 
   const s = await import('../app/_ui/guia/store');
-  s.fijarPresenciaParaPruebas(sin('mk-conectar'));
-  s.registrarGuia(G, { sinApp: true, sinIA: true });
+  // Con «Conectar tu IA» a la vista (hasta el 20/11/2026 aparecía recién al tocar «Instalar MaKo», su `antes`).
+  s.fijarPresenciaParaPruebas(todas);
+  s.registrarGuia(G, { sinIA: true });
   assert.equal(s.guiaAhora().esperando, true, 'mientras decide, la escalera espera');
   const contestado: boolean[] = [];
   s.preguntarPrimeraVez((yaSabe) => contestado.push(yaSabe));

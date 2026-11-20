@@ -76,6 +76,11 @@ test('D1-03: el video del día 1 que termina en la esquina (o se cierra ahí) av
   assert.ok(chat.includes('if (!finDelVideo || senal) return;\n    setFinDelVideo(null);\n    marcarLoQueFalta(finDelVideo, [], true);'), 'con el motor ocupado no marcaba nada: espera a que se libere');
   assert.ok(chat.includes('if (!t || (!siempre && yaMarcada(`${dia.n}:${t.id}`))) return;'), 'en la misma pestaña no volvía a marcar');
   assert.ok(!chat.includes('rt-sigue') && !chat.includes('Tu siguiente paso: <b>'), 'sin la tarjeta «Tu siguiente paso» arriba de la caja');
+  // Sin video en el manifiesto (D1-03: «Sin video, “abre Offer Coach” marca la fila real»; lo hacía la tarjeta): se marca igual, sin
+  // anotarlo como visto (un manifiesto que no llegó también viene vacío y «listo»).
+  assert.ok(chat.includes('const sinVideo = listo && !v && dalePlay;\n  useEffect(() => {\n    if (sinVideo) onFin?.();'), 'un día sin video no marcaba nunca');
+  const vd = chat.slice(chat.indexOf('function VideoDelDia('), chat.indexOf('if (v && conMarcas) {'));
+  assert.ok(vd.includes('if (sinVideo) onFin?.();') && !/sinVideo[^\n]*anotarVisto/.test(vd), 'antes de los `return`, y sin anotar visto');
   assert.ok(fuente('../app/_ui/tutorial/useVideoQueFlota.ts').includes('reproducirFlotante(clave, titulo, t, (m) => aviso.current?.(m));'));
 });
 

@@ -34,8 +34,8 @@ export type RotuloCallar = 'Ahora no' | 'Lo hago yo' | 'Lo edito yo' | 'Lo escri
  *   · `respuesta`: un HECHO que contesta la persona; la superficie vuelve a correr con él (`Respuestas`);
  *   · `ir`: un link que la persona elige (nunca navega solo);
  *   · `hacer`: código de la pantalla, sin IA (`accion` es de la superficie: el montaje la recibe en un `Record` tipado, así que
- *     ofrecer algo que la pantalla no hace no compila). Las COMUNES las hace la pieza misma (app/_chat/AperturaMako.tsx):
- *     `instalar` es «Instalar MaKo» de la caja (InstalarMaKo, con su «ya lo descargó»), y `conectar` abre «Tus cuentas de IA»;
+ *     ofrecer algo que la pantalla no hace no compila). La COMÚN la hace la pieza misma (app/_chat/AperturaMako.tsx): `conectar`
+ *     abre «Tus cuentas de IA». `instalar` («Instalar MaKo») se fue el 20/11/2026: ningún chat pide la app de escritorio;
  *   · `pedir`: la IA del negocio, con el texto que arma el código (se dibuja como mensaje de la persona);
  *   · `callar`: MaKo se calla (cuánto, lo dice `anotar`).
  */
@@ -73,8 +73,8 @@ export type OpcionGaleria = { valor: string; imagen: string; rotulo: string };
 
 export const TOPE_GALERIA = 6;
 
-/** Las acciones que hace la pieza misma, en toda superficie: «Instalar MaKo» (la de la caja) y «Tus cuentas de IA». */
-export const ACCIONES_COMUNES = ['instalar', 'conectar'] as const;
+/** Las acciones que hace la pieza misma, en toda superficie: «Tus cuentas de IA». */
+export const ACCIONES_COMUNES = ['conectar'] as const;
 export type AccionComun = (typeof ACCIONES_COMUNES)[number];
 export const esAccionComun = (a: string): a is AccionComun => (ACCIONES_COMUNES as readonly string[]).includes(a);
 

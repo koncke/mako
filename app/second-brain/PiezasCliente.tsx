@@ -14,7 +14,6 @@ import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { useMemo, type ReactNode, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
-import { FRASE_RESPONDER } from '@/app/_chat/app-de-escritorio';
 import { useGuiaEnElChat } from '@/app/_ui/guia/store';
 import { ancla } from '@/app/_ui/guia/ancla';
 import { SUPERFICIE_OPS } from '@/lib/aperturas/ops';
@@ -23,7 +22,6 @@ import { HiloMako } from '@/app/_chat/HiloMako';
 import { CitaCaja, ContextoWA } from '@/app/admin/operaciones/MensajeWA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { IconoChat } from '@/app/m/mako/iconos';
-import { FranjaApp, useBloqueoApp } from '@/app/_chat/AppPrimero';
 import { caracteres, nombrePegado } from '@/lib/chat-pegado';
 import { ARRANQUES_SECOND_BRAIN, AVISO_EDITOR, AVISO_EDITOR_AJENO, AVISO_LIENZO } from '@/lib/chat-mako-reglas';
 import { MARCA } from '@/lib/tutoriales/marcas';
@@ -118,11 +116,9 @@ export function HiloDelCliente({ k, apertura = null, enMensaje }: {
    *  botones andan); con historia, después del último mensaje. Nunca se guarda. */
   apertura?: ReactNode | null;
 }) {
-  // Sin la app de escritorio (23/10/2026) la conversación se sigue viendo: el cartel va en el lugar de la caja (CajaDelCliente,
-  // 24/10/2026). Vacía, sin la portada: «¿En qué te ayudo?» y sus arranques invitarían a escribir lo que no se puede mandar. La
-  // apertura sí (29/10/2026): sus botones no escriben nada.
-  // ⚠️ LAS RESPUESTAS RÁPIDAS DEL HILO SIN LA APP (29/10/2026): mandan un mensaje al turno, que sin la app no sale; tocarlas no
-  // hacía nada y no lo decía. Ahora lo dicen (`sinMandar`) y no se tocan.
+  // Del 23/10 al 20/11/2026, sin la app de escritorio, la conversación vacía no mostraba la portada y las respuestas rápidas del
+  // hilo decían «Para contestar, instala MaKo» (`sinMandar`). Desde el 20/11 ningún chat pide la app: la portada y las respuestas
+  // rápidas andan siempre (lib/chat-mako-reglas.ts).
   return (
     <ContextoWA.Provider value={k.esAutomatizacion || k.esEditor ? null : k.accionesWA}>
       {!k.cargado ? null : k.errorCarga ? (
@@ -130,7 +126,7 @@ export function HiloDelCliente({ k, apertura = null, enMensaje }: {
           <p className="co-portada__dato">{k.errorCarga}</p>
           <button type="button" className="co-chip" onClick={k.recargar}>Reintentar</button>
         </div>
-      ) : !k.items.length && !k.trabajo ? (apertura ?? (k.app === 'bloquea' ? null : (
+      ) : !k.items.length && !k.trabajo ? (apertura ?? (
         <div className="co-portada">
           <Muneco titulo={k.nombreMuneco} aspecto={k.aspectoMuneco} animo="despierto" size={76} />
           <p className="co-portada__nombre">{k.esAutomatizacion || k.esEditor ? 'Todavía no hay mensajes en esta charla.' : '¿En qué te ayudo?'}</p>
@@ -139,10 +135,10 @@ export function HiloDelCliente({ k, apertura = null, enMensaje }: {
               data-recorrido={a === '¿Qué hago hoy?' ? MARCA.opsCenterQueHagoHoy : undefined}>{a}</button>)}
           </div>}
         </div>
-      ))) : (<>
+      )) : (<>
         <HiloMako items={k.items} quien={{ nombre: k.nombreMuneco, aspecto: k.aspectoMuneco }} ahora={k.ahora} escribiendo={k.enCurso ? { segs: k.segs } : null}
           tarjeta={k.tarjeta} onTarjeta={(x, a) => void k.correrTarjeta(x, a)} onReintentar={k.reintentar} onRecargar={k.recargar}
-          onResponder={(t) => k.enviar(t)} sinMandar={k.app === 'bloquea' ? FRASE_RESPONDER : null} onTrabajo={k.alTerminarTrabajo} marcas={k.marcas} enMensaje={enMensaje} />
+          onResponder={(t) => k.enviar(t)} onTrabajo={k.alTerminarTrabajo} marcas={k.marcas} enMensaje={enMensaje} />
         {apertura}
       </>)}
     </ContextoWA.Provider>
@@ -160,8 +156,6 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
   k: ChatCliente; campo: RefObject<HTMLTextAreaElement | null>; seguir: () => HTMLElement | null; movil?: boolean; angosta?: boolean;
   avisosArriba?: boolean;
 }) {
-  // Antes de cualquier `return`: es un hook (su estado es «ya lo descargó»).
-  const bloqueoApp = useBloqueoApp(() => k.setConectando(true));
   // Una charla del lienzo de Automations (OC5): se lee acá y se sigue en el lienzo, que es el que sabe editar la automatización.
   // Un chat de un editor (OC8): se lee acá y se sigue en el editor, que es el que aplica lo que propone.
   if (k.esEditor) {
@@ -179,10 +173,9 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
   // adentro (el «+», los emojis).
   const conectar = k.iaConectada === false && !avisosArriba
     ? <button type="button" className="co-chip co-conectar-ia" onClick={() => k.setConectando(true)} {...ancla('mk-conectar')}>Conectar tu IA</button> : null;
-  // Sin la app de escritorio no hay con qué contestar: LA CAJA MISMA no deja escribir, y en el lugar del micrófono dice «Instalar
-  // MaKo» (24/10/2026, Martín: «directamente en el chat donde está el botón de audio se debería reemplazar por "Instalar MaKo"»).
-  // Es la misma caja (una sola), con `bloqueo`; sin el «Conectar tu IA», que con la app sin instalar no destraba nada.
-  const bloqueada = k.app === 'bloquea';
+  // Sin la app de escritorio la caja se apagaba con «Instalar MaKo» en el lugar del micrófono (24/10/2026). Desde el 20/11/2026 no:
+  // Martín, «hoy en día utilizamos los MaKo Tokens. Entonces, no pongas la restricción de instalar MaKo para enviar mensajes»
+  // (app/_chat/app-de-escritorio.ts). Se escribe siempre, y MaKo contesta con los MaKo Tokens.
   return (
     <CajaChat texto={k.texto} onTexto={(v) => { k.setFaltaMic(null); k.setTexto(v); }} onMandar={k.enviarCaja}
       ocupado={k.enCurso} apagado={!k.cargado || !!k.errorCarga} placeholder={`Escribe a ${k.nombre}`} tituloMandar={movil ? undefined : 'Mandar (Enter)'}
@@ -191,12 +184,9 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
       hayAlgoMas={k.pegados.length > 0} onPegar={k.pegarLargo}
       // Con qué IA corre este chat (8b): adentro del «+», sólo si hay cuentas para elegir.
       mas={k.cuentasIA?.length ? <SelectoresDelCliente k={k} /> : undefined}
-      alFinal={angosta || bloqueada ? null : conectar}
-      bloqueo={bloqueada ? bloqueoApp : undefined}
+      alFinal={angosta ? null : conectar}
       arriba={<>
-        {angosta && conectar && !bloqueada && <div className="co-conectar-ia-arriba">{conectar}</div>}
-        {/* En el teléfono, sin la app: el aviso de descargarla en la computadora, y el chat sigue (ahí no se instala). */}
-        {k.app === 'en-la-computadora' && !avisosArriba && <FranjaApp />}
+        {angosta && conectar && <div className="co-conectar-ia-arriba">{conectar}</div>}
         {k.cita && <CitaCaja cita={k.cita} onQuitar={() => k.setCita(null)} />}
         {k.pegados.length > 0 && (
           <ul className="ch-elegidos" aria-label="Textos pegados">
