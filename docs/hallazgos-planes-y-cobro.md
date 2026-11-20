@@ -10,6 +10,17 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## El cartel de la prueba gratis era el de la cuenta propia, no el del negocio que se mira (20/11/2026, noche, la llamada con Leila)
+
+Martín (Fathom 205366178, 00:40:00): «en la sidebar no estoy viendo versión de prueba de siete días». Lo miraba como administrador.
+- **La causa:** GET /api/plan/prueba leía `s.ws`, el negocio propio de quien inició sesión. Mirando un cliente (el `?ws=` de la
+  pestaña) o como agencia, el cartel y la franja de los topes eran los de su propia cuenta. En una cuenta que paga, no salían.
+- **Ahora** lee el negocio del pedido, `getWorkspaceActual()`. Es el mismo que el resto de la pantalla: el admin resuelve primero por
+  la pestaña, y el `?ws=` llega solo porque app/_components/WsFetch.tsx lo suma a cada /api.
+- **Regla:** una ruta que muestra datos «del negocio» nunca lee `s.ws`. Lee `getWorkspaceActual()`, o `wsObligatorio()` si escribe.
+  `s.ws` es la cuenta de la persona, no la que está mirando.
+- Lo prueba tests/prueba-cartel.test.ts (vuelve `s.ws` → rojo). Nada se abrió en un navegador.
+
 ## El candado de la PANTALLA no puede ser más estricto que el del servidor (20/11/2026, R57-03)
 
 **Vive en:** `app/_components/solo-pro.ts` · `app/_components/useClienteDeAgencia.ts` (`candadoEsencial`) · `app/api/auth/me/route.ts`

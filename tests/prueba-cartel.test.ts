@@ -70,7 +70,15 @@ test('DÓNDE va: al pie de la barra lateral (todas las pantallas) y la franja ar
   // Una lectura por página: el cartel y la franja comparten la misma.
   const u = fuente('app/_ui/usePrueba.ts');
   assert.match(u, /if \(!enCurso\) \{\s*enCurso = fetch\('\/api\/plan\/prueba'/);
-  assert.match(fuente('app/api/plan/prueba/route.ts'), /if \(!s \|\| s\.legacy \|\| s\.ws == null\) return Response\.json\(\{ enPrueba: false \}\);/);
+  // EL NEGOCIO QUE SE ESTÁ MIRANDO (20/11, la llamada con Leila: mirando a un cliente como administrador, el cartel era el de su
+  // propia cuenta). El del pedido (`getWorkspaceActual`: el `?ws=` de la pestaña, que WsFetch suma a cada /api), nunca `s.ws`.
+  const ruta = fuente('app/api/plan/prueba/route.ts');
+  assert.match(ruta, /if \(!s \|\| s\.legacy\) return Response\.json\(\{ enPrueba: false \}\);\n\s*const ws = await getWorkspaceActual\(\)\.catch\(\(\) => null\);\n\s*if \(ws == null\) return Response\.json\(\{ enPrueba: false \}\);\n\s*return Response\.json\(await resumenDePrueba\(ws\)/);
+  assert.doesNotMatch(ruta.replace(/^\/\/.*$/gm, ''), /s\.ws\b/, 'el negocio propio de quien inició sesión, no el que mira');
+  // Y la pestaña llega: WsFetch suma el `?ws=` a cada /api del mismo origen, y el admin resuelve primero por la pestaña.
+  assert.ok(fuente('app/_components/WsFetch.tsx').includes("if (url.startsWith('/api/')) return true;"));
+  const w = fuente('lib/workspace.ts');
+  assert.ok(w.indexOf('const pestana = await wsDePestana();') > w.indexOf("if (sesion.rol === 'admin') {"));
 });
 
 test('los COLORES son los de MaKo (los tokens, claro y oscuro), no el violeta de Madgicx', () => {
