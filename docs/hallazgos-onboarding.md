@@ -3861,6 +3861,48 @@ existía y el test pasaba, pero el camino de la persona se cortaba. El test comp
     salen después del mensaje, con su pausa. Lo que aparece DENTRO de un día ya va por la cola también: la entrada de abajo.
   - La hora de «lo dejé para después» no se guarda: un día cerrado sólo así toma la hora en que se abrió.
 
+## Reiniciar el onboarding sin tocar lo suyo: el estado vive en tres lados, y uno le devuelve a la base lo que se borró (20/11/2026, chat «onboarding-v2», claude5)
+
+Martín: «resetea al usuario de Leila para que pueda hacer todo el onboarding… y una opción en SuperAdmin para resetear sin que pierda su
+información». Qué se reinicia y qué queda lo dice lib/reiniciar-onboarding.ts (con su test); lo hacen el botón «Reiniciar onboarding»
+de la vista de administrador y scripts/reiniciar-onboarding.mts. RESET (lib/reset-workspace.ts) es otra cosa: vacía el negocio entero.
+- **El estado del onboarding vive en tres lados:**
+  - en `app_settings` del negocio: el arranque, el chat «Onboarding», el estado y el reto;
+  - en `usuarios.perfil` del dueño: la marca del V2 y los tutoriales vistos;
+  - en el NAVEGADOR: lo visto de cada tutorial, la llegada, la entrada de cada coach y lo ya escrito del arranque.
+- **Trampa: el navegador le devuelve a la base lo que se borró.** `Recorrido.tsx` y `useVisto.ts` le mandan al server lo visto en el
+  navegador que el server no tiene. Un reinicio que sólo borra en la base queda deshecho en el primer cuadro de la persona. Por eso el
+  reinicio deja una marca en el perfil (`onboardingReiniciado`), y el layout le pone a la persona, en SU cuenta, un `<script>` que
+  limpia el navegador una vez antes de que corra React (lib/reinicio-en-el-navegador.ts). Si tenía MaKo abierto, que recargue.
+- **Trampa: `reto.estado` se BORRA, no se reescribe.** «Empezar» es un compare-and-set contra «no hay fila». Una fila con algo adentro
+  (por ejemplo, para conservar el `pro` de la prueba) deja el reto sin poder empezar nunca. Lo de Pro que el reto abre una vez en la
+  prueba vuelve a estar disponible; sólo pesa en una prueba.
+- **Adentro de lo que se reinicia hay cosas de la persona:**
+  - el bloqueo por troleo (`onboarding.guardia`): con bloqueo, la guardia queda entera;
+  - la BAJA del WhatsApp del reto (`reto.avisos.baja`);
+  - el cursor de la importación (`onboarding.state.extraction`): sin él, la importación de lo de antes se vuelve a correr, con gasto de IA.
+- **El WhatsApp verificado no se toca** (`mako.contacto.verificacion`, `mako.numero_dueno`): con eso el bot la reconoce y el reto le
+  contesta. El paso del WhatsApp vuelve a salir porque mira `onboarding.arranque.telefono`, no la verificación, y ahora trae escrito el
+  número ya verificado (`telefonoDeLaTarjeta`, lib/onboarding-arranque-server.ts). Con el mismo número, `pedirConfirmacionV2` contesta
+  `yaVerificado` y pasa sin código. **Ojo:** si escribe OTRO número (o el mismo con otros dígitos, 52 o 521, 54 o 549), la verificación
+  nueva pisa la vieja y, hasta que pegue el código, el reto deja de reconocerla por WhatsApp. Es lo de siempre, no del reinicio.
+- **El cliente de una agencia, no:** su primer mes corre desde el `completedAt` del onboarding (lib/agencia-cobro.ts). Reiniciarlo le
+  movería el cobro, así que se niega. Tampoco en el negocio del dueño, que no tiene onboarding.
+- **Trampa: `borrarSettingSi` compara el valor ENTERO en la URL del pedido.** El arranque y el historial pueden ser largos. El reinicio
+  hace su compare-and-set sobre `updated_at`, como `cambiarSettingSi` con un valor largo.
+- **Trampa de TypeScript: `typeof x` en posición de TIPO mira el estrechamiento.** Con `let fila: T | null = null`, más abajo
+  `r.data as typeof fila` es `as null`, y `fila` termina en `never` sin que el test lo note (tsx no mira tipos). Lo vio `tsc-acotado`.
+  Se castea a un alias con nombre.
+- **Encontrado de paso:** RESET no borra `perfil.onboardingV2` ni `perfil.recorridos`. Después de un RESET del ws 3, la barra oculta, la
+  llegada y «Sigamos en tu computadora» no vuelven a salir.
+- **Sin hacer:**
+  - RESET podría usar `perfilReiniciado` (lib/reset-workspace.ts).
+  - Las tareas del reto en el Plan (`experimento_tareas` con `fuente.tipo = 'reto-7-dias'`) quedan, porque el Plan no se toca: los días
+    ya hechos siguen tachados ahí hasta que el reto nuevo los vuelva a cerrar.
+  - Volver a cerrar el onboarding vuelve a escribir el nombre del negocio con lo que conteste, y vuelve a pedir el borrador del plan
+    (gasta IA y revive un borrador que había descartado).
+  - Los onboardings de cada pestaña (`onboarding.tab.*`) no se reinician.
+  - Nada de esto se probó contra la base todavía: lo corre el Cerebro con el script, primero en seco.
 ## Lo de adentro de un día del reto, por la cola de salida (20/11, tarde, chat «reto-tutoriales», claude5)
 
 El Cerebro, con Martín probando el reto: la extensión, las integraciones, la hora, el perfil, la prueba por WhatsApp, «¡Hiciste

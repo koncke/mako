@@ -83,11 +83,8 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
   // El hilo (20/11, V7, V12, F4; ./coach-compartido.ts → useHiloDelCoach): la presentación con su video siempre al principio, la clase
   // del funnel como un mensaje en su lugar y, con el motor de Offer, la oferta armada en el mensaje que trae su PDF.
   const deLaOferta = useOfertaEnMensaje(motorOffer ? k.sesionOffer : null, () => caja.current?.focus(), false);
-  const { hilo: hiloCoach, enMensaje: enMensajeDelHilo } = useHiloDelCoach({ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta });
+  const { hilo: hiloCoach, enMensaje: enMensajeDelHilo } = useHiloDelCoach({ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta, enPortada, entrada });
   const seguirHilo = useCallback(() => hilo.current, []);
-  // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11): el panel lo hace con la clave de la ÚLTIMA fila dibujada (PanelChat.tsx → `seguir`; nunca
-  // una cuenta), la entrada incluida.
-  const ultimaFila = `${hiloCoach.items[hiloCoach.items.length - 1]?.id ?? ''}|${k.trabajo ? 'trabaja' : ''}|${entrada}`;
   // Quién aconseja se elige en el coach único y, con el V2, en el Offer Coach: el Funnel Coach del V2 no tiene referente al frente.
   const eligeReferente = puedeElegir && !(dosCoaches && cual === 'funnel');
 
@@ -96,6 +93,10 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
   const [viendoCerebro, setViendoCerebro] = useState(false);
   const mostrandoCerebro = viendoCerebro && r != null;
   const mostrandoPlan = viendoPlan && plan != null && !mostrandoCerebro;
+  // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11): el panel lo hace con la clave de la ÚLTIMA fila dibujada (PanelChat.tsx → `seguir`; nunca
+  // una cuenta): el hilo dibujado, sus puntitos, la entrada y lo de abajo («Tu día 1 está completo…», coaches-3). Y al volver a verse
+  // (de otro chat, del plan o del Second Brain del gurú: coaches-2), escondido no se puede bajar.
+  const ultimaFila = `${hiloCoach.items[hiloCoach.items.length - 1]?.id ?? ''}|${hiloCoach.enCurso ? 'escribe' : ''}|${entrada}|${alFinal ? 'final' : ''}|${visible}|${mostrandoPlan}|${mostrandoCerebro}`;
   const [eligiendo, setEligiendo] = useState(false);
 
   return (

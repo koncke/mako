@@ -16,7 +16,8 @@
 //   · «SECOND BRAIN DE <GURÚ>» (#18; 4/11/2026): el grafo de SU curso EN EL LUGAR de la conversación, y el mismo botón dice
 //     «Volver al chat» (./SuSecondBrain.tsx).
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useDichoConPuntitos } from '@/app/_chat/useColaDeSalida';
 import { Modal } from '@/app/_ui';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
@@ -37,13 +38,20 @@ export function ChatDelReferente({ referente: r, visible = true, onVolver }: {
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
   const { k, aspecto, quien, vacio, saludo } = useChatDelReferente(r, caja);
-  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo, visible]);
   const seguirHilo = useCallback(() => hilo.current, []);
   const [viendoCerebro, setViendoCerebro] = useState(false);
+  // EL SALUDO CON SUS PUNTITOS (20/11, la auditoría de chats, ops-center-7): la primera vez en la visita; al volver, de una.
+  const filasSaludo = useMemo(() => (vacio ? saludo.map((x) => ({ id: x.id, de: 'mako', texto: x.k === 'msg' ? x.texto ?? '' : '' })) : []), [vacio, saludo]);
+  const dicho = useDichoConPuntitos(filasSaludo);
+  const saludoVisible = saludo.filter((x) => dicho.visibles.some((f) => f.id === x.id));
+  // SIEMPRE AL ÚLTIMO MENSAJE (el panel, por la clave de la última fila; ops-center-4), también al volver a verse.
+  const ultimaFila = vacio
+    ? `saludo|${saludoVisible.length}|${dicho.escribiendo}|${visible}`
+    : `${k.items[k.items.length - 1]?.id ?? ''}|${k.enCurso ? 'escribe' : ''}|${visible}|${viendoCerebro}`;
 
   return (
     <>
-      <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
+      <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja} seguir={{ clave: ultimaFila }}
         cabecera={{
           clave: tabDeReferente(r.id), titulo: r.nombre, aspecto, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver,
           acciones: (
@@ -62,7 +70,7 @@ export function ChatDelReferente({ referente: r, visible = true, onVolver }: {
         caja={<div className="co-caja"><CajaDelCliente k={k} campo={caja} seguir={seguirHilo} /></div>}
         estado={estadoDelCliente(k)}>
         {vacio ? (
-          <HiloMako items={saludo} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null}
+          <HiloMako items={saludoVisible} quien={quien} ahora={k.ahora} escribiendo={dicho.escribiendo ? { segs: 0 } : null} tarjeta={null}
             onTarjeta={() => {}} onReintentar={() => {}} onRecargar={k.recargar} onResponder={(t) => k.enviar(t)} />
         ) : <HiloDelCliente k={k} />}
       </PanelDeChat>

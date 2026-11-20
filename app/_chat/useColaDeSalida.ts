@@ -10,7 +10,9 @@
 //     cuando la persona mandó (`empezoLaEspera`), así la espera del servidor cuenta;
 //   · si llegan dos, el segundo trae los suyos;
 //   · después del texto, una pausa (`MS_PAUSA_PIEZA`) y recién su pieza: la tarjeta, el recuadro o el botón;
-//   · lo de la persona sale ya (es suyo);
+//   · lo de la persona sale ya (es suyo), y lo que no es de este turno (`de` cualquier otra cosa: el historial, lo que se cargó);
+//   · una PIEZA suelta del turno (`de: 'pieza'`: un bloque, una tarjeta, un aviso de la plataforma) sale sin puntitos, en la pausa
+//     después de lo anterior (el chat general: app/second-brain/useChatCliente.ts suelta así el turno de a una pieza);
 //   · el HISTORIAL (lo que ya estaba al abrir) se dibuja de una;
 //   · un mensaje `retenido` (espera algo de afuera, como el momento del video: app/_ui/tutorial/useMensajeDelVideo.ts) no tiene
 //     puntitos hasta que se suelta.
@@ -24,7 +26,8 @@ export { MS_ESCRIBE_BASE, MS_ESCRIBE_POR_LETRA, MS_ESCRIBE_TOPE, msEscribiendo }
 /** Entre el texto y su pieza (la tarjeta, el recuadro, el botón): de 400 a 600 ms. */
 export const MS_PAUSA_PIEZA = 500;
 
-/** Una fila de la cola: su id, de quién es, su texto (para los puntitos) y si trae una pieza después del texto. */
+/** Una fila de la cola: su id, de quién es ('mako' con puntitos; 'pieza' sin puntitos, en la pausa; otra cosa, ya), su texto (para
+ *  los puntitos) y si trae una pieza adentro, después del texto. */
 export type FilaDeCola = { id: string; de: string; texto: string; pieza?: boolean };
 export type EstadoCola = {
   mostrados: ReadonlySet<string>;
@@ -52,6 +55,11 @@ export function pasoDeLaCola(filas: readonly FilaDeCola[], e: EstadoCola, reteni
   }
   const sig = filas.find((f) => !e.mostrados.has(f.id));
   if (!sig) return { tipo: 'nada' };
+  // Una pieza suelta del turno: en la pausa después de lo último que salió, sin puntitos.
+  if (sig.de === 'pieza') {
+    const falta = e.ultimo ? e.ultimo.en + MS_PAUSA_PIEZA - ahora : 0;
+    return falta <= 0 ? { tipo: 'mostrar', id: sig.id, conPieza: true } : { tipo: 'esperar', ms: falta, escribiendo: false };
+  }
   if (sig.de !== 'mako') return { tipo: 'mostrar', id: sig.id, conPieza: true };
   if (retenido(sig.id)) return { tipo: 'retenido', id: sig.id };
   const desde = e.desde ?? ahora;
@@ -65,7 +73,7 @@ export function filasVisibles<F extends FilaDeCola>(filas: readonly F[], mostrad
   const out: F[] = [];
   for (const f of filas) {
     if (mostrados.has(f.id)) { out.push(f); continue; }
-    if (f.de === 'mako') break;
+    if (f.de === 'mako' || f.de === 'pieza') break;
     out.push(f);
   }
   return out;
@@ -101,14 +109,16 @@ export function useColaDeSalida<F extends FilaDeCola>(filas: readonly F[], o: { 
     if (p.tipo === 'mostrar') {
       setEscribiendo(false);
       alMostrar.current?.(p.id);
-      const esMako = filas.find((f) => f.id === p.id)?.de === 'mako';
+      const de = filas.find((f) => f.id === p.id)?.de;
+      const esMako = de === 'mako';
+      const esPieza = de === 'pieza';
       setE((x) => ({
         mostrados: new Set([...x.mostrados, p.id]),
         piezas: p.conPieza ? new Set([...x.piezas, p.id]) : x.piezas,
-        ultimo: esMako ? { id: p.id, en: Date.now() } : x.ultimo,
+        ultimo: esMako || esPieza ? { id: p.id, en: Date.now() } : x.ultimo,
         // El que sigue empieza sus puntitos ahora (si no trae pieza) o cuando salga la pieza. Lo de la persona no los corta: siguen
         // contando desde que mandó.
-        desde: esMako ? (p.conPieza ? Date.now() : null) : x.desde,
+        desde: esMako ? (p.conPieza ? Date.now() : null) : esPieza ? Date.now() : x.desde,
       }));
       return;
     }
@@ -123,9 +133,29 @@ export function useColaDeSalida<F extends FilaDeCola>(filas: readonly F[], o: { 
     return () => window.clearTimeout(t);
   }, [filas, e, clavesRetenidas]);
   const visibles = useMemo(() => filasVisibles(filas, e.mostrados), [filas, e.mostrados]);
-  const conPieza = useCallback((id: string) => e.piezas.has(id), [e.piezas]);
+  // Lo que no es del turno (el historial, lo ya dicho) está entero desde el primer dibujo, también su pieza: sin esperar un efecto (el
+  // HTML del servidor y un dibujo estático lo traen completo).
+  const inmediatas = useMemo(() => new Set(filas.filter((f) => f.de !== 'mako' && f.de !== 'pieza').map((f) => f.id)), [filas]);
+  const conPieza = useCallback((id: string) => e.piezas.has(id) || inmediatas.has(id), [e.piezas, inmediatas]);
   // La persona mandó: los puntitos del que viene cuentan desde ahora (lo que tarde el servidor, cuenta).
   const empezoLaEspera = useCallback(() => setE((x) => ({ ...x, desde: Date.now() })), []);
   const mostrarYa = useCallback((ids: readonly string[]) => setE((x) => ({ ...x, mostrados: new Set([...x.mostrados, ...ids]), piezas: new Set([...x.piezas, ...ids]) })), []);
   return { visibles, escribiendo, conPieza, empezoLaEspera, mostrarYa };
+}
+
+/** Lo ya dicho en esta página: un componente que se vuelve a montar (volver a un chat, al Ops Center) no repite sus puntitos. */
+const dichosEnLaPagina = new Set<string>();
+/** Anota algo como ya dicho en esta página (lo que se dibuja después sale de una). */
+export const anotarDicho = (id: string): void => { dichosEnLaPagina.add(id); };
+
+/**
+ * Lo que una pantalla dice SIN guardarlo (un saludo, una apertura): la primera vez en la visita, por la cola (sus puntitos, su texto y,
+ * en la pausa, su pieza: los arranques, los botones); lo ya dicho en esta página, de una (20/11, la auditoría de chats, ops-center-5 y 7).
+ */
+export function useDichoConPuntitos<F extends FilaDeCola>(filas: readonly F[]) {
+  // Sólo lo que dijo OTRO montaje: si las filas cambian después de que este lo soltó, lo suyo no pasa a «ya» (perdería la pausa de
+  // su pieza: los botones saldrían junto con el texto).
+  const propios = useRef(new Set<string>());
+  const conMemoria = useMemo(() => filas.map((f) => (dichosEnLaPagina.has(f.id) && !propios.current.has(f.id) ? { ...f, de: 'ya' } : f)), [filas]);
+  return useColaDeSalida(conMemoria, { historial: () => [], alMostrar: (id) => { propios.current.add(id); dichosEnLaPagina.add(id); } });
 }

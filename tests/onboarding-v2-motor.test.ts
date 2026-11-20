@@ -9,7 +9,8 @@ import { videoDe } from '../lib/tutoriales/videos';
 test('el onboarding V2 lo ve sólo la revisión de Martín (sus cuentas y el Cliente de Prueba)', () => {
   assert.equal(PARA_TODOS, false, 'prenderlo para todos lo decide Martín: este test se cambia con él');
   assert.ok(EMAILS_REVISION.includes('martinkoncke@gmail.com'));
-  assert.deepEqual([...WS_REVISION_V2], [3]);
+  // Leila (ws 11), desde el 20/11/2026: hace el onboarding nuevo después de reiniciárselo (scripts/reiniciar-onboarding.mts).
+  assert.deepEqual([...WS_REVISION_V2], [3, 11]);
   assert.equal(veOnboardingV2({ email: 'MartinKoncke@gmail.com ' }), true, 'el email, sin importar mayúsculas ni espacios');
   assert.equal(veOnboardingV2({ email: 'otra@cliente.com', ws: 3 }), true, 'cualquiera adentro del Cliente de Prueba');
   assert.equal(veOnboardingV2({ email: 'otra@cliente.com', ws: 9 }), false);

@@ -2672,7 +2672,9 @@ van dos marcas en el mismo render).
   `scrollTop = scrollHeight` en un efecto. Una fila que no sale de la lista del chat avisa con `avisarMensajeNuevo()`.
 - **Sus mensajes salen por la cola (`useColaDeSalida`, app/_chat/useColaDeSalida.ts):** de a uno, con puntitos según su largo, y la
   tarjeta, el recuadro o el botón después del texto. El historial, de una. Cuánto escribe MaKo sale de UNA función (`msEscribiendo`,
-  lib/puntitos.ts): nunca un número fijo en una pantalla.
+  lib/puntitos.ts): nunca un número fijo en una pantalla. Cada fila dice qué es: `'mako'` (puntitos), `'pieza'` (la tarjeta, después
+  del texto) o ya; lo que no llegó en el turno, ya (app/_chat/fila-del-hilo.ts). Lo ya dicho en la página no vuelve a escribirse al
+  volver a montar (`useDichoConPuntitos`).
   Un hilo de ítems (HiloMako, HiloAgente) pasa por `useColaDelHilo` (app/_chat/useColaDelHilo.ts), y un chat que lee su historial
   DESPUÉS de montarse le pasa `cargado`.
 - **Lo que aparece porque cambió algo en el servidor (una tarea hecha, un paso que se abre) también es una fila de la cola**, no estado
@@ -2688,6 +2690,14 @@ guarda por persona en el onboarding (empezó el V2, vio el recorrido, la barra o
 (lib/seguir-en-pc.ts), que da el dueño del negocio que se mira. Nunca con la persona de la sesión ni con un «mirando, nunca».
 **Se lee del dueño siempre; se ESCRIBE en el dueño sólo en los negocios de prueba** (`escribeComoElCliente`: ws 3 y ws 9). En cualquier
 otro cliente, lo que hace el administrador no toca el perfil del cliente (la D7, docs/diseno-curso-skool.md).
+
+# Algo nuevo que guarde estado del onboarding o del reto se suma a «Reiniciar onboarding»
+
+«Reiniciar onboarding» (20/11/2026: el botón de la vista de administrador y scripts/reiniciar-onboarding.mts) borra SÓLO el estado del
+onboarding y del reto, nunca los datos. Funciona porque sabe dónde vive cada cosa: una clave nueva en `app_settings` va en
+`SETTINGS_QUE_SE_BORRAN` o `SETTINGS_QUE_SE_REESCRIBEN` (lib/reiniciar-onboarding.ts), y si es un dato, en `LO_QUE_QUEDA`. Una marca
+nueva en el navegador va en `CLAVES_DEL_NAVEGADOR` (lib/reinicio-en-el-navegador.ts). Si no, el reinicio la deja y la persona no ve el
+onboarding entero. **El navegador también es estado:** lo visto que guarda se lo devuelve a la base (`Recorrido.tsx`, `useVisto.ts`).
 
 # Una pantalla que TRABA se dispara con la marca de quien entró al flujo, no con la falta de un «visto» nuevo
 

@@ -99,7 +99,7 @@ test('4. las pantallas dibujan el botón', () => {
   assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /<p className="ch-tarjeta__nota">\{x\.p\.nota\}<\/p>\s*<div className="ch-tarjeta__botones"><Link className="ch-abrir" href=\{x\.p\.escritorio\}>\{x\.p\.boton\}<\/Link>/, 'la propuesta de pantalla');
   // El de la ficha dibuja con el MISMO hilo desde el 22/10/2026 (CR3): la tarjeta y la pantalla son las de arriba.
   assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /<HiloMako key=\{leadId\} items=\{items\} quien=\{QUIEN\}/, 'el MaKo Analyst de la ficha');
-  for (const f of ['app/second-brain/useChatCliente.ts', 'app/crm/lead-view/MakoAnalystLead.tsx']) {
-    assert.match(sinComentarios(leer(f)), /setItems\(\(xs\) => conTarjeta\(xs, pendienteId, estado, nota, r\)\);/, `${f}: el estado de la tarjeta, con conTarjeta`);
-  }
+  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /setItems\(\(xs\) => conTarjeta\(xs, pendienteId, estado, nota, r\)\);/, 'la ficha: el estado de la tarjeta, con conTarjeta');
+  // El chat del cliente, igual, y lo que dibuja la tarjeta sale por la cola de salida (20/11, la auditoría de chats: coaches-5).
+  assert.match(sinComentarios(leer('app/second-brain/useChatCliente.ts')), /conLoNuevo\(\(xs\) => conTarjeta\(xs, pendienteId, estado, nota, r\)\);/, 'el chat del cliente: con conTarjeta, por la cola');
 });

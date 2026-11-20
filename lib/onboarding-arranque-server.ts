@@ -366,6 +366,18 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
  *  importa para que las dos puntas suban en cualquier orden, y tests/onboarding-whatsapp-primero.test.ts los compara. */
 const CLAVE_WHATSAPP_DEL_PAGO = 'cuenta.whatsapp_del_pago';
 
+/**
+ * El WhatsApp con que arranca la tarjeta del teléfono: el que el negocio YA verificó y, si no hay, el del pago (20/11/2026, «Reiniciar
+ * onboarding»). Reiniciado el onboarding, la verificación queda (MaKo la sigue reconociendo por WhatsApp): con el mismo número,
+ * `pedirConfirmacionV2` contesta `yaVerificado` y el paso pasa sin código nuevo. En dígitos, como lo lee `tarjetaConNumero`.
+ */
+async function telefonoDeLaTarjeta(): Promise<string> {
+  const ws = await getWorkspaceActual().catch(() => null);
+  const v = ws == null ? null : await getEstadoVerificacionContacto(ws).catch(() => null);
+  if (v?.verificado && v.telefono) return v.telefono.replace(/\D/g, '');
+  return (await getSetting(CLAVE_WHATSAPP_DEL_PAGO).catch(() => null)) ?? '';
+}
+
 export type VistaArranque = {
   modo: ModoArranque;
   etapa: EtapaArranque;
@@ -450,7 +462,7 @@ export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Pr
     // Al link único (lib/app-tiendas.ts): lleva a la tienda de ese teléfono o, si todavía no está, a instalarla. Al entrar con su cuenta, sigue en este mismo paso.
     avisosQr: etapa === 'avisos' ? await QRCode.toDataURL(linkApp(RUTA_APP, null), { margin: 1, width: 336 }).catch(() => null) : null,
     telefonoNumero: e.telefonoNumero ?? '',
-    telefonoDelPago: etapa === 'telefono' ? (await getSetting(CLAVE_WHATSAPP_DEL_PAGO).catch(() => null)) ?? '' : '',
+    telefonoDelPago: etapa === 'telefono' ? await telefonoDeLaTarjeta() : '',
     whatsapp: etapa === 'codigo' && e.telefonoEntrante
       ? await getWorkspaceActual().then((ws) => (ws == null ? null : estadoVerificacionEntrante(ws))).catch(() => null)
       : null,

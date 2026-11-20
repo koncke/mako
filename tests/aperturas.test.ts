@@ -217,14 +217,21 @@ test('6. el montaje: en el Cerebro, en lugar de la portada (también sin la app)
 test('7. la pieza dibujada: el mensaje de MaKo, el recomendado marcado, el link de `ir`, y sin el menú de WhatsApp', async () => {
   const { AperturaMako } = await import('../app/_chat/AperturaMako');
   const apertura: Apertura = {
-    id: 'ops:prueba', alcance: 'negocio', texto: 'Para escribir por ti uso tu propia IA. ¿Cuál usas?',
+    id: 'ops:prueba-pieza', alcance: 'negocio', texto: 'Para escribir por ti uso tu propia IA. ¿Cuál usas?',
     botones: [{ tipo: 'respuesta', rotulo: 'Claude', valor: 'claude' }, { tipo: 'ir', rotulo: 'Ver cómo', href: '/perfil/ia' }, { tipo: 'callar', rotulo: 'Ahora no' }],
   };
-  const html = renderToStaticMarkup(createElement(AperturaMako, {
-    estado: { apertura, charla: [{ mako: '¿Ya tienes tu oferta?', yo: 'Sí' }], elegir: () => {} },
-    quien: { nombre: 'MaKo' }, acciones: {},
-  }));
-  assert.match(html, /data-apertura="ops:prueba"/);
+  const props = { estado: { apertura, charla: [{ mako: '¿Ya tienes tu oferta?', yo: 'Sí' }], elegir: () => {} }, quien: { nombre: 'MaKo' }, acciones: {} };
+  // Una apertura NUEVA en la visita sale por la cola (20/11, la auditoría de chats, ops-center-5): puntitos, el texto y, en la pausa,
+  // los botones. En el primer dibujo, todavía nada de eso; lo ya contestado (la charla), sí.
+  const nueva = renderToStaticMarkup(createElement(AperturaMako, props));
+  // Por el texto y el botón, no por la clase sola: la hoja `<style>{CSS_OFFER}</style>` va siempre y trae `.of-pill--mako`.
+  assert.doesNotMatch(nueva, /¿Cuál usas\?|class="of-pill of-pill--mako"/, 'la apertura nueva, con sus puntitos primero');
+  assert.match(nueva, /¿Ya tienes tu oferta\?[\s\S]*Sí/);
+  // Ya dicha en esta página (se vuelve a montar): de una, con sus botones.
+  const { anotarDicho } = await import('../app/_chat/useColaDeSalida');
+  anotarDicho('ap-ops:prueba-pieza');
+  const html = renderToStaticMarkup(createElement(AperturaMako, props));
+  assert.match(html, /data-apertura="ops:prueba-pieza"/);
   assert.match(html, /¿Cuál usas\?/);
   assert.match(html, /¿Ya tienes tu oferta\?[\s\S]*Sí/, 'lo ya contestado queda como charla');
   assert.match(html, /<button type="button" class="of-pill of-pill--mako">Claude<\/button>/, 'el recomendado, marcado');

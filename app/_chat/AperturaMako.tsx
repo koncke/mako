@@ -22,6 +22,8 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import Link from '@/app/_ui/Link';
 import { HiloMako, type Quien } from './HiloMako';
+import { useDichoConPuntitos } from './useColaDeSalida';
+import { avisarMensajeNuevo } from './useBajarAlUltimo';
 import { ContextoWA } from '@/app/admin/operaciones/MensajeWA';
 import { CSS_OFFER } from '@/app/offer/estilos';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
@@ -169,15 +171,25 @@ export function AperturaMako<A extends string>({ estado, quien, acciones, onCone
 }) {
   const [conectando, setConectando] = useState(false);
   const { apertura: a, charla } = estado;
+  // LA APERTURA CON SUS PUNTITOS (20/11, la auditoría de chats, ops-center-5): el mensaje y sus botones aparecían de golpe. La apertura
+  // nueva de la visita sale por la cola: puntitos, el texto y, en la pausa, sus botones. Lo ya dicho (la charla, o lo dicho en esta
+  // página antes de volver a montarse) sale de una. Después de un toque, la respuesta de la persona sale ya y lo siguiente trae los suyos.
+  const idActual = a ? `ap-${a.id}` : null;
+  const filas = useMemo(() => (a && idActual ? [{ id: idActual, de: 'mako', texto: a.texto, pieza: true }] : []), [a, idActual]);
+  const dicho = useDichoConPuntitos(filas);
+  const actualVisible = idActual != null && dicho.visibles.some((f) => f.id === idActual);
+  const conBotones = idActual != null && dicho.conPieza(idActual);
+  // Vive fuera de la lista del chat: cada fila nueva lo avisa (el hilo baja: app/_chat/useBajarAlUltimo.ts).
+  useEffect(() => { if (a) avisarMensajeNuevo(); }, [a, actualVisible, conBotones, dicho.escribiendo, charla.length]);
   const items = useMemo<ItemHilo[]>(() => {
     const out: ItemHilo[] = [];
     charla.forEach((c, i) => {
       out.push({ k: 'msg', id: `ap-${i}-m`, role: 'assistant', texto: c.mako, at: null });
       out.push({ k: 'msg', id: `ap-${i}-y`, role: 'user', texto: c.yo, at: null });
     });
-    if (a) out.push({ k: 'msg', id: `ap-${a.id}`, role: 'assistant', texto: a.texto, at: null });
+    if (a && actualVisible) out.push({ k: 'msg', id: `ap-${a.id}`, role: 'assistant', texto: a.texto, at: null });
     return out;
-  }, [charla, a]);
+  }, [charla, a, actualVisible]);
   if (!a) return null;
   let recomendado = false;
   const clase = (b: Boton<A>) => {
@@ -190,10 +202,10 @@ export function AperturaMako<A extends string>({ estado, quien, acciones, onCone
       <style>{CSS_OFFER}</style>
       {/* Sin el menú de WhatsApp del chat: estos mensajes no están guardados (no se fijan, no se reaccionan). */}
       <ContextoWA.Provider value={null}>
-        <HiloMako items={items} quien={quien} ahora={0} escribiendo={null} tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} />
+        <HiloMako items={items} quien={quien} ahora={0} escribiendo={dicho.escribiendo ? { segs: 0 } : null} tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} />
       </ContextoWA.Provider>
       {/* Las opciones con imagen (las fotos que ya subió, sus personajes): tocar una es contestar su valor. */}
-      {a.galeria && a.galeria.length > 0 && (
+      {conBotones && a.galeria && a.galeria.length > 0 && (
         <div className="ch-apertura__galeria" role="group" aria-label={`${a.texto} (opciones)`}>
           {a.galeria.map((o) => (
             <button key={o.valor} type="button" className="ch-apertura__opcion" title={o.rotulo} aria-label={o.rotulo}
@@ -205,7 +217,7 @@ export function AperturaMako<A extends string>({ estado, quien, acciones, onCone
           ))}
         </div>
       )}
-      <div className="ch-apertura__botones" role="group" aria-label={a.texto}>
+      {conBotones && <div className="ch-apertura__botones" role="group" aria-label={a.texto}>
         {a.botones.map((b) => {
           const c = clase(b);
           if (b.tipo === 'ir') return <Link key={b.rotulo} className={c} href={b.href}>{b.rotulo}</Link>;
@@ -219,7 +231,7 @@ export function AperturaMako<A extends string>({ estado, quien, acciones, onCone
           };
           return <button key={b.rotulo} type="button" className={c} onClick={tocar}>{b.rotulo}</button>;
         })}
-      </div>
+      </div>}
       {conectando && typeof document !== 'undefined' && createPortal(<ModalCuentasIA onCerrar={() => setConectando(false)} />, document.body)}
     </div>
   );

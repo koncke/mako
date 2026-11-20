@@ -13666,6 +13666,26 @@ correr nunca el turno. Por eso ningún test vio el cartel. Con `crearPostgrest({
 - ⚠️ **El diagnóstico obvio (un prompt mejor) no alcanzaba.** El prompt ya decía «no inventes», «no prometas», «sin muletillas», y
   el modelo lo hacía igual. Lo que lo frenó fue sacarle la respuesta al modelo donde no hace falta: TICKET, DEBUG y la acción
   delegada salen con texto FIJO y el número del ticket que escribe el código; CHARLA es sólo el 👍 y NO_REPLY, silencio.
+- ⚠️ **«En la duda, se delega» delegaba lo que MaKo hace sola cuando faltaban los datos** (el ticket #120, ws 23, 20/11/2026):
+  - Qué pasó: «Marcela quiere probar la funcionalidad de agregar un evento al calendario de google». Sin qué, qué día ni a qué
+    hora, el turno no propuso nada. La respuesta no terminaba en «?», así que `delegaLaAccion` la delegó.
+  - Por qué esperó a Martín: lo había pedido alguien que no administra el negocio (`delegadoQueDecideMartin`).
+  - El diagnóstico del Cerebro era equivocado: «MaKo no contestó en el grupo». Leído en producción, contestó «Lo pasé al equipo de
+    MaKo (pedido #120)». Dos minutos después la dueña lo pidió con los datos, y MaKo propuso, confirmó y agendó.
+  - Ahora `pideDatosEnVezDeDelegar` (sólo CREAR en la agenda, sin fecha ni hora, nunca si cancela, borra o mueve) le pide los datos
+    con un texto fijo, y no abre un ticket.
+  - **Trampa del test:** la rotura que saca el «si cancela» quedó VERDE. Los «cancela» del test ya daban null por otro lado: uno no
+    decía «agend…» y el otro traía «hoy». Un caso que prueba un freno tiene que pasar todos los demás filtros («Cancela la reunión
+    que agendamos»). Así apareció que «Mueve la reunión agendada» pedía «qué es, qué día y a qué hora».
+  - `preguntaUnDato` reconoce el pedido del dato sin signo («pásame el día y la hora»).
+  - **Trampa:** «cuando» sin tilde es una conjunción («escríbeme cuando quieras»); sólo «cuándo» pregunta.
+  - **Lo que no cambió, a propósito:** en un grupo de WhatsApp CUALQUIER participante hace las escrituras simples con su «sí». Ahí
+    el no-admin del #120 canceló la propuesta de la dueña con «No invites por mail a nadie». La regla del no-admin vale sólo para
+    un pedido DELEGADO. Martín lo decidió el 20/11: «Sí, cualquiera del grupo». Las escrituras simples las pide y confirma
+    cualquiera del grupo, y la regla queda como está. Lo delegado de alguien que no es admin sigue esperando a Martín.
+  - **Quedó sin hacer:** una corrección a una propuesta («no invites a nadie») la cancela y pide repetir todo, en vez de volver a
+    proponer sin eso (la rama de la confirmación de lib/mako-doer-in.ts).
+  - Tests: `tests/ticket-120-agenda-pide-datos.test.ts`.
 - **Cómo despacha (decisión de Martín, 29/10):** ACCIÓN simple (una fila o un evento, reversible: la lista cerrada
   `ACCIONES_SIMPLES`) la hace MaKo con Haiku y la confirmación de siempre; cualquier otra se delega como «pedido delegado» a la
   Ticketera, el Runner se la lleva al Cerebro con su texto fijo (cartero 1.24.0) y el «listo» vuelve al grupo al cerrarla. En la

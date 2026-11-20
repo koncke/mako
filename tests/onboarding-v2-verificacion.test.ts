@@ -108,7 +108,8 @@ test('6b. OA-10, segunda verificación (20/11, tarde): «Sigamos en tu computado
   assert.equal(empezoElV2(perfilConVisto({ [CLAVE_EMPEZO_V2]: '2026-11-20T15:00:00.000Z' }, 'tutorial-ops-center', 'x')), true, 'marcar lo visto no la borra');
   const sep = sinComentarios(leer('lib/seguir-en-pc.ts'));
   const f = sep.slice(sep.indexOf('export async function seguirEnPcPendiente'), sep.indexOf('export async function anotarQueEmpezoElV2'));
-  assert.match(f, /const perfil = \(data as \{ perfil\?: unknown \} \| null\)\?\.perfil;\n\s*if \(!empezoElV2\(perfil\)\) return false;\n\s*return !Object\.prototype\.hasOwnProperty\.call\(vistosDePerfil\(perfil\), ID_RECORRIDO_PC\);/);
+  // El perfil, leído una vez por pedido (`perfilDe`, 20/11: el layout también pregunta por el reinicio del onboarding); sin poder leerlo, no.
+  assert.match(f, /const perfil = await perfilDe\(email\);\n\s*if \(perfil === undefined\) return false;\n\s*if \(!empezoElV2\(perfil\)\) return false;\n\s*return !Object\.prototype\.hasOwnProperty\.call\(vistosDePerfil\(perfil\), ID_RECORRIDO_PC\);/);
   // La marca: la primera respuesta del V2, de la persona de la sesión (nunca mirando a un cliente), conservando el resto del jsonb.
   const a = sep.slice(sep.indexOf('export async function anotarQueEmpezoElV2'));
   // En la fila de la persona del onboarding: mirando un negocio como administrador, su dueño (Martín, 20/11: lo mismo que el cliente).
@@ -129,8 +130,9 @@ test('7. OD-03: la barra sigue oculta con el «dale play», al recargar y al vol
   // Al recargar (la segunda verificación de OD-03, 20/11, tarde): en el <html> del layout raíz, del server, y no un <script> de la
   // página, que llega después de loading.tsx con el riel ya pintado. Del módulo chico (tests/seguir-en-pc-liviano.test.ts).
   const lay = sinComentarios(leer('app/layout.tsx'));
-  assert.match(lay, /import \{ seguirEnPcPendiente \} from '@\/lib\/seguir-en-pc';/);
-  assert.match(lay, /const barraOculta = veV2 && \(await seguirEnPcPendiente\(\)\);\n\s*return \(\n\s*<html [^>]*\{\.\.\.\(barraOculta \? \{ \[ATTR_BARRA_OCULTA\]: '' \} : \{\}\)\}>/);
+  assert.match(lay, /import \{ reinicioDelOnboarding, seguirEnPcPendiente \} from '@\/lib\/seguir-en-pc';/);
+  // (Entre las dos, el reinicio del onboarding: tests/reiniciar-onboarding.test.ts.)
+  assert.match(lay, /const barraOculta = veV2 && \(await seguirEnPcPendiente\(\)\);\n\s*const reinicio = veV2 && !vista \? await reinicioDelOnboarding\(\) : null;\n\s*return \(\n\s*<html [^>]*\{\.\.\.\(barraOculta \? \{ \[ATTR_BARRA_OCULTA\]: '' \} : \{\}\)\}>/);
   const page = sinComentarios(leer('app/second-brain/page.tsx'));
   assert.doesNotMatch(page, /ATTR_BARRA_OCULTA|<script/, 'una sola fuente: el layout');
 });

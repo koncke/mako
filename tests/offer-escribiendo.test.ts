@@ -21,7 +21,8 @@ test('la burbuja de espera son tres puntos, sin texto', () => {
   const chat = sinComentarios(leer('app/offer/ChatOffer.tsx'));
   // Desde el 22/10/2026 (OF4) va en la fila de MaKo del Ops Center (FilaDelChat), al final del hilo único, y NO con el
   // «Trabajando…» del hilo (`escribiendo={null}`): eso es texto, y Martín pidió sólo los puntitos.
-  const i = chat.indexOf('{respondiendo && (\n            <FilaDelChat');
+  // Los puntitos, también mientras la cola de salida tiene el próximo mensaje (20/11, la auditoría de chats: \`escribe\`).
+  const i = chat.indexOf('{escribe && (\n            <FilaDelChat');
   assert.ok(i > 0, 'no encuentro la burbuja de espera');
   const burbuja = chat.slice(i, chat.indexOf('</FilaDelChat>', i));
   assert.match(burbuja, /<span role="status" aria-label="MaKo está escribiendo" className="of-escribiendo"><i \/><i \/><i \/><\/span>/);
@@ -29,7 +30,7 @@ test('la burbuja de espera son tres puntos, sin texto', () => {
   assert.match(chat, /<HiloMako [^>]*escribiendo=\{null\}/, 'el «Trabajando…» del hilo, además de los puntitos');
   // 18/10/2026, 14:00 (Martín): «Analizando…» mientras LEE un link o un documento; los puntitos, sólo cuando contesta.
   // Roturas (romper-analizando.js; base 2/0): siempre los puntitos → 1/1 · «Analizando» también al contestar → 1/1.
-  assert.match(burbuja, /\{leeAlgo\(fuente\) \? \([\s\S]*?Analizando \{fuente\}[\s\S]*?\) : \([\s\S]*?of-escribiendo/, 'la lectura de un link o un documento no dice «Analizando…»');
+  assert.match(burbuja, /\{respondiendo && leeAlgo\(fuente\) \? \([\s\S]*?Analizando \{fuente\}[\s\S]*?\) : \([\s\S]*?of-escribiendo/, 'la lectura de un link o un documento no dice «Analizando…»');
   assert.match(chat, /return fuente === 'tu link' \|\| \/archivos\?\$\/\.test\(fuente \?\? ''\);/, '«Analizando» no se limita a links y documentos');
 });
 

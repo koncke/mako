@@ -20,7 +20,8 @@
 
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDichoConPuntitos } from '@/app/_chat/useColaDeSalida';
 import { Modal } from '@/app/_ui';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
@@ -65,17 +66,25 @@ export default function ChatDelSecondBrain({ movil = false }: {
   // «Conectar tu IA» al final de la caja, como en el Ops Center (la lista no se lee, pero esto sí).
   const { mirarSuIA } = k;
   useEffect(() => { mirarSuIA(); }, [mirarSuIA]);
-  // Como un chat: abre en lo último y baja con lo nuevo.
-  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);
 
   /** Vacío y cargado: el saludo de MaKo (no se guarda). */
   const vacio = elegido != null && k.cargado && !k.errorCarga && !k.items.length && !k.trabajo;
   const saludo = useMemo<ItemHilo[]>(() => (nombre == null ? [] : [{ k: 'msg', id: 'saludo-sb', role: 'assistant', texto: saludoDelSecondBrain(nombre), at: new Date().toISOString() }]), [nombre]);
+  // EL SALUDO CON SUS PUNTITOS, Y LOS ARRANQUES DESPUÉS (20/11, la auditoría de chats, ops-center-7): aparecía de golpe. La primera vez en
+  // la visita; al volver, de una (app/_chat/useColaDeSalida.ts → useDichoConPuntitos).
+  const filasSaludo = useMemo(() => (vacio ? saludo.map((x) => ({ id: x.id, de: 'mako', texto: x.k === 'msg' ? x.texto ?? '' : '', pieza: true })) : []), [vacio, saludo]);
+  const dicho = useDichoConPuntitos(filasSaludo);
+  const saludoVisible = saludo.filter((x) => dicho.visibles.some((f) => f.id === x.id));
+  const conArranques = saludo.length > 0 && saludo.every((x) => dicho.conPieza(x.id));
+  // SIEMPRE AL ÚLTIMO MENSAJE (el panel, por la clave de la última fila: PanelChat.tsx → `seguir`; ops-center-4).
+  const ultimaFila = vacio
+    ? `saludo|${saludoVisible.length}|${dicho.escribiendo}|${conArranques}`
+    : `${k.items[k.items.length - 1]?.id ?? ''}|${k.enCurso ? 'escribe' : ''}`;
 
   return (
     <>
-      <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
+      <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja} seguir={{ clave: ultimaFila }}
         cabecera={{ clave: 'second-brain', titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: () => {} }}
         arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo="MaKo" onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
         despues={<>
@@ -86,11 +95,11 @@ export default function ChatDelSecondBrain({ movil = false }: {
         estado={estadoDelCliente(k)}>
         {vacio ? (
           <>
-            <HiloMako items={saludo} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={k.ahora} escribiendo={null} tarjeta={null}
+            <HiloMako items={saludoVisible} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={k.ahora} escribiendo={dicho.escribiendo ? { segs: 0 } : null} tarjeta={null}
               onTarjeta={() => {}} onReintentar={() => {}} onRecargar={k.recargar} onResponder={(t) => k.enviar(t)} />
-            <div className="ch-arranques sb-chat__arranques">
+            {conArranques && <div className="ch-arranques sb-chat__arranques">
               {ARRANQUES_DEL_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => k.enviar(a)}>{a}</button>)}
-            </div>
+            </div>}
           </>
         ) : <HiloDelCliente k={k} />}
       </PanelDeChat>

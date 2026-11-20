@@ -484,6 +484,11 @@ compartidas del Cerebro (`auditoria-chats-*-20-11.md`).
     - MaKo Mobile (app/m/chats, app/m/crm/[id]/chat);
     - el superadmin (app/admin/operaciones/PanelChat.tsx: ahí va el seguimiento central, porque `PanelDeChat` lo usan casi
       todas).
+- **Hecho el 20/11 a la tarde (chat «MaKo en WhatsApp»):**
+  - MaKo Mobile y el superadmin: ver docs/hallazgos-mobile.md y docs/hallazgos-operaciones.md.
+  - La bandeja (app/chats) sigue como WhatsApp, y se arregló lo que no se veía:
+    - la caja tiene `seguir` (VentanaChat se lo pasa por Composer);
+    - lo que aparece arriba de la caja (la fase, el error) achica el hilo, y lo sigue `bajarAlCrecer` mientras estaba abajo (admin-6).
 
 ## Las dos piezas compartidas: `useBajarAlUltimo` y la cola de salida (20/11/2026, chat «onboarding-v2», claude5)
 
@@ -525,9 +530,41 @@ bajaba por cuenta; la corrigió la tanda siguiente. VideoDelMomento sin tocar: l
   navegador recorta el scroll y la deja cerca del final: por eso se mira primero la distancia al final y después la dirección.
 - **Trampa al medirlo:** con una marca del tutorial puesta, el motor vuelve a traer lo marcado a la vista cuando se scrollea. Una prueba
   de «subió a leer» con la marca abierta mide al motor, no al hook.
-- **Sin hacer:** ChatDelReto.tsx (lo tiene el chat del reto; el Cerebro le pasa los nombres) y los otros chats con MaKo (ops-center-4 a 7
-  y 9 de la auditoría: el Cerebro, AperturaMako, useChatCliente, las pestañas). Los que todavía bajan por cuenta:
-  `grep -rn "scrollTop = el.scrollHeight" app`.
+- **Sin hacer:** ChatDelReto.tsx (lo tiene el chat del reto; el Cerebro le pasa los nombres). Los coaches y el chat general ya las usan
+  (la entrada de abajo). Los que todavía bajan por cuenta: `grep -rn "scrollTop = el.scrollHeight" app`.
+
+## Los chats con MaKo, de a uno: el chat general, los coaches, la apertura y los grupos (20/11/2026, chat «onboarding-v2», claude5)
+
+Las dos piezas de arriba, puestas en ChatDelSecondBrain, ChatDelReferente, MakoEnLaTab, AperturaMako, useChatCliente, los coaches
+(coach-compartido, ChatDelCoach, VideoDelCoach, HojaDelCoach), ChatOffer y los grupos (coaches-1 a 8 y ops-center-4 a 7 y 9 de la
+auditoría). Las pruebas: tests/chats-de-a-uno.test.ts y, con el hook de verdad, tests/grupos-ops-pantalla.test.ts (15).
+- **Qué cuenta como «de este turno»:** `itemsDeRespuesta` sigue armando el turno entero. La cola lo suelta de a una pieza porque
+  useChatCliente marca qué ids son NUEVOS contra lo que había antes del `setItems` (`conLoNuevo`). Lo que no se marcó (el historial, lo
+  que había al abrir) sale de una. Qué es cada fila lo dice `filaDeItem` (app/_chat/fila-del-hilo.ts): el texto de MaKo, con puntitos;
+  lo de la persona, ya; la tarjeta, el bloque o el aviso de la plataforma, como `'pieza'`, 500 ms después del texto.
+- **Lo ya dicho no se repite al volver a montar** (`useDichoConPuntitos` + `anotarDicho`, en useColaDeSalida.ts): es una memoria de la
+  página. Sin eso, la apertura y el saludo del Second Brain volvían a escribir con puntitos cada vez que la persona cambiaba de chat y
+  volvía.
+- **El saludo del coach espera a que la voz diga «la primera pregunta»** (18,5 s en Offer Coach, 26,34 s en Funnel Coach, medido sobre el
+  manifiesto). Pasa sólo la primera vez (`yaEntro`), sólo con el video en la portada y cuando ya terminó la entrada. Si no hay play, hay
+  error o ya se vio, sale igual. En Offer Coach, su primer mensaje y sus píldoras salen después del saludo, no juntos.
+- **ChatOffer bajaba sólo si la persona estaba abajo** (`estaAbajo`): un mensaje de MaKo nuevo quedaba fuera de la vista. Ahora baja con
+  cada mensaje nuevo, como los demás chats con MaKo.
+- **Trampa: useChatCliente arrastra `server-only`.** Un test que lo importe revienta con «This module cannot be imported from a Client
+  Component module», aunque pruebe una función pura. Lo puro que se prueba va en su módulo (por eso fila-del-hilo.ts).
+- **Trampa al probar con `renderToStaticMarkup`:** AperturaMako dibuja siempre `<style>{CSS_OFFER}</style>`, que trae `.of-pill--mako`.
+  Una regex que busca la clase sola «encuentra» el botón aunque no esté. Hay que buscar el marcado (`class="of-pill of-pill--mako"`) o el
+  texto.
+- **Trampa: un dibujo estático no corre la cola** (el rojo de 34738ec54, tests/carruseles-guiado-pantalla.test.ts). Lo que sale por la
+  cola no está en el primer cuadro, porque los puntitos y la salida son efectos. El diagnóstico obvio («el ancla del velo ya no envuelve
+  la pregunta») era el equivocado: el velo mide su ancla cuadro a cuadro (app/_ui/guia/VeloGuia.tsx) y la sigue mientras pasa de los
+  puntitos a la pregunta. Un test así mira dos cosas: el ancla está en el primer cuadro, y lo ya dicho (`anotarDicho`) se dibuja adentro.
+- **Trampa en el arnés de los grupos:** su `setTimeout` no hacía nada, y la cola mide con `Date.now`. El mensaje de MaKo no salía nunca, y
+  el test parecía decir que el hook estaba roto. El arnés ahora guarda los relojes y espera el tiempo de verdad.
+- **Sin hacer** (no eran de esta tanda): las pestañas (Copywriter, Image Editor, Video Editor, Web Generator…), MaKo Mobile, el superadmin
+  y la bandeja, que los tienen otros chats; el teléfono del Second Brain y del gurú (app/m/second-brain/ChatClienteM.tsx y
+  HojaDelGuru.tsx), que todavía bajan con un `setTimeout` y `scrollTop`. Y nada de esto se miró en un navegador: está probado el código,
+  no el uso.
 
 ## La cola de salida en un chat que carga después: el historial se fija al montarse (20/11, chat «reto-tutoriales», claude5)
 

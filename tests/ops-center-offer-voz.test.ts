@@ -80,7 +80,7 @@ test('3. la caja: el «+» abierto en Offer, la nota a SU motor, y la que espera
   assert.match(motor, /pendiente: notaEnEspera && notaEnEspera\.chat === chatAbierto/);
   assert.match(motor, /if \(fin === 'volver'\) setNotaEnEspera\(a\);/);
   // Lo que no salió no se dibuja con la conversación de vuelta: se saca la nota (vuelve a la barra) o el texto queda con «Reintentar».
-  assert.match(motor, /if \(r\.ok \|\| r\.guardado\) \{\n\s*if \(r\.sesion && offerRef\.current\?\.id === s\.id\) await ponerOffer\(r\.sesion\);/);
+  assert.match(motor, /if \(r\.ok \|\| r\.guardado\) \{\n\s*if \(r\.sesion && offerRef\.current\?\.id === s\.id\) await ponerOffer\(r\.sesion, true\);/, 'el turno, por la cola de salida');
   assert.match(motor, /if \(nota\) \{ setItems\(\(xs\) => xs\.filter\(\(x\) => x\.id !== idU\)\); setFaltaMic\(r\.error\); \}\n\s*else marcar\(idU, \{ estado: 'error', error: r\.error \}\);/);
   assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /adjuntos=\{k\.adjuntosCaja\} voz=\{k\.vozCaja\}/, 'la caja recibe la nota de voz');
   // El servidor de Offer la escucha con la IA del negocio antes de guardar nada (lo de siempre de la tab).

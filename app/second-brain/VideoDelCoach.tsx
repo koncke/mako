@@ -44,14 +44,15 @@ export function useVideoDelCoach(cual: CoachDelOps, dosCoaches: boolean, saludo:
     if (!conVideo || !primero || primero.k !== 'msg') return saludo;
     return [{ k: 'msg', id, role: 'assistant', texto: LINEA[cual], at: primero.at }, ...saludo];
   }, [conVideo, saludo, id, cual]);
+  // «Mira aquí, la caja del chat» se marca mientras la voz lo dice (`marcarFrases`; 20/11, coaches-6: la maqueta la marca).
   // Quieto, el motor lo marca con «{título}: dale play» (V5, app/_ui/tutorial/useDalePlay.ts), sólo mientras es la portada (el chat
   // vacío): con la charla empezada, el video sigue arriba (V12) pero no vuelve a pedir play. El video va ARRIBA del texto (F4).
   const enMensaje = useCallback((x: { id: string }): EnMensaje | null => {
     if (x.id !== id) return null;
     return {
       arriba: cual === 'offer'
-        ? <VideoDelMomento clave="offer-coach" titulo={ORIGEN_OFFER_COACH} revision={revision} dalePlay={dalePlay} />
-        : <VideoDelMomento clave="funnel-coach" titulo={ORIGEN_FUNNEL_COACH} revision={revision} dalePlay={dalePlay} />,
+        ? <VideoDelMomento clave="offer-coach" titulo={ORIGEN_OFFER_COACH} revision={revision} dalePlay={dalePlay} marcarFrases />
+        : <VideoDelMomento clave="funnel-coach" titulo={ORIGEN_FUNNEL_COACH} revision={revision} dalePlay={dalePlay} marcarFrases />,
     };
   }, [id, cual, revision, dalePlay]);
   return { items, enMensaje, conVideo };

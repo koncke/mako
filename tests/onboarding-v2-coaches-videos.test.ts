@@ -59,16 +59,16 @@ test('3. V12 y V7: la portada siempre arriba, la clase en el hilo (nunca clavada
   assert.match(h, /const hilo = useHiloConPortada\(kConClase, dosCoaches \? portada\.items : null\);/, 'sin la condición de que no haya escrito');
   const c = sinComentarios(leer('app/second-brain/ChatDelCoach.tsx'));
   assert.doesNotMatch(c, /Mírate|co-clase/, 'la clase ya no va clavada arriba del chat');
-  assert.match(c, /useHiloDelCoach\(\{ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta \}\)/);
+  assert.match(c, /useHiloDelCoach\(\{ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta, enPortada, entrada \}\)/);
   assert.match(c, /<HiloDelCliente k=\{hiloCoach\} enMensaje=\{enMensajeDelHilo\} \/>/);
   const t = sinComentarios(leer('app/m/second-brain/HojaDelCoach.tsx'));
-  assert.match(t, /useHiloDelCoach\(\{ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta \}\)/, 'el teléfono, el mismo hilo');
+  assert.match(t, /useHiloDelCoach\(\{ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta, enPortada: /, 'el teléfono, el mismo hilo');
   assert.match(t, /<HiloDelCliente k=\{hiloCoach\} enMensaje=\{enMensajeDelHilo\} \/>/);
 });
 
 test('4. F4: el video arriba del texto, y el «dale play» sólo mientras es la portada', () => {
   const v = sinComentarios(leer('app/second-brain/VideoDelCoach.tsx'));
-  assert.match(v, /arriba: cual === 'offer'\s*\? <VideoDelMomento clave="offer-coach" titulo=\{ORIGEN_OFFER_COACH\} revision=\{revision\} dalePlay=\{dalePlay\} \/>/);
+  assert.match(v, /arriba: cual === 'offer'\s*\? <VideoDelMomento clave="offer-coach" titulo=\{ORIGEN_OFFER_COACH\} revision=\{revision\} dalePlay=\{dalePlay\} marcarFrases \/>/);
   assert.doesNotMatch(v, /abajo: cual === 'offer'/);
   assert.match(sinComentarios(leer('app/second-brain/ChatDelCoach.tsx')), /const portada = useVideoDelCoach\(cual, dosCoaches, saludo, enPortada\);/);
   const h = sinComentarios(leer('app/second-brain/coach-compartido.tsx'));

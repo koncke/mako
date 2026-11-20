@@ -172,10 +172,41 @@ export function delegadosParaAvisar(filas: readonly DelegadoSinTomar[], yaAvisad
 export const textoDelegadoSinTomar = (id: number, titulo: string): string =>
   `Tu pedido #${id} («${titulo.trim().replace(/[.\s]+$/u, '').slice(0, 120)}») todavía no lo tomó nadie del equipo: sigue en la fila. Cuando esté, te aviso por aquí.`;
 
-/** ¿La respuesta termina pidiendo un dato que falta («¿a qué hora?»)? Entonces la acción simple sigue: no se delega todavía. */
+/**
+ * Lo que falta, pedido sin signo de pregunta (20/11/2026, el ticket #120): «Pásame el título, el día y la hora y lo agendo» también pide
+ * un dato. Sólo con el signo final, un pedido así se delegaba. Va por la raíz del verbo (no por cada forma: el guard de copy lee el
+ * texto de la regex) y tiene que nombrar el dato.
+ */
+const PIDE_EL_DATO = /\b(?:p[aá]sa|d[ií]|ind[ií]ca|cu[eé]nta|m[aá]nda|env[ií]a|escr[ií]be|conf[ií]rma)me\b[^\n]{0,140}?\b(?:d[ií]as?|horas?|horarios?|fechas?|t[ií]tulos?|nombres?|datos?|cuándo|tel[eé]fonos?|emails?|correos?)\b|\bnecesito\b[^\n]{0,80}?\b(?:d[ií]as?|horas?|horarios?|fechas?|t[ií]tulos?|nombres?|datos?)\b/i;
+
+/** ¿La respuesta pide un dato que falta («¿a qué hora?», «pásame el día y la hora»)? Entonces la acción simple sigue: no se delega. */
 export function preguntaUnDato(respuesta: string): boolean {
   const t = (respuesta || '').trim();
-  return /\?\s*$/.test(t) || /¿[^?]{3,200}\?\s*$/.test(t.split('\n').filter(Boolean).pop() ?? '');
+  return /\?\s*$/.test(t) || /¿[^?]{3,200}\?\s*$/.test(t.split('\n').filter(Boolean).pop() ?? '') || PIDE_EL_DATO.test(t);
+}
+
+/** Lo que dice MaKo cuando le piden agendar sin decir qué ni cuándo (el ticket #120). El ejemplo es el pedido que sí agenda. */
+export const PIDE_DATOS_AGENDA = 'Claro. Para agendarlo dime qué es, qué día y a qué hora. Por ejemplo: «MaKo, agenda la reunión con Ana el 25 de noviembre de 16 a 17».';
+
+const CREA_EN_LA_AGENDA = /\b(agreg|cre|pon|anot|sum|program|arm|carg)\w*/;
+const LA_AGENDA = /\b(eventos?|calendarios?|calendar|reunion|reuniones|citas?|llamadas?)\b/;
+const NO_CREA = /\b(cancel|borr|elimin|quit|sac|anul|suspend|muev|mover|reprogram|pospon|posterg|cambi)\w*/;
+const TIENE_FECHA_U_HORA = /\b(hoy|manana|pasado|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b|\b\d{1,2}\s*(de|\/|-)\s*(\d{1,2}|ene|feb|mar|abr|may|jun|jul|ago|sep|set|oct|nov|dic)|\b\d{1,2}([:.]\d{2})?\s*(h|hs|horas|am|pm)\b|\ba las \d/;
+
+/**
+ * ¿SE PIDEN LOS DATOS EN VEZ DE DELEGAR? (20/11/2026, el ticket #120: «Marcela quiere probar la funcionalidad de agregar un evento al
+ * calendario de google»). Agendar UN evento es una escritura simple (`crear_evento_google`, arriba): MaKo la hace sola, con su «sí».
+ * Sin qué, qué día ni a qué hora no hay nada que proponer, el turno terminó sin proponer y se DELEGABA. Como lo había pedido alguien
+ * que no administra el negocio, el pedido quedó esperando a Martín, y el grupo recibió «Lo pasé al equipo de MaKo» por algo que MaKo
+ * hace sola. Ahora se piden los datos (`PIDE_DATOS_AGENDA`). Sólo para CREAR algo en la agenda y sin fecha ni hora en el pedido: con
+ * fecha, el turno pudo proponerlo, y si no lo hizo es otra cosa (se delega como antes). Nunca si cancela, mueve o borra.
+ */
+export function pideDatosEnVezDeDelegar(pedido: string): string | null {
+  const t = sinTildes(pedido);
+  if (NO_CREA.test(t)) return null;
+  const esCrearEnLaAgenda = /\bagend\w*/.test(t) || (CREA_EN_LA_AGENDA.test(t) && LA_AGENDA.test(t));
+  if (!esCrearEnLaAgenda || TIENE_FECHA_U_HORA.test(t)) return null;
+  return PIDE_DATOS_AGENDA;
 }
 
 /**

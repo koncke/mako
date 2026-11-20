@@ -14,7 +14,8 @@
 //
 // ⚠️ El ws es el del grupo, en la URL. Nada de `?ws=` ni `conWs`: un invitado sigue parado en SU negocio (lib/grupo-puerta.ts).
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useColaDeSalida, type FilaDeCola } from '@/app/_chat/useColaDeSalida';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { idLocal, leerRespuesta, type Leido } from '@/app/m/mako/chat-ui';
 import { mismoValor } from '@/lib/centro-estable';
 import { notaEnMp3 } from '@/app/second-brain/nota-de-voz';
@@ -52,6 +53,10 @@ export function useHiloDelGrupo({ ws, visible, onLeido }: {
   const [hayAntes, setHayAntes] = useState(false);
   const [trayendo, setTrayendo] = useState(false);
   const [pensando, setPensando] = useState(false);
+  // LO DE MaKo QUE LLEGA CON EL CHAT ABIERTO, DE A UNO (20/11, la auditoría de los chats, ops-center-9): dos mensajes de MaKo en la misma
+  // vuelta del sondeo salían juntos, y sus avisos nunca traían puntitos. Lo que trae el sondeo de MaKo se anota aquí y sale por la cola
+  // de salida (abajo). Lo que se carga al abrir, lo de las personas y lo propio, ya.
+  const deMakoAhora = useRef(new Set<number>());
   const [ahora, setAhora] = useState(() => Date.now());
   const [cita, setCita] = useState<MensajeDelHilo | null>(null);
   const [deWhatsApp, setDeWhatsApp] = useState<{ mensajes: readonly MensajeDeWhatsApp[]; hayMas: boolean; pidiendo: boolean; nada: boolean }>({ mensajes: [], hayMas: true, pidiendo: false, nada: false });
@@ -96,7 +101,11 @@ export function useHiloDelGrupo({ ws, visible, onLeido }: {
         if (!l.ok) { if (l.status === 404) setEstado('fuera'); return; }
         cursor.current = cursorNuevo(cursor.current, l.datos.cursor);
         // Sin esto, una vuelta sin nada nuevo redibuja el hilo entero cada 4 s (lib/centro-estable.ts).
-        setMensajes((antes) => mismoValor(antes, mezclarMensajes(antes, l.datos.mensajes ?? [])));
+        setMensajes((antes) => {
+          const ya = new Set(antes.map((m) => m.id));
+          for (const m of l.datos.mensajes ?? []) if (!ya.has(m.id) && m.autor.tipo === 'mako') deMakoAhora.current.add(m.id);
+          return mismoValor(antes, mezclarMensajes(antes, l.datos.mensajes ?? []));
+        });
         setPensando(!!l.datos.makoPensando);
         setEstado('listo');
         if (!l.datos.hayMas) return;
@@ -245,8 +254,17 @@ export function useHiloDelGrupo({ ws, visible, onLeido }: {
       .then((l) => { if (!l.ok && leidoHasta.current === ultimo) leidoHasta.current = antes; });
   }, [base, onLeido, ws]);
 
+  const filas = useMemo(() => mensajes.map((m): FilaDeCola => (deMakoAhora.current.has(m.id)
+    ? { id: String(m.id), de: 'mako', texto: m.texto }
+    : { id: String(m.id), de: 'ya', texto: '' })), [mensajes]);
+  const salida = useColaDeSalida(filas, { historial: () => [] });
+  const mensajesVisibles = useMemo(() => {
+    const ver = new Set(salida.visibles.map((f) => f.id));
+    return mensajes.filter((m) => ver.has(String(m.id)));
+  }, [mensajes, salida.visibles]);
+
   return {
-    ws, estado, mensajes, pendientes, hayAntes, trayendo, pensando, ahora, cita, setCita, deWhatsApp,
+    ws, estado, mensajes: mensajesVisibles, pendientes, hayAntes, trayendo, pensando: pensando || salida.escribiendo, ahora, cita, setCita, deWhatsApp,
     enviar, enviarNota, reintentar, descartar: soltar, verAnteriores, verDeWhatsApp, sondear, recargar: cargar, marcarLeido,
   };
 }

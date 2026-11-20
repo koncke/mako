@@ -37,7 +37,8 @@ import { WsProvider } from './_ui/Link';
 import { DesvioMovil } from './_components/DesvioMovil';
 import { TelefonoProvider } from './_components/VistaMovil';
 import { prefiereMovil, vistaEscritorioEnTelefono } from '@/lib/movil-guard';
-import { seguirEnPcPendiente } from '@/lib/seguir-en-pc';
+import { reinicioDelOnboarding, seguirEnPcPendiente } from '@/lib/seguir-en-pc';
+import { scriptDelReinicio } from '@/lib/reinicio-en-el-navegador';
 import { ATTR_BARRA_OCULTA } from './_ui/tutorial/barra-oculta';
 import { VueltaAlTelefono } from './_components/VueltaAlTelefono';
 import { MOVIL_ACTIVO, seDesvia } from '@/lib/movil-desvio';
@@ -162,9 +163,14 @@ export default async function RootLayout({
   // ⚠️ Sólo el módulo chico (lib/seguir-en-pc.ts): lo que importa el layout raíz no arrastra un servidor pesado (AGENTS.md). En otra
   // página que no presenta el recorrido, el motor la vuelve a mostrar en un rato (ESPERA_BARRA_MS, MotorTutorial.tsx): nunca sin salida.
   const barraOculta = veV2 && (await seguirEnPcPendiente());
+  // «REINICIAR ONBOARDING» (20/11/2026): lo visto del onboarding también vive en el navegador, y el navegador se lo devuelve a la base.
+  // Con un reinicio, a la persona (en SU cuenta) se le limpia el navegador una vez, antes de que corra React
+  // (lib/reinicio-en-el-navegador.ts). Mirando otro negocio, nunca: ese navegador es de quien mira.
+  const reinicio = veV2 && !vista ? await reinicioDelOnboarding() : null;
   return (
     <html lang="es" className="h-full antialiased" {...(vista ? { 'data-barra-agencia': '1' } : {})} {...(barraOculta ? { [ATTR_BARRA_OCULTA]: '' } : {})}>
       <body>
+        {reinicio && <script dangerouslySetInnerHTML={{ __html: scriptDelReinicio(reinicio) }} />}
         {/* «Geist» es Urbanist desde el 31/10/2026 (el @font-face de app/globals.css), por eso de acá sólo sale la mono. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

@@ -62,3 +62,14 @@ test('5. un mensaje RETENIDO (espera su momento del video) no tiene puntitos has
   assert.equal((p as { empieza?: number }).empieza, 4000);
   assert.equal((p as { escribiendo: boolean }).escribiendo, true);
 });
+
+test('6. las piezas sueltas de un turno (un bloque, una tarjeta) salen de a una, en la pausa, sin puntitos; lo que no es del turno, ya', () => {
+  const filas: FilaDeCola[] = [{ id: 'h', de: 'ya', texto: 'del historial' }, mako('m', 'Te armé dos opciones'), { id: 'b', de: 'pieza', texto: '' }, { id: 't', de: 'pieza', texto: '' }];
+  assert.deepEqual(filasVisibles(filas, new Set()).map((f) => f.id), ['h'], 'el historial, ya; lo del turno espera');
+  const e: EstadoCola = { mostrados: new Set(['h', 'm']), piezas: new Set(['h', 'm']), ultimo: { id: 'm', en: 1000 }, desde: 1000 };
+  assert.deepEqual(pasoDeLaCola(filas, e, nunca, 1200), { tipo: 'esperar', ms: MS_PAUSA_PIEZA - 200, escribiendo: false }, 'el bloque, en la pausa');
+  assert.deepEqual(pasoDeLaCola(filas, e, nunca, 1000 + MS_PAUSA_PIEZA), { tipo: 'mostrar', id: 'b', conPieza: true });
+  const e2: EstadoCola = { mostrados: new Set(['h', 'm', 'b']), piezas: new Set(['h', 'm', 'b']), ultimo: { id: 'b', en: 1500 }, desde: 1500 };
+  assert.deepEqual(pasoDeLaCola(filas, e2, nunca, 1600), { tipo: 'esperar', ms: MS_PAUSA_PIEZA - 100, escribiendo: false }, 'la tarjeta, otra pausa después');
+  assert.deepEqual(filasVisibles(filas, new Set(['h', 'm'])).map((f) => f.id), ['h', 'm']);
+});

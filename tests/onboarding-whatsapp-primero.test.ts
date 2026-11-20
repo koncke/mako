@@ -121,7 +121,9 @@ test('6. el WhatsApp del pago: arranca cargado, editable, y nada lo usa hasta el
   }
 
   const server = leer('lib/onboarding-arranque-server.ts');
-  assert.match(server, /telefonoDelPago: etapa === 'telefono' \? \(await getSetting\(CLAVE_WHATSAPP_DEL_PAGO\)/, 'sólo en la etapa del teléfono');
+  assert.match(server, /telefonoDelPago: etapa === 'telefono' \? await telefonoDeLaTarjeta\(\) : '',/, 'sólo en la etapa del teléfono');
+  // Primero el que el negocio ya verificó (un onboarding reiniciado pasa sin código nuevo, 20/11/2026); después, el del pago.
+  assert.match(server, /if \(v\?\.verificado && v\.telefono\) return v\.telefono\.replace\(\/\\D\/g, ''\);\n\s*return \(await getSetting\(CLAVE_WHATSAPP_DEL_PAGO\)/);
   const chat = leer('app/onboarding/ChatArranque.tsx');
   assert.match(chat, /<TarjetaTelefono inicial=\{vista\.telefonoDelPago\}/);
   assert.match(chat, /useState\(\(\) => tarjetaConNumero\(inicial\)\.numero\)/);

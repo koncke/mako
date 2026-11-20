@@ -92,7 +92,7 @@ test('5. cada coach entra la primera vez como la bienvenida: oscuro, escribe, y 
   assert.match(c, /: entrada === 'escribe' \? <EntradaEscribiendo foto=\{<Muneco titulo=\{quien\.nombre\} aspecto=\{quien\.aspecto\} animo="despierto" size=\{26\} \/>\} quien=\{titulo\} \/>/);
   const v = sinComentarios(leer('app/second-brain/VideoDelCoach.tsx'));
   // (20/11: `dalePlay={dalePlay}`, sólo mientras el video es la portada del chat vacío.)
-  assert.equal((v.match(/<VideoDelMomento [^>]*\bdalePlay=\{dalePlay\} \/>/g) ?? []).length, 2, 'los dos coaches');
+  assert.equal((v.match(/<VideoDelMomento [^>]*\bdalePlay=\{dalePlay\} marcarFrases \/>/g) ?? []).length, 2, 'los dos coaches');
   assert.match(v, /return \{ items, enMensaje, conVideo \};/);
   // Su «dale play» señala el play: en el centro tapaba el título de la portada («ningún anuncio la salva»; el Cerebro, 20/11: el play
   // cae sobre un espacio vacío, en cualquier portada). Abajo a la derecha no hay nada (C:/dev/tutoriales-video/pantallas-onboarding/poster.mjs).

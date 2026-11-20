@@ -9,7 +9,9 @@
 // de lo visto y de quién opera.
 // =============================================================================
 import 'server-only';
+import { cache } from 'react';
 import { getSesionAdmin, getUsuarioActual } from './auth';
+import { reinicioDelPerfil } from './reinicio-en-el-navegador';
 import { estaImpersonando, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { escribeComoElCliente, veOnboardingV2 } from './onboarding-v2/revision';
 import { getSupabaseServer } from './supabase';
@@ -26,6 +28,27 @@ export const RUTA_SEGUIR_EN_PC = '/onboarding';
 
 /** Lo visto del recorrido del Ops Center: el id con que lo anota el motor (`tutorial-<pestaña>`, app/_ui/tutorial/MotorTutorial.tsx). */
 const ID_RECORRIDO_PC = 'tutorial-ops-center';
+
+/** `usuarios.perfil` de una persona, leído UNA vez por pedido (el layout lo pregunta dos veces). `undefined`: no se pudo leer. */
+const perfilDe = cache(async (email: string): Promise<unknown> => {
+  const { data, error } = await getSupabaseServer().from('usuarios').select('perfil').eq('email', email).maybeSingle();
+  if (error) return undefined;
+  return (data as { perfil?: unknown } | null)?.perfil ?? null;
+});
+
+/**
+ * EL ÚLTIMO «REINICIAR ONBOARDING» DE LA PERSONA, EN SU CUENTA (20/11/2026, lib/reinicio-en-el-navegador.ts): con la marca, el layout le
+ * limpia el navegador una vez (si no, lo visto que guarda el navegador volvía a la base). Mirando otro negocio, nunca: el navegador es
+ * de quien mira. null si no hay o no se pudo leer.
+ */
+export async function reinicioDelOnboarding(): Promise<string | null> {
+  try {
+    const s = await getUsuarioActual();
+    if (!s?.email || (await estaImpersonando().catch(() => true))) return null;
+    const perfil = await perfilDe(s.email.trim().toLowerCase());
+    return perfil === undefined ? null : reinicioDelPerfil(perfil);
+  } catch { return null; }
+}
 
 /**
  * DE QUIÉN ES EL ESTADO DEL ONBOARDING V2 QUE SE DIBUJA (Martín, 20/11, probando en Lalaland «como administrador»: la vista como
@@ -60,9 +83,8 @@ export async function seguirEnPcPendiente(): Promise<boolean> {
     // Quien opera, en su cuenta: la misma regla que `quienOpera` (lib/second-brain-opera.ts), sin importar el Centro. Mirando un
     // negocio, no: ahí se ve lo del cliente.
     if (!p.mirando && puedeOperar(await getSesionAdmin().catch(() => null), await wsSuperAdmin().catch(() => -1))) return false;
-    const { data, error } = await getSupabaseServer().from('usuarios').select('perfil').eq('email', email).maybeSingle();
-    if (error) return false;
-    const perfil = (data as { perfil?: unknown } | null)?.perfil;
+    const perfil = await perfilDe(email);
+    if (perfil === undefined) return false;
     if (!empezoElV2(perfil)) return false;
     return !Object.prototype.hasOwnProperty.call(vistosDePerfil(perfil), ID_RECORRIDO_PC);
   } catch { return false; }

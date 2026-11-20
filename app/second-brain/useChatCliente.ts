@@ -18,6 +18,8 @@
 // ⚠️ UN CHAT NUEVO NO SE CREA AL APRETAR «Nuevo chat»: se crea con el primer mensaje (sin conversaciones vacías).
 // ⚠️ LO ELEGIDO LO LLEVA QUIEN LO MONTA (`elegido`): en la computadora del super admin lo comparte con los chats de Claude Code.
 
+import { useColaDeSalida } from '@/app/_chat/useColaDeSalida';
+import { filaDeItem } from '@/app/_chat/fila-del-hilo';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
@@ -162,6 +164,17 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const [sesiones, setSesiones] = useState<SesionChat[] | null>(sesionesIniciales);
   const [errorLista, setErrorLista] = useState<string | null>(null);
   const [items, setItems] = useState<ItemHilo[]>([]);
+  // LO QUE LLEGA CON UN TURNO EN ESTA VISITA (20/11, la auditoría de los chats: ops-center-6 y coaches-5). La respuesta entraba entera en
+  // un solo `setItems`: el texto, el bloque con opciones, la tarjeta y los avisos salían en el mismo instante. Lo que suma un turno (la
+  // respuesta, lo que dibuja una tarjeta, el turno de Offer) se anota aquí y sale por la cola de salida, de a una pieza (más abajo). Lo
+  // que se carga con la conversación (el historial, al abrir o al recargar) no se anota: sale de una.
+  const delTurno = useRef(new Set<string>());
+  const conLoNuevo = useCallback((f: (xs: ItemHilo[]) => ItemHilo[]) => setItems((xs) => {
+    const ys = f(xs);
+    const antes = new Set(xs.map((x) => x.id));
+    for (const y of ys) if (!antes.has(y.id)) delTurno.current.add(y.id);
+    return ys;
+  }), []);
   const [cargado, setCargado] = useState(false);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [texto, setTexto] = useState('');
@@ -321,17 +334,19 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
    * diagnóstico, si se está armando: motor-offer.ts). Sin la proyección, el arranque de un onboarding no se veía (el chat
    * Onboarding, 22/10/2026). Si la proyección no llega, se dibuja la de Offer.
    */
-  const ponerOffer = useCallback(async (s: OfferSesionVista) => {
+  // `turno`: lo que trae es la respuesta de un turno (sale por la cola); si no, la conversación al abrirla (de una).
+  const ponerOffer = useCallback(async (s: OfferSesionVista, turno = false) => {
     offerRef.current = s;
     setDeOfferAbierta(s);
+    const poner = (xs: ItemHilo[]) => (turno ? conLoNuevo(() => xs) : setItems(xs));
     // El Offer Coach (V2): su conversación nació en el Ops Center y no trae el arranque de ningún onboarding para unir.
-    if (offerDirecto) { setItems(itemsDeOffer(s.mensajes, conWsDeAudio)); return; }
+    if (offerDirecto) { poner(itemsDeOffer(s.mensajes, conWsDeAudio)); return; }
     const l = await pedir<{ mensajes: MensajeChat[] }>(`${RUTA}?offerId=${s.id}`);
     if (offerRef.current?.id !== s.id) return;
-    if (!l.ok) { setItems(itemsDeOffer(s.mensajes, conWsDeAudio)); return; }
+    if (!l.ok) { poner(itemsDeOffer(s.mensajes, conWsDeAudio)); return; }
     const op = opcionesDeOffer(s.mensajes);
-    setItems([...itemsDeSesion(l.datos.mensajes ?? [], [], [], conWsDeAudio), ...(op ? [op] : [])]);
-  }, [conWsDeAudio, offerDirecto]);
+    poner([...itemsDeSesion(l.datos.mensajes ?? [], [], [], conWsDeAudio), ...(op ? [op] : [])]);
+  }, [conWsDeAudio, offerDirecto, conLoNuevo]);
 
   useEffect(() => {
     if (!esDelCliente) return;
@@ -464,7 +479,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
       const guardados = archivosDeRespuesta(l.datos);
       marcar(idU, { estado: undefined, error: undefined, ...textoTapadoDeRespuesta(l.datos, mensaje), ...(guardados.length ? { archivos: guardados } : {}) });
       if (guardados.length) { for (const a of archivos) URL.revokeObjectURL(a.url); envios.current.delete(idU); }
-      setItems((xs) => {
+      conLoNuevo((xs) => {
         const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));
         return [...xs, ...itemsDeRespuesta(l.datos, vistas)];
       });
@@ -488,13 +503,13 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
       if (!nota && ultimo?.de === 'mako' && !ultimo.pregunta && s.puedeConcluir && esOpcionArmar(mensaje, opcionArmar)) {
         setItems((xs) => xs.filter((x) => x.id !== idU));
         const a = await armarOffer(s.id);
-        if (a.ok) await ponerOffer(a.sesion); else setFaltaMic(a.error);
+        if (a.ok) await ponerOffer(a.sesion, true); else setFaltaMic(a.error);
         return 'salio';
       }
       // Con los archivos del «+» y la nota de voz (OC7): se suben (y se leen) en ESTA conversación antes del turno, como en la tab.
       const r = await turnoOffer(s.id, mensaje, s.mensajes, respuestaDeOffer(s.mensajes, mensaje), archivos.map((a) => a.file), nota);
       if (r.ok || r.guardado) {
-        if (r.sesion && offerRef.current?.id === s.id) await ponerOffer(r.sesion);
+        if (r.sesion && offerRef.current?.id === s.id) await ponerOffer(r.sesion, true);
         // Guardado pero MaKo no contestó: el error va en la línea de estado, y lo dicho no se vuelve a mandar.
         if (!r.ok) setFaltaMic(r.error);
         cargarOtros();
@@ -546,7 +561,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
       const yo = l.datos.mensajes.find((m) => m.role === 'user');
       const delServidor = yo?.audio?.url ? { url: conWsDeAudio(yo.audio.url), secs: yo.audio.secs } : null;
       marcar(idU, { estado: undefined, error: undefined, texto: yo?.content ?? '', ...(delServidor ? { voz: delServidor } : {}) });
-      setItems((xs) => {
+      conLoNuevo((xs) => {
         const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));
         return [...xs, ...itemsDeRespuesta(l.datos, vistas)];
       });
@@ -655,7 +670,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   // ── Las tarjetas ──
   /** `r`: lo que contestó la tarjeta (su «Abrir», los avisos y lo que dibuja el resultado: `conTarjeta`). */
   const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta) => {
-    setItems((xs) => conTarjeta(xs, pendienteId, estado, nota, r));
+    conLoNuevo((xs) => conTarjeta(xs, pendienteId, estado, nota, r));
   };
   const correrTarjeta = async (x: ItemPropuesta, accion: 'confirmar' | 'cancelar') => {
     const sid = sesionRef.current;
@@ -784,10 +799,20 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   /** Los mensajes del hilo, para la barra de los fijados. */
   const mensajesWA = useMemo(() => items.flatMap((x) => (x.k === 'msg' ? [mensajeWADe(x, nombreMuneco)] : [])), [items, nombreMuneco]);
 
+  // LA COLA DE SALIDA (app/_chat/useColaDeSalida.ts): lo del turno sale de a una pieza: el texto de MaKo con sus puntitos (según su
+  // largo), el bloque, la tarjeta o el aviso de la plataforma en la pausa. Lo de la persona y el historial, ya. Quien dibuja recibe
+  // sólo lo que ya salió (`items`), y `enCurso` también mientras MaKo escribe lo que sigue (sus puntitos: HiloDelCliente → HiloMako).
+  const filas = useMemo(() => items.map((x) => filaDeItem(x, delTurno.current.has(x.id))), [items]);
+  const cola = useColaDeSalida(filas, { historial: () => [] });
+  const itemsVisibles = useMemo(() => {
+    const ver = new Set(cola.visibles.map((f) => f.id));
+    return items.filter((x) => ver.has(x.id));
+  }, [items, cola.visibles]);
+
   return {
     sesiones, errorLista, lista, elegido, elegir, filaAbierta, esJefe, nombre, nombreMuneco, aspectoMuneco, idOffer, idAntes, idTurno,
     esAutomatizacion, hrefLienzo, esEditor, hrefEditor,
-    items, cargado, errorCarga, recargar, ahora, trabajo, segs, enCurso, armandoOffer, tarjeta, correrTarjeta, alTerminarTrabajo, reintentar,
+    items: itemsVisibles, cargado, errorCarga, recargar, ahora, trabajo, segs, enCurso: enCurso || cola.escribiendo, armandoOffer, tarjeta, correrTarjeta, alTerminarTrabajo, reintentar,
     texto, setTexto, faltaMic, setFaltaMic, enviar, enviarCaja, adjuntosCaja, vozCaja, pegados, quitarPegado, pegarLargo, cita, setCita,
     marcas, ponerMarca, accionesWA, menuWA, setMenuWA, infoWA, setInfoWA, elegirEnMenu, mensajesWA,
     iaConectada, app, conectando, setConectando, mirarSuIA, menuDeFila, menuDeChats,

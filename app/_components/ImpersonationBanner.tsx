@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { PanelAgencia } from './PanelAgencia';
+import { ReiniciarOnboarding } from './ReiniciarOnboarding';
 import { WS_PARAM } from '@/lib/ws-tab';
 import type { VistaDeOtro } from '@/lib/vista-de-otro';
 
@@ -117,7 +118,7 @@ export function ImpersonationBanner({ inicial = null }: { inicial?: VistaDeOtro 
           significando «salir del todo» en vez de dos cosas a la vez.
           ⚠️ Y el destino se arma con el ws de la AGENCIA, no con el de la pestaña: es
           adónde vamos, no dónde estamos. */}
-      <span style={{ fontSize: 13.5, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={{ fontSize: 13.5, minWidth: 0, flexShrink: 1000, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {agencia && (
           <>
             <a href={`/customer-success?${WS_PARAM}=${agencia.ws}`}
@@ -140,7 +141,19 @@ export function ImpersonationBanner({ inicial = null }: { inicial?: VistaDeOtro 
           del cliente de otra agencia. El server ya las cierra (`/api/datos-mau`
           exige super-admin), así que esto no es el guard: es no pedir una
           respuesta que va a ser 403 y no dibujar un control muerto. */}
-      {!modoAgencia && <div style={{ marginLeft: 'auto' }}><PanelAgencia cliente={cliente} /></div>}
+      {/* «Reiniciar onboarding» (20/11/2026), al lado de RESET: no borra datos, así que va en CUALQUIER cliente (RESET, sólo en el
+          de prueba). El server lo cierra igual: super admin y nunca el negocio del dueño.
+          ⚠️ En el Cliente de Prueba a 375 px no entran los cuatro botones: «Salir de la vista» quedaba FUERA de la pantalla. Las
+          herramientas se achican DESPUÉS que el texto (el texto lleva flexShrink 1000: se achica primero, hasta 0) y se deslizan de
+          costado; «Salir de la vista», que va afuera de esta caja, queda siempre a la vista. Los menús van en portal: no se cortan.
+          (Un flexShrink menor que 1 en esta caja NO sirve: si la suma de los que quedan por achicar es menor que 1, el navegador
+          les reparte sólo esa fracción de lo que sobra, y «Salir» seguía afuera.) */}
+      {!modoAgencia && (
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
+          <PanelAgencia cliente={cliente} />
+          <ReiniciarOnboarding cliente={cliente} />
+        </div>
+      )}
       {modoAgencia && <span style={{ marginLeft: 'auto' }} />}
       <button type="button" onClick={salir} disabled={saliendo}
         style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.06em', textTransform: 'uppercase',
