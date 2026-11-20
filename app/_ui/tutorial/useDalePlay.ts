@@ -41,7 +41,8 @@ export function useDalePlay(ref: RefObject<HTMLElement | null>, o: { clave: stri
       if (sueltaDalePlay({ activo, aLaVista })) { soltarSenal(mia.current); mia.current = null; }
       return;
     }
-    if (!tocaDalePlay({ activo, aLaVista, motorLibre: senal == null, cerrado })) return;
+    // Lo cerrado se relee: otro camino lo anota (el play del video, el botón del día del reto) sin pasar por este hook.
+    if (!tocaDalePlay({ activo, aLaVista, motorLibre: senal == null, cerrado: cerrado || dalePlayCerrado(clave) })) return;
     const visto = () => { mia.current = null; cerrarDalePlay(clave); setCerrado(true); };
     mia.current = senalarDondeTocar(
       { sel: `[data-dale-play="${marca}"]`, titulo: tituloDalePlay(titulo), texto: '', haz: '', lado: 'derecha' },

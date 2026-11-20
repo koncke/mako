@@ -177,8 +177,10 @@ test('la caja vacía: sin el código mandado, «Todavía no tienes el código…
   assert.deepEqual(decidirCodigoV2({ ...v, respondido: true }, '4829', ahora), { ok: false, error: E_CODIGO_LARGO_V2 }, 'incompleto, como antes');
   // La ruta lleva la caja vacía a la verificación (antes caía en «Escribe el código…» aunque MaKo no hubiera mandado nada).
   const r = fuenteSinComentarios('app/api/onboarding/arranque/route.ts');
-  assert.ok(r.includes("if (h.v2 && etapa === 'codigo' && texto !== undefined && opcion === undefined && (grupoDe6 || digitosCodigo.length < 6)) {"));
-  assert.ok(r.includes("const digitosCodigo = texto ? texto.replace(/\\D/g, '') : '';"), 'la caja vacía son 0 números');
+  // (Desde la verificación de OA-06, 20/11, con `codigoEnLaCaja`: «482 913» como lo manda MaKo. Vacía o sin números va a la
+  // verificación con ''; un teléfono, no. tests/onboarding-v2-verificacion.test.ts, 1.)
+  assert.ok(r.includes("const codigoEscrito = h.v2 && etapa === 'codigo' && opcion === undefined && texto !== undefined ? (codigoEnLaCaja(texto) ?? (telefonoEscrito(texto) ? null : '')) : null;"));
+  assert.ok(r.includes('const r = await verificarCodigoV2(g.ws, codigoEscrito);'), 'la caja vacía va con 0 números');
 });
 
 test('su mensaje llegó y MaKo no pudo contestar: la tarjeta lo dice, y los @lid sin número se cuentan (wa-04)', () => {

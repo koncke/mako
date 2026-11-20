@@ -27,14 +27,15 @@ import {
   HORAS_WA, RETO_HOLA, RETO_SUB, RETO_TITULO, mensajeEscrito, tareaHecha,
   type DiaReto, type EstadoDia, type EstadoReto, type MarcaReto, type TareaReto,
 } from '@/lib/reto/dias';
-import { mostrarTutorial, reproducirFlotante, senalAhora, senalarDondeTocar } from '@/app/_ui/tutorial/store';
+import { mostrarTutorial, reproducirFlotante, senalAhora, senalarDondeTocar, useEsRevision } from '@/app/_ui/tutorial/store';
 import { verEnSuMensaje } from '@/app/_ui/tutorial/VideosDelChat';
 import { BarraFijados } from '@/app/admin/operaciones/MensajeWA';
 import { Icon } from '@/app/_components/icons';
 import { FAMILIAS, itemsDe } from '@/app/_components/nav';
 import { mostrarEnSuPestana } from './enSuPestana';
 import { RETO_D2_RECORDATORIO, SIGUIENTE_DE_TAREA, dejaParaDespues } from '@/lib/reto/dias';
-import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
+import { useManifiestoListo, useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
+import { cerrarDalePlay } from '@/app/_ui/tutorial/entrada';
 // V5 (20/11): la entrada de cada día (el velo y MaKo escribiendo) y el «dale play», las piezas del chat del onboarding (no otras).
 import { EntradaEscribiendo, useEntrada } from '@/app/_ui/tutorial/EntradaEscribiendo';
 import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
@@ -328,7 +329,9 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
       estado="">
       <style>{CSS_RETO + CSS_CATALOGO}</style>
       <div className="co-hilo__col" data-recorrido="sb-reto-hilo">
-        {catalogo && d ? <CatalogoTutoriales diaAbierto={d.abierto} onVolver={() => setCatalogo(false)} /> : !d ? <p className="co-vacio">Cargando tu reto…</p> : !e ? <p className="co-vacio">Empezando tu reto…</p> : (
+        {/* Mientras llegan los datos (o arranca el reto la primera vez), MaKo escribiendo: los tres puntitos y no «Cargando tu reto…» ni
+            «Empezando tu reto…» (20/11, la verificación de OD-09). */}
+        {catalogo && d ? <CatalogoTutoriales diaAbierto={d.abierto} onVolver={() => setCatalogo(false)} /> : !d || !e ? <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo" data-reto-carga=""><span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></span></Burbuja> : (
           <>
             {ap.ver('hola') && <Burbuja><p>{RETO_HOLA(nombre)}</p></Burbuja>}
             {muestras.length > 0 && ap.ver('interes') && <Burbuja><p>{RETO_INTERES_YA(muestras)}</p></Burbuja>}
@@ -595,6 +598,10 @@ function VideoDelDia({ dia, onTocado, onFin, dalePlay = false }: { dia: DiaReto;
   const v = useVideoTutorial(dia.video);
   const boton = useRef<HTMLButtonElement>(null);
   const conMarcas = !!v?.frases?.some((f) => f.sel);
+  // La placa de abajo, sólo en la revisión de Martín y con el manifiesto ya leído (20/11, la verificación de V10 y F1): no en todo
+  // el Cliente de Prueba, ni mientras carga.
+  const revision = useEsRevision();
+  const listo = useManifiestoListo();
   // El «dale play» sobre el botón del video con marcas (useDalePlay, del motor): mientras nadie lo tocó, y sólo si ese video todavía no
   // se vio en este navegador (verificación V5: terminado el reto, cada carga repetía «Día 7: dale play» sobre un video ya visto).
   const [visto] = useState(() => yaVisto(`video:${dia.n}`));
@@ -603,7 +610,7 @@ function VideoDelDia({ dia, onTocado, onFin, dalePlay = false }: { dia: DiaReto;
   // lo nombra, pausa hasta el clic y sigue en el cuadrito de abajo a la derecha mientras la persona navega.
   if (v && v.frases?.some((f) => f.sel)) {
     return (
-      <button ref={boton} type="button" className="rt-video rt-video--pasos" onClick={() => { anotarVisto(`video:${dia.n}`); mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true, alTocar: onTocado, alTerminar: () => onFin?.() }); }}
+      <button ref={boton} type="button" className="rt-video rt-video--pasos" onClick={() => { anotarVisto(`video:${dia.n}`); cerrarDalePlay(dia.video); mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true, alTocar: onTocado, alTerminar: () => onFin?.() }); }}
         style={v.poster ? { backgroundImage: `url(${v.poster})` } : undefined} aria-label={`Ver el video del día ${dia.n}: te marca dónde tocar`}>
         <span className="rt-video__play" aria-hidden>▶</span><span className="rt-video__dice">Ver el video del día {dia.n}: te marco dónde tocar</span>
       </button>
@@ -611,7 +618,7 @@ function VideoDelDia({ dia, onTocado, onFin, dalePlay = false }: { dia: DiaReto;
   }
   // Sin marcas (el día 1): el reproductor de la maqueta (V14), que sigue en la esquina si se navega y marca «dale play» (V5).
   if (v) return <VideoDelMomento clave={dia.video} titulo={`Día ${dia.n}`} revision={false} onTermina={() => { anotarVisto(`video:${dia.n}`); onFin?.(); }} dalePlay={dalePlay && !visto} />;
-  if (PARA_TODOS) return null;
+  if (PARA_TODOS || !revision || !listo) return null;
   return <div className="rt-video rt-video--lugar" role="note"><b>Tu video del día {dia.n}</b><span>Todavía no está grabado: va aquí.</span></div>;
 }
 

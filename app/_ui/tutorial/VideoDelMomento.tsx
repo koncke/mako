@@ -23,6 +23,7 @@ import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
 import { useSenal } from './store';
 import { useVideoQueFlota } from './useVideoQueFlota';
 import { useDalePlay } from './useDalePlay';
+import { cerrarDalePlay } from './entrada';
 
 type Estado = 'quieto' | 'reproduciendo' | 'pausado' | 'terminado';
 const VELOCIDADES = [1, 1.25, 1.5, 2] as const;
@@ -30,10 +31,13 @@ const mmss = (s: number) => { const t = Math.max(0, Math.round(s || 0)); return 
 const conMayuscula = (s: string) => (s ? s.charAt(0).toLocaleUpperCase('es') + s.slice(1) : s);
 
 /**
- * `onTermina`: cuando el video llegó al final (el onboarding V2 suelta ahí su primera pregunta). `dalePlay`: mientras está quieto, el
+ * `onTermina`: cuando el video llegó al final (el onboarding V2 suelta ahí su primera pregunta); `onPausa`, cuando la persona lo pausa
+ * (20/11, la verificación de OA-02: también la suelta); `onEmpieza`, cuando arranca. `dalePlay`: mientras está quieto, el
  * motor lo marca con «{título}: dale play» (V5, ./useDalePlay.ts): el video con el que abre un chat (los coaches, el reto, la bienvenida).
  */
-export function VideoDelMomento({ clave, titulo, revision, onTermina, dalePlay = false }: { clave: string; titulo: string; revision: boolean; onTermina?: () => void; dalePlay?: boolean }) {
+export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, onEmpieza, dalePlay = false }: {
+  clave: string; titulo: string; revision: boolean; onTermina?: () => void; onPausa?: () => void; onEmpieza?: () => void; dalePlay?: boolean;
+}) {
   const v = useVideoTutorial(clave);
   const listo = useManifiestoListo();
   const senal = useSenal();
@@ -76,7 +80,7 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina, dalePlay =
       <style>{CSS}</style>
       <div className={`mk-vmom__pantalla${v.play === 'abajo-derecha' ? ' mk-vmom__pantalla--abajo-derecha' : ''}`} onClick={alternar}>
         <video ref={ref} className="mk-vmom__video" src={v.archivo} poster={v.poster} playsInline preload="metadata"
-          onPlay={() => setEstado('reproduciendo')} onPause={(e) => { if (!e.currentTarget.ended) setEstado('pausado'); }}
+          onPlay={() => { setEstado('reproduciendo'); if (dalePlay) cerrarDalePlay(clave); onEmpieza?.(); }} onPause={(e) => { if (!e.currentTarget.ended) { setEstado('pausado'); onPausa?.(); } }}
           onEnded={() => { setEstado('terminado'); onTermina?.(); }} onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
           onLoadedMetadata={(e) => { if (Number.isFinite(e.currentTarget.duration)) setDur(e.currentTarget.duration); }} />
         {/* Mientras flota abajo a la derecha, su lugar lo dice (20/11, F2): vuelve solo cuando el mensaje se ve otra vez. */}
@@ -105,7 +109,8 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina, dalePlay =
   );
 }
 
-// ⚠️ SIN COMILLAS INVERTIDAS ADENTRO (es un template literal: AGENTS.md). El reproductor, el de la maqueta (`.mq-video`).
+// ⚠️ SIN COMILLAS INVERTIDAS ADENTRO (es un template literal: AGENTS.md). El reproductor, el de la maqueta (`.mq-video`). Lo usa
+// también el video de la esquina (./VideoEnLaEsquina.tsx).
 const CSS = `
 .mk-vmom { width: 400px; max-width: 100%; box-sizing: border-box; border-radius: 14px; overflow: hidden; background: #0E1219; color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.12); margin: 2px 0 4px; }
 .mk-vmom__pantalla { position: relative; aspect-ratio: 16 / 9; display: grid; place-items: center; background: #000; overflow: hidden; cursor: pointer; }
@@ -128,3 +133,5 @@ const CSS = `
 .mk-vmom--lugar span { font-size: var(--fs-meta); color: var(--dim); }
 @media (prefers-reduced-motion: reduce) { .mk-vmom__play { transition: none; } }
 `;
+
+export const CSS_REPRODUCTOR = CSS;

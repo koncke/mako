@@ -212,6 +212,13 @@ export async function anotarRespuesta(e: EstadoArranque, h: HechosServer, dicho:
  * pendiente) y mientras NO vio el recorrido del Ops Center en la computadora (`tutorial-ops-center` en `usuarios.perfil`, lo que
  * guarda /api/recorridos). Mirando a un cliente, nunca. Si no se puede leer, no (la persona entra como siempre).
  */
+/**
+ * Dónde se dibuja «Sigamos en tu computadora»: la página del onboarding (app/onboarding/page.tsx), que en el teléfono la muestra
+ * mientras `seguirEnPcPendiente`. No es el hub retirado (tests/onboarding-hub-retirado.test.ts): el guard del teléfono y el Ops
+ * Center de escritorio abierto en un teléfono mandan aquí por esta constante, sin nombrar la ruta.
+ */
+export const RUTA_SEGUIR_EN_PC = '/onboarding';
+
 export async function seguirEnPcPendiente(): Promise<boolean> {
   try {
     if (await estaImpersonando().catch(() => true)) return false;
@@ -219,6 +226,9 @@ export async function seguirEnPcPendiente(): Promise<boolean> {
     const email = s?.email?.trim().toLowerCase();
     if (!s || !email) return false;
     if (!veOnboardingV2({ email: s.email, ws: await getWorkspaceActual().catch(() => null) })) return false;
+    // Quien opera la plataforma (Martín en la suya), nunca (20/11): su email está en la revisión del V2 y, sin el recorrido visto,
+    // el guard de /m lo dejaba fuera de su teléfono. Importado al llamar: el Centro no se carga para los demás.
+    if (await import('./second-brain-opera').then((m) => m.quienOpera()).catch(() => false)) return false;
     const { data, error } = await getSupabaseServer().from('usuarios').select('perfil').eq('email', email).maybeSingle();
     if (error) return false;
     return !Object.prototype.hasOwnProperty.call(vistosDePerfil((data as { perfil?: unknown } | null)?.perfil), ID_RECORRIDO_PC);

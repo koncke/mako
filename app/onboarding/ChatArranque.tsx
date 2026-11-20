@@ -522,7 +522,13 @@ export function SeguirEnPc({ nombre, email, video = null, maqueta = false }: { n
           {paso(2, 'Entra con tu cuenta', email)}
           {paso(3, 'Sigues justo donde quedaste', 'Lo que contestaste ya está guardado.')}
         </ol>
-        {maqueta && email && <p data-seguir-correo="" style={{ margin: 0, fontSize: 'var(--fs-meta)', color: 'var(--dim)', overflowWrap: 'anywhere' }}>Te mandamos el link a <b style={{ color: 'var(--ink)' }}>{email}</b>.</p>}
+        {/* Con su sobre delante, y «tu correo» si no hay email (20/11, la verificación de OA-11: la maqueta, `.mq-pc__mail`). */}
+        {maqueta && (
+          <p data-seguir-correo="" style={{ margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left', fontSize: 13, color: 'var(--dim)', overflowWrap: 'anywhere' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: 'none' }}><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m4 7 8 6 8-6" /></svg>
+            <span>Te mandamos el link a <b style={{ color: 'var(--ink)' }}>{email || 'tu correo'}</b>.</span>
+          </p>
+        )}
       </div>
     </div>
   );

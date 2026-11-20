@@ -16,12 +16,15 @@
 //      Una frase cuya marca no apareció, en su t_fin espera SÓLO si la página está cargando; si no, se saltea sin pausar.
 //   3. Después de un clic (o de «Siguiente», que hace el clic), el video se queda quieto en el silencio de la frase tocada hasta que
 //      aparece la marca de la próxima frase con marca, con un tope (`soltarRetencion`).
+//      En el SILENCIO de verdad (20/11, la verificación de motor-2/b y motor-3/c): un clic DURANTE la voz de la frase tocada no la
+//      corta; el video sigue hasta su t_fin y ahí se retiene (`retenerAlFin`). Así el t_fin es el único punto de pausa.
 // El motor las aplica; aquí, sólo las decisiones (las prueba tests/tutorial-pausas.test.ts sin navegador).
 // =============================================================================
 import type { FraseVideo } from '@/lib/tutoriales/videos';
 
-/** Lo más que se espera, quieto y en silencio, a que aparezca la marca después de un clic (el grafo del Second Brain tarda ~3 s). */
-export const TOPE_RETENCION_MS = 6000;
+/** Lo más que se espera, quieto y en silencio, a que aparezca la marca después de un clic (el grafo del Second Brain tarda ~3 s; la
+ *  auditoría pidió ~8 s, recorrido-5). */
+export const TOPE_RETENCION_MS = 8000;
 /** Lo menos que se espera después de un clic que no navega (un menú, un panel): lo que abre tarda un poco en dibujarse. */
 export const MIN_RETENCION_MS = 600;
 /** Sin cambios en la página por este tiempo, lo que iba a aparecer ya apareció (o no va a aparecer). */
@@ -47,6 +50,12 @@ export function soltarRetencion(r: Retencion, a: Ahora): boolean {
   if (r.navega && a.url === r.url) return false;
   return pasado >= MIN_RETENCION_MS && a.quietoMs >= QUIETO_MS;
 }
+
+/**
+ * ¿El clic llegó con la voz de su frase todavía sonando? Entonces el video sigue hasta su t_fin y recién ahí se retiene (regla 3):
+ * nunca a mitad de la frase. Con el mismo margen que la pausa del t_fin (50 ms).
+ */
+export const retenerAlFin = (t: number, tFin: number): boolean => t < tFin - 0.05;
 
 /** En el t_fin de una frase cuya marca no apareció: se espera sólo a una página que está cargando (con tope); si no, se saltea. */
 export function alFinSinMarca(cargando: boolean, esperandoMs: number): 'esperar' | 'saltear' {

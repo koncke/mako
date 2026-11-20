@@ -30,6 +30,9 @@ export const TUTORIAL_CALENDAR: TutorialPestana = {
       lado: 'abajo',
       haz: 'Haz clic en el + de Ventas',
       clic: true,
+      // Si tocaron Llamadas (la frase de arriba es una «Mira aquí», pero se puede tocar), el «+» no está en esa lista: el motor vuelve
+      // a la semana (20/11, la verificación de calendar-5). Sin tocar nada, el «+» está y esto no corre.
+      antes: 'a[href^="/calendario?vista=semana"]',
     },
   ],
 };

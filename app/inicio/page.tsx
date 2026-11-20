@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { onboardingPendiente } from '@/lib/onboarding-state';
-import { prefiereMovil } from '@/lib/movil-guard';
+import { esTelefono, prefiereMovil } from '@/lib/movil-guard';
 import { MOVIL_ACTIVO } from '@/lib/movil-desvio';
 import { ENTRADA_MOVIL } from '@/lib/movil-rutas';
 import { quienOpera } from '@/lib/second-brain-opera';
@@ -47,7 +47,8 @@ export default async function Inicio() {
   }
   // Con el onboarding V2, el teléfono que ya pasó el primer paso va a «Sigamos en tu computadora» (/onboarding) hasta que vea el
   // recorrido en la PC (20/11, OA-10 y OD-12: lib/onboarding-arranque-server.ts → seguirEnPcPendiente).
-  if (telefono && (await seguirEnPcPendiente())) redirect(await rutaConWs('/onboarding'));
+  // Es el TELÉFONO aunque haya pedido la «Versión completa» (la verificación de OA-10): esa cookie no lo deja entrar a MaKo antes.
+  if (MOBILE_AL_ENTRAR && !!sesion && (await esTelefono()) && (await seguirEnPcPendiente())) redirect(await rutaConWs('/onboarding'));
   if (telefono) redirect(await rutaConWs(ENTRADA_MOVIL));
   // ⚠️ TODOS los destinos de acá van con `rutaConWs`. Este archivo es EL repartidor:
   // si pierde la pestaña, el admin que abre un cliente termina mirando otra cuenta con

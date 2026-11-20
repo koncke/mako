@@ -52,7 +52,11 @@ test('2. el video del costado mide lo que el video: no es un <aside> (la regla d
     'la regla que estira todo <aside> con la barra del super admin (si cambia, este test se revisa)');
   const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
   assert.doesNotMatch(m, /<aside[^>]*mk-tuto__video/, 'el video del costado y el flotante');
-  assert.equal((m.match(/<div role="complementary" className="mk-tuto__video"/g) ?? []).length, 2);
+  assert.equal((m.match(/<div role="complementary" className="mk-tuto__video"/g) ?? []).length, 1, 'el del costado');
+  // El flotante es el reproductor de la maqueta desde la verificación de F2 (app/_ui/tutorial/VideoEnLaEsquina.tsx): tampoco <aside>.
+  const p = sinComentarios(leer('app/_ui/tutorial/VideoEnLaEsquina.tsx'));
+  assert.doesNotMatch(p, /<aside/);
+  assert.match(p, /<div className="mk-pip"[^>]* role="complementary"/);
 });
 
 test('3. la barra lateral, oculta desde «Entrar a MaKo» hasta el paso que la presenta', () => {
@@ -65,8 +69,10 @@ test('3. la barra lateral, oculta desde «Entrar a MaKo» hasta el paso que la p
   const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
   assert.match(m, /if \(presentaLaBarra\(paso\.sel\)\) mostrarLaBarra\(\);/, 'el paso «Tu panel» la muestra');
   assert.match(m, /const paso = pasoDeFrase\(f, pasos\);\n[^\n]*\n\s*if \(presentaLaBarra\(paso\.sel\)\) mostrarLaBarra\(\);\n\s*if \(lugarDe\(paso\.sel\)\)/, 'y la frase del video que la presenta, antes de buscarla');
-  assert.match(m, /const fin = useCallback\(\(como: 'fin' \| 'omitido' \| 'hecho'\) => \{ mostrarLaBarra\(\); terminar\(senal\.id, como\); \}/, 'al terminar vuelve');
-  assert.match(m, /window\.setTimeout\(mostrarLaBarra, ESPERA_BARRA_MS\)/, 'nunca queda escondida sin salida');
+  // Al terminar vuelve, salvo la marca «dale play» (20/11, la verificación de OD-03: su play arranca el recorrido).
+  assert.match(m, /const fin = useCallback\(\(como: 'fin' \| 'omitido' \| 'hecho'\) => \{ if \(!invita\) mostrarLaBarra\(\); terminar\(senal\.id, como\); \}/, 'al terminar vuelve');
+  // Nunca queda escondida sin salida; mientras el chat presenta el recorrido, su play sigue ahí.
+  assert.match(m, /window\.setTimeout\(\(\) => \{ if \(!elChatPresentaElRecorrido\(\)\) mostrarLaBarra\(\); \}, ESPERA_BARRA_MS\)/);
   // El recorrido presenta la barra (su paso «Tu panel»).
   assert.match(leer('lib/onboarding-v2/recorrido.ts'), /\{ sel: 'aside\[data-sidebar\]', titulo: 'Tu panel'/);
 });

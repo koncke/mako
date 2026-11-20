@@ -41,7 +41,9 @@ test('la ruta del super admin lee la encuesta de TODOS los negocios y la pega a 
 // cómo llegó cada uno («Llegó por», «Quería resolver», «A corregir en su oferta»). La copia de Polar (Admin › Customers) no
 // lee la encuesta: ni la lista, ni la ficha, ni el CSV de la lista. La ruta sigue armándola (el test de arriba). Queda como TODO
 // con lo que la lista nueva tiene que volver a mostrar.
-test('la lista de clientes y su CSV dicen cómo llegó cada uno', { todo: 'función perdida con la copia de Polar: Admin › Customers no muestra la encuesta de llegada' }, () => {
+// `skip` y no `todo` (20/11): el runner de la punta (scripts/tests-afectados.mjs, leerResultado) cuenta como rojo todo «test at
+// <archivo>», y node lo imprime también para un `todo` que falla: tiñó la punta de onboarding-v2 sin que nada se rompiera.
+test('la lista de clientes y su CSV dicen cómo llegó cada uno', { skip: 'función perdida con la copia de Polar: Admin › Customers no muestra la encuesta de llegada' }, () => {
   const datos = leer('app/admin/_polar/datos/clientes.ts') + leer('app/admin/_polar/datos/cliente.ts');
   assert.match(datos, /llegada/, 'los negocios de Admin › Customers sin cómo llegó cada uno');
   assert.match(datos, /'Llegó por'/, 'el CSV de la lista sin «Llegó por»');

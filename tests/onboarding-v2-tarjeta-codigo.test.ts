@@ -49,7 +49,7 @@ test('2. «Usar ese número»: el número sale del servidor (la vista en otro-nu
   assert.match(b, /const v = await estadoVerificacionEntrante\(g\.ws\);\s*const otro = v\?\.estado === 'otro-numero' \? \(v\.otroNumero \?\? ''\)\.replace\(\/\\D\/g, ''\) : '';/);
   assert.doesNotMatch(b, /body\./, 'nunca un número que manda la pantalla');
   assert.match(b, /const malo = errorDelTelefono\(otro\);/);
-  assert.match(b, /await guardarEstadoArranque\(\{ telefono: undefined, telefonoNumero: undefined, telefonoEntrante: undefined \}\);/);
+  assert.match(b, /await guardarEstadoArranque\(\{ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined \}\);/);
   // Con el mensaje que YA llegó de ese número (20/11/2026, tests/whatsapp-v2-auditoria.test.ts): MaKo le contesta ahí mismo.
   assert.match(b, /return await pedirCodigo\(e2, h2, await hechosConfirmados\(h2\), otro, llego\?\.telefono === otro \? llego\.escribioAt : undefined\);/);
 });

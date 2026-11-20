@@ -33,7 +33,9 @@ import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
 import { rutaDelSecondBrainEnOpsCenter } from '@/lib/ops-center-ruta';
 import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
 import { PantallaSecondBrain, mapaDelSecondBrain, pideElMapa, quienOpera, type QuerySecondBrain } from './pagina';
-import { hiloOnboardingGuardado, hiloParaQuienYaTermino } from '@/lib/onboarding-arranque-server';
+import { RUTA_SEGUIR_EN_PC, hiloOnboardingGuardado, hiloParaQuienYaTermino, seguirEnPcPendiente } from '@/lib/onboarding-arranque-server';
+import { ATTR_BARRA_OCULTA } from '@/app/_ui/tutorial/barra-oculta';
+import { esTelefono } from '@/lib/movil-guard';
 import { rutaDelHilo } from '@/lib/onboarding-arranque';
 
 export const dynamic = 'force-dynamic';
@@ -48,6 +50,9 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   // center y es el grafo, no otro chat»): su entrada salió de la barra y un /second-brain guardado lleva a su grafo. Los demás
   // (el cliente, su equipo, y el super admin MIRANDO a un cliente: `quienOpera` pide su propio workspace) siguen con su chat.
   if (opera) redirect(await rutaConWs(rutaDelSecondBrainEnOpsCenter(q)));
+  // El TELÉFONO con la «Versión completa» (20/11, la verificación de OA-10 y OD-12): mientras no vio el recorrido en la PC, el Ops
+  // Center de escritorio tampoco; va a «Sigamos en tu computadora». En la computadora, `esTelefono` corta antes de leer nada.
+  if ((await esTelefono().catch(() => false)) && (await seguirEnPcPendiente())) redirect(await rutaConWs(RUTA_SEGUIR_EN_PC));
   // El chat «Onboarding» de quien terminó antes de que existiera (20/10/2026, Florencia, ws21): en su primera visita se crea
   // y entra a él, con el tutorial. Una vez: después ya está anotado y esto no hace nada.
   // El grafo (la lectura más pesada: construirCerebro) sale A LA VEZ que esto, que ESCRIBE (crea el hilo) y por eso va
@@ -71,5 +76,9 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   const nombrePersona = (sesion?.nombre ?? '').trim().split(/\s+/)[0] ?? '';
   // El chat «Onboarding» (sólo con el V2), para ponerlo enseguida del Ops Center en la lista (20/11, OD-08).
   const hiloOnboarding = retoV2 ? await hiloOnboardingGuardado() : null;
-  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} />;
+  // LA BARRA OCULTA AL RECARGAR (20/11, la verificación de OD-03: «oculta en el Ops Center mientras el recorrido no se vio»). El
+  // atributo que pone «Entrar a MaKo» vive sólo en la página; al recargar, la barra volvía. Con el V2 y sin el recorrido visto (la
+  // misma lectura que la del teléfono), el HTML la esconde antes de pintar. La vuelve a mostrar el recorrido en «Tu panel».
+  const barraOculta = retoV2 && (await seguirEnPcPendiente());
+  return <>{barraOculta && <script dangerouslySetInnerHTML={{ __html: `document.documentElement.setAttribute('${ATTR_BARRA_OCULTA}','')` }} />}<PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} /></>;
 }

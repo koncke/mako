@@ -3309,3 +3309,10 @@ test `tests/video-editor-enjambre.test.ts` · relevo `docs/relevo/edicion-reel-n
 
 *9/11/2026, sesión en la nube (`cli_cae9a776-2d98-55b4-aef5-3102e4b201b5`).*
 
+
+## El tutorial de Video no tenía nada que marcar (20/11/2026, la verificación de video-3/4/5)
+
+- La pestaña sin `?ver=` salta al EDITOR (`abreElEditor`), y las tres marcas del tutorial son de «Nuevo video». El `antes`
+  («＋ Crear desde cero») sólo existe en los outliers, y en /video-editor/<id> el tutorial ni arranca. **Regla:** mientras el tutorial
+  de Video no se vio (`tutorial-video`, `useRecorrido`), la pestaña se queda en «Nuevo video»; una vez visto, abre el editor como
+  siempre (app/video-editor/VideoEditorCliente.tsx).
