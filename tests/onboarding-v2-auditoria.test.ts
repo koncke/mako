@@ -197,3 +197,14 @@ test('16. OD-05 y V9: en el chat «Onboarding», MaKo escribe y manda el video d
   assert.match(c, /\.\.\.\(enElOnboarding \? \{ acciones: <VideosDelChat videos=\{VIDEOS_DEL_ONBOARDING\} \/> \} : \{\}\),/, 'V9: los videos del onboarding en su chat');
   for (const k of ['onboarding-bienvenida', 'onboarding-bienvenida-whatsapp', 'recorrido']) assert.match(c, new RegExp(`clave: '${k}'`));
 });
+
+test('17. OA-13: la pantalla oscura entra con el barrido del sol y la luna (un círculo que se cierra hacia MaKo escribiendo)', () => {
+  const t = v2();
+  assert.match(t, /@property --arr-iris \{ syntax: '<length>'; inherits: false; initial-value: 0px; \}/);
+  assert.match(t, /mask: radial-gradient\(circle at var\(--iris-x, 50%\) var\(--iris-y, 50%\), transparent var\(--arr-iris\), #000 calc\(var\(--arr-iris\) \+ 1px\)\);/);
+  assert.match(t, /animation: arr-v2-iris \.72s cubic-bezier\(\.65, 0, \.35, 1\) both;/);
+  assert.match(t, /@keyframes arr-v2-iris \{ from \{ --arr-iris: 150vmax; \} to \{ --arr-iris: 0px; \} \}/);
+  assert.doesNotMatch(t, /arr-v2-velo \.45s/, 'sin el fundido de antes');
+  assert.match(t, /const fila = document\.querySelector<HTMLElement>\('\.arr-v2 \.arr-v2__resalte'\);/, 'centrado en la fila de MaKo escribiendo');
+  assert.match(t, /@media \(prefers-reduced-motion: reduce\) \{ \.arr-v2__velo,/, 'con menos movimiento, sin animación');
+});
