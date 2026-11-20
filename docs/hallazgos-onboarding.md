@@ -3488,3 +3488,19 @@ filas de los coaches tachaban el día 1 entero.
 - **Cada push a la punta cancela la corrida del anterior en GitHub.** Hoy cinco pushes seguidos dejaron todo «cancelled» y nada llegaba
   a main. Se juntan los commits, se sube una vez y se espera la corrida.
 - **Lo que quedó sin hacer**, en orden, está en `docs/relevo/reto-tutoriales.md`.
+
+## El clip de regalo del día 6 sólo avanza mientras alguien tiene abierto el día 6 (20/11/2026, chat «reto-tutoriales», claude5)
+
+- **No hay un cron que lo termine.** Cada consulta de la tarjeta (`clipDeRegaloAction`, app/ai-avatar/regalo/actions.ts) es la que le
+  pregunta a ApiMart, lo baja y lo guarda. La tarjeta del reto (`ClipDelReto`, app/second-brain/reto/ChatDelReto.tsx) pregunta al abrirse
+  y 10 s después de cada respuesta, también después de un error (nunca dos a la vez).
+- **Lo que eso deja abierto:** si la persona pide el clip y cierra el reto, el clip queda «generando» hasta que vuelva a abrir el día 6.
+  El link de ApiMart vence a las 24 h y a las 23 h pasa a «revisar»: un clip pagado que nadie vuelve a mirar se pierde. Lo resolvería
+  un cron que avance los «generando»; vive en app/ai-avatar/regalo/clip.ts (`avanzarClipRegalo`), que es de la sesión de AI Avatar.
+- **El mensaje del contrato y el tipo no coincidían.** El mensaje decía `e = 'disponible'`; lo que llega a la tarjeta es `estado`
+  (lo GUARDADO usa `e`, lo PÚBLICO `estado`: lib/reto/clip-regalo-reglas.ts). Se lee el tipo `ClipRegalo`, no el mensaje.
+- **La tarea «Tu primer clip con tu personaje» se cierra sola con el regalo.** El clip queda en el historial con `tipo: 'avatar'` y su
+  url, que es justo lo que lee la señal `6:clip` (lib/reto/senales.ts). Al pasar de «generando» a «listo» la tarjeta relee el reto.
+- **La frase va escrita con el gancho del guion del día 5**, con los pedidos de lectura del Copywriter (`pedirListar` y `pedirAbrir`):
+  lo que está bajo el título de sección «GANCHO» (o el primer párrafo, si el guion no tiene secciones). Si no entra en 25 palabras,
+  su primera oración; si tampoco, entero, y la cuenta le dice cuánto sobra: nunca se corta en silencio. No pisa lo que ya escribió.

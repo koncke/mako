@@ -58,9 +58,12 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
 - **El clip del día 6:** lo hace la sesión de AI Avatar (local_a2f3a36c…).
   - Su contrato: app/ai-avatar/regalo/actions.ts → `clipDeRegaloAction()` y `pedirClipDeRegaloAction({ frase })`, con SalidaClip y
     ClipRegalo en lib/reto/clip-regalo-reglas.ts.
-  - El lugar es `ClipDelReto` en ChatDelReto.tsx (hoy no dibuja nada). Se conecta cuando su hash esté en main.
-  - La tarjeta consulta el estado al abrirse y cada 10 s mientras diga 'generando'.
-  - La frase viene prellenada con el gancho del guion del día 5.
+  - **CONECTADO (20/11, sobre 51d9ef3e5 de AI Avatar):** `ClipDelReto` en ChatDelReto.tsx; qué dibuja en cada estado, en
+    lib/reto/clip-del-reto.ts (`vistaDelClip`, `frasePorEscribir`, `ganchoDelGuion`).
+  - La tarjeta consulta al abrirse y 10 s después de cada respuesta mientras diga 'generando'; al quedar listo relee el reto (la
+    tarea del clip se cierra sola: el regalo queda en el historial como video con avatar).
+  - La frase viene escrita con el gancho del guion más nuevo (pedidos de lectura del Copywriter), sin pisar lo que ella escribió.
+  - ⚠️ Sin cron: el clip sólo avanza con el día 6 abierto. Lo que falta para eso es de AI Avatar (docs/hallazgos-onboarding.md).
 - **⚠️ Cada push a la punta CANCELA la corrida del anterior.** Hoy por eso no llegaba nada a main. Se juntan los commits y se sube UNA
   vez; después se espera la corrida, en verde o en rojo.
 
@@ -163,5 +166,4 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
 ## Esperando (20/11)
 
 
-- **El clip del día 6:** se conecta `ClipDelReto` cuando la sesión de AI Avatar avise que su app/ai-avatar/regalo/actions.ts está en main.
 

@@ -372,3 +372,69 @@ test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, 
   assert.doesNotMatch(texto, /AI Avatar/, 'la tab AI Avatar se cerró el 14/11: es «Tu personaje con IA», en Video');
   assert.match(DIAS_RETO[2].tareas[0].detalle, /CSV/, 'los contactos se cargan con un CSV');
 });
+
+test('el clip de regalo del día 6 (20/11, R57-02): cada estado de AI Avatar tiene su vista, y la frase cuenta como el servidor', async () => {
+  const { vistaDelClip, frasePorEscribir, CADA_MS_CLIP } = await import('../lib/reto/clip-del-reto');
+  const { fraseDelClip, MAX_PALABRAS_CLIP } = await import('../lib/reto/clip-regalo-reglas');
+  assert.deepEqual(vistaDelClip(null, null), { v: 'nada' }, 'antes de la respuesta, nada (nunca una promesa)');
+  assert.deepEqual(vistaDelClip(null, 'El clip de regalo lo pide quien administra el negocio.'), { v: 'aviso', texto: 'El clip de regalo lo pide quien administra el negocio.' }, 'el error, tal cual');
+  assert.deepEqual(vistaDelClip({ estado: 'disponible', segundos: 10, maxPalabras: 25 }, null), { v: 'pedir', aviso: null, segundos: 10, max: 25 });
+  assert.deepEqual(vistaDelClip({ estado: 'generando', desde: '2026-11-20T10:00:00.000Z' }, null), { v: 'generando' });
+  assert.deepEqual(vistaDelClip({ estado: 'listo', url: 'https://x/clip.mp4', planId: 'p1' }, null), { v: 'listo', url: 'https://x/clip.mp4' });
+  assert.deepEqual(vistaDelClip({ estado: 'no-disponible', texto: 'El clip de regalo es parte del reto de tu prueba.' }, null), { v: 'aviso', texto: 'El clip de regalo es parte del reto de tu prueba.' });
+  const conOtro = vistaDelClip({ estado: 'fallo', texto: 'No salió tu clip. No se te cobró nada: puedes pedirlo otra vez.', puedeReintentar: true }, null);
+  assert.equal(conOtro.v, 'pedir', 'un fallo con intento vuelve al formulario');
+  assert.equal(conOtro.v === 'pedir' && conOtro.aviso, 'No salió tu clip. No se te cobró nada: puedes pedirlo otra vez.', 'y dice por qué');
+  assert.deepEqual(vistaDelClip({ estado: 'fallo', texto: 'Ya se intentó dos veces.', puedeReintentar: false }, null), { v: 'fallo', texto: 'Ya se intentó dos veces.' }, 'sin intento, sin botón');
+  assert.equal(CADA_MS_CLIP, 10_000, 'el contrato de AI Avatar: cada ~10 s');
+
+  // La frase: el botón deja mandar exactamente lo que el servidor acepta.
+  assert.deepEqual(frasePorEscribir(''), { palabras: 0, lista: false, aviso: null });
+  assert.deepEqual(frasePorEscribir('Hola'), { palabras: 1, lista: false, aviso: null }, 'una palabra: todavía no se reta');
+  assert.deepEqual(frasePorEscribir('«Tres errores que te cuestan clientes»'), { palabras: 6, lista: true, aviso: null }, 'las comillas no cuentan');
+  const larga = Array.from({ length: MAX_PALABRAS_CLIP + 1 }, (_, i) => `p${i}`).join(' ');
+  const r = frasePorEscribir(larga);
+  assert.equal(r.lista, false);
+  assert.match(r.aviso ?? '', new RegExp(`la tuya tiene ${MAX_PALABRAS_CLIP + 1}`), 'si se pasa, cuántas tiene (el texto del servidor)');
+  for (const t of ['', 'Hola', 'dos palabras', '« dos palabras »', larga, '  muchas   espacios  y  «comillas» ', Array.from({ length: MAX_PALABRAS_CLIP }, () => 'a').join(' ')]) {
+    assert.equal(frasePorEscribir(t).lista, fraseDelClip(t).ok, `cuenta igual que el servidor: «${t.slice(0, 30)}»`);
+    const srv = fraseDelClip(t);
+    if (srv.ok) assert.equal(frasePorEscribir(t).palabras, srv.palabras, `las mismas palabras que el servidor: «${t.slice(0, 30)}»`);
+  }
+
+  // El componente: llama a las acciones de AI Avatar, pregunta cada 10 s SÓLO mientras se genera, y al quedar listo relee el reto.
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.ok(chat.includes("import { clipDeRegaloAction, pedirClipDeRegaloAction } from '@/app/ai-avatar/regalo/actions';"), 'las acciones del contrato');
+  assert.ok(chat.includes('{dia.n === 6 && <ClipDelReto onListo={onClipListo} />}'), 'en el día 6');
+  assert.ok(chat.includes('onClipListo={() => { void leer(); }}'), 'listo, relee el reto: la tarea del clip se marca sola');
+  assert.match(chat, /useEffect\(\(\) => \{\n\s+if \(!generando\) return;\n\s+const t = setTimeout\(\(\) => \{ void preguntar\(\); \}, CADA_MS_CLIP\);\n\s+return \(\) => clearTimeout\(t\);\n\s+\}, \[generando, vuelta, preguntar\]\);/,
+    'una consulta 10 s después de cada respuesta, sólo mientras se genera');
+  assert.ok(chat.includes("if (ahora === 'listo' && antes.current === 'generando') onListo?.();"), 'relee sólo al pasar de «generando» a «listo»');
+  assert.ok(!/function ClipDelReto\(\) \{\n\s+return null;/.test(chat), 'ya no es el lugar vacío');
+  assert.doesNotMatch(chat, /gratis|ilimitad/i);
+});
+
+test('el clip de regalo trae escrita la frase: el gancho de su guion más nuevo, sin cortarlo en silencio (20/11)', async () => {
+  const { ganchoDelGuion, guionMasNuevo, frasePorEscribir } = await import('../lib/reto/clip-del-reto');
+  const p = (t: string) => ({ type: 'paragraph', content: [{ type: 'text', text: t }] });
+  const sec = (s: string) => ({ type: 'heading', attrs: { level: 2, seccion: s }, content: [{ type: 'text', text: s }] });
+  const doc = (...c: object[]) => ({ type: 'doc', content: c }) as never;
+  assert.equal(ganchoDelGuion(doc(sec('GANCHO'), p(''), p('¿Tus llamadas no cierran?  Esto te pasa por tres errores.'), sec('HISTORIA'), p('Hace un año…'))),
+    '¿Tus llamadas no cierran? Esto te pasa por tres errores.', 'lo que está bajo «Gancho», sin los párrafos vacíos');
+  assert.equal(ganchoDelGuion(doc(sec('HISTORIA'), p('Hace un año…'), sec('GANCHO'), sec('CTA'), p('Agenda tu llamada.'))), '', 'un «Gancho» vacío no se llena con otra sección');
+  assert.equal(ganchoDelGuion(doc({ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Mi guion' }] }, p('Tres errores que te cuestan clientes.'))),
+    'Tres errores que te cuestan clientes.', 'sin secciones, el primer párrafo (no el título)');
+  const largo = 'Si vendes servicios caros y tus llamadas no cierran, esto es para ti. ' + Array.from({ length: 30 }, (_, i) => `palabra${i}`).join(' ') + '.';
+  assert.equal(ganchoDelGuion(doc(sec('GANCHO'), p(largo))), 'Si vendes servicios caros y tus llamadas no cierran, esto es para ti.', 'largo: su primera oración');
+  const sinPunto = Array.from({ length: 30 }, (_, i) => `palabra${i}`).join(' ');
+  assert.equal(ganchoDelGuion(doc(sec('GANCHO'), p(sinPunto))), sinPunto, 'sin una oración que entre, entero: no se corta en silencio');
+  assert.ok(frasePorEscribir(sinPunto).aviso, 'y la cuenta le dice cuánto sobra');
+  assert.equal(ganchoDelGuion(null), '');
+  assert.deepEqual(guionMasNuevo([{ id: 'a', actualizado: '2026-11-19T10:00:00Z' }, { id: 'b', actualizado: '2026-11-20T10:00:00Z', papelera: '2026-11-20T11:00:00Z' }, { id: 'c', actualizado: '2026-11-19T12:00:00Z' }])?.id, 'c', 'el más nuevo fuera de la papelera');
+  assert.equal(guionMasNuevo([]), null);
+
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.ok(chat.includes('setFrase((f) => (f.trim() ? f : g))'), 'nunca le pisa lo que escribió');
+  assert.ok(chat.includes("import { pedirAbrir, pedirListar } from '@/app/copywriter/cliente';"), 'con los pedidos de lectura del Copywriter');
+  assert.ok(chat.includes('if (!conFormulario || prellenada.current) return;'), 'una sola vez, y sólo con el formulario a la vista');
+});
