@@ -12912,3 +12912,16 @@ se come las barras invertidas: un script con rutas de Windows va a un archivo, n
   cuente los `todo`, o el próximo que toque lib/onboarding-arranque.ts o las páginas de Polar vuelve a salir rojo.
 - **Regla al probar en la PC:** un test «verde» para la punta no es `ℹ fail 0`: es que la salida no tenga ningún «test at». Así lo
   mide el runner de GitHub.
+
+## El build de Vercel colgado: un `import()` en el guard del layout raíz (20/11/2026, chat «onboarding-v2», claude5)
+
+- **El síntoma:** después de 1c22ea030, el build de producción se quedaba en «Creating an optimized production build» más de 15 y 25
+  minutos sin llegar a «Compiled» (df5335395, 62f168031); antes compilaba en 2-3 minutos.
+- **La causa:** lib/movil-guard.ts (lo importa app/layout.tsx) hacía `await import('./onboarding-arranque-server')` para «Sigamos en
+  tu computadora». Medido con esbuild: el guard pasó de 53 a 1786 módulos del repo. Lo detectó el Cerebro.
+- **Trampa:** «es un `import()` dentro de la función, así que no pesa» es falso para el build. El bundler lo sigue igual que un import
+  de arriba.
+- **Qué quedó:** lib/seguir-en-pc.ts, un módulo chico (52 módulos del repo; el guard, 62). El layout volvió a 2328 módulos y 8 ciclos,
+  contra 2322 y 8 en 1c22ea030. El ciclo grande de 436 módulos pasa por lib/mako-grupo.ts y ya estaba antes. La regla está en
+  AGENTS.md, y la cuida tests/seguir-en-pc-liviano.test.ts.
+- **Sin confirmar hasta el próximo build:** que ésta fuera la única causa. En el mismo rango entraron commits de otros chats.

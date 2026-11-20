@@ -141,8 +141,9 @@ test('11. OD-03: «Tu panel» abre la barra ENTERA mientras dura el paso, y al p
 });
 
 test('12. OA-10 / OD-12: en el teléfono, «Sigamos en tu computadora» se queda hasta ver el recorrido en la PC', () => {
-  const srv = leer('lib/onboarding-arranque-server.ts');
-  const f = srv.slice(srv.indexOf('export async function seguirEnPcPendiente'), srv.indexOf('export async function hiloOnboardingGuardado'));
+  // En el módulo chico desde el 20/11 (el guard lo importa el layout raíz: tests/seguir-en-pc-liviano.test.ts).
+  const srv = leer('lib/seguir-en-pc.ts');
+  const f = srv.slice(srv.indexOf('export async function seguirEnPcPendiente'));
   assert.match(f, /if \(!veOnboardingV2\(/, 'sólo con el V2');
   assert.match(f, /if \(await estaImpersonando\(\)\.catch\(\(\) => true\)\) return false;/, 'mirando a un cliente, nunca');
   assert.match(f, /return !Object\.prototype\.hasOwnProperty\.call\(vistosDePerfil\([^)]*\)\?\.perfil\), ID_RECORRIDO_PC\);/);
@@ -152,7 +153,7 @@ test('12. OA-10 / OD-12: en el teléfono, «Sigamos en tu computadora» se queda
   assert.match(onb, /if \(\(await esTelefono\(\)\.catch\(\(\) => false\)\) && \(await seguirEnPcPendiente\(\)\)\) \{[\s\S]{0,300}return <SeguirEnPc [^>]*maqueta \/>;/);
   assert.ok(onb.indexOf('seguirEnPcPendiente()') < onb.indexOf('redirect(await rutaConWs(destinoDeTabVieja(tab)))'), 'antes de mandarlo a la app');
   const ini = sinComentarios(leer('app/inicio/page.tsx'));
-  assert.match(ini, /if \(MOBILE_AL_ENTRAR && !!sesion && \(await esTelefono\(\)\) && \(await seguirEnPcPendiente\(\)\)\) redirect\(await rutaConWs\('\/onboarding'\)\);\n\s*if \(telefono\) redirect\(await rutaConWs\(ENTRADA_MOVIL\)\);/);
+  assert.match(ini, /if \(MOBILE_AL_ENTRAR && !!sesion && \(await esTelefono\(\)\) && \(await seguirEnPcPendiente\(\)\)\) redirect\(await rutaConWs\(RUTA_SEGUIR_EN_PC\)\);\n\s*if \(telefono\) redirect\(await rutaConWs\(ENTRADA_MOVIL\)\);/);
 });
 
 test('13. OA-12: el sol y la luna también en la entrada («Hola, soy MaKo»), y su clic no la empieza', () => {

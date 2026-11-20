@@ -77,10 +77,12 @@ test('5. OA-11: «Sigamos en tu computadora» con el sobre delante de «Te manda
 
 test('6. OA-10 y OD-12: el teléfono va a «Sigamos en tu computadora» desde cualquier /m y con la «Versión completa»', () => {
   const guard = sinComentarios(leer('lib/movil-guard.ts'));
-  assert.match(guard, /if \(seguirEnPc && \(await seguirEnPc\.seguirEnPcPendiente\(\)\.catch\(\(\) => false\)\)\) redirect\(await rutaConWs\(seguirEnPc\.RUTA_SEGUIR_EN_PC\)\);/);
-  assert.match(leer('lib/onboarding-arranque-server.ts'), /export const RUTA_SEGUIR_EN_PC = '\/onboarding';/, 'donde se dibuja «Sigamos en tu computadora»');
+  // Del módulo chico, nunca del servidor del arranque: el guard lo importa el layout raíz (tests/seguir-en-pc-liviano.test.ts).
+  assert.match(guard, /if \(opts\.onboarding !== false && \(await seguirEnPcPendiente\(\)\.catch\(\(\) => false\)\)\) redirect\(await rutaConWs\(RUTA_SEGUIR_EN_PC\)\);/);
+  assert.match(guard, /import \{ RUTA_SEGUIR_EN_PC, seguirEnPcPendiente \} from '\.\/seguir-en-pc';/);
+  assert.match(leer('lib/seguir-en-pc.ts'), /export const RUTA_SEGUIR_EN_PC = '\/onboarding';/, 'donde se dibuja «Sigamos en tu computadora»');
   assert.match(guard, /export async function esTelefono\(\): Promise<boolean> \{\n\s*const h = await headers\(\);\n\s*return tipoDeDispositivo\(h\.get\('user-agent'\), h\.get\('sec-ch-ua-mobile'\)\) === 'telefono';/);
-  assert.match(sinComentarios(leer('app/inicio/page.tsx')), /if \(MOBILE_AL_ENTRAR && !!sesion && \(await esTelefono\(\)\) && \(await seguirEnPcPendiente\(\)\)\) redirect\(await rutaConWs\('\/onboarding'\)\);/);
+  assert.match(sinComentarios(leer('app/inicio/page.tsx')), /if \(MOBILE_AL_ENTRAR && !!sesion && \(await esTelefono\(\)\) && \(await seguirEnPcPendiente\(\)\)\) redirect\(await rutaConWs\(RUTA_SEGUIR_EN_PC\)\);/);
   const onb = sinComentarios(leer('app/onboarding/page.tsx'));
   assert.match(onb, /if \(\(await esTelefono\(\)\.catch\(\(\) => false\)\) && \(await seguirEnPcPendiente\(\)\)\) \{/);
   assert.doesNotMatch(onb, /prefiereMovil/, 'la cookie «Versión completa» no lo deja entrar antes');
