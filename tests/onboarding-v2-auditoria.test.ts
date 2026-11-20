@@ -106,3 +106,19 @@ test('9. OD-13: «Entrar a MaKo» pausa los videos del onboarding (no pasan flot
   assert.match(m, /const ocupadoElMotor = !!useSenal\(\);/);
   assert.match(m, /\}, \[abierto, onCerrar, t, ocupadoElMotor\]\);/);
 });
+
+test('10. OD-08: con el V2, la lista del Ops Center va Ops Center, Onboarding, Reto, los coaches, el resto y «Nuevo chat» al final', () => {
+  const c = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  assert.match(c, /const filaOnboarding = retoV2 && hiloOnboarding != null \? filasDeLaLista\.find\(\(f\) => 'id' in f\.elegido && f\.elegido\.id === hiloOnboarding\) \?\? null : null;/);
+  assert.match(c, /f\.origen !== 'offer' && !f\.guru && f !== filaOnboarding/, 'sale de la lista por actividad');
+  const orden = ['{fila(cerebroFila)}', '{!retoV2 && coaches}', '{filaOnboarding && <div className="co-cuenta">{fila(filaOnboarding)}</div>}', 'marca="sb-reto-chat"', '{retoV2 && coaches}', '<GruposPorJefe', "{retoV2 && <NuevoChatCentro"];
+  const pos = orden.map((x) => c.indexOf(x));
+  assert.ok(pos.every((p) => p > 0), `están todos: ${pos.join(', ')}`);
+  assert.deepEqual([...pos].sort((a, b) => a - b), pos, 'en ese orden');
+  assert.match(c, /\{!retoV2 && <NuevoChatCentro onNuevo=\{\(\) => elegir\(\{ virtual: 'nuevo' \}\)\}/, 'sin el V2, «Nuevo chat» arriba como siempre');
+  // El id del chat se LEE (sin armarlo): la página no crea nada al cargar.
+  const srv = leer('lib/onboarding-arranque-server.ts');
+  const lee = srv.slice(srv.indexOf('export async function hiloOnboardingGuardado'), srv.indexOf('export async function hiloDelOnboarding'));
+  assert.doesNotMatch(lee, /guardarEstadoArranque|insert|crear/i, 'sólo lee');
+  assert.match(leer('app/second-brain/page.tsx'), /const hiloOnboarding = retoV2 \? await hiloOnboardingGuardado\(\) : null;/);
+});

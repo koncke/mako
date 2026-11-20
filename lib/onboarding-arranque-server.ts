@@ -201,6 +201,21 @@ export async function anotarRespuesta(e: EstadoArranque, h: HechosServer, dicho:
  *    Un chat marcado (`contextoDelHilo`) sin `hiloChat` es uno que quedó a medias: se borra y se rehace.
  * Devuelve el id del chat de esta persona, o null si no le toca (o si otro lo está armando).
  */
+/**
+ * El id del chat «Onboarding» de esta persona, SÓLO LEYENDO (sin armarlo, a diferencia de `hiloDelOnboarding`): para ordenar la lista
+ * del Ops Center del onboarding V2 (20/11, OD-08: «Onboarding» va enseguida del Ops Center). null si no hay o no se pudo leer.
+ */
+export async function hiloOnboardingGuardado(): Promise<number | null> {
+  try {
+    const persona = await getUsuarioActual();
+    const chartKey = persona ? chartKeyDePersona(persona) : null;
+    if (!chartKey) return null;
+    const e = parseEstado(await getSettingEstricto(CLAVE));
+    if (e.hiloDe && e.hiloDe !== chartKey) return null;
+    return typeof e.hiloChat === 'number' ? e.hiloChat : null;
+  } catch { return null; }
+}
+
 export async function hiloDelOnboarding(): Promise<number | null> {
   // Mirando a un cliente, NO: el chat quedaría con el chart_key del super admin. Se crea cuando entra el cliente.
   if (await estaImpersonando().catch(() => true)) return null;

@@ -33,7 +33,7 @@ import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
 import { rutaDelSecondBrainEnOpsCenter } from '@/lib/ops-center-ruta';
 import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
 import { PantallaSecondBrain, mapaDelSecondBrain, pideElMapa, quienOpera, type QuerySecondBrain } from './pagina';
-import { hiloParaQuienYaTermino } from '@/lib/onboarding-arranque-server';
+import { hiloOnboardingGuardado, hiloParaQuienYaTermino } from '@/lib/onboarding-arranque-server';
 import { rutaDelHilo } from '@/lib/onboarding-arranque';
 
 export const dynamic = 'force-dynamic';
@@ -69,5 +69,7 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   const sesion = await getUsuarioActual().catch(() => null);
   const retoV2 = !!sesion && veOnboardingV2({ email: sesion.email, ws: await getWorkspaceActual().catch(() => null) });
   const nombrePersona = (sesion?.nombre ?? '').trim().split(/\s+/)[0] ?? '';
-  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} />;
+  // El chat «Onboarding» (sólo con el V2), para ponerlo enseguida del Ops Center en la lista (20/11, OD-08).
+  const hiloOnboarding = retoV2 ? await hiloOnboardingGuardado() : null;
+  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} />;
 }

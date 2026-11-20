@@ -60,6 +60,8 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
     (más de 6 números sin un grupo de 6) ya no se trata como un código equivocado.
   - *Con el código vencido el link de WhatsApp sigue.* `vistaDeEntrante` lo manda igual. La tarjeta lo escondía y ponía «Pedir
     otro», mientras el error decía «toca Abrir WhatsApp». Escribirle de nuevo a MaKo ya trae un código nuevo.
+  - *Para ordenar la lista no se llama a `hiloDelOnboarding`: ARMA el chat si falta* (con su reserva y sus mensajes). El Ops Center
+    del V2 lee el id ya guardado con `hiloOnboardingGuardado` (sólo lee) y pone «Onboarding» enseguida del Ops Center (OD-08).
   - *El número se guarda en dígitos y se formatea al dibujarlo* (`telefonoVisible`: «+54 911 5555 0101», en grupos de 4 desde el
     final). La burbuja que espera muestra lo que escribió, con la lada.
 - **Lo que quedó sin hacer:**
