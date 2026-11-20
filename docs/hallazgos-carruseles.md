@@ -34,9 +34,29 @@ se APLANABA (`\s+` → un espacio) y se cortaba en 300 letras (`TOPE_LIBRE`, lib
 - tests/carruseles-copy-pegado.test.ts (10 casos, con el copy de Leila tal cual). Contra origin/main fallan los tres que se pueden
   correr allá (el copy aplanado, f1/f2 repetidas, la lámina blanca).
 
+**«No se lee, y le puse a aumentar contraste» (00:51:37).** «Mejora el contraste» era un pedido a la IA del chat: mira un JSON de
+colores, NO la foto, y nadie medía después. Ahora es medido y sin IA (`mejorarContraste`, app/image-editor/mako/chat/contraste.ts):
+cada página se dibuja sin sus textos (`renderPageToCanvas` a ¼), de cada texto se miran los píxeles de su caja (p15/p85 de la
+luminancia, `fondoDe`) y lib/image-editor/contraste.ts decide: blanco o casi negro si alcanza 4,5:1; si no (un blur con luces y
+sombras), blanco con un VELO oscuro detrás con la opacidad justa. Se aplica en un paso de deshacer y se VUELVE a medir lo aplicado
+para decir el contraste que quedó. Además, toda propuesta aceptada del chat se mide en las páginas que cambia y lo que queda bajo
+3:1 se arregla en el mismo paso. En el armado de respaldo de la réplica, una foto de fondo del banco lleva un velo de toda la
+lámina debajo de los textos, y si el original tenía la foto desenfocada (la plantilla «con blur»), la escena va con el mismo blur.
+
+**«La tipografía no es lo mismo» (00:51:32).** Seis categorías con una familia cada una (`LETRA_DEL_EDITOR`) no se parecen a nada.
+La IA nombra ahora la familia del editor más parecida de una lista CERRADA por estilo (`FUENTES_PARA_ELEGIR`); el código la acepta
+sólo si es de la lista y el editor la tiene (`fuenteParecida`) y le da el peso más cercano que existe (`pesoQueExiste`: DM Serif
+Display sólo tiene 400). En la plancha, esa familia reemplaza a Inter, sin «apretarla» con la tabla de anchos de otra letra.
+
 **Trampas:**
 - ⚠️ `AperturaMako` no dibuja la charla cuando no hay pregunta abierta (`if (!a) return null`): con «Editar» por defecto, lo que se
   escribe no aparece en el hilo. Lo que llegó se dice en la línea de estado del panel.
+- ⚠️ tests/image-editor-chat.test.ts (20) exige UN solo `editor.applyDocument(` en acciones.ts: lo que aplica otra cosa (el
+  contraste) va en su propio módulo. Y el motor (`render.ts`) trae fabric, que no anda en node: se importa adentro de la función.
+- ⚠️ La vista previa del armado (`PaginaCarrusel`) dibuja con CSS: una familia que el editor carga pero la página no salía con la
+  del sistema. `useFuentesDe` la carga del catálogo (`FontFace`) antes de que se vea.
+- `elegirFuente` (./tipografia-medida.ts, comparar trazos) sigue SIN conectar: pide dibujar cada candidata en un canvas, y el
+  servidor no tiene. Lo que se conectó es la elección por lista cerrada. Comparar de verdad sería en el navegador, al abrir.
 - ⚠️ Un test que exige una línea del código palabra por palabra (tests/thumbnails-verticales.test.ts, 4) se rompe con cualquier
   cambio de nombre: se actualizó con el nombre nuevo.
 

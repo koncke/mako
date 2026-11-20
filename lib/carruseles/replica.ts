@@ -22,10 +22,12 @@
 import { parseJsonObject } from '../json-del-modelo';
 import { voseoEn } from '../voseo';
 import { cifrasSinFuente } from '../copywriter/ia-reglas';
-import { altoEnElEditor, comoSeDibuja, medidorReal } from './medir-letra';
+import { FAMILIAS_MEDIDAS, altoEnElEditor, comoSeDibuja, medidorReal } from './medir-letra';
 import { partirEnRenglones, sinSuperponer, type Caja, type FuenteTexto } from './tipografia-medida';
 import type { Bloque } from './plancha-local';
 import type { ParteDelCopy } from './copy-pegado';
+import { FUENTES } from '@/app/image-editor/mako/fuentes';
+import { fuenteDelEditorDeImagen } from '../image-editor/fuente-del-editor';
 import { esSaturacion, esTimeout, esTopeDeTamano } from '../fallo-ia-texto';
 import { ANCHO_CARRUSEL, ALTO_CARRUSEL, altoEstimado, esOscuro, familia, rect, texto, type Marca } from './documento';
 import type { EstiloCarrusel } from './tipos';
@@ -73,6 +75,9 @@ export type TextoReplica = {
    */
   copy?: boolean;
   altoMax?: number;
+  /** La familia del editor que más se parece a la letra del original (20/11/2026: `FUENTES_PARA_ELEGIR`), y si va en itálica. */
+  fuente?: string;
+  italica?: boolean;
 };
 export type FotoReplica = { x: number; y: number; ancho: number; alto: number; persona: boolean; descripcion: string };
 /**
@@ -86,6 +91,8 @@ export type CuadroReplica = {
   x: number; y: number; ancho: number; alto: number; tipo: 'escena' | 'retrato'; persona: boolean; descripcion: string; busqueda: string;
   /** El recorte (12/11/2026): «circulo» para un avatar redondo (un tuit), «redondeado» para una foto con las esquinas curvas. */
   forma?: FormaDelCuadro;
+  /** La foto del original está DESENFOCADA (20/11/2026, la plantilla «con blur» de Leila): la escena parecida va con el mismo blur. */
+  desenfocada?: boolean;
 };
 export const FORMAS_DEL_CUADRO = ['rect', 'circulo', 'redondeado'] as const;
 export type FormaDelCuadro = (typeof FORMAS_DEL_CUADRO)[number];
@@ -381,7 +388,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     // no se nombra (memoria «prompt corto gana al técnico»).
     vistas > 0 ? '- PRIMERO LEE la composición de ESTAS láminas y escríbela en "lectura" (en español, 1 a 3 frases): cuántos cuadros de imagen tiene cada una, dónde están y qué muestran, y dónde va cada texto, de qué tamaño y sobre qué (el fondo, una foto, una pastilla o una caja de color). Describe sólo lo que ves: si no hay fotos, dilo. Después copia ESA composición, lámina por lámina.' : '',
     vistas > 0
-      ? '- "cuadros": cada imagen de la lámina, en el MISMO lugar y del MISMO tamaño que en el original; si una lámina tiene dos fotos, son dos cuadros. "tipo": "escena" si es una foto de un lugar (con o sin alguien adentro), "retrato" si es la persona sola, recortada o en primer plano, como parte del diseño (también la foto de perfil de un tuit). "forma": "circulo" si la foto es redonda, "redondeado" si tiene las esquinas curvas, "rect" si no. "busqueda": de 3 a 6 palabras EN INGLÉS para buscar una foto que vaya con lo que dice TU texto de esa lámina, con el encuadre y el clima de la del original, sin gente. Cada lámina con SU búsqueda: dos láminas no comparten la misma. Si la lámina es sólo tipografía, "cuadros": [].'
+      ? '- "cuadros": cada imagen de la lámina, en el MISMO lugar y del MISMO tamaño que en el original; si una lámina tiene dos fotos, son dos cuadros. "tipo": "escena" si es una foto de un lugar (con o sin alguien adentro), "retrato" si es la persona sola, recortada o en primer plano, como parte del diseño (también la foto de perfil de un tuit). "forma": "circulo" si la foto es redonda, "redondeado" si tiene las esquinas curvas, "rect" si no. "desenfocada": true si la foto del original está desenfocada (con blur), si no false. "busqueda": de 3 a 6 palabras EN INGLÉS para buscar una foto que vaya con lo que dice TU texto de esa lámina, con el encuadre y el clima de la del original, sin gente. Cada lámina con SU búsqueda: dos láminas no comparten la misma. Si la lámina es sólo tipografía, "cuadros": [].'
       : '- Sin las láminas no hay cuadros: "cuadros": [] y la lámina es tipografía y color.',
     vistas > 0 ? '- "formas": el MARCO de la lámina, en su lugar: cada línea divisoria ("tipo": "linea") y cada tarjeta, franja o recuadro de color que va detrás de textos o fotos ("tipo": "caja", con su "color", su "borde" o null, "radio" de 0 a 0.5 si tiene las esquinas curvas y "sombra"). Los textos del marco (el @, el número de lámina como «02 / 06», el pie) van en "textos" con su papel ("firma" o "rotulo"), en cada lámina que los tenga. Sin marco, "formas": [].' : '',
     vistas > 0 ? '- "original": cada texto como se lee en la lámina original, con "\\n" donde corta el renglón. Lista TODOS los textos de cada lámina EN ORDEN DE LECTURA (de arriba a abajo y, en una misma franja, de izquierda a derecha): también la etiqueta o pastilla («STEP 1» va como «PASO 1»), los del marco (el ©, el @, el número «01 / 06») y el PIE de abajo, en CADA lámina que los tenga aunque se repitan. De adentro de una captura de pantalla o de una tarjeta con letra chica (una ventana, un formulario, un chat, un documento), sólo su título, adaptado; el resto no va.' : '',
@@ -390,6 +397,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     p.conAvatar ? '- Donde el original tiene a una persona, marca "persona": true: el dueño del negocio va en su lugar.' : '- No pongas personas: "persona": false en todos los cuadros (la escena va sin gente).',
     '- Cada texto va en el MISMO lugar, con el MISMO tamaño y el MISMO estilo que en el original: si el original usa subtítulos chicos (tamano de 0.035 a 0.045) abajo de cada cuadro, aquí también; nunca un título grande al centro si el original no lo tiene. Una frase que en el original ocupa dos renglones es UN texto (con "\\n" donde corta), no dos. Sólo si el original es tipografía sin fotos, el texto LLENA la lámina (titulares de 0.08 a 0.14, cuerpo de 0.045 a 0.06). Pocas palabras, las justas para leerse de un vistazo.',
     '- `letra` es el estilo de la letra del original: sans (palo seco), gruesa (palo seco muy pesada), condensada (alta y angosta), serif, manuscrita o mono. Si dudas, sans.',
+    `- "fuente": de ESTA lista, la tipografía que más se parece a la del original en la forma de sus letras (redondas o angostas, con remates o sin, finas o gruesas): ${(Object.entries(FUENTES_PARA_ELEGIR) as Array<[Letra, readonly string[]]>).map(([l, fs]) => `${l}: ${fs.join(', ')}`).join('; ')}. "italica": true si el texto del original va en cursiva.`,
     '- Si no sabes un dato del negocio (un número, un precio), no lo inventes: escribe la frase sin ese dato.',
     p.coloresDeMarca?.length ? `- Los colores: usa los de la marca del negocio (${p.coloresDeMarca.slice(0, 8).join(', ')}) en el fondo y en los textos, en lugar de los del original, con el mismo contraste.` : '',
     '',
@@ -402,7 +410,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
     COMPACTO,
-    `{"lectura":"lo que leíste de la composición",${tema ? '"guion":["lámina 1: qué dice sobre el tema","lámina 2: …"],' : ''}"proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"n":1,"fondo":"#RRGGBB","cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"forma":"rect|circulo|redondeado","descripcion":"qué muestra","busqueda":"3 a 6 palabras en inglés"}],"formas":[{"tipo":"linea|caja","x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"color":"#RRGGBB","borde":"#RRGGBB" o null,"radio":0..0.5,"sombra":true|false}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","original":"…","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","acento":"#RRGGBB" o null,"relleno":"#RRGGBB" o null,"negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
+    `{"lectura":"lo que leíste de la composición",${tema ? '"guion":["lámina 1: qué dice sobre el tema","lámina 2: …"],' : ''}"proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"n":1,"fondo":"#RRGGBB","cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"forma":"rect|circulo|redondeado","desenfocada":true|false,"descripcion":"qué muestra","busqueda":"3 a 6 palabras en inglés"}],"formas":[{"tipo":"linea|caja","x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"color":"#RRGGBB","borde":"#RRGGBB" o null,"radio":0..0.5,"sombra":true|false}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","fuente":"de la lista","italica":true|false,"original":"…","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","acento":"#RRGGBB" o null,"relleno":"#RRGGBB" o null,"negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     `x, y, ancho y alto son FRACCIONES de la lámina (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho. ${una ? `Exactamente 1 elemento en "laminas", con "n": ${una.n}.` : `Exactamente ${n} elementos en "laminas", uno por lámina del original, cada uno con su "n" (el número de la lámina del original que replica, de 1 a ${n}).`}`,
   ].filter((l) => l !== '').join('\n');
 }
@@ -619,6 +627,9 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
         // «MARTIN + KONCKE», más ancho y con otra cara).
         mayus: (t.mayus === true || t.mayus === 'true') && !(typeof t.original === 'string' && /\p{Ll}/u.test(t.original)),
         letra: (LETRAS as readonly string[]).includes(String(t.letra)) ? (t.letra as Letra) : 'sans',
+        // La familia que se parece, sólo si es de la lista (20/11/2026); la itálica, sólo si lo dijo.
+        ...(fuenteParecida(typeof t.fuente === 'string' ? t.fuente : null) ? { fuente: fuenteParecida(t.fuente as string)!.familia } : {}),
+        ...(t.italica === true || t.italica === 'true' ? { italica: true } : {}),
         // Una «pastilla» del mismo color que el fondo no es una pastilla.
         relleno: (() => { const r = color(t.relleno, ''); return r && r.toUpperCase() !== fondo.toUpperCase() ? r : null; })(),
       });
@@ -775,7 +786,8 @@ export function cuadrosDe(crudo: unknown, foto: FotoReplica | null): CuadroRepli
     const alto = num(q.alto, 0.05, 1 - y, 1 - y);
     const tipo = q.tipo === 'retrato' ? 'retrato' : 'escena';
     const forma = (FORMAS_DEL_CUADRO as readonly string[]).includes(String(q.forma)) ? (q.forma as FormaDelCuadro) : 'rect';
-    out.push({ x, y, ancho, alto, tipo, persona: q.persona === true || q.persona === 'true', descripcion: limpio(q.descripcion, 200), busqueda: limpio(q.busqueda, 80), forma });
+    const desenfocada = q.desenfocada === true || q.desenfocada === 'true';
+    out.push({ x, y, ancho, alto, tipo, persona: q.persona === true || q.persona === 'true', descripcion: limpio(q.descripcion, 200), busqueda: limpio(q.busqueda, 80), forma, ...(desenfocada ? { desenfocada } : {}) });
   }
   if (out.length || !foto) return out;
   const tipo = foto.ancho * foto.alto >= 0.6 ? 'escena' : 'retrato';
@@ -825,8 +837,42 @@ const LETRA_DEL_EDITOR: Record<Letra, { titular: { familia: string; respaldo: 's
   manuscrita: { titular: { familia: 'Caveat', respaldo: 'sans-serif', peso: 700 }, texto: { familia: 'Caveat', respaldo: 'sans-serif', peso: 500, negrita: 700 } },
   mono: { titular: { familia: 'Roboto Mono', respaldo: 'sans-serif', peso: 700 }, texto: { familia: 'Roboto Mono', respaldo: 'sans-serif', peso: 500, negrita: 700 } },
 };
+/**
+ * LA LETRA QUE SE PARECE (20/11/2026, la llamada con Leila: «la tipografía no es la de la plantilla»). Seis categorías con UNA
+ * familia cada una (`LETRA_DEL_EDITOR`) no se parecen a nada: una serif fina de revista salía en Playfair 800, un palo seco
+ * geométrico en Montserrat. La IA mira el original y nombra la familia del editor que más se le parece, DE ESTA LISTA (la que
+ * ve en el prompt, por estilo); el código la acepta sólo si está acá y en el editor (`fuenteDelEditorDeImagen`), y le da el peso
+ * más cercano que el editor tiene. Si no nombra una de la lista, la de su categoría, como antes. Comparar los trazos de verdad
+ * (./tipografia-medida.ts, `elegirFuente`) pide dibujar cada candidata en un canvas: en el servidor no hay, y sigue sin conectarse.
+ */
+export const FUENTES_PARA_ELEGIR: Readonly<Record<Letra, readonly string[]>> = {
+  sans: ['Inter', 'Montserrat', 'Poppins', 'DM Sans', 'Manrope', 'Raleway', 'Work Sans', 'Outfit', 'Plus Jakarta Sans', 'Figtree', 'Lato', 'Space Grotesk', 'League Spartan', 'Josefin Sans'],
+  gruesa: ['Archivo Black', 'Montserrat', 'Poppins', 'Unbounded', 'League Spartan', 'Rubik'],
+  condensada: ['Anton', 'Bebas Neue', 'Oswald'],
+  serif: ['Playfair Display', 'DM Serif Display', 'Lora', 'Merriweather', 'Libre Baskerville', 'Cormorant Garamond', 'EB Garamond', 'Fraunces', 'Instrument Serif', 'Bodoni Moda', 'Abril Fatface'],
+  manuscrita: ['Caveat', 'Dancing Script', 'Pacifico', 'Great Vibes', 'Sacramento', 'Allura', 'Permanent Marker', 'Kalam'],
+  mono: ['Roboto Mono', 'Space Mono', 'JetBrains Mono', 'DM Mono', 'Courier Prime'],
+};
+const ELEGIBLES = new Map(Object.values(FUENTES_PARA_ELEGIR).flat().map((f) => [f.toLowerCase(), f] as const));
+const RESPALDO_SERIF = new Set([...FUENTES_PARA_ELEGIR.serif]);
+
+/** La familia que nombró la IA, si es de la lista y el editor la tiene; null si no. */
+export function fuenteParecida(nombre: string | null | undefined): { familia: string; respaldo: 'serif' | 'sans-serif' } | null {
+  const f = ELEGIBLES.get(String(nombre ?? '').trim().toLowerCase());
+  const delEditor = f ? fuenteDelEditorDeImagen(f) : null;
+  return delEditor ? { familia: delEditor, respaldo: RESPALDO_SERIF.has(delEditor) ? 'serif' : 'sans-serif' } : null;
+}
+
+/** El peso más cercano a `peso` que el editor tiene para esa familia (una que sólo tiene 400 queda en 400: si no, el navegador la engorda falsa). */
+export function pesoQueExiste(familia: string, peso: number, italica = false): number {
+  const f = FUENTES.find((x) => x.family === familia);
+  const pesos = (f?.variants ?? []).filter((v) => (v.style === 'italic') === italica).map((v) => v.weight);
+  const lista = pesos.length ? pesos : (f?.variants ?? []).map((v) => v.weight);
+  return lista.length ? lista.reduce((a, b) => (Math.abs(b - peso) < Math.abs(a - peso) ? b : a)) : peso;
+}
+
 /** Las familias que usa esta pantalla (el test mira que el editor las tenga todas). */
-export const FAMILIAS_DE_LA_REPLICA: readonly string[] = [...new Set(Object.values(LETRA_DEL_EDITOR).flatMap((l) => [l.titular.familia, l.texto.familia]))];
+export const FAMILIAS_DE_LA_REPLICA: readonly string[] = [...new Set([...Object.values(LETRA_DEL_EDITOR).flatMap((l) => [l.titular.familia, l.texto.familia]), ...ELEGIBLES.values()])];
 
 const ES_TITULAR: ReadonlySet<RolTexto> = new Set(['titulo', 'dato', 'cta']);
 
@@ -922,6 +968,11 @@ export type TextoPuesto = { left: number; top: number; width: number; tam: numbe
 export const FOTO_A_RECORTAR = 'Foto: la tuya · quitar el fondo';
 
 const SOMBRA_SOBRE_FOTO = { color: 'rgba(0,0,0,0.55)', blur: 14, offsetX: 0, offsetY: 2 } as const;
+/** El velo de toda la lámina sobre una foto de fondo del banco (20/11/2026): la letra clara se lee aunque la foto sea clara. */
+export const VELO_DE_FONDO = 'Velo sobre la foto';
+const VELO_SOBRE_FOTO = 0.42;
+/** El desenfoque de una escena cuando la foto del original está desenfocada (el filtro «blur» del editor, de 0 a 1). */
+const DESENFOQUE = 0.22;
 const SOMBRA_DE_TARJETA = { color: 'rgba(0,0,0,0.12)', blur: 28, offsetX: 0, offsetY: 8 } as const;
 
 /**
@@ -1248,12 +1299,18 @@ function laminaFiel(l: LaminaReplica, plancha: PlanchaDeLamina, o: { W: number; 
     let tam = pastilla ? pastilla.letra.alto / 0.74 : cuerpoMedido(b, emIA, t.original);
     // La letra: la de su estilo (o la del kit de marca), con un palo seco grueso como Inter fuerte (Archivo Black es mucho más
     // ancha que cualquier titular medido); y el espaciado que iguala el ancho del original.
-    const deInter = !o.conFuentesDeMarca && (t.letra === 'sans' || t.letra === 'gruesa');
-    const fam = deInter ? familia({ familia: 'Inter', respaldo: 'sans-serif' }) : familia(base);
+    // La familia que se parece a la del original (20/11/2026, `fuenteParecida`) manda sobre la de su categoría; con el kit de
+    // marca, la del kit. Una que no está en la tabla de anchos (./medir-letra.ts) no se aprieta: se mediría con otra.
+    const parecida = !o.conFuentesDeMarca ? fuenteParecida(t.fuente) : null;
+    const deInter = !parecida && !o.conFuentesDeMarca && (t.letra === 'sans' || t.letra === 'gruesa');
+    const fam = parecida ? familia(parecida) : deInter ? familia({ familia: 'Inter', respaldo: 'sans-serif' }) : familia(base);
     // El peso MEDIDO en el original manda sobre el del papel (13/11/2026: el cuerpo regular de un tuit salía en Inter 800 porque
     // la IA lo llamó «titular», apretado para entrar en el ancho).
-    const peso = deInter ? (pastilla ? 0 : pesoMedido(b.trazo, tam)) || (titular ? (t.letra === 'gruesa' ? 800 : 700) : t.negrita ? 700 : 400) : pesoBase;
-    const espaciado = pastilla ? 0 : espaciadoMedido(t, b, { familia: fam, peso, italica: false, tam }, titular);
+    const pesoDelPapel = titular ? (t.letra === 'gruesa' ? 800 : 700) : t.negrita ? 700 : 400;
+    const peso = parecida ? pesoQueExiste(parecida.familia, (pastilla ? 0 : pesoMedido(b.trazo, tam)) || pesoDelPapel, !!t.italica)
+      : deInter ? (pastilla ? 0 : pesoMedido(b.trazo, tam)) || pesoDelPapel : pesoBase;
+    const medible = !parecida || FAMILIAS_MEDIDAS.includes(parecida.familia);
+    const espaciado = pastilla || !medible ? 0 : espaciadoMedido(t, b, { familia: fam, peso, italica: false, tam }, titular);
     tam = Math.max(12, Math.min(0.2 * W, tam));
     const interlineado = !pastilla && b.renglones > 1 ? Math.max(0.8, Math.min(1.8, b.paso / (tam * porRenglon))) : interlineadoDe(t.rol);
     const centro = b.caja.x + b.caja.ancho / 2;
@@ -1299,7 +1356,7 @@ function laminaFiel(l: LaminaReplica, plancha: PlanchaDeLamina, o: { W: number; 
     objetos.push({
       ...texto(o.nuevoId(), NOMBRE_DE_ROL[t.rol], contenido, {
         left: Math.round(left), top: Math.round(top), width: Math.round(width), alto,
-        tam: Math.round(tam), peso, fam, color, alin: pastilla ? 'center' : alinear, interlineado, mayus: t.mayus, espaciado,
+        tam: Math.round(tam), peso, fam, color, alin: pastilla ? 'center' : alinear, interlineado, mayus: t.mayus, espaciado, italica: !!t.italica,
       }),
       ...(acentos.length && acento ? { styles: estilosDeAcento(t.mayus ? comoSeDibuja(contenido, true) : contenido, acentos, acento) } : {}),
       // Una pastilla que la plancha no pudo conservar (se borró entera): su color vuelve como resaltado del texto, para que una letra
@@ -1394,8 +1451,16 @@ export function documentoDeReplica(o: {
         puesta();
       } else {
         const escena = c.tipo === 'escena' || c.busqueda ? escenaPara(c.busqueda) : undefined;
-        if (escena) { objetos.push({ ...fotoQueCubre(o.nuevoId(), escena, caja), ...recorte, name: 'Foto: escena parecida' }); puesta(); }
+        // Con el blur del original (la plantilla de Leila, 20/11/2026), la escena va desenfocada igual (el filtro del editor).
+        if (escena) { objetos.push({ ...fotoQueCubre(o.nuevoId(), escena, caja), ...recorte, name: 'Foto: escena parecida', ...(c.desenfocada ? { filters: [{ type: 'blur', value: DESENFOQUE }] } : {}) }); puesta(); }
       }
+    }
+    // ⛔ EL TEXTO SOBRE UNA FOTO DE FONDO SE LEE (20/11/2026, la llamada con Leila: «no se lee»). Una foto que cubre casi toda la
+    // lámina no es la del original (es la del banco: puede ser clara donde la del original era oscura) y la sombra suave no alcanzaba
+    // con letra crema. Encima de la foto, debajo de los textos, un velo oscuro de toda la lámina: lo que se mide después
+    // (app/image-editor/mako/chat/contraste.ts) parte de algo que ya se lee.
+    if (fotos.some((f) => f.ancho * f.alto >= 0.6 * W * H) && l.textos.some((t) => t.texto)) {
+      objetos.push({ ...rect(o.nuevoId(), VELO_DE_FONDO, { left: 0, top: 0, width: W, height: H, fill: `rgba(0,0,0,${VELO_SOBRE_FOTO})`, radio: 0 }) });
     }
     // Con fotos, cada texto se queda en su lugar (es la composición del original); sin ninguna, llena la lámina. Cuentan las fotos
     // PUESTAS, no los cuadros que leyó la IA (12/11/2026): un cuadro sin foto dejaba los textos arriba y abajo de un hueco vacío.
@@ -1403,9 +1468,15 @@ export function documentoDeReplica(o: {
     const conLetra = ajustados.map((t) => {
       const titular = ES_TITULAR.has(t.rol);
       const letra = LETRA_DEL_EDITOR[t.letra] ?? LETRA_DEL_EDITOR.sans;
+      // La familia que se parece a la del original (20/11/2026), salvo que mande el kit de marca.
+      const parecida = !o.conFuentesDeMarca ? fuenteParecida(t.fuente) : null;
+      if (parecida) {
+        const buscado = titular ? (t.letra === 'gruesa' ? 800 : 700) : t.negrita ? 700 : 400;
+        return { t, fam: familia(parecida), peso: pesoQueExiste(parecida.familia, buscado, !!t.italica), interlineado: interlineadoDe(t.rol), italica: !!t.italica };
+      }
       const base = o.conFuentesDeMarca ? (titular ? o.estilo.titular : o.estilo.texto) : titular ? letra.titular : letra.texto;
       const peso = o.conFuentesDeMarca ? (t.negrita && !titular ? 700 : base.peso) : titular ? letra.titular.peso : t.negrita ? letra.texto.negrita : letra.texto.peso;
-      return { t, fam: familia(base), peso, interlineado: interlineadoDe(t.rol) };
+      return { t, fam: familia(base), peso, interlineado: interlineadoDe(t.rol), italica: !!t.italica };
     });
     // Cómo se lee cada texto se decide ANTES de medir (con la caja que puso la IA): el resaltado lleva un espacio de cada lado en cada
     // renglón (pegado a las letras no se lee como pastilla), y esos espacios también tienen que entrar.
@@ -1429,7 +1500,7 @@ export function documentoDeReplica(o: {
       objetos.push({
         ...texto(o.nuevoId(), NOMBRE_DE_ROL[x.t.rol], contenido, {
           left: p.left, top: p.top, width: p.width, alto: p.alto,
-          tam: p.tam, peso: x.peso, fam: x.fam, color: c.color, alin: x.t.alinear, interlineado: x.interlineado, mayus: x.t.mayus,
+          tam: p.tam, peso: x.peso, fam: x.fam, color: c.color, alin: x.t.alinear, interlineado: x.interlineado, mayus: x.t.mayus, italica: x.italica,
         }),
         ...(c.relleno ? { textBackgroundColor: c.relleno, effects: { background: { color: c.relleno } } } : {}),
         // Sobre una foto que no es la del original, una sombra suave: el texto se lee sobre la foto que sea.
