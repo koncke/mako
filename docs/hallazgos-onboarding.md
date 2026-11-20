@@ -66,6 +66,13 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
     teléfono, /onboarding mandaba a la app. Ahora se decide en el servidor (`seguirEnPcPendiente`: V2 y sin `tutorial-ops-center`
     en `usuarios.perfil`, el mismo dato que guarda /api/recorridos): /inicio manda el teléfono a /onboarding, y /onboarding muestra
     esa pantalla en vez de la app (OA-10, OD-12).
+  - *La llegada al Ops Center (OD-05, la maqueta m-12/m-13)*: en el chat «Onboarding», la pantalla oscura con MaKo escribiendo y el
+    mensaje «Dale play…» con la portada del recorrido; su play arranca el recorrido (`BienvenidaOpsCenter`). Dos trampas: el velo de
+    un componente del panel no tapa la lista de chats (el panel vive en los contextos de apilado del layout), así que va en un
+    portal con una copia de la fila escribiendo, medida sobre la real; y el motor arrancaba el recorrido solo a los 600 ms: mientras
+    el chat lo presenta, `PrimeraVez` espera (`chatPresentaRecorrido`). En el ensayo «desde cero», lo visto es el del navegador.
+    Para MIRARLO sin `next dev`: un bundle de esbuild del componente de verdad con stubs (el recorrido sin ver, el video), en
+    Chromium con `animations: 'disabled'`.
   - *El número se guarda en dígitos y se formatea al dibujarlo* (`telefonoVisible`: «+54 911 5555 0101», en grupos de 4 desde el
     final). La burbuja que espera muestra lo que escribió, con la lada.
 - **Lo que quedó sin hacer:**
