@@ -69,8 +69,14 @@ test('DÓNDE va: al pie de la barra lateral (todas las pantallas) y la franja ar
   }
   // Una lectura por página: el cartel y la franja comparten la misma.
   const u = fuente('app/_ui/usePrueba.ts');
-  assert.match(u, /if \(!enCurso\) \{\s*enCurso = fetch\('\/api\/plan\/prueba'/);
-  assert.match(fuente('app/api/plan/prueba/route.ts'), /if \(!s \|\| s\.legacy \|\| s\.ws == null\) return Response\.json\(\{ enPrueba: false \}\);/);
+  // Una por negocio de la pestaña (20/11/2026): mirando como administrador, la API contesta el negocio que se mira.
+  assert.match(u, /let p = enCurso\.get\(clave\);\n\s*if \(!p\) \{\n\s*p = fetch\('\/api\/plan\/prueba'/);
+  assert.match(u, /const clave = new URLSearchParams\(window\.location\.search\)\.get\('ws'\) \?\? '';/);
+  // El negocio que se MIRA, no el de la sesión (la llamada con Leila: «en la sidebar no estoy viendo versión de prueba»).
+  const ruta = fuente('app/api/plan/prueba/route.ts');
+  assert.match(ruta, /if \(!s \|\| s\.legacy\) return Response\.json\(\{ enPrueba: false \}\);/);
+  assert.match(ruta, /const ws = await getWorkspaceActual\(\)\.catch\(\(\) => null\);\n\s*if \(ws == null\) return Response\.json\(\{ enPrueba: false \}\);\n\s*return Response\.json\(await resumenDePrueba\(ws\)/);
+  assert.doesNotMatch(ruta, /resumenDePrueba\(Number\(s\.ws\)\)/, 'el negocio propio de quien mira');
 });
 
 test('los COLORES son los de MaKo (los tokens, claro y oscuro), no el violeta de Madgicx', () => {

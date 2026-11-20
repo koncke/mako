@@ -12,18 +12,23 @@ import type { ResumenPrueba } from '@/lib/prueba-uso';
 
 export type PruebaViva = Extract<ResumenPrueba, { enPrueba: true }>;
 
-let enCurso: Promise<PruebaViva | null> | null = null;
+// Por negocio de la pestaña (`?ws=`, 20/11/2026): la API contesta el negocio que se MIRA (el de un cliente, mirando como
+// administrador), y pasar de un cliente a otro dentro de los 30 s mostraba la prueba del anterior.
+const enCurso = new Map<string, Promise<PruebaViva | null>>();
 
 function leer(): Promise<PruebaViva | null> {
-  if (!enCurso) {
-    enCurso = fetch('/api/plan/prueba', { cache: 'no-store' })
+  const clave = new URLSearchParams(window.location.search).get('ws') ?? '';
+  let p = enCurso.get(clave);
+  if (!p) {
+    p = fetch('/api/plan/prueba', { cache: 'no-store' })
       .then((r) => r.json())
       .then((j: ResumenPrueba) => (j && j.enPrueba ? j : null))
       .catch(() => null);
+    enCurso.set(clave, p);
     // La memoria dura lo que una carga: al volver a la pestaña se relee (los usos cambian al crear algo).
-    setTimeout(() => { enCurso = null; }, 30_000);
+    setTimeout(() => { enCurso.delete(clave); }, 30_000);
   }
-  return enCurso;
+  return p;
 }
 
 export function usePrueba(): PruebaViva | null {
