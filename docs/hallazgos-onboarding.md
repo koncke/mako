@@ -3548,6 +3548,10 @@ filas de los coaches tachaban el día 1 entero.
 - **Importar un componente del chat del onboarding en el Ops Center del teléfono le suma las rutas del onboarding** (las que llegan a una
   IA): tests/d6b-rutas.test.ts sigue los imports del navegador del Ops Center. `SeguirEnPc` vive en app/onboarding/ChatArranque.tsx; el
   reto tiene su pantalla aparte (app/second-brain/reto/SeguirEnPcReto.tsx), con el mismo diseño y su texto.
+- **Un test que busca código con '
+' da falso rojo en Windows** (lo encontró el chat de WhatsApp): con core.autocrlf=true la copia
+  local está en CRLF y el filtro del pre-push la frena, aunque en GitHub (LF) pase. En tests/reto-dias.test.ts toda lectura de código
+  pasa por `fuente`, que normaliza. Probado: con 17 archivos en CRLF, el test de antes daba 1 rojo y el nuevo, 0.
 - **Una aserción de orden con `indexOf` no prueba que exista** (`indexOf(a) < indexOf(b)` da verde si `a` no está: -1). Lo encontró
   romper el código; la aserción ahora exige `> 0`.
 - **Una página de /m que devuelve algo antes de su `PantallaM` da rojo** (tests/movil-refrescar.test.ts: sin ella no se refresca
