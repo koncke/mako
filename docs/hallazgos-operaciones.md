@@ -7,6 +7,29 @@ del código.
 
 ---
 
+## El hilo bajaba con `lineas.length`, y los turnos que llegaban juntos salían juntos (20/11/2026, la auditoría de los chats, admin-1 a 5)
+
+**Vive en:** `app/admin/operaciones/hilo-a-la-vista.ts` (`claveDelHilo`, `filasDeLaCola`, `lineasALaVista`) · `useTurnosDeAUno.ts` ·
+`Conversacion.tsx` (PanelDeChat `seguir`) · `app/m/operaciones/ChatsMovil.tsx` (`useBajarAlUltimo`) · `useCentro.ts`
+(`turnosListos`). Test: `tests/chats-bajan-movil-admin.test.ts`.
+
+- **Una cuenta que incluye lo que no se dibuja** (admin-1): `lineas` es el historial ENTERO. Un pedido de la bitácora, un turno para
+  otro chat o el turno «yo» duplicado de un trabajo cambiaban `lineas.length` y bajaban de golpe a Martín, que estaba releyendo, sin
+  nada nuevo a la vista. La clave correcta es la de la última línea que dibuja `lineasDeConversacion`.
+- **Lo que no cambia la cuenta:** el cierre de un trabajo llega a la MISMA línea (admin-3), así que va en la clave (`:cierre`). Las
+  decisiones de la Ticketera salen de `decisiones` y no de `lineas` (admin-2). En la computadora van arriba de la caja: achican el
+  hilo y las sigue el panel. En el teléfono van al pie del hilo: entran a la clave.
+- **Los turnos de a uno** (admin-5): `setTurnos` reemplaza la lista entera, así que lo escrito entre dos sondeos salía junto. La cola
+  compartida suelta sólo lo NUEVO.
+  - **Trampa:** los turnos de un chat llegan DESPUÉS de abrirlo (`mirar` → `pedirTurnos`). Con la historia tomada al montar, todo lo
+    viejo salía de a uno con puntitos. La historia se toma cuando los turnos de ESE chat ya llegaron (`turnosListos`: su clave está
+    en `turnos`), una vez por chat abierto.
+  - **Trampa:** el hilo está memorizado, así que `lineasALaVista` devuelve las MISMAS líneas si nada espera. Un arreglo nuevo en
+    cada tecla lo redibujaba entero.
+- **El teléfono monta el hilo recién al abrir la hoja:** con un contenedor estable, `useBajarAlUltimo` se enganchaba antes de que
+  existiera y no se volvía a enganchar. El contenedor cambia de identidad cuando la hoja se abre (`hojaAbierta`).
+  - **Trampa:** `panelWA` se declara más abajo en ChatsMovil; usarlo antes es un `const` en zona muerta.
+
 ## «Automático» por fase: un chat no se cambia el modelo solo, y el consumo es de la CUENTA (18/11/2026)
 
 **Vive en:** `lib/centro-cuentas.ts` (`vaPorFase`, `comoCorreDelEnvio`: la regla) · `lib/operaciones-reglas.ts` (`porFase`

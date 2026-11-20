@@ -484,6 +484,11 @@ compartidas del Cerebro (`auditoria-chats-*-20-11.md`).
     - MaKo Mobile (app/m/chats, app/m/crm/[id]/chat);
     - el superadmin (app/admin/operaciones/PanelChat.tsx: ahí va el seguimiento central, porque `PanelDeChat` lo usan casi
       todas).
+- **Hecho el 20/11 a la tarde (chat «MaKo en WhatsApp»):**
+  - MaKo Mobile y el superadmin: ver docs/hallazgos-mobile.md y docs/hallazgos-operaciones.md.
+  - La bandeja (app/chats) sigue como WhatsApp, y se arregló lo que no se veía:
+    - la caja tiene `seguir` (VentanaChat se lo pasa por Composer);
+    - lo que aparece arriba de la caja (la fase, el error) achica el hilo, y lo sigue `bajarAlCrecer` mientras estaba abajo (admin-6).
 
 ## Las dos piezas compartidas: `useBajarAlUltimo` y la cola de salida (20/11/2026, chat «onboarding-v2», claude5)
 
