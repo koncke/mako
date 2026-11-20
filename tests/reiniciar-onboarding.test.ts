@@ -29,6 +29,7 @@ test('1. lo que se reinicia: el arranque, el chat «Onboarding», el reto; el es
     { key: 'onboarding.historial', value: '[{"id":"arr-listo"}]' },
     { key: 'onboarding.cerrando', value: '{"at":"x"}' },
     { key: 'reto.estado', value: '{"v":1,"inicio":"2026-11-01T00:00:00Z","hechas":{"1:offer":"x"}}' },
+    { key: 'onboarding.correo-pc', value: '{"a":"x","at":"2026-11-20T10:00:00Z"}' },
     { key: 'onboarding.state', value: JSON.stringify({ version: 1, status: 'done', step: 'retro', completedAt: '2026-11-02', extraction }) },
   ];
   const plan = planDeSettings(filas);

@@ -4012,7 +4012,9 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
     RESET usa `perfilReiniciado`. Y quien termina en el teléfono llega a la PC sin `?reto=1`: /second-brain abre el reto la primera
     vez (empezó el V2 y no vio el recorrido), sin llevar al chat «Onboarding», que salteaba la llegada (tests/hola-de-nuevo-primero).
     Sin mirar en producción todavía (onboarding-v2).
-  - «Sigamos en tu computadora» promete «el link que te mandamos a tu correo» y nadie lo manda (app/onboarding/SeguirEnPc.tsx:44-46; onboarding-v2).
+  - ~~«Sigamos en tu computadora» promete «el link que te mandamos a tu correo» y nadie lo manda~~ HECHO: sale al cerrar el onboarding
+    en el teléfono (y si no, al mostrarse la pantalla), una vez por persona, nunca mirando como administrador; el link abre el reto
+    (lib/seguir-en-pc-correo.ts; «Reiniciar» borra la marca). Sin mirar en una bandeja todavía (onboarding-v2).
   - ~~Guardar el nombre del negocio llama a `asegurarGrupoMaKo` y renombra el grupo~~ HECHO en 5e6e3e181 (onboarding-v2).
   - `/api/plan/prueba` lee el negocio propio, no el que se mira (app/api/plan/prueba/route.ts:17-18; onboarding-v2).
   - El bloqueo «Instala MaKo para escribir» en ~20 cajas: Martín lo sacó en la llamada (lib/chat-mako-reglas.ts:334-337; wa-no-callarse).
