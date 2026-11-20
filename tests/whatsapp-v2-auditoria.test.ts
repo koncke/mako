@@ -25,6 +25,7 @@ import {
   AGENDAR_V2, E_REESCRIBIR_V2, E_TEL_CORTO, E_TEL_NO_WA, MAKO_SIN_LINEA_V2, VENTANA_REENVIAR_MS, codigoEnGrupos, errorDelTelefono,
   mensajeDelCodigoV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, respuestaOtroNumeroV2, unicaEsperandoV2, type EstadoVerificacion,
 } from '../lib/verificacion-entrante';
+import { codigoDeLoEscrito } from '../lib/onboarding-arranque';
 import { fuenteSinComentarios } from './_fuente-sin-comentarios';
 
 function bloque(src: string, desde: string, hasta: string): string {
@@ -43,8 +44,10 @@ test('el código en dos grupos, y el pedido de guardar el contacto pegado a él 
   const m = mensajeDelCodigoYAgendarV2('Valentina', '482913');
   assert.ok(m.startsWith(mensajeDelCodigoV2('Valentina', '482913')) && m.endsWith(AGENDAR_V2));
   assert.notEqual(mensajeDelCodigoYAgendarV2('Ana', '111111'), mensajeDelCodigoYAgendarV2('Ana', '222222'), 'cada uno es distinto: no lo frena el tope');
-  // Lo pegado del mensaje, con el espacio, queda en sus 6 números en el campo de la app.
-  assert.match(fuenteSinComentarios('app/onboarding/ChatArranqueV2.tsx'), /setCodigo\(e\.target\.value\.replace\(\/\\D\/g, ''\)\.slice\(0, 6\)\)/);
+  // Lo pegado del mensaje (el código con el espacio, o el mensaje entero) queda en sus 6 números en el campo de la app.
+  assert.equal(codigoDeLoEscrito('482 913'), '482913');
+  assert.equal(codigoDeLoEscrito(mensajeDelCodigoYAgendarV2('Valentina', '482913')), '482913');
+  assert.ok(fuenteSinComentarios('app/onboarding/ChatArranqueV2.tsx').includes('codigoDeLoEscrito(e.target.value)'), 'el campo limpia lo pegado');
   const mandar = bloque(grupo(), 'async function mandarCodigoV2(', 'export async function responderPedidoV2(');
   assert.match(mandar, /enviarAPersonaMaKo\(destino, mensajeDelCodigoYAgendarV2\(v\.nombre \?\? '', v\.codigo\)\)/);
   assert.doesNotMatch(mandar, /AGENDAR_V2/, 'el pedido aparte vuelve a chocar con el tope del mismo texto');
