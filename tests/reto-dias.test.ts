@@ -180,7 +180,7 @@ test('lo tocado durante el video del día cuenta como hecho: la tarea cuya últi
   assert.doesNotMatch(chat, /accion: 'hecha'/, 'el chat del reto nunca marca «hecha» por un toque');
   // 20/11 (D1-03, d24-09 y R57-12): nada se marca solo a los 0,9 s; lo que falta, al terminar o cerrar el video del día.
   assert.ok(!chat.includes('}, 900)'), 'sin la marca automática a los 900 ms');
-  assert.ok(chat.includes('alTerminar: () => onFin?.()') && chat.includes('onEnded={() => onFin?.()}'), 'la marca de lo que falta sale al terminar el video');
+  assert.ok(chat.includes('alTerminar: () => onFin?.()') && chat.includes('onTermina={() => onFin?.()}'), 'la marca de lo que falta sale al terminar el video');
   assert.ok(chat.includes("marcarTarea(marcasDeLaTarea(t), () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); })"), 'el día 1 sin «Lo hago después» (F1)');
   assert.match(chat, /¡Hiciste todo lo del día \{dia\.n\}!/, 'con todo hecho, la felicita y pasa a WhatsApp');
 });
@@ -333,6 +333,36 @@ test('la caja del reto le escribe al MaKo del Ops Center con el contexto del ret
   const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
   assert.ok(chat.includes('<CajaDelCliente k={k} campo={campo}') && chat.includes('tab: TAB_RETO'), 'la caja de siempre (adjuntos y voz), en la conversación del reto');
   assert.ok(!chat.includes('Para preguntarle algo a MaKo, el Ops Center'), 'sin el texto fijo de antes');
+});
+
+test('cambiar el reto no pisa la hora que guardó el WhatsApp en el medio (20/11, lo encontró el chat de WhatsApp)', async () => {
+  const { cambiarReto } = await import('../lib/reto/cambiar');
+  let guardado: string | null = JSON.stringify({ ...base, adelantado: 3, hechas: {}, leidas: {} });
+  let lecturas = 0;
+  const io = {
+    // La carrera: justo después de la primera lectura de acá, la hora llega por WhatsApp (lib/reto/respuestas.ts) y se guarda.
+    leer: async () => { lecturas++; const g = guardado; if (lecturas === 1) guardado = JSON.stringify({ ...JSON.parse(guardado!), horaWa: '18:00' }); return g; },
+    cas: async (esperado: string | null, nuevo: string) => { if (esperado !== guardado) return false; guardado = nuevo; return true; },
+  };
+  const r = await cambiarReto(io, (x) => ({ ...x, hechas: { ...x.hechas, '3:contactos': 'ahora' }, leidas: { ...(x.leidas ?? {}), '3:contactos': 'Leí 5 contactos en tu CRM.' } }));
+  const final = JSON.parse(guardado!);
+  assert.equal(final.horaWa, '18:00', 'la hora del WhatsApp queda');
+  assert.equal(final.leidas['3:contactos'], 'Leí 5 contactos en tu CRM.', 'y lo leído también');
+  assert.equal(r?.horaWa, '18:00');
+  assert.equal(lecturas, 2, 'perdió el primer compare-and-set y releyó');
+  const ruta = readFileSync(new URL('../app/api/reto/route.ts', import.meta.url), 'utf8');
+  assert.ok(!ruta.includes('setSetting(CLAVE_RETO'), 'la API no reescribe el reto entero');
+  assert.ok(ruta.includes('cambiarReto(IO, (x) => ({ ...x, hechas:') && ruta.includes('const escrito = await cambiarReto(IO,'), 'conLoLeido y las acciones, con compare-and-set');
+  assert.ok(!readFileSync(new URL('../lib/reto/pro-del-reto-server.ts', import.meta.url), 'utf8').includes('setSetting(CLAVE_RETO'), 'el uso de Pro tampoco');
+});
+
+test('cada día abre con el velo y MaKo escribiendo, y su video con «dale play»; el día 2 termina en el perfil (20/11, V5, V14, d24-19)', () => {
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.ok(chat.includes("const fase = useEntrada(`reto-dia-${dia.n}`, hoy);") && chat.includes('<EntradaEscribiendo foto='), 'la entrada del motor (no una propia)');
+  assert.ok(chat.includes('useDalePlay(boton, {') && chat.includes('dalePlay={dalePlay} />'), 'el «dale play» del motor, en los dos videos');
+  assert.ok(!chat.includes('<video ref='), 'sin el reproductor del navegador (V14)');
+  assert.ok(chat.indexOf('<TarjetaHora p={p}') < chat.indexOf('Último paso del día 2: tu perfil'), 'la hora antes del perfil');
+  assert.ok(chat.includes("const ultimo = dia.n === 2 ? dia.tareas.find((t) => t.id === 'perfil') : undefined;"), 'el perfil sale de la tarjeta del día 2');
 });
 
 test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, sin clip de regalo, sin la tab AI Avatar', () => {

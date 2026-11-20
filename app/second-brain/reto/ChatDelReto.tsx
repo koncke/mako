@@ -30,7 +30,11 @@ import {
 } from '@/lib/reto/dias';
 import { mostrarTutorial, senalAhora, senalarDondeTocar } from '@/app/_ui/tutorial/store';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
-import { useVideoQueFlota } from '@/app/_ui/tutorial/useVideoQueFlota';
+// V5 (20/11): la entrada de cada día (el velo y MaKo escribiendo) y el «dale play», las piezas del chat del onboarding (no otras).
+import { EntradaEscribiendo, useEntrada } from '@/app/_ui/tutorial/EntradaEscribiendo';
+import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
+import { useDalePlay } from '@/app/_ui/tutorial/useDalePlay';
+import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutorial/desde-cero';
 import { claveTarea, diaAbierto, diasDelReto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
 import { RETO_EMPEZAR_DIA1, RETO_INTERES_YA, RETO_MUESTRA, RETO_MUESTRA_FIN, muestrasDe, type MuestraReto } from '@/lib/reto/dias';
@@ -107,15 +111,17 @@ export function useAparicion(claves: readonly string[]): { ver: (k: string) => b
   const falta = vistos ? claves.find((k) => !vistos.has(k)) : undefined;
   useEffect(() => {
     if (!vistos || !falta) return;
+    // Un día nuevo no espera acá: su entrada es la del motor (el velo con MaKo escribiendo, `useEntrada` en `Dia`; V5).
+    const espera = falta.startsWith('dia:') ? 0 : MS_ESCRIBE;
     const t = window.setTimeout(() => {
       const n = new Set(vistos); n.add(falta);
       try { localStorage.setItem(VISTOS, JSON.stringify([...n].slice(-300))); } catch { /* sin storage: igual se ve */ }
       setVistos(n);
-    }, MS_ESCRIBE);
+    }, espera);
     return () => window.clearTimeout(t);
   }, [vistos, falta]);
   const corte = !vistos ? 0 : falta ? claves.indexOf(falta) : claves.length;
-  return { ver: (k) => { const i = claves.indexOf(k); return i < 0 || i < corte; }, escribiendo: !!vistos && !!falta, listo: !!vistos };
+  return { ver: (k) => { const i = claves.indexOf(k); return i < 0 || i < corte; }, escribiendo: !!vistos && !!falta && !falta.startsWith('dia:'), listo: !!vistos };
 }
 
 
@@ -300,12 +306,45 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
   const p = dia.whatsapp;
   const todas = dia.tareas.every((t) => tareaHecha(e, dia.n, t.id));
   const link = p ? linkWaMe(linea, mensajeEscrito(p, hora)) : null;
+  // EL DÍA 2 EN SU ORDEN (20/11, auditoría d24-19 y D1-18; memoria onboarding-16-11-decisiones): el QR, la extensión, las integraciones,
+  // la hora de WhatsApp y, ÚLTIMO, el perfil. El perfil sale de la tarjeta del día y va después de la hora.
+  const ultimo = dia.n === 2 ? dia.tareas.find((t) => t.id === 'perfil') : undefined;
+  const primeras = ultimo ? dia.tareas.filter((t) => t !== ultimo) : dia.tareas;
+  const fila = (t: TareaReto) => {
+    const ok = tareaHecha(e, dia.n, t.id);
+    // Hecha, dice lo que MaKo LEYÓ (20/11, auditoría d24-12: «Leí 134 contactos en tu CRM.»), no el detalle de la tarea.
+    const leido = ok ? e.leidas?.[claveTarea(dia.n, t.id)] : undefined;
+    // En una prueba de Essential, lo de Pro se usa una vez y se dice sin vender (R57-03): ningún botón que venda el plan acá.
+    const pro = TAREA_PRO[claveTarea(dia.n, t.id)];
+    const nota = !ok && proUnaVez && pro && !(e.pro?.[pro] && Date.now() > Date.parse(e.pro[pro]!.hasta)) ? NOTA_PRO_UNA_VEZ : null;
+    return (
+      <li key={t.id} className="rt-tarea" data-ok={ok ? '' : undefined}>
+        <span className="rt-tarea__check" aria-hidden>{ok ? '✓' : ''}</span>
+        <span className="rt-tarea__txt"><b>{t.titulo}</b><small>{leido ?? t.detalle}</small>{nota && <small className="rt-tarea__pro">{nota}</small>}</span>
+        {/* Sin «Hacerlo» (18/11): dice DÓNDE es, y tocarlo marca ese lugar con el tutorial (no lleva a ningún lado). */}
+        {ok ? <span className="rt-tarea__ok">Listo</span>
+          : tareaDespues(e, dia.n, t.id) ? <button type="button" className="rt-tarea__donde" onClick={() => onMarcar(t)} title="Te marco dónde está">◐ Después</button>
+          : <button type="button" className="rt-tarea__donde" onClick={() => onMarcar(t)} title="Te marco dónde está">{t.donde}</button>}
+      </li>
+    );
+  };
+  // V5 (20/11, auditoría V5, d24-11 y R57-12): la primera vez que se abre el día de HOY, el velo con MaKo escribiendo y recién después
+  // su mensaje con el video, marcado con «dale play» mientras está quieto (el motor lo marca sólo a la vista y con el motor libre).
+  const fase = useEntrada(`reto-dia-${dia.n}`, hoy);
+  if (fase === 'escribe') {
+    return (
+      <>
+        <p className="co-dia">Día {dia.n} de 7</p>
+        <EntradaEscribiendo foto={<Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo="despierto" size={26} />} quien="MaKo" />
+      </>
+    );
+  }
   return (
     <>
       <p className="co-dia">Día {dia.n} de 7</p>
       <Burbuja ancho>
         <p>{dia.mensaje}</p>
-        <VideoDelDia dia={dia} onTocado={onTocadoEnVideo} onFin={onFinVideo} />
+        <VideoDelDia dia={dia} onTocado={onTocadoEnVideo} onFin={onFinVideo} dalePlay={hoy} />
       </Burbuja>
       <Burbuja ancho>
         <div className="rt-tarjeta" data-recorrido={`sb-reto-dia-${dia.n}`}>
@@ -313,29 +352,10 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
           <p className="rt-tarjeta__t">{dia.titulo}</p>
           <p className="rt-tarjeta__sub">{hoy ? 'Lo que te toca hoy' : 'Lo que te tocó'}</p>
           <ol className="rt-tareas">
-            {dia.tareas.map((t) => {
-              const ok = tareaHecha(e, dia.n, t.id);
-              // Hecha, dice lo que MaKo LEYÓ (20/11, auditoría d24-12: «Leí 134 contactos en tu CRM.»), no el detalle de la tarea.
-              const leido = ok ? e.leidas?.[claveTarea(dia.n, t.id)] : undefined;
-              // En una prueba de Essential, lo de Pro se usa una vez y se dice sin vender (R57-03): ningún botón que venda el plan acá.
-              const pro = TAREA_PRO[claveTarea(dia.n, t.id)];
-              const nota = !ok && proUnaVez && pro && !(e.pro?.[pro] && Date.now() > Date.parse(e.pro[pro]!.hasta)) ? NOTA_PRO_UNA_VEZ : null;
-              return (
-                <li key={t.id} className="rt-tarea" data-ok={ok ? '' : undefined}>
-                  <span className="rt-tarea__check" aria-hidden>{ok ? '✓' : ''}</span>
-                  <span className="rt-tarea__txt"><b>{t.titulo}</b><small>{leido ?? t.detalle}</small>{nota && <small className="rt-tarea__pro">{nota}</small>}</span>
-                  {/* Sin «Hacerlo» (18/11): dice DÓNDE es, y tocarlo marca ese lugar con el tutorial (no lleva a ningún lado). */}
-                  {ok ? <span className="rt-tarea__ok">Listo</span>
-                    : tareaDespues(e, dia.n, t.id) ? <button type="button" className="rt-tarea__donde" onClick={() => onMarcar(t)} title="Te marco dónde está">◐ Después</button>
-                    : <button type="button" className="rt-tarea__donde" onClick={() => onMarcar(t)} title="Te marco dónde está">{t.donde}</button>}
-                </li>
-              );
-            })}
+            {primeras.map(fila)}
           </ol>
         </div>
       </Burbuja>
-      {/* Lo que hizo durante el video ya cuenta (el Cerebro, 18/11): si hizo todo, la felicita y pasa a la prueba por WhatsApp. */}
-      {todas && dia.n === 2 && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!{p ? ' Te queda la prueba por WhatsApp.' : ''}</p></Burbuja>}
       {dia.n === 6 && <ClipDelReto />}
       {/* La prueba por WhatsApp va al FINAL del día (f24-02); la hora del día 2 es un paso del día: su tarjeta (wa-08, TarjetaHora). */}
       {p && (dia.n === 2 || diaTerminado(e, dia)) && (dia.n === 2
@@ -351,6 +371,16 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
             </div>
           </Burbuja>
         ))}
+      {ultimo && (
+        <Burbuja ancho>
+          <div className="rt-tarjeta" data-recorrido="sb-reto-dia-2-perfil">
+            <p className="rt-tarjeta__t">Último paso del día 2: tu perfil</p>
+            <ol className="rt-tareas">{fila(ultimo)}</ol>
+          </div>
+        </Burbuja>
+      )}
+      {/* Lo que hizo durante el video ya cuenta (el Cerebro, 18/11): si hizo todo, la felicita (sólo el día 2, R57-F4). */}
+      {todas && dia.n === 2 && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!</p></Burbuja>}
     </>
   );
 }
@@ -396,22 +426,24 @@ function TarjetaHora({ p, guardada, linea, hora, onHora, onConfirmar }: {
 }
 
 /** El video del día: el del manifiesto (`reto-dia-<n>`), o en la revisión su lugar marcado. Nunca otro video. */
-function VideoDelDia({ dia, onTocado, onFin }: { dia: DiaReto; onTocado?: (sel: string) => void; onFin?: () => void }) {
+function VideoDelDia({ dia, onTocado, onFin, dalePlay = false }: { dia: DiaReto; onTocado?: (sel: string) => void; onFin?: () => void; dalePlay?: boolean }) {
   const v = useVideoTutorial(dia.video);
-  const ref = useRef<HTMLVideoElement>(null);
-  // Si sale de la vista corriendo (o se navega), sigue abajo a la derecha (Martín, 18/11).
-  useVideoQueFlota(ref, v ? dia.video : null, `Día ${dia.n}`);
+  const boton = useRef<HTMLButtonElement>(null);
+  const conMarcas = !!v?.frases?.some((f) => f.sel);
+  // El «dale play» sobre el botón del video con marcas (useDalePlay, del motor): mientras nadie lo tocó.
+  useDalePlay(boton, { clave: dia.video, titulo: `Día ${dia.n}`, activo: dalePlay && conMarcas });
   // Con frases que marcan lugares (el día 2: la foto, Settings, el QR…), el video lo pasa el motor: marca cada lugar cuando la voz
   // lo nombra, pausa hasta el clic y sigue en el cuadrito de abajo a la derecha mientras la persona navega.
   if (v && v.frases?.some((f) => f.sel)) {
     return (
-      <button type="button" className="rt-video rt-video--pasos" onClick={() => mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true, alTocar: onTocado, alTerminar: () => onFin?.() })}
+      <button ref={boton} type="button" className="rt-video rt-video--pasos" onClick={() => mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true, alTocar: onTocado, alTerminar: () => onFin?.() })}
         style={v.poster ? { backgroundImage: `url(${v.poster})` } : undefined} aria-label={`Ver el video del día ${dia.n}: te marca dónde tocar`}>
         <span className="rt-video__play" aria-hidden>▶</span><span className="rt-video__dice">Ver el video del día {dia.n}: te marco dónde tocar</span>
       </button>
     );
   }
-  if (v) return <video ref={ref} className="rt-video" src={v.archivo} poster={v.poster} controls playsInline preload="metadata" onEnded={() => onFin?.()} />;
+  // Sin marcas (el día 1): el reproductor de la maqueta (V14), que sigue en la esquina si se navega y marca «dale play» (V5).
+  if (v) return <VideoDelMomento clave={dia.video} titulo={`Día ${dia.n}`} revision={false} onTermina={() => onFin?.()} dalePlay={dalePlay} />;
   if (PARA_TODOS) return null;
   return <div className="rt-video rt-video--lugar" role="note"><b>Tu video del día {dia.n}</b><span>Todavía no está grabado: va aquí.</span></div>;
 }

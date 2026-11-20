@@ -75,6 +75,17 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
   - **Tests que fijan listas:** tests/second-brain-chat-mako.test.ts fija las tabs con conversación propia. Se sumó `reto-7-dias`.
 - **Las marcas con la tarea y la tarjeta con el título del día (f24-04, R57-F2, f24-03, R57-15)**, en 7a1e521ce.
 
+## Hecho (tanda 6)
+
+- **`reto.estado` sin pisar la hora del WhatsApp** (lo encontró el chat de WhatsApp). `conLoLeido`, cada acción de /api/reto y el uso de
+  Pro escriben con compare-and-set (lib/reto/cambiar.ts, `cambiarReto`): si otro escribió en el medio, se relee y se aplica otra vez.
+  El test reproduce la carrera.
+- **El día 2 en su orden (d24-19, D1-18):** las tres primeras tareas, la hora de WhatsApp y, último, «Tu perfil y tu foto».
+  ⚠️ **El video reto-dia-2 todavía nombra el perfil antes de la hora:** hay que regrabar ese tramo, guion → voz → render.
+- **V5 y V14:** cada día de HOY abre la primera vez con el velo y MaKo escribiendo (`useEntrada` y `EntradaEscribiendo`, las piezas
+  del chat del onboarding). El video del día lleva «dale play»: el día 1 con `VideoDelMomento`, y los días con marcas con
+  `useDalePlay` en su botón. Los tres puntitos de acá no esperan en los días, para que no haya dos entradas seguidas.
+
 ## Lo que decidió el Cerebro (20/11)
 
 - **R57-02, el clip de 10 s del día 6: SÍ, por ApiMart.** Martín decidió el 17/11 que el video de los CLIENTES va por ApiMart (Flow es
@@ -151,9 +162,6 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
 
 ## Esperando (20/11)
 
-- **V5, el «dale play» del día:** al abrir cada día, el velo con MaKo escribiendo y el video quieto marcado con «dale play», como en el
-  onboarding y los coaches. Esa pieza la arma el chat del onboarding en su motor. Cuando el Cerebro reenvíe el nombre del componente, se usa
-  en `Dia` / `VideoDelDia` (app/second-brain/reto/ChatDelReto.tsx). **No armarla aparte.**
 
 - **El clip del día 6:** se conecta `ClipDelReto` cuando la sesión de AI Avatar avise que su app/ai-avatar/regalo/actions.ts está en main.
 
