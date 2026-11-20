@@ -12,7 +12,7 @@
 //     toca (cada tarea dice DÓNDE: sin botones de atajo) y su prueba por WhatsApp, con la persona escribiendo primero.
 //   · Lo que falta se marca con el motor de los tutoriales: la pantalla se oscurece y se señala dónde tocar (`senalarDondeTocar`).
 // =============================================================================
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatCliente } from '../useChatCliente';
 import { CajaDelCliente, HiloDelCliente } from '../PiezasCliente';
 import { ORIGEN_RETO, TAB_RETO, type ElegidoChat } from '@/lib/chat-mako-reglas';
@@ -20,7 +20,6 @@ import type { Desde } from '@/lib/chat-desde';
 import { tutorialDe } from '@/lib/tutoriales';
 import { BotonTutoriales, CatalogoTutoriales, CSS_CATALOGO } from './CatalogoTutoriales';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
-import { FilaDelChat } from '@/app/admin/operaciones/Hilo';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { linkWaMe } from '@/lib/verificacion-entrante';
 import { PARA_TODOS } from '@/lib/onboarding-v2/revision';
@@ -40,6 +39,9 @@ import { claveTarea, diaAbierto, diasDelReto, estadoDeLosDias, tutorialDelDia } 
 import { RETO_EMPEZAR_DIA1, RETO_INTERES_YA, RETO_MUESTRA, RETO_MUESTRA_FIN, muestrasDe, type MuestraReto } from '@/lib/reto/dias';
 import { diaTerminado, finDelDia, marcasDeLaTarea, tareaDespues } from '@/lib/reto/dias';
 import { NOTA_PRO_UNA_VEZ, TAREA_PRO } from '@/lib/reto/pro-del-reto';
+import { Burbuja } from './Burbuja';
+import { ClipDelReto } from './ClipDelReto';
+
 
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null;
   /** El funnel que eligió en Funnel Coach: arma los días 4 a 6 (`diasDelReto`, 20/11). */
@@ -248,6 +250,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
                 onConfirmarHora={() => { if (ensayo.activo) void hacer({ accion: 'hora', hora: horaWa }); }}
                 onMarcar={(t) => marcarTarea(marcasDeLaTarea(t), () => { void leer(); }, dia.n === 1 ? undefined : () => { void hacer({ accion: 'despues', dia: dia.n, id: t.id }); })}
                 onTocadoEnVideo={() => { void leer(); }}
+                onClipListo={() => { void leer(); }}
                 onFinVideo={() => marcarLoQueFalta(dia)} />
             ))}
             {termino && actual && ap.ver(`fin:${actual.n}`) && <Burbuja><p>{finDelDia(actual, siguiente, horaWa, nombre, falta)}</p></Burbuja>}
@@ -298,11 +301,8 @@ export function AdelantarDia({ n, onAdelantar, onManana }: { n: number; onAdelan
   );
 }
 
-function Burbuja({ children, ancho = false }: { children: ReactNode; ancho?: boolean }) {
-  return <FilaDelChat m={null} quien={{ titulo: 'MaKo', aspecto: ASPECTO_MAKO }} marcas={null} hora={null} ancho={ancho}><div className="rt-md">{children}</div></FilaDelChat>;
-}
 
-export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora, onConfirmarHora, onMarcar, onTocadoEnVideo, onFinVideo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; proUnaVez?: boolean; hoy?: boolean; onHora: (h: string) => void; onConfirmarHora?: () => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void }) {
+export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora, onConfirmarHora, onMarcar, onTocadoEnVideo, onFinVideo, onClipListo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; proUnaVez?: boolean; hoy?: boolean; onHora: (h: string) => void; onConfirmarHora?: () => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void; onFinVideo?: () => void; onClipListo?: () => void }) {
   const p = dia.whatsapp;
   const todas = dia.tareas.every((t) => tareaHecha(e, dia.n, t.id));
   const link = p ? linkWaMe(linea, mensajeEscrito(p, hora)) : null;
@@ -356,7 +356,7 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
           </ol>
         </div>
       </Burbuja>
-      {dia.n === 6 && <ClipDelReto />}
+      {dia.n === 6 && <ClipDelReto onListo={onClipListo} />}
       {/* La prueba por WhatsApp va al FINAL del día (f24-02); la hora del día 2 es un paso del día: su tarjeta (wa-08, TarjetaHora). */}
       {p && (dia.n === 2 || diaTerminado(e, dia)) && (dia.n === 2
         ? <TarjetaHora p={p} guardada={e.horaWa ?? null} linea={linea} hora={hora} onHora={onHora} onConfirmar={onConfirmarHora ?? (() => {})} />
@@ -383,16 +383,6 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
       {todas && dia.n === 2 && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!</p></Burbuja>}
     </>
   );
-}
-
-/**
- * EL CLIP DE REGALO DEL DÍA 6 (20/11, R57-02; el Cerebro: «sí, por ApiMart», UN clip por prueba, lo que cuesta anotado y, si ApiMart
- * falla o no hay saldo, se dice claro y no se cobra nada). Lo hace la sesión de AI Avatar, dueña de ese código; el contrato propuesto:
- * app/ai-avatar/clip-del-reto.ts → `estadoDelClipDelRetoAction()` y `pedirClipDelRetoAction(guion?)`. Hasta que exista, el lugar no
- * dibuja nada: el reto no promete un regalo que la app todavía no da.
- */
-function ClipDelReto() {
-  return null;
 }
 
 /**
@@ -554,6 +544,14 @@ export const CSS_RETO = `
 .rt-tarea__donde:hover { color: var(--ink); }
 .rt-wa__ej { margin: 0; font-size: var(--fs-meta); color: var(--dim); line-height: 1.45; }
 .rt-wa__btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 10px; background: #25D366; color: #08321A; font-weight: 700; font-size: var(--fs-sm); text-decoration: none; }
+.rt-clip__frase { width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px; max-height: 220px; field-sizing: content; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); line-height: 1.45; }
+.rt-clip__frase:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+.rt-clip__cuenta { margin: -2px 0 0; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
+.rt-clip__cuenta[data-pasada] { color: var(--warn); font-weight: 600; }
+.rt-clip__btn { align-self: flex-start; height: 38px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--ink); color: var(--surface); font: inherit; font-size: var(--fs-sm); font-weight: 700; cursor: pointer; }
+.rt-clip__btn:disabled { opacity: .45; cursor: default; }
+.rt-clip__video { display: block; width: min(240px, 100%); aspect-ratio: 9 / 16; border-radius: var(--r-md); background: #0E1219; }
+.rt-clip__error { margin: 0; font-size: var(--fs-meta); color: var(--bad, #C2410C); line-height: 1.45; }
 .rt-horas { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; }
 .rt-hora { height: 38px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer; }
 .rt-hora[aria-checked="true"] { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-strong, var(--primary)); box-shadow: inset 0 0 0 1px var(--primary); }
