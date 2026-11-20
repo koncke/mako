@@ -30,6 +30,8 @@ export type AvisosReto = {
   abandono?: string;
   /** Cuándo contestó BAJA: desde ahí, ningún WhatsApp del reto. */
   baja?: string;
+  /** Cuándo se reclamó su audio del día 7 para pasárselo a Martín (uno solo: con dos líneas de la misma cuenta llega dos veces). */
+  cierre?: string;
 };
 
 export const CLAVE_AVISOS = 'reto.avisos';
@@ -64,8 +66,8 @@ export function leerAvisos(crudo: unknown, e: EstadoReto | null): AvisosReto {
   const o = (x && typeof x === 'object' ? x : {}) as Partial<AvisosReto>;
   const dia = Number.isInteger(o.dia) ? Math.max(1, Math.min(7, Number(o.dia))) : Math.max(1, Math.min(7, e?.avisado ?? 1));
   const fecha = (s: unknown) => (typeof s === 'string' && !Number.isNaN(Date.parse(s)) ? s : undefined);
-  const abandono = fecha(o.abandono), baja = fecha(o.baja);
-  return { v: 1, dia, ...(Number.isInteger(o.noche) ? { noche: Number(o.noche) } : {}), ...(abandono ? { abandono } : {}), ...(baja ? { baja } : {}) };
+  const abandono = fecha(o.abandono), baja = fecha(o.baja), cierre = fecha(o.cierre);
+  return { v: 1, dia, ...(Number.isInteger(o.noche) ? { noche: Number(o.noche) } : {}), ...(abandono ? { abandono } : {}), ...(baja ? { baja } : {}), ...(cierre ? { cierre } : {}) };
 }
 
 export type PlanDeAvisos = {
@@ -162,6 +164,27 @@ export function whatsappDeAbandono(nombre: string | null | undefined, dia: numbe
 export const esBaja = (texto: string): boolean => /^\s*baja[\s.!]*$/i.test(texto);
 
 export const RESPUESTA_BAJA = 'Listo: no te escribo más sobre el reto. Tu reto sigue en MaKo para cuando quieras.';
+
+// ── El día 7: su audio, a Martín (20/11/2026, d24-16 y R57-10) ─────────────────────────────────────────────────────────
+// La prueba del día 7 (lib/reto/dias.ts): «Cuéntale a MaKo cómo te fue con el reto: mándale un audio por WhatsApp. Lo escucha
+// Martín.» Y la maqueta (`d7`): MaKo contesta «¡Gracias! Ya se lo pasé a Martín.». No necesita al bot: lo contesta el código
+// (lib/reto/respuestas.ts), como la hora y BAJA.
+
+/** Lo que MaKo le contesta cuando su audio ya le llegó a Martín. */
+export const GRACIAS_DIA_7 = '¡Gracias! Ya se lo pasé a Martín.';
+/** Lo que dice la tarjeta del día 7 en el chat del reto («✓ Hecho: …», `pruebaRespondida`, lib/reto/pruebas.ts). */
+export const LEIDO_DIA_7 = 'Le pasé tu audio a Martín.';
+
+/** ¿Es el audio del día 7? Un audio, con el día 7 abierto, la prueba sin responder y ninguno reclamado antes. */
+export function esElAudioDelCierre(p: { e: EstadoReto; a: AvisosReto; ahora: number; esAudio: boolean }): boolean {
+  return p.esAudio && diaAbierto(p.e, p.ahora) >= 7 && !p.e.pruebas?.['7'] && !p.a.cierre;
+}
+
+/** Lo que le llega a Martín, al grupo de SuperAdmin, con el audio adjunto. Sin el audio (no se pudo bajar), dónde escucharlo. */
+export function audioParaMartin(nombre: string | null | undefined, ws: number, conAudio: boolean): string {
+  const n = (nombre ?? '').trim() || 'Alguien';
+  return `Día 7 del reto: ${n} (ws ${ws}) te cuenta cómo le fue.${conAudio ? '' : ' No pude bajar su audio: escúchalo en su chat con MaKo.'}`;
+}
 
 /**
  * LA HORA DEL DÍA 2, DE SU MENSAJE (D1-12): «Hola MaKo, prefiero que me escribas a las {hora} sobre el reto.» Vale también si lo
