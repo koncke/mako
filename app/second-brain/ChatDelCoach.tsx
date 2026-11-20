@@ -21,7 +21,6 @@
 // presentación y su video arriba hasta que la persona escribe, y la oferta armada en UN mensaje (./OfertaEnElChat.tsx).
 
 import { useCallback, useRef, useState } from 'react';
-import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { Modal } from '@/app/_ui';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
@@ -86,9 +85,9 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
   const deLaOferta = useOfertaEnMensaje(motorOffer ? k.sesionOffer : null, () => caja.current?.focus(), false);
   const { hilo: hiloCoach, enMensaje: enMensajeDelHilo } = useHiloDelCoach({ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta });
   const seguirHilo = useCallback(() => hilo.current, []);
-  // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11): con cada mensaje y cuando lo último crece (un video, una imagen o una tarjeta que
-  // cargan después); si subió a leer, lo que crece no la arrastra (app/_chat/useBajarAlUltimo.ts).
-  useBajarAlUltimo(seguirHilo, `${k.items.length}|${k.trabajo}`);
+  // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11): el panel lo hace con la clave de la ÚLTIMA fila dibujada (PanelChat.tsx → `seguir`; nunca
+  // una cuenta), la entrada incluida.
+  const ultimaFila = `${hiloCoach.items[hiloCoach.items.length - 1]?.id ?? ''}|${k.trabajo ? 'trabaja' : ''}|${entrada}`;
   // Quién aconseja se elige en el coach único y, con el V2, en el Offer Coach: el Funnel Coach del V2 no tiene referente al frente.
   const eligeReferente = puedeElegir && !(dosCoaches && cual === 'funnel');
 
@@ -101,7 +100,7 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
 
   return (
     <>
-      <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
+      <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja} seguir={{ clave: ultimaFila }}
         cabecera={{
           clave: tab, titulo, aspecto, animo: k.enCurso ? 'trabajando' : 'despierto', onMuneco: eligeReferente ? () => setEligiendo(true) : undefined, onVolver,
           // A la DERECHA de la cabecera, como en la maqueta (`.mq-arriba { margin-left: auto }`, cuerpo.html): el botón de los videos y lo

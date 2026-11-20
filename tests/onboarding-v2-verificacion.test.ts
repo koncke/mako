@@ -50,7 +50,7 @@ test('2. OA-02: quien vuelve con el nombre sin contestar ve el video solo; pausa
   // con un video de mentira tests/onboarding-mensaje-del-video.test.ts).
   assert.match(v2, /lugar: filaBienvenida, activo: fase === 'chat', inicial: inicial\.etapa === 'nombre' \? 'espera' : 'listo',\n\s*clave: VIDEO_BIENVENIDA, dice: MOMENTO_NOMBRE\.dice, esperaPlay: MS_SIN_PLAY,/);
   const h = sinComentarios(leer('app/_ui/tutorial/useMensajeDelVideo.ts'));
-  assert.match(h, /oir\('pause', \(\) => \{ if \(!video\.ended\) listo\(\); \}\);/);
+  assert.match(h, /oir\('pause', \(\) => \{ if \(!video\.ended && !pausaPorFlotar\(video\)\) listo\(\); \}\);/, 'la pausa por pasar a la esquina no la suelta (videos-1)');
   assert.match(h, /sinPlay = reloj\.poner\(\(\) => listo\(\), o\.esperaPlay\);/);
 });
 
@@ -112,7 +112,8 @@ test('6b. OA-10, segunda verificación (20/11, tarde): «Sigamos en tu computado
   // La marca: la primera respuesta del V2, de la persona de la sesión (nunca mirando a un cliente), conservando el resto del jsonb.
   const a = sep.slice(sep.indexOf('export async function anotarQueEmpezoElV2'));
   // En la fila de la persona del onboarding: mirando un negocio como administrador, su dueño (Martín, 20/11: lo mismo que el cliente).
-  assert.match(a, /const email = \(await personaDelOnboarding\(\)\)\?\.email;/);
+  assert.match(a, /const p = await personaDelOnboarding\(\);\n\s*if \(!p \|\| \(p\.mirando && !escribeComoElCliente\(p\.ws\)\)\) return;\n\s*const \{ email \} = p;/,
+    'y mirando, sólo en los negocios de prueba (la D7, 20/11)');
   assert.match(a, /if \(empezoElV2\(fila\.perfil\)\) return;/, 'sólo la primera vez');
   assert.match(a, /update\(\{ perfil: \{ \.\.\.base, \[CLAVE_EMPEZO_V2\]: ahora \}, updated_at: ahora \}\)/);
   assert.match(a, /q = fila\.updated_at == null \? q\.is\('updated_at', null\) : q\.eq\('updated_at', fila\.updated_at\);/, 'compare-and-set, como /api/recorridos');
@@ -211,7 +212,7 @@ test('14. V5: la entrada de un día y su «dale play» se guardan en el navegado
     guardado.set('mk-dale-play:offer-coach', '1');
     assert.equal(dalePlayCerrado('offer-coach'), true);
   } finally { delete (globalThis as { localStorage?: unknown }).localStorage; }
-  assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /onPlay=\{\(\) => \{ setEstado\('reproduciendo'\); if \(dalePlay\) cerrarDalePlay\(clave\); onEmpieza\?\.\(\); \}\}/);
+  assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /onPlay=\{\(e\) => \{ delete e\.currentTarget\.dataset\[BANDERA_FLOTA\]; setEstado\('reproduciendo'\); if \(dalePlay\) cerrarDalePlay\(clave\); onEmpieza\?\.\(\); \}\}/);
   // Desde el 20/11, tarde (V4), el play del día corre por verVideoDelDia: lo anota visto y cierra el «dale play» antes del motor.
   // (Con la clave de ESTE reto, `delReto`, para el video con marcas: 20/11, ~13:00.)
   assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /anotarVisto\(`video:\$\{dia\.n\}`\);\n\s*cerrarDalePlay\(conMarcas \? delReto\(dia\.video\) : dia\.video\);\n\s*if \(conMarcas\) \{\n[^\n]*\n\s*mostrarTutorial\(tutorialDelDia\(dia\)/);

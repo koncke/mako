@@ -16,13 +16,14 @@
 // ⚠️ ARRASTRAR Y SOLTAR es del panel: toda la conversación es la zona (18/10/2026; sin esto el navegador abría el archivo en la
 //    pestaña). Lo soltado va a `adjuntos.onSumar`, lo mismo que el «+» de la caja.
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { ContextoSoltar } from '@/app/_chat/soltar-en-la-caja';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { alSoltar, traeArchivos, type AdjuntosDeCaja } from './AdjuntosCaja';
 import { Muneco, type Animo } from './Muneco';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 
 export type CabeceraChat = {
   /** De qué chat es: cambiarlo suelta el renombre a medias (dos chats pueden llamarse igual). */
@@ -120,7 +121,7 @@ export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, a
  * sobre ella (el menú de un mensaje, sus modales); `caja`, la caja de escribir (o la caja quieta que dice por qué no se
  * puede), y `estado`, la línea de abajo de la caja.
  */
-export function PanelDeChat({ cabecera, adjuntos, hilo, arriba, despues, caja, estado, reemplazo, children }: {
+export function PanelDeChat({ cabecera, adjuntos, hilo, arriba, despues, caja, estado, reemplazo, seguir, children }: {
   cabecera: CabeceraChat;
   /** Lo que se suelta sobre la conversación se adjunta (lo mismo que el «+»). Sin esto, no recibe archivos. */
   adjuntos?: AdjuntosDeCaja;
@@ -134,8 +135,18 @@ export function PanelDeChat({ cabecera, adjuntos, hilo, arriba, despues, caja, e
    *  un modal, sino que debe reemplazar lo que está en el chat»). La conversación queda montada y escondida: al volver sigue donde
    *  estaba, con lo escrito en la caja. */
   reemplazo?: ReactNode;
+  /**
+   * EL SCROLL DEL CHAT, DE LA PIEZA COMPARTIDA (20/11/2026, la auditoría de los chats; app/_chat/useBajarAlUltimo.ts). Casi todas las
+   * pantallas dibujan su hilo aquí, y cada una bajaba a mano contando filas (una cuenta que no cambia al contestar). La pantalla le pasa
+   * la CLAVE de su última fila dibujada (`clave`) y el panel hace el resto: baja con cada fila nueva, sigue lo que crece mientras la
+   * persona está abajo, y no arrastra a quien subió a leer. `arriba`: abre arriba (el chat nuevo, con su portada). Sin esto, como antes.
+   */
+  seguir?: { clave: string; arriba?: boolean };
   children: ReactNode;
 }) {
+  const sigue = seguir != null;
+  const contenedor = useCallback(() => (sigue ? hilo.current : null), [hilo, sigue]);
+  useBajarAlUltimo(contenedor, seguir?.clave ?? '', { arriba: !!seguir?.arriba });
   /** Se está arrastrando un archivo sobre la conversación: se dibuja dónde soltarlo (18/10/2026). */
   const [soltando, setSoltando] = useState(false);
   // Lo soltado va a los adjuntos de la CAJA de adentro (los de la pantalla y los que ella lee, app/_chat/soltar-en-la-caja.ts):

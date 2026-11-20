@@ -7,13 +7,13 @@
 // está QUIETO, el motor lo marca con «{título}: dale play», hasta que lo reproducen o lo cierran.
 // Las piezas (todas detrás del interruptor del V2: el motor sólo se monta para quien lo ve):
 //   · `useEntrada(clave, activa)` + `<EntradaEscribiendo foto={…} />` (./EntradaEscribiendo.tsx): la primera vez de esa clave,
-//     1,8 s de MaKo escribiendo con la pantalla oscura alrededor (con el barrido del sol y la luna: ./iris.ts);
+//     MaKo escribiendo (según el largo de lo que dice: lib/puntitos.ts) con la pantalla oscura alrededor (con el barrido: ./iris.ts);
 //   · `<VideoDelMomento dalePlay />` (./VideoDelMomento.tsx) o `useDalePlay(ref, …)` (./useDalePlay.ts) para otro botón de play.
 // Aquí, sólo las decisiones (las prueba tests/tutorial-entrada.test.ts sin navegador).
 // =============================================================================
 
-/** Lo que dura MaKo escribiendo antes del mensaje con el video (lo mismo que la bienvenida del onboarding y la llegada). */
-export const MS_ESCRIBE_ENTRADA = 1800;
+// Lo que dura MaKo escribiendo antes del mensaje con el video: ya no 1,8 s fijos (20/11, la auditoría de chats, videos-4), sino la
+// función única de todos los chats según el largo de lo que dice (lib/puntitos.ts → msEscribiendo; sin texto, el tope: 3,5 s, la maqueta).
 
 /** Cuánto del video tiene que verse para marcarlo: medio video asomado abajo no se marca (la tarjeta quedaría afuera). */
 export const PARTE_A_LA_VISTA = 0.6;

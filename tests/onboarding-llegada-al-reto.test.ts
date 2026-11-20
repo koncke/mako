@@ -48,9 +48,19 @@ test('3. la vista como ADMINISTRADOR muestra lo mismo que ve el cliente: el esta
   const f = s.slice(s.indexOf('export async function seguirEnPcPendiente'), s.indexOf('export async function anotarQueEmpezoElV2'));
   assert.doesNotMatch(f, /estaImpersonando/);
   assert.match(f, /if \(!p\.mirando && puedeOperar\(/, 'quien opera, sólo en su cuenta');
-  // Lo visto del recorrido, del dueño, en un negocio con el V2.
+  // La D7 (decidida el 20/11): lo visto se LEE del dueño mirando cualquier negocio, y se ESCRIBE en él sólo en los de prueba.
   const r = sinComentarios(leer('app/api/recorridos/route.ts'));
-  assert.match(r, /const p = await personaDelOnboarding\(\);\n\s*if \(p\?\.mirando && veOnboardingV2\(\{ ws: p\.ws \}\)\) return p\.email;/);
+  assert.match(r, /const p = await personaDelOnboarding\(\);\n\s*if \(p\?\.mirando\) return p\.email;/);
+  assert.match(r, /return !p\?\.mirando \|\| escribeComoElCliente\(p\.ws\);/);
+  assert.match(r, /if \(!\(await puedeAnotar\(\)\)\) return Response\.json\(\{ ok: true, guardado: false, soloEstaSesion: true \}\);\n\s*const sb = getSupabaseServer\(\);/);
+  const { escribeComoElCliente, WS_PRUEBA_COMO_CLIENTE } = await import('../lib/onboarding-v2/revision');
+  assert.deepEqual([...WS_PRUEBA_COMO_CLIENTE], [3, 9]);
+  assert.equal(escribeComoElCliente(3), true, 'Lalaland: Martín prueba como el cliente, y se anota en el dueño');
+  assert.equal(escribeComoElCliente(9), true);
+  assert.equal(escribeComoElCliente(1), false, 'un cliente de verdad: soporte mirando no le toca los tutoriales');
+  assert.equal(escribeComoElCliente(null), false);
+  // La marca de quien empezó el V2, con la misma regla.
+  assert.match(s, /if \(!p \|\| \(p\.mirando && !escribeComoElCliente\(p\.ws\)\)\) return;/);
   // «Te mandamos el link a…» con el email del dueño.
   const pg = sinComentarios(leer('app/onboarding/page.tsx'));
   assert.match(pg, /email: quien\?\.email \|\| sesion\.email/);

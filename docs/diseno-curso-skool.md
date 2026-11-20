@@ -112,6 +112,11 @@ incluye el cuaderno por default, así nunca «desaparece» después de elegir ot
 Componente genérico `app/_ui/Recorrido.tsx`: fondo oscuro con recorte sobre el elemento, flecha,
 texto corto, «Siguiente», «Atrás», «Omitir recorrido», contador. Los pasos apuntan a
 `[data-recorrido="<id>"]`. Se ve una vez por PERSONA (no por workspace). Se puede volver a ver.
+**Mirando un negocio como administrador (20/11/2026, decisión del Cerebro con Martín):** se LEE lo visto del DUEÑO del negocio
+(«la vista como administrador muestra lo mismo que ve el cliente»). Se ESCRIBE en el dueño sólo en los negocios de prueba, ws 3 y ws 9,
+donde Martín prueba como si fuera el cliente (`WS_PRUEBA_COMO_CLIENTE`, lib/onboarding-v2/revision.ts). En cualquier otro cliente, lo que
+el administrador ve o cierra queda en su navegador y nunca toca el perfil del cliente: si soporte mira una cuenta, el cliente no puede
+perder sus tutoriales. Lo hace app/api/recorridos/route.ts; lo prueba tests/onboarding-llegada-al-reto.test.ts.
 
 ### D8. Comunidad (item 10)
 Una comunidad por PRODUCTO (el programa: en Skool el grupo es la comunidad más el classroom). Tab

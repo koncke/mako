@@ -66,7 +66,6 @@
 //    único, exactamente como antes.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { Modal, Toast, useToast } from '@/app/_ui';
@@ -384,9 +383,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // El chat nuevo abre arriba: abajo de la portada están los gurús, y bajando se perdía lo que dice.
   // El campo que crece y el scroll que lo acompaña son de la caja única (app/_chat/CajaChat.tsx): le pasa la conversación.
   const seguirHilo = useCallback(() => hilo.current, []);
-  // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11), también en el chat «Onboarding»: su llegada (BienvenidaOpsCenter) avisa cada mensaje
-  // nuevo, y lo que crece después (el video, la portada) baja mientras la persona está abajo (app/_chat/useBajarAlUltimo.ts).
-  useBajarAlUltimo(seguirHilo, `${k.items.length}|${k.trabajo}|${k.idTurno}|${idOffer}|${enChatNuevo}`, { arriba: enChatNuevo && !k.items.length });
+  // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11): el panel lo hace con la clave de la ÚLTIMA fila dibujada (PanelChat.tsx → `seguir`; nunca
+  // una cuenta). El chat nuevo abre arriba, con su portada.
+  const ultimaFila = `${k.items[k.items.length - 1]?.id ?? ''}|${k.trabajo ? 'trabaja' : ''}|${k.idTurno ?? ''}|${idOffer ?? ''}|${enChatNuevo}`;
 
   // ── Elegir en la barra ──
   /** Lo que hay en el panel (lib/ops-center-navegar.ts → panelQueSeVe). */
@@ -735,7 +734,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         <section className="co-panel"><p className="co-vacio">{centro?.chats.length ? 'Elige un chat para escribirle.' : 'Conecta un Runner para ver tus chats aquí.'}</p></section>
       ) : conCoach ? null : (
         // Un chat con MaKo (o de Offer, o de antes): el panel del Ops Center (PanelChat.tsx), con SU motor.
-        <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
+        <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja} seguir={{ clave: ultimaFila, arriba: enChatNuevo && !k.items.length }}
           // La criatura del chat: el Cerebro es la estrella; uno de Offer, la de Offer (la cabecera del super admin, sin chips).
           cabecera={{ clave: JSON.stringify(elegido), titulo: k.nombre, criatura: k.nombreMuneco, aspecto: k.aspectoMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: () => setConChat(false),
             // En una conversación de Offer se ve quién aconseja (el referente del coach, del que cuelga) y se puede cambiar, como la
