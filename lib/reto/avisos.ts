@@ -143,6 +143,18 @@ export function conLoLeido(e: EstadoReto, leidas: Record<string, string>, ahora:
   return { ...e, hechas: { ...e.hechas, ...Object.fromEntries(nuevas.map((k) => [k, en])) } };
 }
 
+/**
+ * Para decidir la noche y el WhatsApp de Martín: lo leído como hecho, y lo que NO SE PUDO LEER, fuera (ni hecho ni falta: «no lo
+ * sé» no es «falta»). Así «Te falta…» nombra sólo lo que falta de verdad, y si todo lo que queda es ilegible, no sale. Con
+ * `lectura` null (no se pudo leer nada), todo lo pendiente de los días abiertos queda fuera. Sólo para decidir: no se guarda.
+ */
+export function paraDecidir(e: EstadoReto, lectura: { hechas: Record<string, string>; noSeLeen: readonly string[] } | null, ahora: number): EstadoReto {
+  const fuera = lectura
+    ? lectura.noSeLeen
+    : DIAS_RETO.filter((d) => d.n <= diaAbierto(e, ahora)).flatMap((d) => d.tareas.map((t) => claveTarea(d.n, t.id)));
+  return conLoLeido(e, { ...Object.fromEntries(fuera.map((k) => [k, 'no se pudo leer'])), ...(lectura?.hechas ?? {}) }, ahora);
+}
+
 /** Las 0:00 de hoy en SU zona (ms): desde ahí se cuentan los clientes que atendió MaKo. */
 export const inicioDelDia = (ms: number, zona?: string): number => ms - Math.round(horaEnSuZona(ms, zona) * HORA_MS);
 

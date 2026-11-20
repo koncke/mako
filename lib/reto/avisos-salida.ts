@@ -22,11 +22,11 @@ import { enviarPush } from '../push';
 import { enviarAPersonaMaKo } from '../mako-grupo';
 import { PARA_TODOS, WS_REVISION_V2, veOnboardingV2 } from '../onboarding-v2/revision';
 import { CLAVE_RETO, correoDelDia, diasDelReto, leerEstado, type EstadoReto } from './dias';
-import { leerTareasHechas } from './senales';
+import { leerTareasDelReto } from './senales';
 import { rutaChatsDeVista } from '../chats-links';
 import {
   CLAVE_AVISOS, PREHEADER_DIA, RUTA_RETO, avisoDeAtendidos, avisoDeLaNoche, avisoDelDia, conAtendidos, conLoLeido, hayQueGuardar,
-  horaEnSuZona, inicioDelDia, leerAvisos, queMandar, quiereAtendidos, whatsappDeAbandono, whatsappDelDia,
+  horaEnSuZona, inicioDelDia, leerAvisos, paraDecidir, queMandar, quiereAtendidos, whatsappDeAbandono, whatsappDelDia,
 } from './avisos';
 
 const KEY_VERIFICACION = 'mako.contacto.verificacion';
@@ -103,9 +103,11 @@ export async function avisarDelReto(opts: { ahoraMs?: number; enSeco?: boolean }
       let plan = queMandar({ e, ...datos });
       // ANTES DE «TE FALTA…», LO HECHO SE RELEE (d24-04, lib/reto/avisos.ts): sólo cuando hay algo que decir, son lecturas de su negocio.
       let leido = e;
+      // Lo que no se pudo leer (sin su sesión: la app, la foto; o una lectura que falló) no se nombra: «no lo sé» no es «falta».
       if (plan.noche || plan.abandono) {
-        leido = conLoLeido(e, await runWithWorkspace(ws, () => leerTareasHechas(e, ahora)).catch(() => ({} as Record<string, string>)), ahora);
-        if (leido !== e) plan = queMandar({ e: leido, ...datos });
+        const lectura = await runWithWorkspace(ws, () => leerTareasDelReto(e, ahora, { sinSesion: true })).catch(() => null);
+        leido = conLoLeido(e, lectura?.hechas ?? {}, ahora);
+        plan = queMandar({ e: paraDecidir(e, lectura, ahora), ...datos });
       }
       if (quiereAtendidos(leido, a, plan)) plan = conAtendidos(plan, await atendidosHoy(ws, leido, ahora));
       if (!hayQueGuardar(a, plan.avisos)) continue;
