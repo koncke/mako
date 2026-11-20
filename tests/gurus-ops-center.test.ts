@@ -209,7 +209,8 @@ test('4. el historial: en la lista lleva su nombre y su cara, y abre su chat', (
   assert.match(leer('app/second-brain/useChatCliente.ts'), /f\.guru \? aspectoDeReferente\(f\.guru\)/);
   assert.match(leer('app/m/second-brain/ChatClienteM.tsx'), /onClick=\{\(\) => \(f\.guru \? abrirGuru\(f\.guru\) : abrir\(f\.elegido\)\)\}/, 'en el teléfono');
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  assert.match(sb, /filasDeLaLista\.filter\(\(f\) => f\.origen !== 'offer' && !f\.guru\)/, 'en la computadora van debajo de los coaches, una sola vez');
+  // (20/11, OD-08: con el onboarding V2 también sale de esta lista el chat «Onboarding», que va arriba.)
+  assert.match(sb, /filasDeLaLista\.filter\(\(f\) => f\.origen !== 'offer' && !f\.guru(?: && f !== filaOnboarding)?\)/, 'en la computadora van debajo de los coaches, una sola vez');
 });
 
 test('4. el historial en la barra: lo más reciente arriba, el abierto aunque no le haya escrito, y ninguno escondido', () => {

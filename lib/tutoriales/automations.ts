@@ -9,7 +9,8 @@ export const TUTORIAL_AUTOMATIONS: TutorialPestana = {
   intro: 'Cada lead que no contestas a tiempo es una venta que se enfría.',
   pasos: [
     {
-      sel: '[data-lienzo-vacio="true"]',
+      // El contenedor del lienzo, siempre (20/11, automations-3): `data-lienzo-vacio` sólo existe sin ninguna automatización.
+      sel: '[data-recorrido="au-lienzo"]',
       titulo: 'El lienzo',
       texto: 'Aquí ves el flujo entero. Usa «Probar» antes de publicarlo.',
       sub: 'Mira aquí, el lienzo: ahí se arma cada una, y nada sale hasta que la publicas y la activas.',

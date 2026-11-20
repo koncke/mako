@@ -11,6 +11,9 @@ export const TUTORIAL_SPY: TutorialPestana = {
   pasos: [
     {
       sel: '[data-recorrido="spy-tab-anuncios"]',
+      // Las pestañas viven ADENTRO de un competidor abierto; con 0 o con 2 o más, la página muestra la lista. Si no están, el motor abre
+      // el primero (20/11, la auditoría de las pausas: spy-3/4).
+      antes: '.spy-ccard[role="button"]',
       titulo: 'Anuncios y funnel',
       texto: 'En Anuncios, lo que paga para mostrar. En Funnel, su oferta y sus páginas.',
       sub: 'Toca aquí, en Anuncios, y mira los que tiene activos.',
@@ -24,6 +27,8 @@ export const TUTORIAL_SPY: TutorialPestana = {
     },
     {
       sel: '[data-recorrido="spy-grilla"] div[role="button"]',
+      // La grilla es la de Contenido: si quedó en Anuncios (pasó con «Siguiente»), el motor toca Contenido (spy-5).
+      antes: '[data-recorrido="spy-tab-contenido"]',
       titulo: 'Hacer uno así',
       texto: 'Adentro ves sus números y su guion. Al pie está «Hacer uno así».',
       sub: 'Pruébalo ya: toca aquí, en una pieza, y después en Hacer uno así: MaKo escribe el tuyo con tu oferta.',

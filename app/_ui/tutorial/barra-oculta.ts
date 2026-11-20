@@ -20,5 +20,15 @@ export function mostrarLaBarra(): void {
   try { document.documentElement.removeAttribute(ATTR_BARRA_OCULTA); } catch { /* sin document */ }
 }
 
+/**
+ * «TU PANEL» LA MUESTRA ENTERA (20/11, OD-03: la maqueta, `barra: true, cajon: true`, y el paso siguiente la pliega). En el Ops
+ * Center la barra arranca plegada a íconos; el motor le pide abrirse entera mientras marca el paso que la presenta, y plegarse al
+ * pasar. La barra (app/_components/Sidebar.tsx) lo oye con este evento: como la flecha, sin tocar lo que la persona guardó.
+ */
+export const EVENTO_BARRA_ENTERA = 'mk-barra-entera';
+export function barraEntera(si: boolean): void {
+  try { window.dispatchEvent(new CustomEvent<boolean>(EVENTO_BARRA_ENTERA, { detail: si })); } catch { /* sin window */ }
+}
+
 /** El paso que presenta la barra: marca la barra misma. */
 export const presentaLaBarra = (sel: string | null | undefined): boolean => !!sel && sel.includes('aside[data-sidebar]');

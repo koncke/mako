@@ -65,7 +65,9 @@ test('2. el hilo del Funnel Coach no se repite en el resto de la lista: su fila 
 test('3. tiene su hilo propio, y la pantalla lo abre debajo del Ops Center, con las conversaciones de oferta colgando de él', () => {
   assert.ok(TABS_CON_CHAT_PROPIO.includes(TAB_FUNNEL_COACH));
   const p = leer('app/second-brain/ChatSecondBrain.tsx');
-  assert.match(p, /<div className="co-cuenta co-cuenta--cerebro">\{fila\(cerebroFila\)\}<\/div>\n\s*\{coaches\}/, 'el coach va debajo del Ops Center');
+  // Sin el onboarding V2, debajo del Ops Center; con el V2 (20/11, OD-08), después del chat «Onboarding» y del Reto (la maqueta).
+  assert.match(p, /<div className="co-cuenta co-cuenta--cerebro">\{fila\(cerebroFila\)\}<\/div>\n\s*\{!retoV2 && coaches\}/, 'el coach va debajo del Ops Center');
+  assert.match(p, /onElegir=\{abrirReto\} \/>\n\s*<\/div>\n\s*\)\}\n\s*\{retoV2 && coaches\}/, 'con el V2, después del Reto');
   // Sus herramientas son del admin, y un closer no ve Offer: lo cerraría la puerta de la tab.
   assert.match(p, /const verCoach = ops \|\| veMapa \|\| puedeElegir;/);
   assert.match(p, /\{verCoach && !dosCoaches && \(\n\s*<div className="co-jefe">\n\s*<FilaDeChat titulo=\{ORIGEN_FUNNEL_COACH\}/);

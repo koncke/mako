@@ -82,6 +82,10 @@ Los tres corolarios, cada uno pagado por un caso real de abajo:
     la pieza entera (la tarjeta; el anillo marca el botón) hasta donde entra a lo ancho, y la regla se mide sola: en
     `pantallas-whatsapp.html`, un texto que no entra entero se oculta, y una pieza cortada deja la pantalla anotada y `capturar.cjs`
     no la captura.
+- **La portada la pone `hacer.mjs` en el medio del primer cuadro de texto, y el reproductor del chat dibuja el play en el CENTRO.**
+  En el del WhatsApp el play tapaba «es por donde MaKo». Se elige un cuadro con el centro libre (el del mensaje ya escrito, 7,5 s)
+  con `pantallas-onboarding/poster.mjs`, que hay que volver a correr después de un `hacer.mjs … web` (si no, la vuelve a pisar).
+  Toda portada nueva se mira con el play encima.
 - **`onboarding-whatsapp` ya existía** (el video de la pantalla de octubre, `app/onboarding/ChatArranque.tsx`). El pedazo nuevo es
   `onboarding-bienvenida-whatsapp`: antes de elegir el nombre de un video, se busca en el manifiesto y en el código.
 

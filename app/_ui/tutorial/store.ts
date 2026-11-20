@@ -52,6 +52,7 @@ export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m
 export function reproducirFlotante(clave: string, titulo: string, desde: number): void {
   if (actual && actual.tipo !== 'video') return;
   actual = { tipo: 'video', id: ++n, clave, titulo, desde };
+  tiempoFlotante = desde;
   avisar();
 }
 
@@ -63,6 +64,21 @@ export function reproducirFlotante(clave: string, titulo: string, desde: number)
 export function senalarDondeTocar(paso: PasoTutorial & { haz: string }, alHacer: () => void, o?: { alOmitir?: () => void; listo?: string; libre?: boolean }): void {
   actual = { tipo: 'marca', id: ++n, paso, alHacer, alOmitir: o?.alOmitir, listo: o?.listo, libre: o?.libre };
   avisar();
+}
+
+/**
+ * Y VUELVE AL CHAT CUANDO SE VE (20/11, F2 de la auditoría: «el cuadrito de la esquina está SÓLO mientras el video del chat no se ve»).
+ * El flotante anota en qué segundo va (`anotarTiempoFlotante`); cuando el video de su lugar vuelve a verse, `volverAlChat` cierra
+ * el flotante y devuelve ese segundo, para que el del chat siga desde ahí. null si no flota ese video.
+ */
+let tiempoFlotante = 0;
+export function anotarTiempoFlotante(t: number): void { tiempoFlotante = t; }
+export function volverAlChat(clave: string): number | null {
+  if (!actual || actual.tipo !== 'video' || actual.clave !== clave) return null;
+  const t = tiempoFlotante;
+  actual = null;
+  avisar();
+  return t;
 }
 
 /** Lo que se esté mostrando, fuera. No llama a `alTerminar` (lo cierra quien lo pidió). */

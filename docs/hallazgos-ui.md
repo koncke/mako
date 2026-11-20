@@ -5601,6 +5601,9 @@ titular), no se tiñe.
   sobrevive a la navegación de adentro de la app; al recargar no está. **La trampa: si el tutorial no arranca, la barra quedaría
   escondida para siempre.** Por eso tiene tres salidas: el paso que marca `aside[data-sidebar]` (y la frase del video que lo presenta,
   ANTES de buscarlo: escondido no se encuentra), el final del tutorial, y 9 s sin ningún tutorial.
+  En «Tu panel» se abre ENTERA y al pasar se vuelve a plegar (20/11, OD-03). La barra no expone cómo abrirse: el motor manda
+  el evento `mk-barra-entera` (barra-oculta.ts) y la barra lo oye como si fuera su flecha (`abiertaAca`), sin tocar lo que la
+  persona guardó. Se pliega en la limpieza del efecto del paso: vale igual si se pasa con el clic, con «Siguiente» o cerrando el video.
 
 
 ## Las pausas a destiempo de los videos de los tutoriales: era el motor, no los tiempos (20/11/2026)
@@ -5637,6 +5640,14 @@ titular), no se tiñe.
 - **Un `play()` diferido necesita saber si todavía hay capa.** El reintento viejo no se cancelaba: cerrar el video durante la espera
   dejaba un `v.play()` sobre el `<video>` desmontado, y la voz seguía sonando sin video. Todos los play pasan por `reproducir`, que
   mira si la capa sigue montada y si el video sigue en la página.
+- **El manifiesto de los videos se pedía con `force-cache`** (`useVideoTutorial`): un navegador que ya lo tenía seguía con la lista
+  de antes de un deploy y no veía los videos nuevos (con «sin video, NADA», el lugar quedaba vacío). Ahora `no-cache`: revalida en
+  cada visita. Y «cargando» no es «no hay»: `useManifiestoListo` deja que la placa «Todavía no está grabado» salga sólo con el
+  manifiesto ya leído (antes se veía un momento aunque el video existiera). V10 y F1 de la auditoría.
+- **El video que pasa a la esquina era de ida nomás** (`useVideoQueFlota`): salía de la vista y flotaba, y al volver a verse había
+  dos reproductores del mismo video. Ahora el flotante anota su segundo en el store (`anotarTiempoFlotante`), y el mismo
+  IntersectionObserver, al verse otra vez, lo cierra (`volverAlChat`) y sigue en el chat desde ahí. Mientras flota, su lugar dice
+  «Se está viendo en la esquina ↘» (F2 de la auditoría).
 - **Las marcas que faltaban en la página (la tanda siguiente, tests/tutorial-marcas-auditoria.test.ts):**
   - *Una función no viaja del servidor: la flecha de volver del grafo no existía en la computadora* (recorrido-6). El Grafo la
     dibuja sólo con `alCerrar`, y el mapa de escritorio lo arma el servidor (`pagina.tsx`). El volver de escritorio ya llegaba por
@@ -5655,5 +5666,14 @@ titular), no se tiñe.
     CTA de compra en un «toca aquí» del tutorial. Con el motor nuevo esas frases se saltean sin congelar;
   - el «+» de Llamadas (calendar-5): el alta de una llamada (la agenda, Calendly, la anotación) vive en `CalendarioApp`, y la
     lista de llamadas es otra página;
-  - lo que se arregla en el guion o en el catálogo (`lib/tutoriales/*.ts`, el `sel` o el `espera_clic` del manifiesto): spy,
-    dashboard, copilot, automations-3, offer-5, report-problem, image y video. Queda para quien lleve el catálogo.
+- **El catálogo (la tanda siguiente, tests/tutorial-catalogo-auditoria.test.ts):** los `antes` de Spy (abrir el competidor, tocar
+  Contenido) y de API (tocar Tokens); «Tus tickets» con «empieza con»; el lienzo de Automations con una marca fija (`au-lienzo`);
+  «Mira aquí» en lo que navega al tocarlo (calendar-4, classroom-4, image-3); `cierra_despues` en el modal de Categorías; sin marca
+  lo que todavía no existe (la tarjeta del ticket, las respuestas rápidas de Offer). Dos trampas:
+  - *El `antes` del paso llega a la frase sólo si los dos marcan lo mismo* (`mismoLugar`): cambiar el `sel` de un lado sin el
+    otro deja la frase sin su `antes`, sin ningún error. El test lo mira para cada frase con `antes`.
+  - *La fuente del manifiesto es `guiones.json`* (C:/dev/tutoriales-video, con la copia en scripts/tutorial-animado). Cambiar sólo el
+    manifiesto dura hasta la próxima subida, que lo vuelve a armar desde el guion. Se cambian los dos. Todos estos videos son
+    `soloTexto`: el `sel` no sale en el video, así que no hay que renderizar nada.
+  - Quedaron para el motor (se saltean sin pausar): dashboard («Nueva hoja» está dentro de un desplegable: dos clics, y el `antes`
+    es uno), chats-5 (no hay un selector fijo para «conectar»), copilot-3/4 (la Entrada ya hecha) y video/image sin consulta.

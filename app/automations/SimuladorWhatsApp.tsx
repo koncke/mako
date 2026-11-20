@@ -840,7 +840,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       {/* EL LIENZO: debajo de todo y de borde a borde. Uno solo, el de la automatización elegida, también si le
           escribe al grupo de MaKo (11/10/2026: hasta acá un mensaje de MaKo abría el editor de /mensajes,
           `MensajeMakoLienzo`). */}
-      <div style={ESTILO_LIENZO}>
+      {/* `au-lienzo`: la marca del tutorial («Mira aquí, el lienzo»), con o sin automatizaciones (20/11, automations-3: la de
+          antes, `data-lienzo-vacio`, sólo existía sin ninguna). */}
+      <div style={ESTILO_LIENZO} data-recorrido="au-lienzo">
         {!sel ? (
           /* SIN NINGUNA AUTOMATIZACIÓN, LA CUADRÍCULA VACÍA (duodécima tanda, decisión 11). Era «Elige una
              automatización» sobre un fondo liso, y antes la tab ni llegaba acá (el cartel «Todavía no hay

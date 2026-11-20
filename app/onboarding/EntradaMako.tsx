@@ -23,6 +23,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CriaturaMako } from './CriaturaMako';
+import { InterruptorModo } from '@/app/_components/InterruptorModo';
 
 const MS_VUELO = 700;
 const CURVA = 'cubic-bezier(.16,.84,.34,1)';
@@ -80,6 +81,9 @@ export function EntradaMako({ onFin, destino = '[data-mako-foto]' }: {
     // empezar»). El botón queda para el teclado (Enter o espacio); el clic en la capa entera hace lo mismo.
     <div className={`en-capa${saliendo ? ' en-capa--sale' : ''}`} role="presentation" onClick={empezar}>
       <style>{CSS_ENTRADA}</style>
+      {/* El sol y la luna, arriba a la derecha, también en la entrada (20/11, OA-12: la maqueta, `.mq-en-modo`). Su clic cambia el
+          modo y NO empieza (no llega a la capa). */}
+      <span className="en-modo" role="presentation" onClick={(e) => e.stopPropagation()}><InterruptorModo variante="sitio" /></span>
       <div className="en-centro">
         {/* Sin los anillos azules alrededor (18/10/2026, Martín: «sin el círculo azul alrededor»). */}
         {CHISPAS.map((g) => <span key={g} className="en-chispa" aria-hidden style={{ ['--g' as string]: `${g}deg` }} />)}
@@ -94,6 +98,7 @@ export function EntradaMako({ onFin, destino = '[data-mako-foto]' }: {
 }
 
 const CSS_ENTRADA = `
+.en-modo { position: absolute; top: 27px; right: max(16px, calc((100% - 960px) / 2)); z-index: 1; }
 .en-capa {
   position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; left: 0; z-index: 120;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px 16px;
