@@ -16,6 +16,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { getSetting, setSetting } from '@/lib/settings';
 import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
+import { WHATSAPP_MAKO } from '@/app/vsl/_sitio/contacto';
 import { CLAVE_RETO, HORAS_WA, diaAbierto, estadoDeLosDias, leerEstado, type EstadoReto } from '@/lib/reto/dias';
 import { leerTareasHechas } from '@/lib/reto/senales';
 
@@ -48,15 +49,13 @@ async function conLoLeido(e: EstadoReto | null): Promise<EstadoReto | null> {
 }
 
 /**
- * El número de la línea de MaKo a la que la persona ya le escribió (la verificación de su WhatsApp lo guarda: `numeroLinea` en
- * `mako.contacto.verificacion`). Sin preguntarle a Evolution ni pasar por lib/mako-grupo, que llega a una IA (tests/d6b-rutas.test.ts).
+ * El número de MaKo para los links del reto (20/11/2026, la auditoría wa-f4): el publicado (app/vsl/_sitio/contacto.ts), el de la línea
+ * que recibe. Antes salía de `numeroLinea` de la verificación: si la línea cambiaba de número después de verificar, el link abría el
+ * viejo, y una verificación de antes del 4/11 (sin ese campo) dibujaba «La línea de MaKo no está conectada» con la línea andando.
+ * Sin preguntarle a Evolution ni pasar por lib/mako-grupo, que llega a una IA (tests/d6b-rutas.test.ts).
  */
 async function linea(): Promise<string | null> {
-  try {
-    const v = JSON.parse((await getSetting('mako.contacto.verificacion')) ?? 'null') as { numeroLinea?: unknown } | null;
-    const n = String(v?.numeroLinea ?? '').replace(/\D/g, '');
-    return n.length >= 8 ? n : null;
-  } catch { return null; }
+  return WHATSAPP_MAKO.numero;
 }
 
 /** El funnel principal que eligió en Funnel Coach (`funnel_coach.plan`): arma los días 4 a 6 (`diasDelReto`). Sin plan, null. */
