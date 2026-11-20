@@ -167,11 +167,26 @@ function desfaseDe({ forma, color, cara, retrato }: Aspecto): string {
   return `-${(h % 37) / 10}s`;
 }
 
+/** EL ÍCONO DE LA APP DE MAKO (20/11, la llamada con Leila: la criatura queda sólo para el Ops Center): la baldosa oscura con la
+ *  chispa dorada de MakoLogo (app/_components/MakoBrand.tsx, la foto de la línea), en el viewBox del muñeco. Sin la animación de
+ *  entrada ni los gradientes con `id` de MakoLogo: esta pieza no lleva hooks ni ids (ver arriba). */
+const CHISPA = 'M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z';
+function IconoAppMako({ size, style }: { size: number; style?: CSSProperties }) {
+  return (
+    <svg className="mun mun--app" width={size} height={size} viewBox="0 0 40 40" aria-hidden style={{ flex: 'none', display: 'block', ...style }}>
+      <rect x="1.25" y="1.25" width="37.5" height="37.5" rx="10.8" fill="#211D16" stroke="var(--mako)" strokeOpacity="0.35" strokeWidth="0.85" />
+      <g transform="translate(20 20) scale(1.29)"><path d={CHISPA} fill="var(--mako)" /></g>
+    </svg>
+  );
+}
+
 /** El muñeco de un empleado. `titulo` decide cómo es (o `aspecto`, si Martín eligió otro); el estado, los ojos;
  *  `espera`, el globito de las tarjetas de la Ticketera que esperan una respuesta de Martín. */
 export function Muneco({ titulo, animo, size = 40, espera = 0, style, aspecto }: {
   titulo: string; animo: Animo; size?: number; espera?: number; style?: CSSProperties; aspecto?: Aspecto | null;
 }) {
+  // El ícono de la app de MaKo (ASPECTO_APP_MAKO: el chat del reto), antes del título: «MaKo» sería la criatura.
+  if (aspecto?.app) return <IconoAppMako size={size} style={style} />;
   const { forma, color, cara, retrato } = aspectoDe(titulo, aspecto);
   const [bx, by] = GEO[forma].brillo;
   return (
