@@ -17,6 +17,7 @@ import { useRecorrido } from '@/app/_ui/Recorrido';
 import { marcarVistoEnEnsayo, useEnsayo, vistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
 import { chatPresentaRecorrido, mostrarTutorial } from '@/app/_ui/tutorial/store';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
+import { useDalePlay } from '@/app/_ui/tutorial/useDalePlay';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
 import { Icon } from '@/app/_components/icons';
@@ -59,6 +60,10 @@ export function BienvenidaOpsCenter({ nombre }: { nombre: string }) {
     return () => window.removeEventListener('resize', medir);
   }, [toca, fase]);
 
+  // Quieto, «Tu recorrido por MaKo: dale play» (V5; la maqueta, r4-invita). Su play arranca el recorrido, que toma el motor.
+  const play = useRef<HTMLButtonElement>(null);
+  useDalePlay(play, { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' });
+
   if (!toca) return null;
   const estrella = <span className="sbl-foto" aria-hidden="true"><CriaturaMako size={26} reaccion="escucha" /></span>;
   const puntitos = <span role="status" aria-label="MaKo está escribiendo" className="sbl-escribe"><i /><i /><i /></span>;
@@ -75,7 +80,7 @@ export function BienvenidaOpsCenter({ nombre }: { nombre: string }) {
           <div className="co-el">{estrella}
             <div className="co-el__cuerpo">
               <div className="ch-md"><p>{textoLlegada(nombre)}</p></div>
-              <button type="button" className="sbl-video" onClick={empezar} aria-label="Ver el recorrido por MaKo" data-recorrido="sb-llegada-play">
+              <button ref={play} type="button" className="sbl-video" onClick={empezar} aria-label="Ver el recorrido por MaKo" data-recorrido="sb-llegada-play">
                 {video?.poster ? <img src={video.poster} alt="" /> : <span className="sbl-video__vacio" />}
                 <span className="sbl-video__play" aria-hidden="true"><Icon name="play" size={28} /></span>
               </button>

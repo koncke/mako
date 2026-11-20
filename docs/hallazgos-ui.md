@@ -5688,3 +5688,27 @@ titular), no se tiñe.
     (`requestAnimationFrame` y `performance.now` reemplazados, `window.avanzarA(ms)`).
   - Ese bundle necesita `window.process` definido. next/link lo lee al cargar, y sin él la página queda sin motor y sin error a la
     vista.
+- **La entrada de un video en un chat y su «dale play» (V5; app/_ui/tutorial/entrada.ts, EntradaEscribiendo.tsx, useDalePlay.ts;
+  tests/tutorial-entrada.test.ts).** Una sola pieza para los coaches, la llegada al Ops Center, la bienvenida del onboarding y cada
+  día del reto (lo arma el chat del reto con las mismas piezas):
+  - `useEntrada(clave, activa)` + `<EntradaEscribiendo foto quien />`: la primera vez, 1,8 s con quien escribe y todo lo demás
+    oscuro;
+  - `<VideoDelMomento dalePlay />`, o `useDalePlay(ref, …)` para otro botón de play: quieto, el motor lo marca con «{título}: dale
+    play» y la X.
+  Las trampas:
+  - *Los coaches quedan montados y escondidos (`display: none`).* Una marca sobre un video escondido ocupa el motor sin verse, y
+    ninguna otra marca puede salir. Por eso el «dale play» marca sólo con el video a la vista (IntersectionObserver, más de la
+    mitad), y lo suelta al salir de la vista (`soltarSenal(id)`: sólo la suya, sin avisar). La entrada también espera a `visible`;
+    el Funnel Coach no lo recibía.
+  - *La fila de los tres puntitos se estira al ancho del chat.* Medir `.co-el` daba un hueco de 600 px, con la fila vacía
+    iluminada. Se mide la foto y los puntitos.
+  - *Tocar lo marcado termina la marca en el `pointerdown`*, antes del `click` que arranca el video. Con el video todavía quieto
+    se volvería a marcar. Por eso tocarlo cuenta como visto, igual que la X. (Es por construcción: no se midió).
+  - *Las portadas de los coaches tenían el play encima del título* («ningún anuncio la salva»). Ahora el manifiesto los pone
+    `abajo-derecha`. pantallas-onboarding/poster.mjs acepta `null` como segundo: corre el play sin tocar la portada.
+  - *El barrido es uno*: `barrer(nodo)` (./iris.ts) lo usan el motor y la entrada.
+  Lo que quedó sin hacer:
+  - el video del WhatsApp del onboarding va sin «dale play», a propósito. Llega junto a la tarjeta del código, y las tapas de la
+    marca no dejarían escribirlo;
+  - el «?» del motor (`.mk-tuto-ayuda`, z-index 900) queda encendido sobre cualquier velo, también sobre los de antes;
+  - los días del reto los cablea el chat del reto (app/second-brain/reto/ChatDelReto.tsx).
