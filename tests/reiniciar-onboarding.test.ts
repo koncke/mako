@@ -132,6 +132,11 @@ test('6. el botón, al lado de RESET en la vista de administrador: dice que no b
   const b = sinComentarios(leer('app/_components/ReiniciarOnboarding.tsx'));
   assert.match(b, /export const TEXTO_REINICIAR = '[^']*No borra nada de lo suyo[^']*Su WhatsApp sigue verificado\.';/);
   assert.match(b, /\{confirmar \? \(/, 'con confirmación');
+  // Medido a 1440 y 375 (20/11): escrita en la barra, la confirmación la estiraba a 87 px (la página descuenta 50); y en el Cliente de
+  // Prueba a 375, el botón nuevo empujaba «Salir de la vista» fuera de la pantalla.
+  assert.match(b, /\{confirmar \? \(\n\s*pos && createPortal\(/, 'la confirmación flota debajo del botón, no estira la barra');
+  assert.match(barra, /<span style=\{\{ fontSize: 13\.5, minWidth: 0, flexShrink: 1000,/, 'el texto de la barra se achica primero');
+  assert.match(barra, /\{!modoAgencia && \(\n\s*<div style=\{\{[^}]*minWidth: 0, overflowX: 'auto'/, 'las herramientas se deslizan; «Salir» queda a la vista');
   assert.match(b, /body: JSON\.stringify\(\{ aplicar: true \}\)/);
   assert.doesNotMatch(b, /location\.href|router\.push/, 'no navega al onboarding: mirando, cada paso avanzaría el del cliente');
   const ruta = sinComentarios(leer('app/api/admin/reiniciar-onboarding/route.ts'));

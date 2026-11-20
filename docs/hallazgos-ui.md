@@ -13,6 +13,23 @@ corrida y fecha viene; antes de actuar sobre una, verificá contra el código: v
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
 
+## La barra de la vista de administrador: lo que se le suma no la puede estirar ni empujar «Salir» (20/11/2026, chat «onboarding-v2», claude5)
+
+Medido a 1440 y 375 con la barra real (ImpersonationBanner + PanelAgencia + «Reiniciar onboarding»), al sumarle un botón:
+
+- **La barra mide 50 px para la página** (`--barra-agencia`, app/globals.css): el `body` se corre eso y nada más. Una confirmación
+  escrita EN la barra la estiraba a 87 px y tapaba lo de arriba de la pantalla. Lo que pide confirmar va en un panel flotante (portal,
+  `position: fixed` debajo del botón, ancho `min(380, ancho - 24)`), como el menú de «Datos de Mauricio».
+- **En el Cliente de Prueba a 375 px, «Salir de la vista» quedaba fuera de la pantalla** con un botón más. El texto lleva
+  `flexShrink: 1000` (se achica primero, hasta 0) y las herramientas van en una caja con `minWidth: 0; overflowX: auto` que se
+  desliza de costado. «Salir» queda afuera de esa caja, siempre entero.
+- **Trampa: un `flexShrink` menor que 1 no sirve para «achicate último».** Si la suma de los que quedan por achicar es menor que 1,
+  el navegador les reparte sólo ESA fracción de lo que sobra (la regla de los factores menores que 1): con `0.01` la caja se achicó
+  el 1 % y «Salir» siguió afuera. Se sube el factor del que tiene que ceder primero.
+- Con un cliente real (sin «Datos de Mauricio» ni RESET, que sólo salen en el de prueba) todo entra a 375 sin deslizar.
+- Lo fija tests/reiniciar-onboarding.test.ts (6).
+
+
 ## El «⋯» de Chats y del Web Generator abren el menú del clic derecho, y el «⋯» se lo traga al cerrarlo (18/11/2026, nube)
 
 **Síntoma:** el F119 de la lista del 17/11. Desde el 27/10 el clic derecho de una fila de Chats y de un renglón del Panel del

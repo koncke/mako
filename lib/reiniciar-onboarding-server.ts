@@ -71,7 +71,7 @@ export async function reiniciarOnboarding(ws: number, o: { aplicar: boolean }): 
     queda: [
       'Los datos: leads y CRM, cursos, automatizaciones, guiones, funnels, ofertas, conversaciones, archivos, el Plan, el plan y los cobros.',
       `El WhatsApp verificado (${LO_QUE_QUEDA.settings.slice(0, 2).join(', ')}): MaKo la sigue reconociendo, y el paso del WhatsApp vuelve con ese número escrito.`,
-      'Lo que el onboarding dejó como dato: el plan del Funnel Coach, la conversación del Offer Coach, el canal, la encuesta, los onboardings de cada pestaña y el clip de regalo.',
+      'Lo que el onboarding dejó como dato: el plan del Funnel Coach, la conversación de la oferta, el canal, la encuesta, los onboardings de cada pestaña y el clip de regalo.',
     ],
     avisos,
   };
