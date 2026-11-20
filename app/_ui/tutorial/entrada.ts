@@ -32,6 +32,16 @@ export function tocaDalePlay(o: { activo: boolean; aLaVista: boolean; motorLibre
   return o.activo && o.aLaVista && o.motorLibre && !o.cerrado;
 }
 
+/**
+ * ¿El video ya está DIBUJADO? (20/11/2026, el Cerebro en producción: con el arranque en frío la página tardó 15 s, y «Tu recorrido por
+ * MaKo: dale play» salía desvanecida sobre la pantalla vacía.) La marca oscurece todo menos el video, y el video era el cuadro vacío: el
+ * manifiesto o el póster todavía en camino. «A la vista» mide el LUGAR, no si hay algo dibujado: el «dale play» espera a que SU póster
+ * (no otro) haya cargado. Sin póster no hay nada que señalar.
+ */
+export function videoDibujado(o: { poster: string | null | undefined; posterCargado: string | null }): boolean {
+  return !!o.poster && o.posterCargado === o.poster;
+}
+
 /** ¿Se suelta la marca que ya está puesta? Cuando el video dejó de estar quieto o salió de la vista. */
 export function sueltaDalePlay(o: { activo: boolean; aLaVista: boolean }): boolean {
   return !o.activo || !o.aLaVista;

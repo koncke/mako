@@ -3,6 +3,23 @@
 El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-state.ts`) y
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
+## El «dale play» de la llegada salía sobre la pantalla vacía (20/11/2026, noche, claude5, chat «onboarding-v2»)
+
+- **Síntoma** (el Cerebro, recorriendo 7736f219f en producción, ws 3): la página tardó unos 15 s en dibujarse, el arranque en frío del
+  deploy recién hecho. Mientras tanto, «Tu recorrido por MaKo: dale play» aparecía desvanecida sobre la pantalla vacía.
+- **Causa:** la marca oscurece todo menos el video, y el video de la llegada era el cuadro vacío (`sbl-video__vacio`). El manifiesto de
+  los videos (`useVideoTutorial`, un fetch) o el póster todavía venían en camino. `useDalePlay` ya pedía el video «a la vista», pero eso
+  es un IntersectionObserver: mide el LUGAR del botón en la pantalla, no si hay algo dibujado adentro. El cuadro vacío ocupa su lugar.
+- **Ahora:** el `activo` de la llegada suma `videoDibujado({ poster, posterCargado })` (app/_ui/tutorial/entrada.ts). Cuenta sólo con
+  SU póster cargado (no otro), y el `<img>` lo anota en `onLoad`. Un póster en la caché puede cargar antes de que React escuche, así
+  que también se mira `complete && naturalWidth > 0` al dibujarlo. Lo fija tests/llegada-dale-play-dibujado.test.ts, roto de a una
+  rotura (4).
+- **Regla** (en AGENTS.md): un «dale play» sobre un póster propio espera a que el póster cargue. Estar «a la vista» no alcanza.
+- **Sin hacer, sin verificar:** `VideoDelMomento` (la bienvenida, el WhatsApp y los coaches) marca con `!!v && estado === 'quieto'`.
+  Dibuja un `<video poster=…>`, así que con el manifiesto leído ya hay un cuadro, pero negro hasta que llega el póster. No lo vi en
+  producción. Si el Cerebro lo ve sobre un cuadro negro, es el mismo arreglo, con el `loadeddata` del `<video>`
+  (app/_ui/tutorial/VideoDelMomento.tsx).
+
 ## La llamada con Leila: lo que sigue lo marca la barra (20/11/2026, noche, claude5, chat «reto-tutoriales»)
 
 Lo pedido por Martín (Fathom 205366178, 00:29:00): al terminar el video del día 1 se marca Offer Coach en la barra, y sin la tarjeta

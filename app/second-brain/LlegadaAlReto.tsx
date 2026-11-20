@@ -31,6 +31,7 @@ import { msEscribiendo } from '@/app/_chat/useColaDeSalida';
 import { barrer } from '@/app/_ui/tutorial/iris';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { useDalePlay } from '@/app/_ui/tutorial/useDalePlay';
+import { videoDibujado } from '@/app/_ui/tutorial/entrada';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ASPECTO_RETO } from '@/lib/centro-munecos';
@@ -144,11 +145,21 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
   useEffect(() => { if (fase !== 'espera') avisarMensajeNuevo(); }, [fase]);
 
   // Quieto, «Tu recorrido por MaKo: dale play» (V5; la maqueta, r4-invita). Su play arranca el recorrido, que toma el motor.
+  // RECIÉN CON EL VIDEO DIBUJADO (20/11/2026, el Cerebro en producción): con el arranque en frío la tarjeta salía sobre el cuadro
+  // vacío, con el manifiesto o el póster en camino. Espera a que SU póster cargue (entrada.ts → videoDibujado).
   const play = useRef<HTMLButtonElement>(null);
-  useDalePlay(play, { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' });
+  const poster = video?.poster ?? null;
+  const [posterCargado, setPosterCargado] = useState<string | null>(null);
+  const imgPoster = useRef<HTMLImageElement>(null);
+  // Un póster en la caché del navegador puede cargar antes de que React escuche el `load`: se mira al dibujarlo.
+  useLayoutEffect(() => {
+    const el = imgPoster.current;
+    if (poster && el?.complete && el.naturalWidth > 0) setPosterCargado(poster);
+  }, [poster, fase]);
+  useDalePlay(play, { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado({ poster, posterCargado }) });
 
   if (fase === 'espera') return null;
-  // El ícono de la app de MaKo, no la criatura (20/11, la llamada con Leila: la criatura queda sólo para el Ops Center).
+  // El avatar del reto, no la criatura (20/11, la llamada con Leila: la criatura queda sólo para el Ops Center).
   const estrella = <span className="sbl-foto" aria-hidden="true"><Muneco titulo="MaKo" aspecto={ASPECTO_RETO} animo="despierto" size={26} /></span>;
   const puntitos = <span role="status" aria-label="MaKo está escribiendo" className="sbl-escribe"><i /><i /><i /></span>;
   const empezar = () => mostrarTutorial(TUTORIAL_RECORRIDO, { alTerminar });
@@ -165,7 +176,7 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
             <div className="co-el__cuerpo">
               {/* El video ARRIBA y el texto debajo (F4: en la maqueta es un mensaje de video, onboarding.html b-entra). */}
               <button ref={play} type="button" className="sbl-video" onClick={empezar} aria-label="Ver el recorrido por MaKo" data-recorrido="sb-llegada-play">
-                {video?.poster ? <img src={video.poster} alt="" /> : <span className="sbl-video__vacio" />}
+                {poster ? <img ref={imgPoster} src={poster} alt="" onLoad={() => setPosterCargado(poster)} /> : <span className="sbl-video__vacio" />}
                 <span className="sbl-video__play" aria-hidden="true"><Icon name="play" size={28} /></span>
               </button>
               <div className="ch-md"><p>{textoLlegada(nombre)}</p></div>

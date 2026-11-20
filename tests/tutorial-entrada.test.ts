@@ -81,7 +81,8 @@ test('4. el reproductor del chat lo pide quieto, y el onboarding y la llegada lo
   // tapas del «dale play» ya no la tapan. Lo que se marca entonces es «Abrir WhatsApp» (tests/onboarding-mensaje-del-video.test.ts).
   assert.match(a, /<VideoDelMomento clave=\{VIDEO_WHATSAPP\} titulo="Tu WhatsApp con MaKo" revision=\{false\} dalePlay \/>/);
   const l = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
-  assert.match(l, /useDalePlay\(play, \{ clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' \}\);/);
+  // (20/11: y recién con el video dibujado, tests/llegada-dale-play-dibujado.test.ts.)
+  assert.match(l, /useDalePlay\(play, \{ clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado\(\{ poster, posterCargado \}\) \}\);/);
   assert.match(l, /<button ref=\{play\} type="button" className="sbl-video" onClick=\{empezar\}/);
 });
 
