@@ -103,6 +103,23 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
     el chat lo presenta, `PrimeraVez` espera (`chatPresentaRecorrido`). En el ensayo «desde cero», lo visto es el del navegador.
     Para MIRARLO sin `next dev`: un bundle de esbuild del componente de verdad con stubs (el recorrido sin ver, el video), en
     Chromium con `animations: 'disabled'`.
+  - *La tarjeta del código y el WhatsApp de otro número (wa-04), y «Reenviar» pasadas las 24 h (wa-f3)*. El servidor es del chat
+    de WhatsApp (1a7f519ad); la tarjeta, de este (tests/onboarding-v2-tarjeta-codigo.test.ts). Cuatro trampas:
+    - *El V2 nunca se enteraba de que había llegado de otro número.* Sólo el V1 preguntaba cada 4 s. El servidor anotaba
+      `'otro-numero'`, pero la pantalla no lo leía. Ahora el V2 pregunta igual mientras espera.
+    - *«Usar ese número» no puede llamar a `pedirCodigo` desde el paso del código.* `pedirCodigo` anota la respuesta de la pregunta
+      del momento, y el número habría quedado como respuesta del código. La acción `usar-otro-numero` hace lo mismo que «Cambiar
+      número» más escribirlo: vuelve a la pregunta del WhatsApp y pide el código. El número sale del servidor, nunca de la pantalla.
+    - *`window.open(url, '_blank', 'noopener')` devuelve null SIEMPRE.* Con eso no se sabe si el navegador frenó la ventana. Va sin
+      la opción, y después `opener = null`.
+    - *Una ventana que se abre después de un pedido la puede frenar el navegador* (Safari: ya no es el toque de la persona). Si la
+      frena, «Abrir WhatsApp» se marca y el error dice qué tocar. Desde que se sabe que MaKo no puede escribirle, «Reenviar» es el
+      link mismo, y lo abre el toque.
+    - Para probarlo en el navegador, el bundle de esbuild necesita las server actions (`'use server'`) como stubs. Next las cambia
+      por referencias, y esbuild las metía enteras con `node:crypto` y la base adentro. Se resuelve con un plugin que cambia cada
+      módulo `'use server'` por funciones vacías con los mismos nombres.
+    - Sin hacer: con «Usar el …», ella vuelve a mandar el mensaje desde ese WhatsApp. El mensaje que ya llegó de ahí no se reusa
+      para confirmar, porque eso es del servidor (lib/verificacion-entrante.ts, del chat de WhatsApp).
   - *El número se guarda en dígitos y se formatea al dibujarlo* (`telefonoVisible`: «+54 911 5555 0101», en grupos de 4 desde el
     final). La burbuja que espera muestra lo que escribió, con la lada.
 - **Lo que quedó sin hacer:**

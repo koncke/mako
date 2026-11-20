@@ -238,6 +238,27 @@ export async function POST(req: NextRequest) {
         return await pedirCodigo(e, h, confirmado, digitos);
       }
 
+      // V2 (20/11/2026, wa-04): le escribió a MaKo desde otro WhatsApp que el que dio, y elige ése. Es «Cambiar número» y escribirlo:
+      // vuelve a la pregunta del WhatsApp y pide el código para ese número (su respuesta queda anotada como la de la pregunta).
+      // Después vuelve a mandar el mensaje desde ahí (MaKo no le escribe primero). El número sale del servidor, nunca de la pantalla.
+      case 'usar-otro-numero': {
+        const freno = await frenoDeArranque({ req, ws: g.ws, usuario: usuarioGuardia });
+        if (freno) return NextResponse.json({ ok: false, error: freno.error, ...(freno.bloqueado ? { bloqueado: true } : {}), vista: await vistaArranque() }, { status: freno.status });
+        const e = await estadoEstricto();
+        const h = await hechosDelArranque(e);
+        if (!h.v2 || etapaDeArranque(e, h) !== 'codigo') return no(409, 'Ahora no estoy esperando tu código.');
+        const v = await estadoVerificacionEntrante(g.ws);
+        const otro = v?.estado === 'otro-numero' ? (v.otroNumero ?? '').replace(/\D/g, '') : '';
+        if (!otro) return no(409, 'Ya no veo otro número. Toca «Abrir WhatsApp» y mándame el mensaje desde tu WhatsApp.');
+        const malo = errorDelTelefono(otro);
+        if (malo) return no(422, malo);
+        await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoEntrante: undefined });
+        const e2 = await estadoEstricto();
+        const h2 = await hechosDelArranque(e2);
+        if (etapaDeArranque(e2, h2) !== 'telefono') return no(409, 'Ahora no estoy esperando tu teléfono.');
+        return await pedirCodigo(e2, h2, await hechosConfirmados(h2), otro);
+      }
+
       // V2 (19/11/2026), la tarjeta del código: «Reenviar el código» (MaKo se lo vuelve a mandar al chat donde ella le escribió) y
       // «Cambiar número» (vuelve a la pregunta del WhatsApp). Sólo en la etapa del código.
       case 'reenviar':

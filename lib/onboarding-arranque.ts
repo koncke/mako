@@ -39,6 +39,7 @@
 import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, type CanalId } from './fase-diagnostico';
 import { WHATSAPP_MAKO } from '../app/vsl/_sitio/contacto';
 import { numeroTecleado } from './paises';
+import { E_REESCRIBIR_V2 } from './verificacion-entrante';
 import { ENTRADAS, TIPOS_CRM, tipoCrmOfrecido, tipoCrmPorId, type EntradaId, type TipoCrm, type TipoCrmId } from './pipeline';
 import { CUANTOS_FUNNELS, nombreDelFunnel, recomendarFunnel, type FunnelRecomendado } from './funnel-recomendado';
 import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
@@ -1954,3 +1955,23 @@ export function leerRespuestaV2(e: EstadoArranque, h: HechosArranque, r: Respues
   if (etapa === 'codigo') return { ok: false, error: 'Escribe el código de 6 números que te mandé por WhatsApp.' };
   return { ok: false, error: 'Ahora no estoy esperando eso.' };
 }
+
+// =============================================================================
+// LA TARJETA DEL CÓDIGO CON LO QUE LE PASA AL WHATSAPP (20/11/2026; el servidor es del chat de WhatsApp, 1a7f519ad)
+// =============================================================================
+// wa-04: escribió desde otro WhatsApp que el que dio. El servidor le contesta en ese chat y la vista pasa a 'otro-numero'
+// (lib/verificacion-entrante.ts → vistaDeEntrante); la tarjeta lo dice y ofrece usar ese o cambiar el número.
+// wa-f3: «Reenviar» escribe directo sólo dentro de las 24 h del último mensaje de ella; después devuelve E_REESCRIBIR_V2, y la
+// tarjeta abre WhatsApp con el mensaje ya escrito (la maqueta: «reenviar» → `abrirWhatsapp()`), en vez de un error.
+
+/** Lo que dice la tarjeta cuando le escribió a MaKo desde otro WhatsApp. `otro` y `suyo`, como los guarda el servidor (dígitos). */
+export function avisoOtroNumero(otro: string, suyo: string): { titulo: string; texto: string; usar: string } {
+  const o = telefonoVisible(otro), s = telefonoVisible(suyo);
+  return { titulo: 'Me escribiste desde otro WhatsApp', texto: `Llegó desde el ${o}, pero me diste el ${s}.`, usar: `Usar el ${o}` };
+}
+
+/** ¿«Reenviar el código» tiene que abrir WhatsApp? Cuando MaKo ya no puede escribirle (pasaron 24 h desde su último mensaje). */
+export const reenviarAbreWhatsapp = (error: string | null | undefined): boolean => error === E_REESCRIBIR_V2;
+
+/** Con WhatsApp abierto por «Reenviar»: lo que sigue lo hace ella (MaKo contesta, no escribe primero). */
+export const AVISO_WHATSAPP_ABIERTO = 'Te abrí WhatsApp con el mensaje escrito: mándamelo y te contesto con un código nuevo.';
