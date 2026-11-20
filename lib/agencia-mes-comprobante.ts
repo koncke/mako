@@ -72,7 +72,7 @@ function concepto(clave: string, m: MensualidadOk): string {
 const quienDe = (clave: string, m: MensualidadOk): string => (clave.startsWith('entrada:') ? (m.clientes.find((c) => c.ws === Number(clave.slice(8)))?.nombre ?? `la cuenta ${clave.slice(8)}`) : concepto(clave, m));
 
 /** Lo que se debía, en una línea para Martín. Con el número de cuenta de cada cliente: el turno de MaKo lo necesita para marcarlo. */
-const loQueDebe = (ps: readonly Pendiente[]): string =>
+export const loQueDebe = (ps: readonly Pendiente[]): string =>
   ps.length ? ps.map((p) => `${p.tipo === 'mes' ? `mensualidad de ${nombreDelMes(p.mes)}` : `entrada de ${p.nombre} (cuenta ${p.ws})`} ${usd(p.debeUsd)}`).join(' · ') : 'nada pendiente';
 
 /** El archivo del comprobante, para el aviso a Martín. */
@@ -186,7 +186,7 @@ const queDijoBinance = (v: Verificacion): string =>
     : v.tipo === 'sin-clave' ? 'no hay clave de Binance para mirarlo' : v.tipo === 'falla' ? `Binance no contestó (${v.error})` : v.porque;
 
 /** El momento de un pago en la hora del negocio, como lo guarda el libro: `AAAA-MM-DDTHH:MM:00`. */
-function fechaLocal(ms: number, zona: string): string {
+export function fechaLocal(ms: number, zona: string): string {
   try {
     const s = new Intl.DateTimeFormat('sv-SE', { timeZone: zona, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(ms));
     if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(s)) return `${s.replace(' ', 'T')}:00`;
@@ -223,7 +223,7 @@ export async function verificarEnBinance(m: MensualidadOk, pedido: { orden: stri
  * Los números de Binance ya anotados en algún lado: el libro de cualquier agencia (`agencia.mensualidad.<ws>.orden.<N>`) y los recibos de
  * MaKo (`recibo_pagos`, medio binance, sin anular). null si no se pudo leer alguno (entonces no se aplica nada: nunca dos veces).
  */
-async function ordenesAnotadas(): Promise<Set<string> | null> {
+export async function ordenesAnotadas(): Promise<Set<string> | null> {
   const db = getSupabaseServer();
   const [libros, recibos] = await Promise.all([
     db.from('app_settings').select('key').eq('workspace_id', await wsSuperAdmin()).like('key', 'agencia.mensualidad.%.orden.%').limit(5000),
@@ -246,12 +246,16 @@ type ResultadoVerificado =
  * APLICA UN PAGO QUE YA SE VIO EN LA CUENTA: a qué va (`asignarPago`), la lectura con su N.º (`guardarLectura`, si es la primera vez:
  * el índice único lo frena), el libro (`aplicarPagoDeAgencia`, la orden una vez), el recibo de lo que quedó completo, las cuentas en
  * pausa que vuelven a entrar, y lo que se le contesta a la agencia. Lo que no se decide solo vuelve como `revisar`.
+ * También lo usa el pago que entró SIN captura (lib/binance-sin-captura.ts, 20/11/2026): `medio` va en el texto a la agencia («Recibí tu
+ * pago de US$ 97 por Binance») y `autor` en el libro.
  */
-async function aplicarPagoVerificado(
+export async function aplicarPagoVerificado(
   m: MensualidadOk,
   pago: { orden: string; monto: number; moneda: string; fecha: string; comprobante: string | null; lecturaId: number | null },
   guardarLectura?: (esperado: number, claves: string) => Promise<{ id: number | null; repetido: boolean } | null>,
+  o: { medio?: string; autor?: string } = {},
 ): Promise<ResultadoVerificado> {
+  const autor = o.autor ?? AUTOR;
   const ag = m.agenciaWs;
   const totalDebe = Math.round(m.pendientes.reduce((a, x) => a + x.debeUsd, 0) * 100) / 100;
   const asig = asignarPago(pago.monto, m.pendientes);
@@ -268,7 +272,7 @@ async function aplicarPagoVerificado(
     if (g.repetido) return { tipo: 'repetido', que: 'orden repetida (la tabla)' };
     lecturaId = g.id;
   }
-  const r = await aplicarPagoDeAgencia(m, { orden: pago.orden, monto: pago.monto, moneda: pago.moneda, montoUsd: pago.monto, fecha: pago.fecha, comprobante: pago.comprobante }, asig.aplicado, AUTOR);
+  const r = await aplicarPagoDeAgencia(m, { orden: pago.orden, monto: pago.monto, moneda: pago.moneda, montoUsd: pago.monto, fecha: pago.fecha, comprobante: pago.comprobante }, asig.aplicado, autor);
   if (!r.ok) {
     if (r.repetida) return { tipo: 'repetido', que: 'orden repetida (el libro)' };
     return { tipo: 'revisar', porque: `no lo pude anotar: ${r.error}`, esperado, sinPropuesta: true };
@@ -276,12 +280,12 @@ async function aplicarPagoVerificado(
   if (lecturaId) await runWithWorkspace(ag, () => anotarAplicadoDelGrupo(lecturaId!, claves));
 
   // El recibo de lo que quedó completo, las cuentas en pausa que ya pagaron vuelven a entrar, y quiénes quedaron activos (en el texto).
-  const cierre = await cerrarElPagoDeAgencia(m, r.completas, AUTOR, { conTexto: false });
+  const cierre = await cerrarElPagoDeAgencia(m, r.completas, autor, { conTexto: false });
   if (cierre.recibo && !cierre.recibo.ok) await avisarAMartin(`${m.agencia} pagó ${usd(pago.monto)} (orden ${pago.orden}) y quedó anotado, pero el recibo no salió: ${cierre.recibo.error}. Revísalo en Admin › Sales › Orders.`);
 
   const conceptos = asig.aplicado.map((x) => concepto(x.clave, m));
   const texto = asig.tipo === 'cubre'
-    ? textoDeComprobante({ tipo: 'cubre', montoUsd: pago.monto, conceptos, activas: cierre.activas })
+    ? textoDeComprobante({ tipo: 'cubre', montoUsd: pago.monto, conceptos, activas: cierre.activas, medio: o.medio })
     : textoDeComprobante({ tipo: 'parcial', montoUsd: pago.monto, conceptos, cubiertos: asig.cubiertas.map((c) => concepto(c, m)), faltaUsd: asig.faltaUsd, activas: cierre.activas });
   await textoAlGrupoDeLaAgencia(ag, texto);
   return { tipo: 'aplicado', que: asig.tipo === 'cubre' ? `cubre: ${asig.claves.join(', ')}` : `parcial: falta ${asig.faltaUsd}` };

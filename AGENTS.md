@@ -12745,3 +12745,13 @@ algo que lee el cliente, usa `nombreDelPlanDe(ws, capa)` (lib/plan-visible.ts), 
 «Plan de tu agencia» o «Plan a medida». No traduzcas capa a plan a mano: el ws1 y los acuerdos a mano tienen la capa de un
 plan sin pagarlo. La ficha interna de los tickets decide con la misma `planQueSeVende`, y el concepto de un cobro de alta,
 con `conceptoDeAlta`. Los textos para quien VENDE (Martín, una agencia) pueden nombrar la capa. Lo fija tests/plan-visible.test.ts.
+
+## Un pago de Binance se aplica por UN camino, y quien lo aplica pregunta primero si la orden ya está (20/11/2026)
+
+Hay tres puertas que aplican un pago de Binance de una agencia: la captura en el grupo, el «aprobado» de Martín y el cron que mira la
+cuenta sin captura (lib/binance-sin-captura.ts). Una puerta nueva NO anota la orden por su cuenta: usa `aplicarPagoVerificado`
+(lib/agencia-mes-comprobante.ts: el libro con la orden una vez por compare-and-set, el recibo, las cuentas que vuelven y el texto) y
+decide «usado» con el MISMO registro (`ordenesAnotadas` + `numerosUsados`, que ve los números mal copiados). Antes de releer lo que se
+debe, mira si la orden ya está en el libro: si no, la segunda corrida ve «no se debía nada» y le avisa a Martín de un pago que la otra
+acaba de aplicar. Y `aplicado_a` vacío en `comprobantes_leidos` NO quiere decir «abierto»: lo que Martín cierra a mano queda vacío.
+Lo fija tests/binance-sin-captura.test.ts.
