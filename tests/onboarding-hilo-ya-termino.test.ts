@@ -38,7 +38,9 @@ test('la salida es corta, sin preguntas sueltas, y nombra el grupo sólo con el 
   // MaKo «también puede»; lo que sigue lo pregunta la escalera del Ops Center con sus botones. El grupo de WhatsApp existe con el
   // teléfono verificado: sin él (el paso se salta con «Ahora no»), prometerlo era mentir.
   assert.equal(salidaDelOnboarding({ nombre: 'Ana López', telefonoVerificado: true }),
-    'Listo, Ana: ya conozco tu negocio. Si algo no funciona, escríbeme aquí o en tu grupo de WhatsApp y abro un ticket.');
+    'Listo, Ana: ya conozco tu negocio. Si algo no funciona, escríbeme aquí o por WhatsApp y abro un ticket.');
+  // Ningún grupo en el texto (20/11/2026: no hay más grupos con clientes).
+  assert.doesNotMatch(salidaDelOnboarding({ nombre: 'Ana', telefonoVerificado: true }), /grupo/i);
   assert.equal(salidaDelOnboarding({ nombre: 'Ana', telefonoVerificado: false }),
     'Listo, Ana: ya conozco tu negocio. Si algo no funciona, escríbeme aquí y abro un ticket.');
   assert.equal(salidaDelOnboarding({ nombre: '', telefonoVerificado: false }), 'Listo: ya conozco tu negocio. Si algo no funciona, escríbeme aquí y abro un ticket.');

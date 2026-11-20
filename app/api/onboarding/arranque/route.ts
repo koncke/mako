@@ -22,7 +22,7 @@ import { desbloquearOnboarding, frenoDeArranque } from '@/lib/onboarding-guardia
 import { borrarSettingSi, cambiarSettingSi, getSettingEstricto } from '@/lib/settings';
 import { getContactoReportes, getPerfil, setContactoReportes } from '@/lib/perfil';
 import { setDiagnosticoFase } from '@/lib/fase-store';
-import { asegurarGrupoMaKo, estadoVerificacionEntrante, getGrupoJidMaKo, pedirMensajeDeVerificacion, verificarCodigoContacto } from '@/lib/mako-grupo';
+import { estadoVerificacionEntrante, pedirMensajeDeVerificacion, verificarCodigoContacto } from '@/lib/mako-grupo';
 import { otroNumeroQueEscribioV2, pedirConfirmacionV2, reenviarCodigoV2, verificarCodigoV2 } from '@/lib/mako-grupo';
 import { errorDelTelefono } from '@/lib/verificacion-entrante';
 import { leerSesion } from '@/lib/offer-sesiones';
@@ -190,7 +190,9 @@ export async function POST(req: NextRequest) {
           const c = await getContactoReportes().catch(() => null);
           if (c?.telefono && !c.nombre) await setContactoReportes({ ...c, nombre: patch.nombre }).catch(() => {});
         }
-        if (patch.negocio && (await getGrupoJidMaKo(g.ws).catch(() => null))) await asegurarGrupoMaKo(g.ws, { nombre: patch.negocio }).catch(() => {});
+        // SIN GRUPOS (20/11/2026, Martín en la llamada con Leila: «se terminan los grupos de WhatsApp con clientes», por los baneos).
+        // Guardar el nombre del negocio renombraba el grupo que ya existía (`asegurarGrupoMaKo`): tráfico contra la línea con cada
+        // onboarding repetido (Leila, ws 11, «MaKo Leila», reiniciada en el V2). No se crea ni se renombra ninguno desde aquí.
         const nuevo = await guardarEstadoArranque(patch);
         // Lo que contestó, TAL CUAL, en el historial del onboarding (lib/onboarding-historial.ts): con lo dibujado se perdía
         // el toque de cada confirmación («Sí, se llama así»), porque la pantalla muestra el dato confirmado.

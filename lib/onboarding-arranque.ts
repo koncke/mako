@@ -404,7 +404,8 @@ export function decisionDelHilo(e: EstadoArranque, quien: string, o: { ahora: nu
  */
 export function salidaDelOnboarding(o: { nombre?: string | null; telefonoVerificado: boolean }): string {
   const nombre = primerNombre(o.nombre ?? '');
-  const donde = o.telefonoVerificado ? 'aquí o en tu grupo de WhatsApp' : 'aquí';
+  // Sin nombrar ningún grupo (20/11/2026: no hay más grupos con clientes): con el WhatsApp verificado, el chat privado con MaKo.
+  const donde = o.telefonoVerificado ? 'aquí o por WhatsApp' : 'aquí';
   return `Listo${nombre ? `, ${nombre}` : ''}: ya conozco tu negocio. Si algo no funciona, escríbeme ${donde} y abro un ticket.`;
 }
 

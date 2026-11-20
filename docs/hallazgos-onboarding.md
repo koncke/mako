@@ -3935,6 +3935,9 @@ de la vista de administrador y scripts/reiniciar-onboarding.mts. RESET (lib/rese
   Ahora la ruta marca `telefonoYa` y el V2 dice «Tu WhatsApp … ya está confirmado», la tarjeta de MaKo en el chat
   (app/onboarding/TarjetaContactoMako.tsx: no hubo mensaje de WhatsApp que la trajera), «Guárdame en tus contactos…» y «¿Guardaste el
   contacto de MaKo?». tests/whatsapp-ya-confirmado.test.ts.
+- **Repetir el onboarding renombraba el grupo de WhatsApp:** guardar el nombre del negocio llamaba a `asegurarGrupoMaKo` si el
+  negocio tenía grupo (app/api/onboarding/arranque/route.ts). Con Leila (ws 11, «MaKo Leila») reiniciada, era tráfico contra la línea.
+  Martín, 20/11: no hay más grupos con clientes. Ya no se llama, y la salida del chat «Onboarding» no nombra ningún grupo.
 - **«Sí, reiniciar» no daba señal:** el aviso salía chico, abajo a la izquierda, y la pantalla quedaba igual. Ahora lo dice el mismo
   panel y lleva al onboarding del negocio (navegación completa, con el `?ws=`).
 - **Encontrado de paso:** RESET no borra `perfil.onboardingV2` ni `perfil.recorridos`. Después de un RESET del ws 3, la barra oculta, la
