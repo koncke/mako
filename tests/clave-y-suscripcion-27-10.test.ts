@@ -75,7 +75,8 @@ test('4. Gemini no se ofrece: su fila sólo existe cargada, sin el verde, y no s
   }
   assert.doesNotMatch(bloque(PANTALLA, 'export function TarjetaTusCuentasIA('), /SERVICIO_DE_CLAVE\.gemini/, 'la tarjeta sigue con el logo de Gemini');
   const sinNada = resumenDeCuentas({ pcs: [], grupos: { cuentas: [], sinCuenta: [] } }, true);
-  assert.equal(sinNada.linea, 'Conecta tu Claude o tu GPT: con eso contesta tu Ops Center.');
+  // Opcional desde el 20/11/2026 (tests/chat-su-ia-opcional.test.ts): el Ops Center contesta con los MaKo Tokens.
+  assert.equal(sinNada.linea, 'Opcional: conecta tu Claude o tu GPT y gastas menos MaKo Tokens.');
 });
 
 // ── ROTURAS (27/10/2026) ───────────────────────────────────────────────────────
