@@ -165,7 +165,7 @@ test('con la hora de las 20:00, la noche sale igual: en la vuelta en que se abre
   assert.deepEqual(p.manana?.dia, 2);
   assert.equal(p.noche, undefined);
   // La noche va ANTES que el día en la vuelta que manda (la maqueta, `nuevoDia`).
-  const v = fuente('../lib/reto/avisos-salida.ts');
+  const v = fuenteSinComentarios('lib/reto/avisos-salida.ts');
   assert.ok(v.indexOf('      if (plan.noche) {') > 0 && v.indexOf('      if (plan.noche) {') < v.indexOf('      if (plan.manana) {'));
 });
 
@@ -180,7 +180,7 @@ test('el aviso de la noche, con el texto de la maqueta: «Son N minutos.» donde
   const c = correoDeLaNoche(p.noche!, 'https://app/x');
   assert.equal(c.asunto, 'Te falta instalar la app de MaKo en tu teléfono');
   assert.ok(c.cuerpo.includes('Son 3 minutos.') && c.cuerpo.endsWith('https://app/x'));
-  const v = fuente('../lib/reto/avisos-salida.ts');
+  const v = fuenteSinComentarios('lib/reto/avisos-salida.ts');
   assert.ok(v.includes('const c = correoDeLaNoche(plan.noche, link);') && v.includes("tag: 'reto-falta', asunto: c.asunto"), 'por correo, a cada admin');
 });
 
