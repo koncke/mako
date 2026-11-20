@@ -81,6 +81,14 @@ export function volverAlChat(clave: string): number | null {
   return t;
 }
 
+/**
+ * EL CHAT «ONBOARDING» PRESENTA EL RECORRIDO (20/11, OD-05): con su mensaje «Dale play…» (app/second-brain/BienvenidaOpsCenter.tsx),
+ * el recorrido lo arranca ese play, no el motor solo (`PrimeraVez`). Lo prende el chat mientras se ve.
+ */
+let presentaElChat = false;
+export function chatPresentaRecorrido(si: boolean): void { presentaElChat = si; }
+export const elChatPresentaElRecorrido = (): boolean => presentaElChat;
+
 /** Lo que se esté mostrando, fuera. No llama a `alTerminar` (lo cierra quien lo pidió). */
 export function cerrarTutorial(): void {
   if (!actual) return;
