@@ -2022,6 +2022,7 @@ con ciclo propio (Leila) manda al grupo de MaKo se aplica SÓLO si el pago está
   - una dudosa va a Martín en el acto;
   - **nada se aplica solo**.
 
+  El cron del pago sin captura (lib/binance-sin-captura.ts, también del 20/11) lee la misma API y queda igual de ciego.
   Sin arreglar: hace falta otra salida, por ejemplo la función en otra región o un proxy. Es una decisión, no un parche.
 - **Medido el 19/11 contra la cuenta real (sólo lectura):** el 16/11 reenviado → «no entró» (no se cuenta dos veces); el 11/11 ya anotado → a Martín; un pago de 426
   que no se hizo → «no entró». **No probado de punta a punta con un comprobante real** (el próximo es el de Leila, el 26/11).
