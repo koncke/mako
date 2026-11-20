@@ -219,10 +219,9 @@ export function errorDelTelefono(digitos: string): string | null {
 }
 
 /**
- * «REENVIAR EL CÓDIGO» ESCRIBE DIRECTO SÓLO SI ELLA ESCRIBIÓ HACE POCO (20/11/2026, wa-f3). Martín: «ellos escriben primero, siempre».
- * El 19/11 se pidió que «Reenviar» con el código vencido mande uno nuevo (Martín volvió una hora después): dentro de las 24 horas de su
- * último mensaje, MaKo le contesta en la misma charla. Pasado eso, que vuelva a escribir ella (`E_REESCRIBIR_V2`). Sin la marca (una
- * verificación de antes de esto), como antes: directo.
+ * ¿MaKo puede contestar YA un mensaje suyo que llegó? Sólo dentro de las 24 horas (20/11/2026). Lo usa «Usar el +…» (`escribioDesdeElOtro`
+ * y `pedirConfirmacionV2`): ese mensaje ya prueba el número. Sin la marca (una verificación de antes de esto), sí.
+ * ⚠️ «Reenviar el código» YA NO la usa (wa-f3, el Cerebro, 20/11 a la tarde): abre SIEMPRE WhatsApp, como la maqueta (`reenviarCodigoV2`).
  */
 export const VENTANA_REENVIAR_MS = 24 * 3_600_000;
 export const reenviarDirecto = (v: Pick<EstadoVerificacion, 'escribioAt'>, ahora: number): boolean =>

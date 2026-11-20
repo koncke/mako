@@ -2,13 +2,15 @@ import 'server-only';
 // =============================================================================
 // LO QUE LA PERSONA LE MANDA A MaKo POR WHATSAPP SOBRE EL RETO (20/11/2026)
 // =============================================================================
-// La auditoría del 20/11 (wa-02, D1-12): «siempre escribe ella primero y MaKo le CONTESTA», y ningún código leía su mensaje. Dos
+// La auditoría del 20/11 (wa-02, D1-12): «siempre escribe ella primero y MaKo le CONTESTA», y ningún código leía su mensaje. Estos
 // mensajes son del reto y los contesta el código, como el pedido del código (lib/mako-grupo.ts, `responderPedidoV2`):
 //   · la hora del día 2 («Hola MaKo, prefiero que me escribas a las 18:00 sobre el reto.»): se guarda en su reto (desde ahí MaKo le
 //     escribe a esa hora, lib/reto/avisos-salida.ts) y MaKo le contesta «¡Hecho, {n}! Cada día te escribo a las 18:00…»;
 //   · BAJA (lo ofrece el mensaje de Martín a quien deja el reto): ningún WhatsApp más del reto, y MaKo se lo confirma;
 //   · el audio del día 7 («cómo te fue con el reto… Lo escucha Martín»): va al grupo de SuperAdmin con el audio, la prueba queda
-//     respondida (lib/reto/pruebas.ts, la tarjeta del chat del reto) y MaKo le contesta «¡Gracias! Ya se lo pasé a Martín.».
+//     respondida (lib/reto/pruebas.ts, la tarjeta del chat del reto) y MaKo le contesta «¡Gracias! Ya se lo pasé a Martín.»;
+//   · la prueba de los días 3, 4 y 5 (el Cerebro, 20/11 a la tarde: no esperan a que el bot se mude de línea): el audio del lead, la
+//     pregunta por su competencia y el audio con la idea del guion. Lo que hace cada una, en lib/reto/pruebas-whatsapp.ts.
 // Sólo en una línea de MaKo, y sólo de quien verificó su número por el onboarding V2 y tiene reto. Si no, null: el mensaje sigue
 // al bot como cualquier otro. Lo que habla con WhatsApp va en `responder`, para correr después de contestarle al webhook.
 // =============================================================================
@@ -22,6 +24,7 @@ import { fetchMediaBase64EnInstancia } from '../evolution';
 import { CLAVE_RETO, HORAS_WA, leerEstado, type EstadoReto } from './dias';
 import { CLAVE_AVISOS, GRACIAS_DIA_7, LEIDO_DIA_7, RESPUESTA_BAJA, audioParaMartin, esBaja, esElAudioDelCierre, horaDelMensaje, leerAvisos, respuestaDeLaHora } from './avisos';
 import { pruebaRespondida } from './pruebas';
+import { NO_TE_ESCUCHE, diaDelAudio, esPreguntaDeCompetencia, pruebasDelMensaje } from './pruebas-whatsapp';
 
 const KEY_VERIFICACION = 'mako.contacto.verificacion';
 
@@ -65,8 +68,9 @@ export async function responderAlReto(instancia: string, m: Record<string, unkno
   const baja = esBaja(texto);
   const hora = baja ? null : horaDelMensaje(texto, HORAS_WA);
   const esAudio = !!msg.audioMessage || !!msg.pttMessage;
+  const competencia = !baja && !hora && !esAudio && esPreguntaDeCompetencia(texto);
   // Sin uno de estos mensajes no se toca la base: por este webhook pasa todo el tráfico.
-  if (!baja && !hora && !esAudio) return null;
+  if (!baja && !hora && !esAudio && !competencia) return null;
   const chat = chatDelMensaje(key);
   if (!chat?.telefono) return null;
   const quien = await negocioDe(chat.telefono);
@@ -80,10 +84,10 @@ export async function responderAlReto(instancia: string, m: Record<string, unkno
   if (!baja && !hora) {
     // EL AUDIO DEL DÍA 7. Se reclama ANTES (`cierre`, compare-and-set): con dos líneas de la misma cuenta el audio llega dos veces, y a
     // Martín le llega uno. Recién cuando salió, la prueba respondida y el «¡Gracias!». Si no salió, se suelta el reclamo y no se le
-    // dice nada (que lo mande otra vez). Otro audio cualquiera sigue al bot, como antes.
+    // dice nada (que lo mande otra vez). Si no es el del día 7, puede ser la prueba de los días 3 o 5 (o la pregunta del 4); si no, al bot.
     const crudo = await leerClave(ws, CLAVE_AVISOS);
     const a = leerAvisos(crudo, e);
-    if (!esElAudioDelCierre({ e, a, ahora: Date.now(), esAudio })) return null;
+    if (!esElAudioDelCierre({ e, a, ahora: Date.now(), esAudio })) return pruebaDeLosDias({ ws, e, crudo, instancia, key, msg, jid: chat.jid, destino, esAudio, competencia });
     const reclamo = JSON.stringify({ ...a, cierre: new Date().toISOString() });
     const gane = await runWithWorkspace(ws, () => cambiarSettingSi(CLAVE_AVISOS, crudo, reclamo));
     if (!gane) return { resultado: `ws${ws}: el audio del día 7 ya lo pasa otra llegada` };
@@ -137,4 +141,57 @@ export async function responderAlReto(instancia: string, m: Record<string, unkno
       if (!r.ok) console.error(`[reto] ws${ws}: no salió la respuesta a la hora: ${r.error}`);
     },
   };
+}
+
+/**
+ * LA PRUEBA DE LOS DÍAS 3, 4 Y 5 (20/11/2026, a la tarde). Si el mensaje no contesta ninguna (un día sin abrir, o ya respondida), null:
+ * sigue al bot. Se reclama EL MENSAJE antes (`probando`, compare-and-set): con dos líneas de la misma cuenta llega dos veces, y la IA corre
+ * una sola. Lo que habla con la IA y la base va en `responder`, después de contestarle al webhook: la prueba se marca sólo si MaKo la
+ * hizo (`leido`), y MaKo siempre le contesta algo (lo hizo, qué le falta, o que se cortó).
+ */
+async function pruebaDeLosDias(p: {
+  ws: number; e: EstadoReto; crudo: string | null; instancia: string; key: { id?: string; remoteJid?: string }; msg: Record<string, unknown>;
+  jid: string; destino: string; esAudio: boolean; competencia: boolean;
+}): Promise<{ resultado: string; responder?: () => Promise<void> } | null> {
+  const { ws, e, instancia, key, msg, jid, destino } = p;
+  const dias = pruebasDelMensaje({ e, ahora: Date.now(), esAudio: p.esAudio, competencia: p.competencia });
+  if (!dias.length) return null;
+  const cual = `la prueba del día ${dias.join(' o ')}`;
+  if (!(await reclamarElMensaje(ws, e, p.crudo, key.id))) return { resultado: `ws${ws}: ${cual} ya la contesta otra llegada` };
+  return {
+    resultado: `ws${ws}: ${cual} por WhatsApp`,
+    responder: async () => {
+      const s = await import('./pruebas-whatsapp-servidor');
+      let dia = dias[0];
+      let r: { texto: string; leido?: string };
+      if (dia === 4) r = await s.leerLaCompetencia(ws);
+      else {
+        const audio = await audioDelMensaje(instancia, key, msg);
+        const idea = audio ? await s.escucharAudio(ws, audio) : null;
+        if (!idea) r = { texto: NO_TE_ESCUCHE };
+        else {
+          dia = diaDelAudio(idea, dias) ?? dia;
+          r = dia === 5 ? await s.escribirElGuion(ws, jid, idea) : await s.proponerElLead(ws, jid, idea);
+        }
+      }
+      if (r.leido && !(await pruebaRespondida(ws, dia, r.leido))) console.error(`[reto] ws${ws}: MaKo hizo la prueba del día ${dia} y no pude marcarla`);
+      const g = await enviarAPersonaMaKo(destino, r.texto);
+      if (!g.ok) console.error(`[reto] ws${ws}: no salió la respuesta a la prueba del día ${dia}: ${g.error}`);
+    },
+  };
+}
+
+/** ¿Este mensaje lo contesta esta llegada? false: otra ya lo reclamó. Sin id no hay con qué juntarlas; si la base no deja, se contesta igual. */
+async function reclamarElMensaje(ws: number, e: EstadoReto, crudo: string | null, id: string | undefined): Promise<boolean> {
+  if (!id) return true;
+  let actual = crudo;
+  for (let i = 0; i < 3; i++) {
+    const a = leerAvisos(actual, e);
+    if (a.probando === id) return false;
+    const base = actual;
+    if (await runWithWorkspace(ws, () => cambiarSettingSi(CLAVE_AVISOS, base, JSON.stringify({ ...a, probando: id })))) return true;
+    actual = await leerClave(ws, CLAVE_AVISOS);
+  }
+  console.warn(`[reto] ws${ws}: no pude reclamar el mensaje ${id}; lo contesto igual`);
+  return true;
 }

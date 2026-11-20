@@ -6,7 +6,7 @@
 //   wa-05  con la línea caída, el V2 no promete «lo resuelves después» (el WhatsApp es obligatorio).
 //   wa-14  los errores del número son los de la maqueta y dicen qué hacer.
 //   wa-04  el pedido desde otro número: MaKo contesta qué hacer y, si una sola verificación espera, se le anota `otroNumero`.
-//   wa-f3  «Reenviar el código» escribe directo sólo dentro de las 24 horas del último mensaje de ella.
+//   wa-f3  «Reenviar el código» abre SIEMPRE WhatsApp con el pedido escrito (el Cerebro, 20/11 a la tarde): no manda nada.
 //   wa-15  un negocio del V2 no arma grupo al guardar sus números en Notificaciones.
 //   wa-f4  los links del reto van al número publicado de MaKo, no al guardado en la verificación.
 //
@@ -14,7 +14,7 @@
 //   W1 el código otra vez pegado                                → falla «el código en dos grupos»
 //   W2 el pedido de guardar el contacto otra vez aparte         → falla «el código en dos grupos»
 //   W3 pedirConfirmacionV2 con el MAKO_SIN_LINEA de antes       → falla «la línea caída»
-//   W4 «Reenviar» sin mirar cuándo escribió                    → falla «Reenviar»
+//   W4 «Reenviar» vuelve a mandar el código directo             → falla «Reenviar»
 //   W5 la única que espera, contando también las vencidas       → falla «otro número»
 //   W6 el «otro número» contesta en cualquier línea             → falla «otro número»
 //   W7 setNumeroDuenoYSync arma el grupo a un negocio del V2   → falla «sin grupo»
@@ -43,7 +43,7 @@ import {
   E_REESCRIBIR_V2, E_TEL_CORTO, E_TEL_NO_WA, MAKO_SIN_LINEA_V2, VENTANA_REENVIAR_MS, codigoEnGrupos, errorDelTelefono,
   escribioDesdeElOtro, mensajeDelCodigoV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, respuestaOtroNumeroV2, unicaEsperandoV2, type EstadoVerificacion,
 } from '../lib/verificacion-entrante';
-import { codigoDeLoEscrito } from '../lib/onboarding-arranque';
+import { codigoDeLoEscrito, reenviarAbreWhatsapp } from '../lib/onboarding-arranque';
 import { fuenteSinComentarios } from './_fuente-sin-comentarios';
 
 function bloque(src: string, desde: string, hasta: string): string {
@@ -88,15 +88,17 @@ test('la línea caída, sin «lo resuelves después»; los errores del número d
   assert.match(fuenteSinComentarios('app/api/onboarding/arranque/route.ts'), /const malo = errorDelTelefono\(digitos\);\n\s+if \(malo\) return no\(422, malo\);/);
 });
 
-test('«Reenviar el código»: directo dentro de las 24 horas de su mensaje; después, que escriba ella (wa-f3)', () => {
+test('«Reenviar el código» abre SIEMPRE WhatsApp: no manda nada, tampoco dentro de las 24 horas (wa-f3, el Cerebro, 20/11 a la tarde)', () => {
+  const reenviar = bloque(grupo(), 'export async function reenviarCodigoV2(', 'export async function verificarCodigoV2(');
+  assert.ok(reenviar.includes('if (v?.verificado) return { ok: true };\n  return { ok: false, error: E_REESCRIBIR_V2 };\n}'), 'sin confirmar, siempre E_REESCRIBIR_V2');
+  assert.doesNotMatch(reenviar, /mandarCodigoV2|enviarAPersonaMaKo|reenviarDirecto/, 'volvió a mandar el código directo');
+  assert.equal(reenviarAbreWhatsapp(E_REESCRIBIR_V2), true, 'con eso la tarjeta abre WhatsApp con el pedido escrito');
+  assert.match(E_REESCRIBIR_V2, /Abrir WhatsApp/);
+  // La ventana de 24 h queda para «Usar el +…»: un mensaje suyo que YA llegó (el test de abajo).
   const ahora = Date.parse('2026-11-20T15:00:00Z');
-  assert.equal(reenviarDirecto({ escribioAt: ahora - 2 * 3_600_000 }, ahora), true, 'el caso de Martín: volvió una hora después');
+  assert.equal(reenviarDirecto({ escribioAt: ahora - 2 * 3_600_000 }, ahora), true);
   assert.equal(reenviarDirecto({ escribioAt: ahora - VENTANA_REENVIAR_MS - 1 }, ahora), false);
   assert.equal(reenviarDirecto({}, ahora), true, 'una verificación de antes de la marca, como antes');
-  const reenviar = bloque(grupo(), 'export async function reenviarCodigoV2(', 'export async function verificarCodigoV2(');
-  const mira = reenviar.indexOf('if (!reenviarDirecto(v, Date.now())) return { ok: false, error: E_REESCRIBIR_V2 };');
-  assert.ok(mira > 0 && mira < reenviar.indexOf('await mandarCodigoV2('), 'mira antes de mandar');
-  assert.match(E_REESCRIBIR_V2, /Abrir WhatsApp/);
   const responder = bloque(grupo(), 'export async function responderPedidoV2(', 'export async function reenviarCodigoV2(');
   assert.match(responder, /respondido: true, escribioAt: Date\.now\(\), otroNumero: undefined, sinLineaAt: undefined, sinNumeroAt: undefined \}/, 'anota cuándo escribió, y borra un «otro número» y los avisos viejos');
 });

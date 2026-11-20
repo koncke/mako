@@ -251,7 +251,7 @@ test('la hora del día 2 sale de SU mensaje, y MaKo le contesta (D1-12, wa-02)',
   assert.equal(horaDelMensaje('¿Qué le está funcionando a mi competencia?', HORAS_WA), null);
   assert.equal(respuestaDeLaHora('Antonio', '18:00'), '¡Hecho, Antonio! Cada día te escribo a las 18:00 con tu día del reto. Guárdame en tus contactos para que no se pierda nada.');
   const r = fuenteSinComentarios('lib/reto/respuestas.ts');
-  assert.match(r, /if \(!baja && !hora && !esAudio\) return null;/, 'sin uno de sus mensajes (la hora, BAJA o un audio) no toca la base');
+  assert.match(r, /if \(!baja && !hora && !esAudio && !competencia\) return null;/, 'sin uno de sus mensajes (la hora, BAJA, un audio o la pregunta del día 4) no toca la base');
   assert.match(r, /if \(!quien \|\| !\(esNombreDeCanal\(instancia\) \|\| instancia === quien\.linea\)\) return null;/, 'sólo en una línea de MaKo');
   assert.match(r, /\.ilike\('value', '%"v2":true%'\)\.ilike\('value', '%"verificado":true%'\)/, 'sólo quien verificó por el V2');
   assert.match(r, /cambiarSettingSi\(CLAVE_RETO, esperado, JSON\.stringify\(\{ \.\.\.base, horaWa: hora \}\)\)/, 'la hora, sin pisar lo marcado en el medio');
@@ -298,7 +298,7 @@ test('el día 7: su audio le llega a Martín, la prueba queda respondida y MaKo 
   assert.match(audioParaMartin('', 3, false), /^Día 7 del reto: Alguien \(ws 3\).*No pude bajar su audio/);
   // El orden: se reclama antes (uno solo), sale a Martín, y recién entonces la prueba y el «¡Gracias!»; si no salió, se suelta.
   const r = fuenteSinComentarios('lib/reto/respuestas.ts');
-  assert.match(r, /if \(!baja && !hora && !esAudio\) return null;/, 'un audio llega a mirarse');
+  assert.match(r, /if \(!baja && !hora && !esAudio && !competencia\) return null;/, 'un audio llega a mirarse');
   const reclama = r.indexOf('cambiarSettingSi(CLAVE_AVISOS, crudo, reclamo)');
   const responde = r.indexOf('responder: async () => {', reclama);
   const aMartin = r.indexOf('await enviarAlGrupoSuperAdmin(audioParaMartin(', responde);

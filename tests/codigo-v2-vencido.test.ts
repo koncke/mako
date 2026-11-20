@@ -4,14 +4,14 @@
 // probar, la verificación de ws 3 había vencido a las 22:35: escribir «Hola, quiero confirmar mi WhatsApp.» daba `'vencido'` y MaKo se
 // callaba, y «Reenviar el código» le mandaba el vencido. Con el tope de 5 intentos pasaba lo mismo: el cartel dice «vuelve a mandarme
 // el mensaje: te mando uno nuevo» y MaKo le mandaba el MISMO. Ahora, vencido o con el tope lleno, el código es NUEVO.
+// Desde el 20/11 a la tarde (wa-f3, el Cerebro) «Reenviar» ya no manda nada: abre WhatsApp, y el código nuevo sale cuando ella escribe.
 // docs/hallazgos-comunicacion.md.
 //
 // PROBADO ROMPIÉNDOLO (19/11/2026), cada rotura por separado y vuelta atrás:
 //   V1 `hayQueRenovarV2` sin el tope de intentos                  → falla «vencido o con el tope lleno»
 //   V2 `renovarCodigoV2` sin poner los intentos en cero          → falla «el código nuevo»
 //   V3 `responderPedidoV2` vuelve a callarse con el vencido      → falla «escribir con el código vencido»
-//   V4 «Reenviar» manda sin renovar                              → falla «Reenviar con el código vencido»
-//   V5 «Reenviar» guarda DESPUÉS de mandar                       → falla «Reenviar con el código vencido»
+//   V4 «Reenviar» vuelve a mandar el código (renovado o no)       → falla «Reenviar con el código vencido»
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -63,14 +63,13 @@ test('escribir con el código vencido: MaKo contesta con uno nuevo, nunca se cal
   assert.match(r, /const anotado: EstadoVerificacion = \{ \.\.\.base,/);
 });
 
-test('«Reenviar» con el código vencido: arma uno nuevo, lo guarda y recién ahí lo manda', () => {
+test('«Reenviar» con el código vencido: no manda nada, abre WhatsApp; el nuevo sale cuando ella escribe (wa-f3, 20/11 a la tarde)', () => {
   const src = fuenteSinComentarios('lib/mako-grupo.ts');
   const r = bloque(src, 'export async function reenviarCodigoV2(', 'export async function verificarCodigoV2(');
-  const renueva = r.indexOf('const aMandar = hayQueRenovarV2(v, Date.now()) ? renovarCodigoV2(v, Date.now(), codigoNumerico()) : v;');
-  const guarda = r.indexOf('if (aMandar !== v) await guardarVerificacion(ws, aMandar);');
-  const manda = r.indexOf('await mandarCodigoV2(aMandar,');
-  assert.ok(renueva > 0 && guarda > renueva && manda > guarda, 'se renueva, se guarda y DESPUÉS se manda');
-  assert.doesNotMatch(r, /mandarCodigoV2\(v,/, 'volvió a mandar el vencido');
-  assert.match(r, /error: r\.error === NO_LE_ESCRIBE_PRIMERO \? E_REESCRIBIR_V2 : MAKO_SIN_LINEA_V2 \}/, 'si no puede, dice qué hacer');
+  assert.doesNotMatch(r, /mandarCodigoV2|guardarVerificacion/, 'volvió a mandar (o a renovar) desde «Reenviar»');
+  assert.ok(r.includes('return { ok: false, error: E_REESCRIBIR_V2 };'), 'la tarjeta abre WhatsApp con el pedido escrito');
   assert.match(E_REESCRIBIR_V2, /Abrir WhatsApp/);
+  // El código nuevo lo arma la respuesta a su mensaje (el test de arriba, «escribir con el código vencido»).
+  const responder = bloque(src, 'export async function responderPedidoV2(', 'export async function reenviarCodigoV2(');
+  assert.ok(responder.includes('renovarCodigoV2(v!, Date.now(), codigoNumerico())'));
 });
