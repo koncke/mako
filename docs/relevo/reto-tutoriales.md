@@ -19,6 +19,19 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
   - El día adelantado no lleva aviso: `avisado` sube hasta él.
 - **Sin la marca automática a los 0,9 s (D1-03, d24-09, R57-12).** Lo que falta se marca al terminar o cerrar el video del día. La marca del día 1 va sin «Lo hago después» (F1).
 
+## Hecho (tanda 2, punta/reto-tutoriales)
+
+- **Los días 4 a 6 según el funnel (d24-14, R57-01, 0df3ddf4a).** `diasDelReto(funnel)` usa la tabla POR_FUNNEL de la maqueta;
+  /api/reto manda el funnel del plan de Funnel Coach. Prospección en frío va con la columna de WhatsApp. El correo del día (no es
+  de este chat) sigue con los textos de siempre.
+- **«¿Qué hacemos ahora?» (D1-02, V3, 541106d88).** El mensaje INTERES_YA, el recuadro de opciones del Ops Center con «Empezar mi día 1»
+  y un «Muéstrame {pestaña}» por cada cosa elegida (cada uno corre su tutorial con su video). Los días se muestran recién al empezar
+  el día 1, y ahí sale la marca de Offer Coach. Se guarda en `reto.estado` (`dia1Desde`, `muestras`).
+- **El desplegable (V2, D1-08, R57-14, R57-F6, D1-17, 0ed2525be).** El video de cada día abierto, «El reto de 7 días de MaKo», «al
+  terminar el día de hoy», y el ícono con la flecha.
+- **⚠️ Trampa de git:** un `pull --rebase origin main` con commits ya subidos a la punta (y todavía no en main) los reescribe, y el
+  push siguiente es rechazado. Con una punta se une main con `merge`, como hace subir.mjs.
+
 ## Lo que decidió el Cerebro (20/11)
 
 - **R57-02, el clip de 10 s del día 6: SÍ, por ApiMart.** Martín decidió el 17/11 que el video de los CLIENTES va por ApiMart (Flow es
@@ -42,14 +55,15 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
 
 ## Lo que falta, en el orden del Cerebro
 
-1. **d24-14 y R57-01, los días 4, 5 y 6 según el funnel.** Hay que armar el título y el detalle de spy, web, carrusel, guion y clip con la tabla POR_FUNNEL de la maqueta (`C:/dev/artefactos-onboarding/cuerpo.html`).
+1. ~~**d24-14 y R57-01**~~ (hecho). Lo que queda de esto: **d24-05**, las integraciones del día 2 según el funnel (usar `INTEGRA_POR`).
+   Antes decía: Hay que armar el título y el detalle de spy, web, carrusel, guion y clip con la tabla POR_FUNNEL de la maqueta (`C:/dev/artefactos-onboarding/cuerpo.html`).
    - El funnel sale de `leerPlanFunnel()` (setting `funnel_coach.plan`: `funnel` y `otros`).
    - Las tareas son un `const` puro (DIAS_RETO). Lo más limpio es una función `diasDelReto(funnel)` que use /api/reto y que el chat reciba los días ya armados.
    - El mapa de integraciones por funnel ya está en `INTEGRA_POR` (lib/reto/senales.ts). Úsalo también para d24-05.
-2. **R57-03, el candado de Pro en una prueba de Essential.** Los días 5 y 6 terminan en «Pasar a Pro». Hay dos caminos:
+2. **R57-03, el candado de Pro en una prueba de Essential.** ⏳ Se le preguntó al Cerebro (A: la prueba abre una vez cada cosa para el reto; B: Essential pide lo que tiene). También el día 4: replicar una página es de Pro. Los días 5 y 6 terminan en «Pasar a Pro». Hay dos caminos:
    - que la prueba abra la réplica de carrusel, el guion y el personaje para el reto;
    - o que en Essential esos días pidan lo que Essential sí tiene. El plan sale de `esEsencialDe` (lib/plan-esencial.ts).
-3. **D1-02 y V3, «¿Qué hacemos ahora?».** El recuadro lleva «Empezar mi día 1 (Recomendada)» y un «Muéstrame {pestaña}» por cada cosa elegida en el onboarding, hasta 3.
+3. ~~**D1-02 y V3**~~ (hecho). El recuadro lleva «Empezar mi día 1 (Recomendada)» y un «Muéstrame {pestaña}» por cada cosa elegida en el onboarding, hasta 3.
    - Lo elegido se pide en lib/onboarding-arranque.ts:1785-1799.
    - Cada opción corre `mostrarTutorial(tutorialDe(<pestaña>), { video })`.
    - La marca del día 1 sale recién al elegir «Empezar mi día 1».
@@ -63,7 +77,6 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
    - Se saca «¡Hiciste todo lo del día N!» de los días 3 a 7.
 6. **Los videos:**
    - **V1:** el catálogo «Tutoriales de MaKo», con su ícono en la cabecera del reto.
-   - **V2 / D1-08 / R57-14:** el video de cada día en el desplegable.
    - **d24-10 / R57-21 / V4:** el video que se reproduce en el mensaje y pasa a la esquina sólo al salir de la vista.
    - **V14:** el reproductor de VideoDelMomento.
 7. **Lo bajo:**
