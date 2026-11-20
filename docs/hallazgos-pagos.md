@@ -2032,7 +2032,11 @@ con ciclo propio (Leila) manda al grupo de MaKo se aplica SÓLO si el pago está
   opción `preferredRegion` figura como deprecada y Vercel documenta el `functions.regions` de vercel.json; el Next 16.2.6 del repo SÍ la lee y la pasa
   como región de la función (node_modules/next/dist/build/index.js). Si algún día deja de respetarse, la ruta lo dice: devuelve `region`
   (`VERCEL_REGION`), y la falla de Binance llega con «(desde pdx1)». Una respuesta de la ruta sin la lista nunca es «cero pagos»: es falla.
-  tests/binance-pay-region.test.ts (7 casos, roto 10 veces).
+  tests/binance-pay-region.test.ts (8 casos, roto 13 veces).
+  ⚠️ **La primera subida (a2cb44fc4) dio rojo en tests/region-funciones.test.ts**, el guardia que tiene a TODAS las funciones al lado de la base
+  (pdx1, ~5 ms por consulta contra ~97 ms): una región por su cuenta en app/ o lib/ (también en un comentario) lo rompe. Quedó UNA excepción
+  escrita, esta ruta, con su porqué; y la lectura directa se separó en lib/binance-pay-directo.ts para que la función de São Paulo no cargue
+  nada de la base ni de la navegación (lib/app-url.ts arrastraba `movil-rutas` → `nav`): sus imports los fija el test.
 - **Medido el 19/11 contra la cuenta real (sólo lectura):** el 16/11 reenviado → «no entró» (no se cuenta dos veces); el 11/11 ya anotado → a Martín; un pago de 426
   que no se hizo → «no entró». **No probado de punta a punta con un comprobante real** (el próximo es el de Leila, el 26/11).
 - **Sin hacer:** la verificación contra Mercado Pago (transferencias al CVU) y el checkout de «Transferencia o Binance» con el calce (sigue oculto, el setting

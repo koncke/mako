@@ -5,8 +5,8 @@
 // 451 «Service unavailable from a restricted location according to 'b. Eligibility'» (visto el 20/11 en producción, `grupo_mensajes`
 // 1049). La medición del 19/11 se hizo desde la PC (Argentina), por eso no se vio: en producción `verificarEnBinance` daba siempre «falla»
 // y nada se aplicaba solo, ni con captura ni sin captura.
-// EL ARREGLO: una ruta interna, sólo de lectura, `/api/cron/binance-pagos`, con `preferredRegion = 'gru1'` (São Paulo; el plan Pro deja una
-// región por función, medido en la API de Vercel el 20/11). Ella lee la cuenta DIRECTO; desde cualquier otra región de Vercel,
+// EL ARREGLO: una ruta interna, sólo de lectura, `/api/cron/binance-pagos`, que corre en `gru1` (São Paulo; el plan Pro deja una región
+// por función, medido en la API de Vercel el 20/11; es la única excepción a pdx1, tests/region-funciones.test.ts). Ella lee la cuenta DIRECTO; desde cualquier otra región de Vercel,
 // lib/binance-pay.ts le pide los pagos a ella con el secreto del cron. Desde la PC (scripts en seco), directo.
 // Sin `server-only` y con el fetch de afuera: lo prueba tests/binance-pay-region.test.ts.
 // ⚠️ NADA DE ESTO MUEVE PLATA: un solo GET, a la ruta interna, que a su vez hace un solo GET de lectura a Binance.

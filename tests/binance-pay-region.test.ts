@@ -79,6 +79,7 @@ test('la ruta interna: São Paulo, sólo GET, empieza con el secreto del cron y 
   assert.match(src, /export async function GET\(req: NextRequest\) \{\s*const denied = checkCronAuth\(req\);\s*if \(denied\) return denied;/);
   assert.doesNotMatch(src, /export (async )?function (POST|PUT|PATCH|DELETE)/);
   assert.match(src, /leerDeBinanceDirecto\(/);
+  assert.match(src, /from '@\/lib\/binance-pay-directo'/);
   assert.doesNotMatch(src, /pagosRecibidosEnBinance\(/);
   // La región sale en la respuesta: así se ve desde afuera dónde corrió.
   assert.match(src, /VERCEL_REGION/);
@@ -88,8 +89,19 @@ test('lib/binance-pay.ts elige el camino con caminoDeBinance y, por la ruta, usa
   const src = sinComentarios(leer('lib', 'binance-pay.ts'));
   assert.match(src, /caminoDeBinance\(\{ vercel: process\.env\.VERCEL, region: process\.env\.VERCEL_REGION \}\)/);
   assert.match(src, /leerPorLaRuta\(\{[^}]*secreto: process\.env\.CRON_SECRET/);
-  // El único lugar que habla con Binance es `leerDeBinanceDirecto`.
-  assert.equal((src.match(/fetch\(/g) ?? []).length, 1);
+  // El único lugar que habla con Binance es `leerDeBinanceDirecto` (lib/binance-pay-directo.ts): acá ningún fetch propio.
+  assert.equal((src.match(/fetch\(/g) ?? []).length, 0);
+  assert.equal((sinComentarios(leer('lib', 'binance-pay-directo.ts')).match(/fetch\(/g) ?? []).length, 1);
+});
+
+test('la función de São Paulo NO toca la base: la ruta y el lector directo cargan sólo el secreto del cron, la firma y las reglas puras', () => {
+  // La base vive en us-west-2, al lado de pdx1 (~5 ms); desde gru1 cada consulta en serie costaría mucho más (tests/region-funciones.test.ts).
+  const importsDe = (src: string) => [...src.matchAll(/^import (?:type )?[^;]*? from '([^']+)';|^import '([^']+)';/gm)].map((m) => m[1] ?? m[2]).sort();
+  assert.deepEqual(importsDe(leer('app', 'api', 'cron', 'binance-pagos', 'route.ts')), ['@/lib/binance-pay-directo', '@/lib/cron-auth', 'next/server']);
+  assert.deepEqual(importsDe(leer('lib', 'binance-pay-directo.ts')), ['./binance-pay-region', './binance-pay-reglas', 'node:crypto', 'server-only']);
+  assert.deepEqual(importsDe(leer('lib', 'binance-pay-region.ts')), ['./binance-pay-reglas']);
+  assert.deepEqual(importsDe(leer('lib', 'binance-pay-reglas.ts')), []);
+  assert.deepEqual(importsDe(leer('lib', 'cron-auth.ts')), ['node:crypto']);
 });
 
 test('⚠️ el lector por la ruta tampoco mueve plata: un solo GET, a la ruta interna', () => {
