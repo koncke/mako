@@ -87,6 +87,8 @@ import { BotonSecondBrainDe, CerebroDelGuru } from './SuSecondBrain';
 import { useCoaches, useGurusConCharla } from './useCoaches';
 import { ChatDelCentro, FilaDeChat, GruposPorJefe, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, RenglonDeFila, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
+import { BienvenidaOpsCenter } from './BienvenidaOpsCenter';
+import { VideosDelChat } from '@/app/_ui/tutorial/VideosDelChat';
 import { ChatNuevoCentro } from '@/app/admin/operaciones/ChatNuevo';
 import { TicketeraCentro } from '@/app/admin/operaciones/TicketeraCentro';
 import { esVistaTicketera, type VistaDeTicketera } from '@/app/tickets/decisiones/reglas';
@@ -183,6 +185,13 @@ type Props = {
   /** El primer nombre de la persona, para el saludo del reto. */
   nombrePersona?: string;
 };
+
+/** Los videos del chat «Onboarding» (20/11, V9): para volver a verlos terminado el onboarding (el ícono de videos de su cabecera). */
+const VIDEOS_DEL_ONBOARDING = [
+  { clave: 'onboarding-bienvenida', titulo: 'Bienvenida a MaKo' },
+  { clave: 'onboarding-bienvenida-whatsapp', titulo: 'Tu WhatsApp con MaKo' },
+  { clave: 'recorrido', titulo: 'Tu recorrido por MaKo' },
+] as const;
 
 export function ChatSecondBrain(props: Props) {
   // ⚠️ UNA VUELTA DEL SERVIDOR QUE FALLA NO DESARMA EL OPS CENTER (22/10/2026, el 503 de cada deploy, medido por el Cerebro):
@@ -405,6 +414,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // EL ORDEN DEL ONBOARDING V2 (20/11, OD-08: la maqueta; Martín, 16/11: «nunca nada arriba de Ops Center»): Ops Center, Onboarding y
   // el Reto, después los coaches, el resto, y «Nuevo chat» al final. El chat «Onboarding» sale de la lista por actividad y va arriba.
   const filaOnboarding = retoV2 && hiloOnboarding != null ? filasDeLaLista.find((f) => 'id' in f.elegido && f.elegido.id === hiloOnboarding) ?? null : null;
+  // ¿Está abierto el chat «Onboarding»? Ahí van la llegada (OD-05) y sus videos (V9).
+  const enElOnboarding = retoV2 && hiloOnboarding != null && !!elegido && 'id' in elegido && elegido.id === hiloOnboarding && !verMapa && !ticketera;
   const todasLasFilas = filasDeLaLista.filter((f) => f.origen !== 'offer' && !f.guru && f !== filaOnboarding);
   // El filtro va sobre lo que ya dejó la búsqueda; el Cerebro queda siempre arriba.
   const restoFilas = filtros.length ? todasLasFilas.filter((f) => pasaFiltroChats({ titulo: f.titulo }, filtros)) : todasLasFilas;
@@ -718,6 +729,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           cabecera={{ clave: JSON.stringify(elegido), titulo: k.nombre, criatura: k.nombreMuneco, aspecto: k.aspectoMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: () => setConChat(false),
             // En una conversación de Offer se ve quién aconseja (el referente del coach, del que cuelga) y se puede cambiar, como la
             // criatura de cualquier chat.
+            // Los videos del onboarding, para volver a verlos (20/11, V9): la bienvenida, el del WhatsApp y el recorrido.
+            ...(enElOnboarding ? { acciones: <VideosDelChat videos={VIDEOS_DEL_ONBOARDING} /> } : {}),
             ...(idOffer != null ? {
               onMuneco: puedeElegir ? () => setEligiendoReferente(true) : undefined,
               acciones: delCoach ? <><span className="co-cab__inspirado">{inspiradoEn(delCoach)}</span><BotonSecondBrainDe referente={delCoach} viendo={viendoCerebroOffer} onCambiar={(si) => setCerebroDeOffer(si ? idOffer : null)} /></> : undefined,
@@ -736,6 +749,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           </>}
           estado={estadoDelCliente(k)}>
           <HiloDelCliente k={k} apertura={apertura} />
+          {/* Al llegar del onboarding, en su chat: MaKo escribe y manda el video del recorrido con «Dale play…» (20/11, OD-05). */}
+          {enElOnboarding && <BienvenidaOpsCenter nombre={nombrePersona} />}
           {enChatNuevo && !k.items.length && !k.trabajo && <GaleriaDeGurus onElegir={abrirGuru} soloPro={gurusSoloPro} />}
         </PanelDeChat>
       )}

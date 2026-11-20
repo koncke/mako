@@ -95,11 +95,11 @@ test('3 · el candado del servidor: sólo a un Essential, 403 con el texto y «P
   const lib = codigo('lib/editores-ia-pro.ts');
   assert.match(lib, /^import 'server-only';$/m);
   const ruta = lib.slice(lib.indexOf('export async function candadoIaDeEditores('), lib.indexOf('export async function candadoIaDeEditoresDe('));
-  assert.match(ruta, /if \(!\(await esEsencialDeLaSesion\(\)\)\) return null;/, 'ante la duda pasa: esEsencialDeLaSesion ya devuelve false');
+  assert.ok(ruta.includes("if (!(await esEsencialDeLaSesion()) || (await abreElReto('ia-editores', { usar: true }))) return null;"), 'ante la duda pasa: esEsencialDeLaSesion ya devuelve false (y la prueba del reto lo abre una vez, 20/11)');
   assert.match(ruta, /\{ ok: false, error: textoSoloPro\('ia-editores'\), pasarAPro: await rutaConWs\(RUTA_CAMBIAR_PLAN\) \}/);
   assert.match(ruta, /status: 403/);
   const api = lib.slice(lib.indexOf('export async function candadoIaDeEditoresDe('));
-  assert.match(api, /return \(await esEsencialDe\(ws\)\) \? textoSoloPro\('ia-editores'\) : null;/, 'la API mira el negocio de `ctx.ws`');
+  assert.ok(api.includes("return (await esEsencialDe(ws)) && !(await abreElReto('ia-editores', { ws, usar: true })) ? textoSoloPro('ia-editores') : null;"), 'la API mira el negocio de `ctx.ws`');
 });
 
 test('4 · CADA ruta que llama a la IA lleva el candado, después de la puerta y antes de la IA', () => {

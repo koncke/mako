@@ -177,3 +177,23 @@ test('15. F2: el video que pasó a la esquina vuelve al chat cuando su mensaje s
   assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /onTimeUpdate=\{\(e\) => anotarTiempoFlotante\(e\.currentTarget\.currentTime\)\}/);
   assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /\{flotando && <span className="mk-vmom__esquina" role="status">Se está viendo en la esquina ↘<\/span>\}/);
 });
+
+test('16. OD-05 y V9: en el chat «Onboarding», MaKo escribe y manda el video del recorrido con «Dale play…»; su play lo arranca', async () => {
+  const { textoLlegada, ID_RECORRIDO, MS_ESCRIBE_LLEGADA } = await import('../lib/onboarding-v2/llegada');
+  assert.equal(textoLlegada('Valentina'), 'Te doy la bienvenida a tu Ops Center, Valentina. Dale play: te muestro dónde está cada cosa.');
+  assert.equal(ID_RECORRIDO, 'tutorial-ops-center');
+  assert.equal(MS_ESCRIBE_LLEGADA, 1800, 'como la pantalla oscura del onboarding');
+  const b = sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx'));
+  assert.match(b, /const toca = ensayo\.activo \? !vistoEnEnsayo\(ID_RECORRIDO\) : r\.visto === false;/, 'sólo mientras no vio el recorrido (también en el ensayo)');
+  assert.match(b, /const alTerminar = ensayo\.activo \? \(\) => marcarVistoEnEnsayo\(ID_RECORRIDO\) : r\.onCerrar;/);
+  assert.match(b, /const empezar = \(\) => mostrarTutorial\(TUTORIAL_RECORRIDO, \{ alTerminar \}\);/, 'el play lo arranca y lo anota como visto');
+  assert.match(b, /chatPresentaRecorrido\(true\);\n\s*return \(\) => chatPresentaRecorrido\(false\);/);
+  assert.match(b, /createPortal\(\n\s*<div className="sbl-capa" aria-hidden="true">/, 'el velo, en un portal');
+  // El motor no lo arranca solo mientras el chat lo presenta.
+  const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
+  assert.match(m, /if \(t\.pestana === 'ops-center' && elChatPresentaElRecorrido\(\)\) \{ window\.setTimeout\(mirar, 500\); return; \}/);
+  const c = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  assert.match(c, /\{enElOnboarding && <BienvenidaOpsCenter nombre=\{nombrePersona\} \/>\}/);
+  assert.match(c, /\.\.\.\(enElOnboarding \? \{ acciones: <VideosDelChat videos=\{VIDEOS_DEL_ONBOARDING\} \/> \} : \{\}\),/, 'V9: los videos del onboarding en su chat');
+  for (const k of ['onboarding-bienvenida', 'onboarding-bienvenida-whatsapp', 'recorrido']) assert.match(c, new RegExp(`clave: '${k}'`));
+});
