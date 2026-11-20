@@ -42,9 +42,9 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
   - *«Pegué un código incorrecto y me dice: el código tiene 6 números».* `decidirCodigoV2` mandaba a «tiene 6 números» todo lo que
     no tuviera 6 exactos, también un código con números DE MÁS. Ahora cada caso tiene el suyo: menos de 6 → «Faltan números»; 6 que no
     son, o 7 o más → «no es el que te mandó MaKo»; vencido → «toca "Reenviar el código"».
-  - *«Reenviar el código» mandaba EL MISMO código, con el mismo vencimiento y los mismos intentos.* Con uno vencido o con el tope de
-    equivocados, reenviar no sacaba a nadie del pozo, y los errores mandaban a «Abrir WhatsApp» de nuevo. `reenviarCodigoV2` ahora
-    guarda uno nuevo (plazo e intentos de cero) antes de mandarlo, y los errores nombran ese botón.
+  - *«Reenviar el código» mandaba EL MISMO código, vencido o con el tope lleno.* Lo arregló el mismo día el chat del WhatsApp
+    (`hayQueRenovarV2` / `renovarCodigoV2`; la entrada, en docs/hallazgos-comunicacion.md). Por eso los errores del vencido y del tope
+    ahora mandan a ese botón, y no a «Abrir WhatsApp» otra vez.
   - *Un número de teléfono adentro de un texto se parte en el guion.* El navegador puede cortar después de «-», y a 1440 el mensaje
     decía «(+54 9 11 2505-» en un renglón y «2605)» en el otro. `V2_CODIGO` lo arma con espacios que no cortan (U+00A0) y una unión
     invisible después del guion (U+2060). Para buscar el número en un test, se sacan esos dos caracteres antes.
