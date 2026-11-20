@@ -2696,10 +2696,12 @@ van dos marcas en el mismo render).
 - **Un chat con PERSONAS usa app/_chat/grupo/useSeguirElHilo.ts** (como WhatsApp: no arrastra a quien lee arriba, cuenta lo nuevo).
 - **Un mensaje que nombra algo de un video sale cuando la voz llega ahí** (app/_ui/tutorial/useMensajeDelVideo.ts) y nunca deja a nadie
   esperando: sin play, con error, pausado o ya visto, sale igual.
-- **Un «dale play» sobre un póster propio espera a que el póster cargue** (`videoDibujado`, app/_ui/tutorial/entrada.ts; 20/11/2026,
-  el Cerebro en producción). «A la vista» (`useDalePlay`) mide el LUGAR, no si hay algo dibujado: con un arranque en frío la tarjeta
-  salía oscureciendo todo sobre un cuadro vacío. El `activo` lleva `videoDibujado({ poster, posterCargado })` con el `onLoad` del `<img>`
-  y, para el póster en caché, `complete && naturalWidth > 0` al dibujarlo (como app/second-brain/LlegadaAlReto.tsx).
+- **Un «dale play», o cualquier marca sobre un video, sale recién con el póster DIBUJADO** (`videoDibujado`, app/_ui/tutorial/entrada.ts;
+  20/11/2026, el Cerebro en producción). «A la vista» (`useDalePlay`) mide el LUGAR, no si hay algo dibujado: con un arranque en frío
+  la tarjeta salía oscureciendo todo sobre un cuadro vacío o negro. Todo `useDalePlay` lleva en su `activo` la espera del póster:
+  `usePosterDibujado(v?.poster)` (app/_ui/tutorial/usePosterDibujado.ts) para un `<video poster>` o un fondo, que no avisan cuándo
+  cargó; o el `onLoad` de un `<img>` propio más `complete && naturalWidth > 0` (app/second-brain/LlegadaAlReto.tsx). Lo vigila
+  tests/llegada-dale-play-dibujado.test.ts, que revisa cada `useDalePlay(` de esos archivos.
 
 # Mirando un negocio como administrador, el estado del onboarding es el del DUEÑO
 
@@ -12758,3 +12760,11 @@ decide «usado» con el MISMO registro (`ordenesAnotadas` + `numerosUsados`, que
 debe, mira si la orden ya está en el libro: si no, la segunda corrida ve «no se debía nada» y le avisa a Martín de un pago que la otra
 acaba de aplicar. Y `aplicado_a` vacío en `comprobantes_leidos` NO quiere decir «abierto»: lo que Martín cierra a mano queda vacío.
 Lo fija tests/binance-sin-captura.test.ts.
+
+## Lo que se le paga a MaKo lo contesta el código; una foto con una pregunta no es un comprobante (20/11/2026)
+- «¿Cuánto hay que pagar para activar la cuenta de X?» o «¿cuánto debo?» en el turno de una agencia lo contesta
+  `respuestaDelPagoDeLaAgencia` (lib/agencia-mes-consulta.ts) ANTES del clasificador y del modelo. El monto sale de la mensualidad y el Pay ID del
+  ajuste de cobro (`leerDatosDePagoDirecto`), nunca escrito a mano. Una frase nueva de ese tipo se suma a `pidePagoDeLaMensualidad`, con su caso en
+  tests/agencia-pago-consulta.test.ts (y uno que NO, del CRM).
+- Todo lector de comprobantes recibe el TEXTO que vino con la foto (`pie`). Una pregunta sin N.º de operación es una pregunta (`esPreguntaYNoPago`),
+  no un pago: va al turno, sin «Recibí tu comprobante» ni aviso a Martín. Detalle: docs/hallazgos-agencias.md.

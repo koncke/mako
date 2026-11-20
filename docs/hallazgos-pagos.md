@@ -2015,6 +2015,15 @@ con ciclo propio (Leila) manda al grupo de MaKo se aplica SÓLO si el pago está
   las 48 h, a Martín. Una lectura con dudas pero en dólares también se busca: si calza se aplica; si no, a Martín como antes. Sin la clave → a Martín en el acto.
 - ⚠️ **Claude no mueve plata:** lib/binance-pay.ts llama a UN endpoint (`GET /sapi/v1/pay/transactions`) y un test lo exige leyendo el archivo (sin comentarios: la
   cabecera nombra `permitsUniversalTransfer`, que la clave TIENE y no se usa).
+- ⛔ **Desde el servidor, Binance contesta 451** (visto el 20/11 en producción, en el aviso a Martín del comprobante de Código, `grupo_mensajes` 1049).
+  El texto: «Service unavailable from a restricted location according to 'b. Eligibility'». La medición del 19/11 se hizo desde la PC; Vercel sale desde una
+  región que Binance bloquea. Por eso, en producción `verificarEnBinance` da siempre `falla`:
+  - una lectura limpia queda esperando 48 h y después va a Martín;
+  - una dudosa va a Martín en el acto;
+  - **nada se aplica solo**.
+
+  El cron del pago sin captura (lib/binance-sin-captura.ts, también del 20/11) lee la misma API y queda igual de ciego.
+  Sin arreglar: hace falta otra salida, por ejemplo la función en otra región o un proxy. Es una decisión, no un parche.
 - **Medido el 19/11 contra la cuenta real (sólo lectura):** el 16/11 reenviado → «no entró» (no se cuenta dos veces); el 11/11 ya anotado → a Martín; un pago de 426
   que no se hizo → «no entró». **No probado de punta a punta con un comprobante real** (el próximo es el de Leila, el 26/11).
 - **Sin hacer:** la verificación contra Mercado Pago (transferencias al CVU) y el checkout de «Transferencia o Binance» con el calce (sigue oculto, el setting
