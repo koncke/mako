@@ -11,20 +11,23 @@
 //
 // y, mirando lo que lista, otra vez con `--aplicar`.
 //
-// ⚠️ SIN `--aplicar`, SÓLO LEE Y LISTA. Con `--aplicar`, antes de escribir deja un respaldo con lo de antes
-//    (./respaldo-reiniciar-onboarding-ws<ws>-<fecha>.json: las claves y el perfil del dueño, enteros).
+// ⚠️ SIN `--aplicar`, SÓLO LEE Y LISTA. Con `--aplicar`, antes de escribir deja un respaldo con lo de antes (las claves y el perfil
+//    del dueño, enteros): respaldo-reiniciar-onboarding-ws<ws>-<fecha>.json en C:/dev/respaldos, o en la carpeta de
+//    `--respaldo=<carpeta>` / MAKO_RESPALDOS. NUNCA adentro de un repo (lib/respaldo-fuera-del-repo.ts): son datos de una clienta, y el
+//    primero, el de Leila, quedó en la raíz del repo sin que git lo ignorara.
 // ⚠️ Cada escritura es un compare-and-set: si la persona estaba usando MaKo y algo cambió en el medio, no se pisa y se avisa.
 // ⚠️ Nunca en el negocio del dueño (ws 1) ni en el cliente de una agencia (le movería el cobro del primer mes): se niega.
 // ⚠️ Su WhatsApp sigue verificado. Que recargue MaKo si lo tenía abierto (el navegador se limpia al cargar).
 // =============================================================================
 
-import { writeFileSync } from 'node:fs';
 import { reiniciarOnboarding } from '../lib/reiniciar-onboarding-server';
+import { carpetaDeRespaldos, escribirRespaldo } from '../lib/respaldo-fuera-del-repo';
 
 const ws = Number(process.argv.slice(2).find((a) => /^\d+$/.test(a)));
 const aplicar = process.argv.includes('--aplicar');
+const respaldoEn = carpetaDeRespaldos({ pasada: process.argv.find((a) => a.startsWith('--respaldo='))?.slice('--respaldo='.length) });
 if (!Number.isSafeInteger(ws) || ws <= 0) {
-  console.error('uso: node --conditions=react-server --env-file=<.env.local> --import tsx scripts/reiniciar-onboarding.mts <ws> [--aplicar]');
+  console.error('uso: node --conditions=react-server --env-file=<.env.local> --import tsx scripts/reiniciar-onboarding.mts <ws> [--aplicar] [--respaldo=<carpeta fuera del repo>]');
   process.exit(2);
 }
 
@@ -46,8 +49,8 @@ try {
     console.log('\nPara hacerlo: el mismo comando con --aplicar.');
     process.exit(0);
   }
-  const archivo = `respaldo-reiniciar-onboarding-ws${ws}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-  writeFileSync(archivo, JSON.stringify(seco.respaldo, null, 2));
+  // Si la carpeta está adentro de un repo, esto tira y no se escribe nada en la base.
+  const archivo = escribirRespaldo(respaldoEn, `respaldo-reiniciar-onboarding-ws${ws}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`, seco.respaldo);
   console.log(`Respaldo: ${archivo}`);
   const hecho = await reiniciarOnboarding(ws, { aplicar: true });
   imprimir(hecho.resultado);

@@ -3893,6 +3893,12 @@ de la vista de administrador y scripts/reiniciar-onboarding.mts. RESET (lib/rese
 - **Trampa de TypeScript: `typeof x` en posición de TIPO mira el estrechamiento.** Con `let fila: T | null = null`, más abajo
   `r.data as typeof fila` es `as null`, y `fila` termina en `never` sin que el test lo note (tsx no mira tipos). Lo vio `tsc-acotado`.
   Se castea a un alias con nombre.
+- **El respaldo del primer reinicio de verdad (Leila, ws 11, 20/11) quedó en la RAÍZ del repo, y git no lo ignoraba.** El script lo
+  escribía en la carpeta donde corre, con las claves y el perfil de una clienta: a un `git add` de quedar en el historial. Lo vio el
+  Cerebro y lo movió a C:/dev/respaldos. Ahora va por `escribirRespaldo` (lib/respaldo-fuera-del-repo.ts): C:/dev/respaldos,
+  `--respaldo=<carpeta>` o MAKO_RESPALDOS, y se niega si hay un `.git` hacia arriba (un worktree lo tiene como ARCHIVO). No confía en
+  el .gitignore: una carpeta «ignorada» adentro del repo depende de una línea que alguien puede borrar. El .gitignore suma
+  `respaldo-*.json` igual, por si otro script repite el error.
 - **Encontrado de paso:** RESET no borra `perfil.onboardingV2` ni `perfil.recorridos`. Después de un RESET del ws 3, la barra oculta, la
   llegada y «Sigamos en tu computadora» no vuelven a salir.
 - **Sin hacer:**
