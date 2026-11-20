@@ -213,6 +213,23 @@ test('los días 4 a 6 cambian según el funnel elegido (20/11, d24-14 y R57-01; 
   assert.ok(chat.includes('diasDelReto(d.funnel).filter') && chat.includes('diasDelReto(d.funnel).map'), 'el chat y el desplegable usan los días del funnel');
 });
 
+test('«¿Qué hacemos ahora?»: lo elegido en el onboarding, con su «Muéstrame…», antes del día 1 (20/11, D1-02 y V3)', async () => {
+  const { muestrasDe, RETO_INTERES_YA, RETO_MUESTRA, RETO_MUESTRA_FIN } = await import('../lib/reto/dias');
+  const ms = muestrasDe(['Armar mi landing', 'Videos con IA y con mi avatar', 'Armar mi landing', 'algo raro', 'Ordenar mis ventas en un CRM', 'Ver mis números en un tablero']);
+  assert.deepEqual(ms.map((m) => m.pestana), ['web', 'video', 'crm'], 'sin repetir, sin lo desconocido, hasta 3; el avatar va a Video');
+  assert.equal(RETO_INTERES_YA(ms), 'Me dijiste que lo primero que quieres es armar tu landing, hacer tus videos con IA y ordenar tus ventas en el CRM. ¿Te muestro cómo hacerlo ahora, o empezamos tu día 1? Si lo resuelves primero, no te preocupes: tu reto te espera aquí.');
+  assert.equal(RETO_MUESTRA(ms[0]), 'Te muestro dónde armar tu landing, en Web Generator. Dale play.');
+  assert.doesNotMatch(RETO_MUESTRA_FIN(ms[0]), /juntos/, 'neutro en género');
+  const { INTERESES_V2 } = await import('../lib/onboarding-arranque');
+  for (const i of INTERESES_V2) assert.ok(muestrasDe([i.label]).length === 1, `«${i.label}» tiene su pestaña`);
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.ok(chat.includes("<QueHacemos titulo={vistas.length ? '¿Seguimos?' : '¿Qué hacemos ahora?'}"), 'el recuadro, arriba de la caja');
+  assert.ok(chat.includes('{empezo1 && abiertos.map('), 'los días, recién después de «Empezar mi día 1»');
+  assert.ok(chat.includes("if (t) mostrarTutorial(t, { video: m.pestana });"), 'cada «Muéstrame…» corre su tutorial con su video');
+  const ruta = readFileSync(new URL('../app/api/reto/route.ts', import.meta.url), 'utf8');
+  assert.ok(ruta.includes("body.accion === 'dia1'") && ruta.includes("body.accion === 'muestra'"), 'la API guarda lo elegido');
+});
+
 test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, sin clip de regalo, sin la tab AI Avatar', () => {
   const texto = JSON.stringify(DIAS_RETO);
   assert.doesNotMatch(texto, /integramos|lo hacemos por ti|nuestro equipo/i, 'nada que prometa un equipo: Martín no tiene');

@@ -12,7 +12,8 @@
 //     toca (cada tarea dice DÓNDE: sin botones de atajo) y su prueba por WhatsApp, con la persona escribiendo primero.
 //   · Lo que falta se marca con el motor de los tutoriales: la pantalla se oscurece y se señala dónde tocar (`senalarDondeTocar`).
 // =============================================================================
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { tutorialDe } from '@/lib/tutoriales';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { FilaDelChat } from '@/app/admin/operaciones/Hilo';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
@@ -27,10 +28,13 @@ import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { useVideoQueFlota } from '@/app/_ui/tutorial/useVideoQueFlota';
 import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutorial/desde-cero';
 import { claveTarea, diaAbierto, diasDelReto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
+import { RETO_EMPEZAR_DIA1, RETO_INTERES_YA, RETO_MUESTRA, RETO_MUESTRA_FIN, muestrasDe, type MuestraReto } from '@/lib/reto/dias';
 
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null;
   /** El funnel que eligió en Funnel Coach: arma los días 4 a 6 (`diasDelReto`, 20/11). */
-  funnel?: string | null };
+  funnel?: string | null;
+  /** Lo que eligió en «¿Qué te gustaría que MaKo resuelva primero?» (D1-02). */
+  intereses?: string[] };
 
 /** Lo del ensayo «desde cero» (app/_ui/tutorial/desde-cero.ts): el mismo cálculo que /api/reto, con el estado en el navegador. */
 function datosDelEnsayo(base: DatosReto | null, e: EstadoReto | null): DatosReto {
@@ -44,6 +48,8 @@ function hacerEnEnsayo(e: EstadoReto | null, c: { accion?: unknown; dia?: unknow
   if (c.accion === 'adelantar' && Number(c.dia) === diaAbierto(e, ahora) + 1) return { ...e, adelantado: Number(c.dia), adelantadoEn: new Date(ahora).toISOString() };
   if (c.accion === 'hecha') return { ...e, hechas: { ...e.hechas, [claveTarea(Number(c.dia), String(c.id))]: new Date(ahora).toISOString() } };
   if (c.accion === 'hora' && (HORAS_WA as readonly string[]).includes(String(c.hora))) return { ...e, horaWa: String(c.hora) };
+  if (c.accion === 'dia1') return { ...e, dia1Desde: e.dia1Desde ?? new Date(ahora).toISOString() };
+  if (c.accion === 'muestra') return { ...e, muestras: [...new Set([...(e.muestras ?? []), String((c as { pestana?: unknown }).pestana ?? '')])] };
   return e;
 }
 
@@ -119,26 +125,48 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
 
   // Los días 4 a 6, armados para su funnel (20/11, auditoría d24-14 y R57-01).
   const abiertos = d && e ? diasDelReto(d.funnel).filter((x) => x.n <= d.abierto) : [];
+  // «¿Qué hacemos ahora?» (20/11, D1-02 y V3): lo que eligió en el onboarding, con su «Muéstrame…», antes del día 1. Un reto que ya
+  // venía andando (con algo hecho o pasado el día 1) no vuelve a preguntar.
+  const muestras = muestrasDe(d?.intereses);
+  const vistas = muestras.filter((m) => e?.muestras?.includes(m.pestana));
+  const quedan = muestras.filter((m) => !e?.muestras?.includes(m.pestana));
+  const empezo1 = !!d && !!e && (!!e.dia1Desde || !muestras.length || d.abierto > 1 || Object.keys(e.hechas).length > 0);
+  const empezarDia1 = () => {
+    const d1 = diasDelReto(d?.funnel)[0];
+    // La marca de Offer Coach sale recién al elegir «Empezar mi día 1» (D1-03), no sola al abrir el chat.
+    void hacer({ accion: 'dia1' }).then(() => window.setTimeout(() => marcarLoQueFalta(d1), 600));
+  };
+  const mostrar = (m: MuestraReto) => {
+    void hacer({ accion: 'muestra', pestana: m.pestana });
+    const t = tutorialDe(m.pestana);
+    if (t) mostrarTutorial(t, { video: m.pestana });
+  };
   const horaWa = hora ?? e?.horaWa ?? '9:00';
   return (
     <PanelDeChat hilo={hilo}
       cabecera={{ clave: 'reto-7-dias', titulo: RETO_TITULO, aspecto: ASPECTO_MAKO, animo: 'despierto', onVolver,
         acciones: d && e ? <DesplegableReto d={d} abierto={menu} onAbrir={setMenu} /> : undefined }}
-      caja={<p className="rt-caja">Cada día te escribo aquí, con su video. Para preguntarle algo a MaKo, el Ops Center.</p>}
+      caja={d && e && !empezo1
+        ? <QueHacemos titulo={vistas.length ? '¿Seguimos?' : '¿Qué hacemos ahora?'} quedan={quedan} onDia1={empezarDia1} onMostrar={mostrar} />
+        : <p className="rt-caja">Cada día te escribo aquí, con su video. Para preguntarle algo a MaKo, el Ops Center.</p>}
       estado="">
       <style>{CSS_RETO}</style>
       <div className="co-hilo__col" data-recorrido="sb-reto-hilo">
         {!d ? <p className="co-vacio">Cargando tu reto…</p> : !e ? <p className="co-vacio">Empezando tu reto…</p> : (
           <>
             <Burbuja><p>{RETO_HOLA(nombre)}</p></Burbuja>
-            {abiertos.map((dia) => (
+            {muestras.length > 0 && <Burbuja><p>{RETO_INTERES_YA(muestras)}</p></Burbuja>}
+            {vistas.map((m) => (
+              <Fragment key={m.pestana}><Burbuja><p>{RETO_MUESTRA(m)}</p></Burbuja><Burbuja><p>{RETO_MUESTRA_FIN(m)}</p></Burbuja></Fragment>
+            ))}
+            {empezo1 && abiertos.map((dia) => (
               <Dia key={dia.n} dia={dia} e={e} linea={d.linea} hora={horaWa}
                 onHora={(h) => { setHora(h); void hacer({ accion: 'hora', hora: h }); }}
                 onMarcar={(t) => marcarTarea(t.marcas, () => { void leer(); }, dia.n === 1 ? undefined : () => {})}
                 onTocadoEnVideo={() => { void leer(); }}
                 onFinVideo={() => marcarLoQueFalta(dia)} />
             ))}
-            {d.abierto < 7 && (
+            {empezo1 && d.abierto < 7 && (
               <Burbuja>
                 {manana === d.abierto + 1
                   ? <p>Perfecto: mañana a las {horaWa} te escribo con el día {d.abierto + 1}.</p>
@@ -156,6 +184,23 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
         )}
       </div>
     </PanelDeChat>
+  );
+}
+
+/** «¿Qué hacemos ahora?»: el recuadro de opciones del Ops Center (las clases de PreguntaChat), arriba de la caja (D1-02). */
+export function QueHacemos({ titulo, quedan, onDia1, onMostrar }: { titulo: string; quedan: readonly MuestraReto[]; onDia1: () => void; onMostrar: (m: MuestraReto) => void }) {
+  return (
+    <div className="co-preg co-preg--chat rt-preg" role="group" aria-label={titulo} data-recorrido="sb-reto-que-hacemos">
+      <p className="co-preg__texto">{titulo}</p>
+      <ol className="co-preg__ops">
+        <li><button type="button" className="co-preg__op" onClick={onDia1}><span className="co-preg__num" aria-hidden>1</span>
+          <span className="co-preg__op-txt"><span className="co-preg__titulo">{RETO_EMPEZAR_DIA1}<span className="co-preg__rec"> (Recomendada)</span></span></span></button></li>
+        {quedan.map((m, i) => (
+          <li key={m.pestana}><button type="button" className="co-preg__op" onClick={() => onMostrar(m)}><span className="co-preg__num" aria-hidden>{i + 2}</span>
+            <span className="co-preg__op-txt"><span className="co-preg__titulo">Muéstrame {m.nombre}</span></span></button></li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -294,6 +339,7 @@ export function DesplegableReto({ d, abierto, onAbrir }: { d: DatosReto; abierto
 export const CSS_RETO = `
 .rt-md p { margin: 0; }
 .rt-md p + p, .rt-md p + .rt-video, .rt-md .rt-opciones { margin-top: 8px; }
+.rt-preg { margin: 0 12px 10px; }
 .rt-caja { margin: 0; padding: 10px 14px; font-size: var(--fs-meta); color: var(--dim); text-align: center; }
 .rt-opciones { display: flex; flex-wrap: wrap; gap: 8px; }
 .rt-video { display: block; width: min(420px, 100%); aspect-ratio: 16 / 9; margin-top: 8px; border-radius: var(--r-md); background: #0E1219; }

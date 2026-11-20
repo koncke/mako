@@ -5,6 +5,8 @@
 //   POST { accion: 'empezar' }                 → empieza el reto (el día 1, ahora). Si ya empezó, no hace nada.
 //   POST { accion: 'adelantar', dia }          → abre el día que sigue al abierto, ya.
 //   (Sin 'hecha' desde el 20/11: una tarea queda hecha cuando MaKo LEE que se hizo, en cada GET; lib/reto/senales.ts.)
+//   POST { accion: 'dia1' }                     → eligió «Empezar mi día 1» (20/11, D1-02).
+//   POST { accion: 'muestra', pestana }         → eligió «Muéstrame {pestaña}» (20/11, D1-02 y V3).
 //   POST { accion: 'hora', hora }              → a qué hora le escribe MaKo por WhatsApp (la eligió al escribirle).
 // Detrás del interruptor del onboarding V2 (lib/onboarding-v2/revision.ts): a quien no lo ve, `ve: false` y nada más. Guarda en
 // `app_settings` del negocio de la pestaña (`reto.estado`). Lo que es cada día vive en lib/reto/dias.ts.
@@ -62,9 +64,15 @@ async function funnel(): Promise<string | null> {
   try { const p = JSON.parse((await getSetting('funnel_coach.plan')) ?? 'null') as { funnel?: unknown } | null; return typeof p?.funnel === 'string' ? p.funnel : null; } catch { return null; }
 }
 
+/** Lo que eligió en «¿Qué te gustaría que MaKo resuelva primero?» (`onboarding.arranque` → intereses): «¿Qué hacemos ahora?». */
+async function intereses(): Promise<string[]> {
+  try { const a = JSON.parse((await getSetting('onboarding.arranque')) ?? 'null') as { intereses?: unknown } | null; return Array.isArray(a?.intereses) ? a.intereses.filter((x): x is string => typeof x === 'string') : []; } catch { return []; }
+}
+
 async function respuesta(e: EstadoReto | null, numero: string | null) {
   const { abierto, dias, hechos } = estadoDeLosDias(e, Date.now());
-  return Response.json({ ok: true, ve: true, estado: e, abierto, dias, hechos, linea: numero, funnel: await funnel() });
+  const [f, i] = await Promise.all([funnel(), intereses()]);
+  return Response.json({ ok: true, ve: true, estado: e, abierto, dias, hechos, linea: numero, funnel: f, intereses: i });
 }
 
 export async function GET() {
@@ -92,6 +100,13 @@ export async function POST(req: NextRequest) {
     // Adelantado = abierto ahora: el que sigue se abre mañana a su hora (adelantadoEn), y este día no lleva aviso de la mañana
     // (`avisado`): lo acordado es que el aviso sale sólo cuando el día se abre por calendario.
     e = { ...e, adelantado: dia, adelantadoEn: new Date(ahora).toISOString(), avisado: Math.max(e.avisado ?? 1, dia) };
+  } else if (body.accion === 'dia1') {
+    // «Empezar mi día 1» (D1-02): desde acá el chat muestra los días.
+    e = { ...e, dia1Desde: e.dia1Desde ?? new Date(ahora).toISOString() };
+  } else if (body.accion === 'muestra') {
+    const p = String((body as { pestana?: unknown }).pestana ?? '');
+    if (!/^[a-z-]{2,30}$/.test(p)) return Response.json({ ok: false, error: 'Esa pestaña no es del reto.' }, { status: 400 });
+    e = { ...e, muestras: [...new Set([...(e.muestras ?? []), p])] };
   } else if (body.accion === 'hora') {
     const hora = String(body.hora ?? '');
     if (!(HORAS_WA as readonly string[]).includes(hora)) return Response.json({ ok: false, error: 'Esa hora no está entre las del reto.' }, { status: 400 });

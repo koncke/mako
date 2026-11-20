@@ -191,6 +191,36 @@ export const DIAS_RETO: readonly DiaReto[] = [
   },
 ];
 
+// ── «¿Qué hacemos ahora?» (20/11/2026, auditoría D1-02 y V3) ─────────────────────────────────────────────────────────────
+// Lo acordado (memoria onboarding-16-11-decisiones: «Si elige algo, arranca el tutorial de eso, uno por función, con su video»; la
+// maqueta, INTERES_YA, MUESTRA y MUESTRA_FIN): después del saludo, MaKo nombra lo que la persona eligió en «¿Qué te gustaría que MaKo
+// resuelva primero?» (hasta 3, lib/onboarding-arranque.ts → INTERESES_V2) y pregunta «¿Qué hacemos ahora?», con «Empezar mi día 1»
+// (recomendada) y un «Muéstrame {pestaña}» por cada una. Cada una corre el tutorial de esa pestaña con su video.
+export type MuestraReto = { pestana: string; nombre: string; hacer: string };
+export const MUESTRA_DE_INTERES: Readonly<Record<string, MuestraReto>> = {
+  'Conseguir clientes con anuncios': { pestana: 'copilot', nombre: 'Marketing CoPilot', hacer: 'conseguir clientes con anuncios' },
+  'Armar mi landing': { pestana: 'web', nombre: 'Web Generator', hacer: 'armar tu landing' },
+  'Espiar lo que le funciona a mi competencia': { pestana: 'spy', nombre: 'Competitor Spy', hacer: 'espiar a tu competencia' },
+  'Guiones y carruseles que venden': { pestana: 'copywriting', nombre: 'Copywriting', hacer: 'armar tus guiones y carruseles' },
+  // La tab AI Avatar se cerró el 14/11: el personaje está en Video.
+  'Videos con IA y con mi avatar': { pestana: 'video', nombre: 'Video', hacer: 'hacer tus videos con IA' },
+  'Que WhatsApp e Instagram respondan solos': { pestana: 'automations', nombre: 'Automations', hacer: 'que WhatsApp e Instagram respondan solos' },
+  'Ordenar mis ventas en un CRM': { pestana: 'crm', nombre: 'CRM', hacer: 'ordenar tus ventas en el CRM' },
+  'Ver mis números en un tablero': { pestana: 'dashboard', nombre: 'Dashboard', hacer: 'ver tus números en un tablero' },
+  'Armar o mejorar mi oferta': { pestana: 'offer', nombre: 'Offer', hacer: 'armar tu oferta' },
+  'Mi curso y mi comunidad': { pestana: 'classroom', nombre: 'Classroom', hacer: 'armar tu curso y tu comunidad' },
+  'Organizar mi plan y mi equipo': { pestana: 'plan', nombre: 'Plan', hacer: 'organizar tu plan' },
+};
+/** Lo elegido que tiene su pestaña para mostrar, en orden y sin repetir (hasta 3). */
+export const muestrasDe = (intereses: readonly string[] | null | undefined): MuestraReto[] =>
+  [...new Set(intereses ?? [])].map((i) => MUESTRA_DE_INTERES[i]).filter((m): m is MuestraReto => !!m).slice(0, 3);
+const enLista = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
+export const RETO_EMPEZAR_DIA1 = 'Empezar mi día 1';
+export const RETO_INTERES_YA = (ms: readonly MuestraReto[]) => `Me dijiste que lo primero que quieres es ${enLista(ms.map((m) => m.hacer))}. ¿Te muestro cómo hacerlo ahora, o empezamos tu día 1? Si lo resuelves primero, no te preocupes: tu reto te espera aquí.`;
+export const RETO_MUESTRA = (m: MuestraReto) => `Te muestro dónde ${m.hacer}, en ${m.nombre}. Dale play.`;
+// La maqueta dice «Cuando quieras lo armamos juntos»: «juntos» marca género (la regla de los textos neutros).
+export const RETO_MUESTRA_FIN = (m: MuestraReto) => `Listo: ya sabes dónde ${m.hacer}. Cuando quieras, lo armamos; tu reto te espera.`;
+
 // ── Los días 4 a 6, según el funnel (20/11/2026, auditoría d24-14 y R57-01) ─────────────────────────────────────────────────
 // Martín, 15/11: «el reto tiene que servir a CADA funnel». La tabla es la de la maqueta (C:/dev/artefactos-onboarding/cuerpo.html,
 // POR_FUNNEL): qué mira en Competitor Spy, qué página arma, qué carrusel y qué guion, y para qué es el clip. Los funnels de la app
@@ -236,6 +266,10 @@ export type EstadoReto = { v: 1; inicio: string; adelantado: number; hechas: Rec
    * Desde el 20/11 una tarea queda hecha sólo así; las `hechas` de antes (por tocar la pestaña) no traen lectura y se vuelven a leer.
    */
   leidas?: Record<string, string>;
+  /** Cuándo eligió «Empezar mi día 1» (D1-02): hasta ahí, el chat pregunta «¿Qué hacemos ahora?» y no muestra los días. */
+  dia1Desde?: string;
+  /** Las pestañas que ya le mostró por «Muéstrame…» (`MuestraReto.pestana`). */
+  muestras?: string[];
   /** El último día del que salió el correo «Día N del reto de MaKo» (lib/reto/correos.ts): uno por día, una vez. */
   avisado?: number };
 
@@ -259,7 +293,9 @@ export function leerEstado(crudo: unknown): EstadoReto | null {
   for (const [k, v] of Object.entries(e.leidas && typeof e.leidas === 'object' ? e.leidas : {})) if (/^\d:[a-z-]+$/.test(k) && typeof v === 'string' && v) leidas[k] = v.slice(0, 200);
   // Sin `leidas` es un reto de antes del 20/11: sus «hechas» salían de tocar la pestaña y no prueban nada. Se vuelven a leer.
   const confiables = e.leidas && typeof e.leidas === 'object' ? Object.fromEntries(Object.entries(hechas).filter(([k]) => leidas[k])) : {};
-  return { v: 1, inicio: e.inicio, adelantado, hechas: confiables, leidas, ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}) };
+  const dia1Desde = typeof e.dia1Desde === 'string' && !Number.isNaN(Date.parse(e.dia1Desde)) ? e.dia1Desde : undefined;
+  const muestras = Array.isArray(e.muestras) ? [...new Set(e.muestras.filter((x): x is string => typeof x === 'string' && /^[a-z-]{2,30}$/.test(x)))].slice(0, 11) : [];
+  return { v: 1, inicio: e.inicio, adelantado, hechas: confiables, leidas, ...(dia1Desde ? { dia1Desde } : {}), ...(muestras.length ? { muestras } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}) };
 }
 
 /** La hora de Argentina (la de MaKo), UTC−3. */
