@@ -32,14 +32,15 @@ import { primerNombre } from '@/lib/onboarding-arranque';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import { ARBOL_VACIO } from '../offer/arbol';
 import { sembrarArranqueDesdeOrigen } from '@/lib/origen-negocio';
+import { conRebote, onboardingDevuelveALaApp, reboteReciente } from '@/lib/rebote-onboarding';
 // El onboarding va en el tema de la app, CLARO como todo (17/10/2026, Martín: «El onboarding, que sea white mode,
 // como todo»). Hasta ese día se forzaba oscuro con TemaOscuro/TemaOscuroScript; se fueron como en el Second Brain.
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const { tab } = await searchParams;
+export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ tab?: string; rebote?: string }> }) {
+  const { tab, rebote } = await searchParams;
   // gateOnboarding:false — esta ES la página del wizard, no puede redirigirse sola.
   await requireRolWs([], { gateOnboarding: false });
 
@@ -90,5 +91,24 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   // Ya onboardeado → Second Brain, a la sección que pedía el link (`?tab=`), o a su portada.
   // `rutaConWs` y no el path pelado: sin el `?ws=` el super admin que mira a un cliente
   // terminaría en SU propio Second Brain (AGENTS.md, «Hay CINCO formas de navegar»).
-  redirect(await rutaConWs(destinoDeTabVieja(tab)));
+  // ⚠️ EL CORTACIRCUITO (20/11/2026, lib/rebote-onboarding.ts: el ida y vuelta de ~7 minutos con la app). Si este pedido ACABA de
+  // rebotar de la guarda de la app (que lo vio sin terminar), devolverlo es el bucle: se muestra «ya está listo» y entra con un toque.
+  if (!onboardingDevuelveALaApp({ reboteReciente: reboteReciente(rebote, Date.now()) })) {
+    console.warn('[onboarding] /onboarding lo ve terminado y la guarda de la app no: «ya está listo», sin ida y vuelta');
+    return <OnboardingYaListo href={await rutaConWs(destinoDeTabVieja(tab))} />;
+  }
+  redirect(await rutaConWs(conRebote(destinoDeTabVieja(tab), Date.now())));
+}
+
+/** El onboarding ya terminó y la app no lo dejó entrar recién (`?rebote=`): entra con un toque, con navegación completa. */
+function OnboardingYaListo({ href }: { href: string }) {
+  return (
+    <main style={{ minHeight: '70vh', display: 'grid', placeItems: 'center', padding: '24px 16px', background: 'var(--bg)' }}>
+      <div style={{ maxWidth: 420, display: 'grid', gap: 14, textAlign: 'center' }}>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>Tu onboarding ya está listo</h1>
+        <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.5, color: 'var(--dim)' }}>Entra a MaKo para seguir.</p>
+        <a className="mk-btn mk-btn--md mk-btn--primary" href={href} data-onboarding-ya-listo="">Entrar a MaKo</a>
+      </div>
+    </main>
+  );
 }

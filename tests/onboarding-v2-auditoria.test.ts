@@ -154,7 +154,8 @@ test('12. OA-10 / OD-12: en el teléfono, «Sigamos en tu computadora» se queda
   assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /const id = `tutorial-\$\{t\.pestana\}`;/, 'el motor anota `tutorial-<pestaña>`');
   const onb = sinComentarios(leer('app/onboarding/page.tsx'));
   assert.match(onb, /if \(\(await esTelefono\(\)\.catch\(\(\) => false\)\) && \(await seguirEnPcPendiente\(\)\)\) \{[\s\S]{0,300}return <SeguirEnPc [^>]*maqueta \/>;/);
-  assert.ok(onb.indexOf('seguirEnPcPendiente()') < onb.indexOf('redirect(await rutaConWs(destinoDeTabVieja(tab)))'), 'antes de mandarlo a la app');
+  assert.ok(onb.indexOf('seguirEnPcPendiente()') < onb.indexOf('redirect(await rutaConWs(conRebote(destinoDeTabVieja(tab), Date.now())))'), 'antes de mandarlo a la app');
+  assert.ok(onb.indexOf('seguirEnPcPendiente()') < onb.indexOf('return <OnboardingYaListo'), 'y antes del «ya está listo»');
   const ini = sinComentarios(leer('app/inicio/page.tsx'));
   assert.match(ini, /if \(MOBILE_AL_ENTRAR && !!sesion && \(await esTelefono\(\)\) && \(await seguirEnPcPendiente\(\)\)\) redirect\(await rutaConWs\(RUTA_SEGUIR_EN_PC\)\);\n\s*if \(telefono\) redirect\(await rutaConWs\(ENTRADA_MOVIL\)\);/);
 });

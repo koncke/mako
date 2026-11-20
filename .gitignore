@@ -73,6 +73,9 @@ backups/
 # tocar el desplegable de «se dispara al caer en…» escribe en la base de un cliente.
 .respaldo-disparadores-ws*.json
 .respaldo-posiciones-ws*.json
+# Y el de «Reiniciar onboarding» (20/11/2026): el script lo escribe FUERA del repo (lib/respaldo-fuera-del-repo.ts), pero el
+# primero, de una clienta, quedó en la raíz sin que git lo ignorara. Por si otro script repite el error:
+respaldo-*.json
 
 # Las transcripciones de los chats (15/10/2026): tenían credenciales de producción y salieron del árbol por
 # decisión de Martín (docs/rotacion-credenciales.md). Si se vuelven a exportar, quedan fuera del repo.

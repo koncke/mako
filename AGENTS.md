@@ -2433,6 +2433,9 @@ código nuevo:
   - **El muñeco que Martín elige se guarda por nombre** (app_settings del workspace de la plataforma,
     lib/centro-munecos-db.ts) y se lee estricto antes de escribir. **El Cerebro es SIEMPRE la estrella de MaKo**
     (`ASPECTO_MAKO`, 17/10/2026): va fuera de `FORMAS` y `COLORES`, así que nadie más la puede elegir ni guardar.
+    **La criatura de MaKo es SÓLO del Ops Center** (20/11/2026, la llamada con Leila). El chat del reto, que para Martín es «el
+    nuevo grupo de WhatsApp», lleva el ícono de la app (`ASPECTO_APP_MAKO`: la baldosa con la chispa, la de la foto de la línea).
+    `Muneco` lo dibuja antes de mirar el título, porque un «MaKo» sería la criatura.
   - **LO DE WHATSAPP EN CADA MENSAJE: lo que le llega al chat va en el TEXTO FIRMADO; lo demás es de Martín** (17/10/2026;
     Martín: «agrega todas las funcionalidades de Whatsapp al mantener click en un mensaje»). Responder (la cita) y Reenviar
     salen por mandar.ts con su marca en el texto (lib/centro-mensajes.ts → `armarConCita`, `armarReenvio`); reaccionar,
@@ -2698,6 +2701,19 @@ onboarding y del reto, nunca los datos. Funciona porque sabe dónde vive cada co
 `SETTINGS_QUE_SE_BORRAN` o `SETTINGS_QUE_SE_REESCRIBEN` (lib/reiniciar-onboarding.ts), y si es un dato, en `LO_QUE_QUEDA`. Una marca
 nueva en el navegador va en `CLAVES_DEL_NAVEGADOR` (lib/reinicio-en-el-navegador.ts). Si no, el reinicio la deja y la persona no ve el
 onboarding entero. **El navegador también es estado:** lo visto que guarda se lo devuelve a la base (`Recorrido.tsx`, `useVisto.ts`).
+
+# Un script que respalda filas de un cliente escribe el respaldo FUERA de cualquier repo
+
+Con `escribirRespaldo` (lib/respaldo-fuera-del-repo.ts): C:/dev/respaldos, `--respaldo=<carpeta>` o MAKO_RESPALDOS, y se niega si la
+carpeta tiene un `.git` hacia arriba. Nunca en la carpeta donde corre el script, ni en una carpeta «ignorada» del repo: el respaldo del
+primer «Reiniciar onboarding» de verdad quedó en la raíz con los datos de una clienta, y git no lo ignoraba (20/11/2026).
+
+# Una guarda que REDIRIGE lee estricto, y dos páginas que se mandan una a la otra llevan cortacircuito
+
+«No pude leer» no es «no terminó»: si la lectura falla, la guarda deja pasar y lo anota (`mandarAlOnboarding`, lib/onboarding-state.ts).
+Y si A redirige a B y B a A, el redirect lleva su marca (`conRebote`, lib/rebote-onboarding.ts) y lo que acaba de rebotar no vuelve:
+se dibuja algo que se toca. Ninguna redirección depende de una escritura que puede no ocurrir (el destino trae lo que la evita, como
+`?chat=`). El 20/11/2026 la app y el onboarding se mandaron uno al otro ~7 minutos en producción.
 
 # Una pantalla que TRABA se dispara con la marca de quien entró al flujo, no con la falta de un «visto» nuevo
 

@@ -735,7 +735,7 @@ test('verificación 20/11: lo visto se recuerda por día; el desplegable, el pin
   assert.ok(chat.includes('onClick={() => verVideoDelDia(dia, conMarcas, titulo)}'), 'el del día 1, sin la cadena de marcas');
   assert.ok(chat.includes("actual === 7 && diaTerminado(d.estado, diasDelReto(d.funnel, d.integraciones)[6])) ? 'Completo'"), '«Completo» al cerrar el día 7');
   assert.ok(chat.includes('<svg className="rt-menu__flecha"') && chat.includes('<PinDelReto dias='), 'la flecha de cada fila y el pin');
-  assert.ok(chat.includes('const quienMako = useMemo(() => ({ nombre: RETO_TITULO, aspecto: ASPECTO_MAKO }), []);'), '«Escribe a Reto de 7 días»');
+  assert.ok(chat.includes('const quienMako = useMemo(() => ({ nombre: RETO_TITULO, aspecto: ASPECTO_APP_MAKO }), []);'), '«Escribe a Reto de 7 días», con el ícono de la app');
   const ruta = fuente('../app/api/reto/route.ts');
   assert.ok(ruta.includes("abiertoEl: { ...Object.fromEntries(abiertos.map((n) => [n, new Date(cuandoSeAbrio(x, Number(n), Date.parse(cuando)) ?? Date.parse(cuando)).toISOString()])), ...(x.abiertoEl ?? {}) }"), 'todo día abierto con la fecha de cuando se abrió (R57-F3)');
 });

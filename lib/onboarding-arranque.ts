@@ -120,6 +120,9 @@ export type EstadoArranque = {
   telefonoVisto?: string;
   /** Desde el 4/11/2026 la persona le ESCRIBE a MaKo (lib/verificacion-entrante.ts): 'codigo' = falta que mande el mensaje. Sin esto, MaKo le mandó el código. */
   telefonoEntrante?: boolean;
+  /** V2 (20/11/2026): el WhatsApp YA estaba confirmado de antes (un «Reiniciar onboarding» con el número verificado) y no hubo código.
+   *  MaKo lo dice y sigue con su contacto; nunca el mensaje del código ni «Listo, ya lo cargué.». Va y se borra con `telefonoNumero`. */
+  telefonoYa?: boolean;
   /** La conversación de Offer donde vive la oferta (modo 'oferta'). */
   sesionId?: number;
   /** El chat «Onboarding» del Ops Center con esta conversación (20/10/2026): se crea una vez, al terminar. */
@@ -184,7 +187,7 @@ export type EtapaArranque =
   | 'telefono' | 'codigo' | 'avisos' | 'cierre' | 'listo' | 'agendado';
 
 /** `pdf`: el PDF con lo que vende (la ruta lo arma con las piezas de la conversación). `codigo`: el del V2 (abrir WhatsApp y pegar). */
-export type TarjetaArranque = 'crm' | 'telefono' | 'whatsapp' | 'avisos' | 'pdf' | 'listo' | 'codigo';
+export type TarjetaArranque = 'crm' | 'telefono' | 'whatsapp' | 'avisos' | 'pdf' | 'listo' | 'codigo' | 'contacto';
 
 /** Un mensaje del chat de arranque (los de la conversación de la oferta son los de Offer, aparte). */
 export type MensajeArranque = {
@@ -376,6 +379,10 @@ export const TITULO_HILO = 'Onboarding';
 export const contextoDelHilo = (sesionId: number | undefined): string =>
   `Este chat guarda el onboarding del negocio: lo que contó al empezar en MaKo (onboarding:${sesionId ?? 'arranque'}).`;
 
+/** ¿Es el `contexto` de un chat «Onboarding»? (con cualquier marca: la de la oferta de un onboarding anterior también). */
+export const esContextoDelHilo = (contexto: string | null | undefined): boolean =>
+  typeof contexto === 'string' && /\(onboarding:[^)]*\)\.?\s*$/.test(contexto);
+
 /** Cuánto vale una reserva del chat «Onboarding» antes de darla por abandonada. */
 export const RESERVA_HILO_MS = 120_000;
 
@@ -401,7 +408,8 @@ export function decisionDelHilo(e: EstadoArranque, quien: string, o: { ahora: nu
  */
 export function salidaDelOnboarding(o: { nombre?: string | null; telefonoVerificado: boolean }): string {
   const nombre = primerNombre(o.nombre ?? '');
-  const donde = o.telefonoVerificado ? 'aquí o en tu grupo de WhatsApp' : 'aquí';
+  // Sin nombrar ningún grupo (20/11/2026: no hay más grupos con clientes): con el WhatsApp verificado, el chat privado con MaKo.
+  const donde = o.telefonoVerificado ? 'aquí o por WhatsApp' : 'aquí';
   return `Listo${nombre ? `, ${nombre}` : ''}: ya conozco tu negocio. Si algo no funciona, escríbeme ${donde} y abro un ticket.`;
 }
 
@@ -1497,7 +1505,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     return { ok: true, patch: { faseResp: propias, ...escritas }, ...(completa ? { fase: completa, ...(siguiente.canal ? { faseCanal: siguiente.canal } : {}) } : {}) };
   }
   if (etapa === 'codigo') {
-    if (opcion === CAMBIAR_NUMERO) return { ok: true, patch: { telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined } };
+    if (opcion === CAMBIAR_NUMERO) return { ok: true, patch: { telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined } };
     if (opcion === AHORA_NO) return { ok: true, patch: { telefono: 'postergado' } };
     return { ok: false, error: e.telefonoEntrante ? 'Mándame el mensaje por WhatsApp: aquí no hace falta escribir nada.' : 'Escribe el código de 6 dígitos.' };
   }
@@ -1851,6 +1859,13 @@ export const V2_CODIGO = `Para confirmar tu WhatsApp, toca «Abrir WhatsApp» y 
 export const V2_AGENDADO = '¿Guardaste el contacto de MaKo?';
 export const V2_AGENDADO_OPCIONES = ['Sí', 'No'] as const;
 export const V2_AGENDADO_NO = 'Guárdalo cuando puedas: es la tarjeta que te mandé con el código. Si no estoy en tus contactos, WhatsApp puede frenar lo que te mando, como los avances de tu negocio.';
+// EL WHATSAPP YA CONFIRMADO (20/11/2026, el Cerebro, después de «Reiniciar onboarding» con el número verificado): sin código. MaKo lo
+// dice con el número, y sigue con su contacto: la tarjeta en el chat (no hubo mensaje de WhatsApp que la trajera) y el texto de la
+// maqueta (`WA_AGENDAR`). Antes salía el mensaje del código sin su caja y una burbuja «Listo, ya lo cargué.» que ella nunca escribió.
+export const V2_YA_CONFIRMADO = (telefono: string): string => `Tu WhatsApp ${telefono} ya está confirmado.`;
+export const V2_GUARDAME = 'Guárdame en tus contactos para que pueda mandarte avances de tu negocio. Si no estoy guardado, WhatsApp puede frenar mis mensajes.';
+export const V2_AGENDADO_NO_YA = 'Guárdalo cuando puedas: es la tarjeta de arriba. Si no estoy en tus contactos, WhatsApp puede frenar lo que te mando, como los avances de tu negocio.';
+export const V2_NEGOCIO_YA = '¿Cómo se llama tu negocio?';
 export const V2_AGENDADO_NO_OPCIONES = ['Ya lo guardé', 'Lo hago después'] as const;
 export const V2_NEGOCIO = 'Listo, tu WhatsApp quedó confirmado. ¿Cómo se llama tu negocio?';
 export const V2_NEGOCIO_SIN_TELEFONO = (n: string): string => `Un gusto, ${n}. ¿Cómo se llama tu negocio?`;
@@ -1898,6 +1913,8 @@ export function mensajesDeArranqueV2(e: EstadoArranque, h: HechosArranque): Mens
   const n = e.nombre ? primerNombre(e.nombre) : '';
   const mako = (id: string, texto: string, x: Partial<MensajeArranque> = {}) => { out.push({ id: `arr-${id}`, de: 'mako', texto, ...x }); };
   const yo = (id: string, texto: string | undefined) => { if (texto) out.push({ id: `arr-${id}-r`, de: 'yo', texto }); };
+  /** El WhatsApp ya estaba confirmado (`telefonoYa`): sin el mensaje del código ni «Listo, ya lo cargué.». */
+  const yaConfirmado = e.telefono === 'verificado' && e.telefonoYa === true;
 
   mako('nombre', V2_NOMBRE);
   if (etapa === 'nombre') return out;
@@ -1907,22 +1924,27 @@ export function mensajesDeArranqueV2(e: EstadoArranque, h: HechosArranque): Mens
     mako('telefono', V2_TELEFONO(n), etapa === 'telefono' ? { tarjeta: 'telefono' } : {});
     if (etapa === 'telefono') return out;
     yo('telefono', e.telefonoVisto || (e.telefonoNumero ? telefonoVisible(e.telefonoNumero) : 'Mi WhatsApp'));
-    mako('codigo', V2_CODIGO, etapa === 'codigo' ? { tarjeta: 'codigo' } : {});
-    if (etapa === 'codigo') return out;
-    yo('codigo', CODIGO_CARGADO);
+    if (yaConfirmado) {
+      mako('ya-confirmado', V2_YA_CONFIRMADO(e.telefonoVisto || (e.telefonoNumero ? telefonoVisible(e.telefonoNumero) : '')), { tarjeta: 'contacto' });
+      mako('guarda-contacto', V2_GUARDAME);
+    } else {
+      mako('codigo', V2_CODIGO, etapa === 'codigo' ? { tarjeta: 'codigo' } : {});
+      if (etapa === 'codigo') return out;
+      yo('codigo', CODIGO_CARGADO);
+    }
     const enAgendado = etapa === 'agendado';
     // «Escribe otra cosa» también aquí (20/11, OA-14: la maqueta lo trae siempre); leerRespuestaV2 ya lee lo escrito.
     mako('agendado', V2_AGENDADO, enAgendado && !e.agendado ? { opciones: [...V2_AGENDADO_OPCIONES], recuadro: { tema: 'El contacto de MaKo', libre: true } } : {});
     if (enAgendado && !e.agendado) return out;
     yo('agendado', e.agendado === 'si' ? 'Sí' : 'No');
     if (e.agendado && e.agendado !== 'si') {
-      mako('agendado-no', V2_AGENDADO_NO, enAgendado ? { opciones: [...V2_AGENDADO_NO_OPCIONES], recuadro: { tema: 'El contacto de MaKo', libre: true } } : {});
+      mako('agendado-no', yaConfirmado ? V2_AGENDADO_NO_YA : V2_AGENDADO_NO, enAgendado ? { opciones: [...V2_AGENDADO_NO_OPCIONES], recuadro: { tema: 'El contacto de MaKo', libre: true } } : {});
       if (enAgendado) return out;
       yo('agendado-no', e.agendado === 'guardado' ? V2_AGENDADO_NO_OPCIONES[0] : V2_AGENDADO_NO_OPCIONES[1]);
     }
   }
 
-  mako('negocio', h.conTelefono ? V2_NEGOCIO : V2_NEGOCIO_SIN_TELEFONO(n));
+  mako('negocio', h.conTelefono ? (yaConfirmado ? V2_NEGOCIO_YA : V2_NEGOCIO) : V2_NEGOCIO_SIN_TELEFONO(n));
   if (etapa === 'negocio') return out;
   yo('negocio', e.negocio);
 

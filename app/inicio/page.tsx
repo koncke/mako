@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspaceActual, rutaConWs } from '@/lib/workspace';
-import { onboardingPendiente } from '@/lib/onboarding-state';
+import { mandarAlOnboarding } from '@/lib/onboarding-state';
+import { conRebote } from '@/lib/rebote-onboarding';
 import { esTelefono, prefiereMovil } from '@/lib/movil-guard';
 import { MOVIL_ACTIVO } from '@/lib/movil-desvio';
 import { ENTRADA_MOVIL } from '@/lib/movil-rutas';
@@ -59,6 +60,6 @@ export default async function Inicio() {
   // suyo con la cuenta del cliente puesta. El que opera no pasa por el onboarding: el wizard es de un negocio, y el suyo
   // es la plataforma. El orden lo fija tests/inicio-ops-center.test.ts.
   const opera = await quienOpera();
-  if (!opera && (await onboardingPendiente())) redirect(await rutaConWs('/onboarding'));
+  if (!opera && (await mandarAlOnboarding())) redirect(await rutaConWs(conRebote('/onboarding', Date.now())));
   redirect(await rutaConWs(casaEnLaComputadora({ opera, capa: opera ? null : await getCapaActual() })));
 }

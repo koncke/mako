@@ -20,7 +20,8 @@
 import 'server-only';
 import { redirect } from 'next/navigation';
 import { getCapaActual, getRolWsEfectivo, negocioPausadoDeLaSesion, rutaConWs } from './workspace';
-import { onboardingPendiente } from './onboarding-state';
+import { mandarAlOnboarding } from './onboarding-state';
+import { conRebote } from './rebote-onboarding';
 import { capaDef, tabEnCapa, type CapaId } from './capas';
 import { CORTE_POR_PLAN_PRENDIDO } from './api-tab';
 import { esNavSoloPro } from './plan-esencial-reglas';
@@ -48,7 +49,9 @@ export async function guardOnboarding(): Promise<void> {
   // onboarding, con el chrome de admin y sin barra de agencia — o sea, mirando otra
   // cuenta sin que nada se lo diga. Reproducido el 16/08/2026 con el Cliente de Prueba
   // recién reseteado: `/crm?ws=3` terminaba en `/onboarding` a secas.
-  if (await onboardingPendiente()) redirect(await rutaConWs('/onboarding'));
+  // `mandarAlOnboarding` y `conRebote` (20/11/2026, lib/rebote-onboarding.ts): lee estricto, y el ida y vuelta con /onboarding es
+  // imposible (un pedido que acaba de rebotar de ahí no vuelve).
+  if (await mandarAlOnboarding()) redirect(await rutaConWs(conRebote('/onboarding', Date.now())));
 }
 
 /**

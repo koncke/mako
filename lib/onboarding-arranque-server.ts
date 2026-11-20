@@ -31,7 +31,7 @@ import type { VistaEntrante } from './verificacion-entrante';
 import { getContactoReportes } from './perfil';
 import { integracionConectada } from './credenciales';
 import { leerSesion, leerFila, guardarComoOferta } from './offer-sesiones';
-import { createSession, deleteSession, listSessions } from './chart-chats';
+import { createSession, deleteSession, listSessions, setArchived } from './chart-chats';
 import { chartKeyDePersona } from './mako-turno-app-reglas';
 import { estadoDiagnostico } from './offer-reglas';
 import { crearFunnel, getFunnelDefault, idDelFunnelDefault, renombrarFunnel, saveFunnelDefault } from './funnels';
@@ -51,7 +51,7 @@ import { CLAVE_HISTORIAL, anotarCon, conLoNuevo, leerHistorial, unirConOffer } f
 import { getSupabaseServer } from './supabase';
 import { bloqueDeAudio } from './chat-mako-bloques';
 import {
-  CLAVE_ENCUESTA, funnelDelArranque, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, opcionesDeCobro, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
+  CLAVE_ENCUESTA, funnelDelArranque, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, esContextoDelHilo, cobroDelPrecio, opcionesDeCobro, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
 } from './onboarding-arranque';
 
@@ -198,7 +198,8 @@ export async function anotarRespuesta(e: EstadoArranque, h: HechosServer, dicho:
  * ⚠️ SIN CARRERA (revisión del Cerebro, 20/10): «Entrar a MaKo» o un F5 durante el POST corrían el Ops Center a la vez y
  *    quedaban dos «Onboarding» y dos vacíos, o se entraba a uno a medio copiar. Ahora: una RESERVA con compare-and-set
  *    sobre el estado (`hiloCreando`, quien no la gana no crea), los mensajes en UN insert, y `hiloChat` recién al final.
- *    Un chat marcado (`contextoDelHilo`) sin `hiloChat` es uno que quedó a medias: se borra y se rehace.
+ *    Un chat marcado (`contextoDelHilo`) sin `hiloChat` es uno que quedó a medias, o el de un onboarding anterior (un «Reiniciar
+ *    onboarding»): se archiva y se hace uno nuevo (20/11/2026: antes se borraba sólo el de la misma marca, y quedaban dos filas).
  * Devuelve el id del chat de esta persona, o null si no le toca (o si otro lo está armando).
  */
 /**
@@ -241,8 +242,11 @@ export async function hiloDelOnboarding(): Promise<number | null> {
     const mensajes = await mensajesParaElHilo(previo);
     const marca = contextoDelHilo(previo.sesionId);
     const sesiones = await listSessions(chartKey, true);
-    for (const s of sesiones.filter((x) => x.contexto === marca)) await deleteSession(s.id);
-    if (!sesiones.some((s) => !s.archived && s.contexto !== marca)) await createSession(chartKey, null, null);
+    // UNA SOLA FILA «Onboarding» (20/11/2026, la llamada con Leila: «en los chats de acá no está el chat de onboarding», y después de
+    // «Reiniciar onboarding» quedaba el de antes). Los chats «Onboarding» que ya tenía, con cualquier marca (la del onboarding anterior
+    // trae la de su oferta), se ARCHIVAN: salen de la lista y la conversación queda. Antes se borraban sólo los de esta misma marca.
+    for (const s of sesiones.filter((x) => esContextoDelHilo(x.contexto) && !x.archived)) await setArchived(s.id, true);
+    if (!sesiones.some((s) => !s.archived && !esContextoDelHilo(s.contexto))) await createSession(chartKey, null, null);
     const hilo = await createSession(chartKey, TITULO_HILO, marca);
     try {
       const db = await getTenantDb();

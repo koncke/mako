@@ -61,8 +61,19 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   // donde fallaba (al esperarlo, más abajo), no antes de la redirección.
   const pMapa: Promise<ReactNode> | null = veMapa && pideElMapa(q) ? mapaDelSecondBrain() : null;
   pMapa?.catch(() => {});
-  const hiloNuevo = await hiloParaQuienYaTermino().catch(() => null);
-  if (hiloNuevo) redirect(await rutaConWs(rutaDelHilo(hiloNuevo)));
+  // ⚠️ NUNCA SOBRE UN PEDIDO QUE YA ELIGE CHAT (20/11/2026, el Cerebro: «ninguna redirección puede depender de una escritura que
+  // puede no ocurrir»). El destino trae `?chat=`: si anotar `hiloChat` falló, la vuelta no redirige otra vez. Y «Entrar a MaKo»
+  // (`?reto=1`) llega al reto: el hilo ya lo creó su POST.
+  const eligeChat = !!(q.chat || q.reto);
+  // «HOLA DE NUEVO» SIEMPRE PRIMERO (20/11/2026, Martín en la llamada con Leila: «debería aparecerte en cualquiera… no importa el caso»).
+  // La llegada (el video del recorrido) es el primer mensaje del chat del reto, y sólo «Entrar a MaKo» lo abría (`?reto=1`). Quien
+  // terminó en el TELÉFONO llega a la PC por /inicio u /onboarding, sin eso, y caía en el Ops Center. La primera vez (empezó el V2 y
+  // no vio el recorrido: `seguirEnPcPendiente`), sin un chat elegido en la URL, se abre el reto. Se decide ANTES del chat «Onboarding»:
+  // ese chat se sigue creando (queda en la lista), pero sin llevar a él, que salteaba la llegada.
+  const sinEleccion = !(q.chat || q.coach || q.grupo || q.offer || q.antes || q.panel || q.area || q.centro || q.ticketera || q.recorrido || q.reto || (q as { guru?: string }).guru);
+  const alReto = sinEleccion && (await seguirEnPcPendiente().catch(() => false));
+  const hiloNuevo = eligeChat ? null : await hiloParaQuienYaTermino().catch(() => null);
+  if (hiloNuevo && !alReto) redirect(await rutaConWs(rutaDelHilo(hiloNuevo)));
   // Los chats de Claude Code (el Cerebro y cada jefe), sólo para quien `puedeOperar`: la guarda va ADENTRO, antes de
   // leer la cola (app/admin/operaciones/datos.ts). Tanda 5: «quiero mandar prompts por MaKo en el Second Brain».
   // Mirando a un cliente, sin el Centro (`quienOpera`): nunca los chats del super admin en la cuenta de un cliente.
@@ -79,7 +90,9 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   const nombrePersona = retoV2 ? await nombreDelReto(sesion?.nombre) : (sesion?.nombre ?? '').trim().split(/\s+/)[0] ?? '';
   // El chat «Onboarding» (sólo con el V2), para ponerlo enseguida del Ops Center en la lista (20/11, OD-08).
   const hiloOnboarding = retoV2 ? await hiloOnboardingGuardado() : null;
+  // La primera vez, el reto (`alReto`, arriba): ahí está «Hola de nuevo».
+  const qPantalla: QuerySecondBrain = retoV2 && alReto ? { ...q, reto: '1' } : q;
   // LA BARRA OCULTA AL RECARGAR (20/11, OD-03): la pone el layout raíz en el <html> del server (app/layout.tsx), no un <script> de
   // esta página: detrás de loading.tsx, el riel se veía hasta que llegaba la página.
-  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} />;
+  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={qPantalla} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} />;
 }
