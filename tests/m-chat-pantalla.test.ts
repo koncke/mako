@@ -160,24 +160,23 @@ test('8. el chat con un lead: la caja de WhatsApp, adjuntar por WhatsApp y email
 // el chip «Conectar tu IA» y la franja de la app le comían ~90 px a la conversación). Como el prototipo (`.falta-ia`).
 // Probado rompiéndolo (cada una, 8/1): la previa con la marca · sin {aviso} en la pantalla · «Conectar» con la app que bloquea ·
 // la caja repite el chip · el Guru sin la línea · la línea que scrollea.
-test('9. «Conectar tu IA» y la franja de la app: una línea debajo de la cabecera, no arriba de la caja', async () => {
+// 20/11/2026: la franja de la app de escritorio se fue (ningún chat la pide, tests/app-de-escritorio-primero.test.ts); queda
+// «Conectar tu IA».
+test('9. «Conectar tu IA»: una línea debajo de la cabecera, no arriba de la caja', async () => {
   const { avisoDeIA } = await import('../app/m/_chat/pantalla-chat');
-  assert.deepEqual(avisoDeIA('en-la-computadora', false), { texto: 'app', conectar: true }, 'las dos cosas, en la misma línea');
-  assert.deepEqual(avisoDeIA('tiene', false), { texto: 'ia', conectar: true });
-  assert.deepEqual(avisoDeIA('en-la-computadora', true), { texto: 'app', conectar: false });
-  assert.equal(avisoDeIA('bloquea', false), null, 'con la app que bloquea, «Conectar» no destraba nada');
-  assert.equal(avisoDeIA('tiene', true), null);
-  assert.equal(avisoDeIA(null, null), null, 'sin saberlo todavía, nada');
+  assert.equal(avisoDeIA(false), true);
+  assert.equal(avisoDeIA(true), false);
+  assert.equal(avisoDeIA(null), false, 'sin saberlo todavía, nada');
   const p = sinComentarios(leer('app/m/_chat/PantallaChatM.tsx'));
   assert.match(p, /<\/header>\n\s*\{aviso\}\n\s*<div className="m-chat__cuerpo">/, 'entre la cabecera y lo que scrollea');
   for (const f of ['app/m/second-brain/ChatClienteM.tsx', 'app/m/second-brain/HojaDelGuru.tsx', 'app/m/second-brain/HojaDelCoach.tsx']) {
     const s = sinComentarios(leer(f));
-    assert.match(s, /aviso=\{panel \? undefined : <AvisoDeIA app=\{k\.app\} iaConectada=\{k\.iaConectada\} onConectar=\{\(\) => k\.setConectando\(true\)\} \/>\}/, `${f}: la línea`);
+    assert.match(s, /aviso=\{panel \? undefined : <AvisoDeIA iaConectada=\{k\.iaConectada\} onConectar=\{\(\) => k\.setConectando\(true\)\} \/>\}/, `${f}: la línea`);
     assert.match(s, /<CajaDelCliente k=\{k\} campo=\{caja\} seguir=\{seguirHoja\} movil avisosArriba \/>/, `${f}: la caja no los repite`);
   }
   const c = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   assert.match(c, /const conectar = k\.iaConectada === false && !avisosArriba\n/, 'la caja, sin el chip');
-  assert.match(c, /\{k\.app === 'en-la-computadora' && !avisosArriba && <FranjaApp \/>\}/, 'la caja, sin la franja');
+  assert.doesNotMatch(c, /FranjaApp/, 'la franja de la app de escritorio se fue');
   assert.match(sinComentarios(leer('app/m/_chat/AvisoDeIA.tsx')), /\{\.\.\.ancla\('mk-conectar'\)\}/, 'la guía lo sigue encontrando');
   assert.match(leer('app/m/_chat/chat-wa.css'), /\.m-chat__aviso \{\n\s*flex: none;/, 'no scrollea con la conversación');
 });

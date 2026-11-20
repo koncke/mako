@@ -42,7 +42,7 @@ export function HojaDelGuru({ referente: r, onCerrar }: { referente: Asesor; onC
   return (
     <>
       <PantallaChatM abierto onCerrar={onCerrar} id={`guru-${r.id}`}
-        aviso={panel ? undefined : <AvisoDeIA app={k.app} iaConectada={k.iaConectada} onConectar={() => k.setConectando(true)} />}
+        aviso={panel ? undefined : <AvisoDeIA iaConectada={k.iaConectada} onConectar={() => k.setConectando(true)} />}
         titulo={panel === 'conectar' ? 'Tus cuentas de IA' : panel === 'info' ? 'Info del mensaje' : panel === 'cerebro' ? rotuloSecondBrain(r, false) : (
           <span className="m-operaciones-titulo">
             <span className="m-operaciones-titulo__muneco"><Muneco titulo={r.nombre} aspecto={aspecto} animo={k.enCurso ? 'trabajando' : 'despierto'} size={34} /></span>

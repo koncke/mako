@@ -87,17 +87,12 @@ export function pasoObjetivo(o: { superficie: string; delFunnel?: ObjetivoPieza 
 }
 
 /**
- * Lo que falta para que un `pedir` salga (plan.md §2.6): sin la app, «Instalar MaKo» (la pieza de la caja); con la app y sin su
- * IA, «Conectar tu IA»; ya con su IA y algo pendiente, «Escríbelo». `null` = se puede pedir ya.
+ * Lo que falta para que un `pedir` salga (plan.md §2.6): sin su IA, «Conectar tu IA»; ya con su IA y algo pendiente,
+ * «Escríbelo». `null` = se puede pedir ya. Hasta el 20/11/2026, sin la app de escritorio iba antes «Instalar MaKo»; ningún chat la
+ * pide desde ese día (lib/chat-mako-reglas.ts).
  * El pedido pendiente queda en la memoria de la apertura que lo pidió (`pendiente`), así que sobrevive a cerrar la pestaña.
  */
-export function pasoSinIA(o: { superficie: string; app: 'tiene' | 'bloquea' | 'en-la-computadora' | null; iaConectada: boolean | null; pendiente?: { texto: string; para?: string } | null }): Apertura | null {
-  if (o.app === 'bloquea') {
-    return {
-      id: `${o.superficie}:sin-app`, alcance: 'negocio', texto: 'Para escribirlo uso tu Claude o tu ChatGPT, desde la app de MaKo.',
-      botones: [{ tipo: 'hacer', rotulo: 'Instalar MaKo', accion: 'instalar' }, { tipo: 'callar', rotulo: 'Ahora no' }],
-    };
-  }
+export function pasoSinIA(o: { superficie: string; iaConectada: boolean | null; pendiente?: { texto: string; para?: string } | null }): Apertura | null {
   if (o.iaConectada === false) {
     return {
       id: `${o.superficie}:sin-ia`, alcance: 'negocio', texto: 'Conecta tu Claude o tu ChatGPT y lo escribo.',

@@ -6,7 +6,8 @@
 // Las anclas son los `data-recorrido` de siempre (los ids NO se renombran: son la clave de lo visto y lo que nombra el modelo):
 //   · `sb-*`: las del Ops Center, y `sb-hilo` / `sb-escribir`, que viven en el panel de TODO chat (PanelChat.tsx): por eso
 //     van `enElChat` (se busca la del chat dueño, la primera visible);
-//   · `mk-*`: las de todo chat de MaKo, «Instalar MaKo» y «Conectar» (la caja común y las cajas con motor propio).
+//   · `mk-*`: las de todo chat de MaKo, «Conectar» (la caja común y las cajas con motor propio). «Instalar MaKo» (`mk-instalar`)
+//     se fue el 20/11/2026: ningún chat pide la app de escritorio (lib/chat-mako-reglas.ts).
 // Sin `'use client'`, sin React: lo importan la pantalla, el server y los tests.
 
 import type { GuiaDeTab } from '@/lib/guia/tipos';
@@ -23,13 +24,12 @@ export const GUIA_OPS_CENTER = {
     { id: 'sb-uso', nombre: 'Uso', para: 'Tus cuentas de IA y lo que gastó cada una.', pregunta: '¿Dónde veo mi IA?' },
     { id: 'sb-hilo', nombre: 'La conversación', para: 'Aquí queda todo lo que hablamos.', enElChat: true },
     { id: 'sb-escribir', nombre: 'La caja', para: 'Escríbeme lo que necesitas.', enElChat: true },
-    { id: 'mk-instalar', nombre: 'Instalar MaKo', para: 'Toca aquí y se descarga MaKo.', enElChat: true },
-    // Aparece al tocar «Instalar MaKo» («Ya lo instalé: conectar»); con la app y sin su IA, es el «Conectar tu IA» de la caja.
-    { id: 'mk-conectar', nombre: 'Conectar', para: 'Ábrela y toca aquí para conectar tu IA.', antes: 'mk-instalar', enElChat: true },
+    // Sin su IA, el «Conectar tu IA» de la caja.
+    { id: 'mk-conectar', nombre: 'Conectar', para: 'Toca aquí para conectar tu IA.', enElChat: true },
   ],
   objetivos: [
-    { id: 'conectar', titulo: 'Conectar tu IA', si: (h) => !!h.sinApp || !!h.sinIA, pasos: [{ ancla: 'mk-conectar' }] },
-    { id: 'pedir', titulo: 'Pedirle algo a MaKo', si: (h) => !h.sinApp, pasos: [{ ancla: 'sb-escribir' }] },
+    { id: 'conectar', titulo: 'Conectar tu IA', si: (h) => !!h.sinIA, pasos: [{ ancla: 'mk-conectar' }] },
+    { id: 'pedir', titulo: 'Pedirle algo a MaKo', pasos: [{ ancla: 'sb-escribir' }] },
     { id: 'otro-tema', titulo: 'Empezar otro tema', pasos: [{ ancla: 'sb-nuevo' }, { ancla: 'sb-escribir', frase: 'Escríbeme el tema nuevo aquí.' }] },
     { id: 'reportes', titulo: 'Ver tus reportes', pasos: [{ ancla: 'sb-ticketera' }] },
   ],
