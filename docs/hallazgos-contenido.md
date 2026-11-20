@@ -314,7 +314,9 @@ portal (cursos duplicados, transcripciones que «faltan») está también en [ha
 
 15. **El mismo nombre escrito igual no suena igual en cada toma.** «Jormozi» salió «Hormozi» en el video 1 y «George
     Mozi» en el video 2; «Jormosi» anduvo. No hay una escritura que sirva siempre: si el chequeo oye otro nombre, se
-    prueba otra escritura u otra toma.
+    prueba otra escritura u otra toma. Acelerar con `atempo` también lo cambia: en el video 8, a ×1,10 el chequeo oyó
+    «Jord Mozi» las dos veces y a ×1,06 «Jormosi»; el chequeo se corre sobre el MP3 ya acelerado, y si falla se baja el
+    factor antes de regenerar la voz.
 
 16. **«docs/branding-mako.md quedó viejo» no era el motivo del push bloqueado.** Un worktree nuevo no tiene
     `node_modules`; el hook de la punta no encontró `tsx` (`ERR_MODULE_NOT_FOUND`, más arriba en la salida) y el
@@ -325,11 +327,20 @@ portal (cursos duplicados, transcripciones que «faltan») está también en [ha
     dos títulos «# Hallazgos — Contenido». **Regla:** antes de crear un doc de hallazgos, mirar `origin/main`; si ya
     existe, se entra como sección.
 
+18. **Lo que sólo ve el MP4 a 1 cuadro por segundo: el panel que entra vacío y el fundido encimado.** Las capturas se
+    piden en las palabras clave, así que nunca caen en el hueco entre que un panel entra y su primer elemento aparece
+    (en el video 5: 1,9 s de pizarra vacía) ni en los 0,3 s de un fundido donde un texto entra antes de que el otro se
+    vaya. **Regla al escribir la animación:** cada panel muestra algo a más tardar 0,3 s después de entrar (si la frase
+    importante llega tarde, arriba van las palabras que la voz está diciendo); y en un cambio en el mismo lugar, lo
+    viejo termina de irse antes de que entre lo nuevo (`sale = P(T, t - .35, .25)`, `entra = P(T, t - .1, .3)`). Las dos
+    cosas se leen en el código antes de capturar: así se encontró el mismo fundido en los videos 4 y 6, antes de
+    gastar un render de 32 minutos en cada uno.
+
 ### Lo que quedó sin hacer (serie 2)
 
-- Renders de `edu-dar-menos` (video 5) y `edu-viral-nicho` (video 4, con el segundo vacío de ~0:31 corregido): los HTML,
-  voces y fichas están listos en `C:/dev/artefactos-animaciones`; se frenaron el 19/11 a las 12:14 porque el onboarding
-  necesitaba la RAM y el navegador. El MP4 del 5 que quedó (1 MB) está roto.
+- Renders de `edu-viral-nicho` (video 4), `edu-verguenza` (6), `edu-cobrar-mas` (7) y `edu-anuncio-prueba` (8): HTML, voz y ficha listos en
+  `C:/dev/artefactos-animaciones`; van de a uno, por `turno.mjs` y con 3 GB libres (Martín usa la PC). El 5
+  (`edu-dar-menos`) se renderizó el 19/11 a las 20:43.
 
 - THE NET LAB (Meta Ads 2026: «Andrómeda», «Diversidad creativa», estructura de cuenta 2026): no se leyó, y es lo más
   fuerte para el tema 7 (el creativo de los anuncios).
