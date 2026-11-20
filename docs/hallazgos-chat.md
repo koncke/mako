@@ -557,3 +557,10 @@ auditoría). Las pruebas: tests/chats-de-a-uno.test.ts y, con el hook de verdad,
   HojaDelGuru.tsx), que todavía bajan con un `setTimeout` y `scrollTop`. Y nada de esto se miró en un navegador: está probado el código,
   no el uso.
 
+## La cola de salida en un chat que carga después: el historial se fija al montarse (20/11, chat «reto-tutoriales», claude5)
+
+- **La trampa:** `useColaDeSalida` (app/_chat/useColaDeSalida.ts) lee `historial` UNA vez, en el `useState` inicial. El chat del reto
+  se monta antes de que llegue /api/reto: con el historial vacío, todo lo ya visto de ESE reto salía otra vez de a uno, con puntitos.
+- **La regla:** un chat cuyas filas llegan después del montaje retiene la cola (`retenido: () => !historiaLista`). Apenas llegan los
+  datos, marca lo ya visto con `mostrarYa(ids)` y suelta. Lo mostrado se anota en `alMostrar`. Así lo hace
+  app/second-brain/reto/ChatDelReto.tsx, que además retiene hasta que la llegada (`LlegadaAlReto`) se mostró y el recorrido se vio.

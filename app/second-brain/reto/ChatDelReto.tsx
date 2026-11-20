@@ -12,7 +12,13 @@
 //     toca (cada tarea dice DÓNDE: sin botones de atajo) y su prueba por WhatsApp, con la persona escribiendo primero.
 //   · Lo que falta se marca con el motor de los tutoriales: la pantalla se oscurece y se señala dónde tocar (`senalarDondeTocar`).
 // =============================================================================
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
+import { MS_PAUSA_PIEZA, useColaDeSalida, type FilaDeCola } from '@/app/_chat/useColaDeSalida';
+import { LlegadaAlReto } from '@/app/second-brain/LlegadaAlReto';
+import { useRecorrido } from '@/app/_ui/Recorrido';
+import { ID_RECORRIDO } from '@/lib/onboarding-v2/llegada';
+import { intercalar } from './hilo-por-hora';
 import { useChatCliente } from '../useChatCliente';
 import { CajaDelCliente, HiloDelCliente } from '../PiezasCliente';
 import { ORIGEN_RETO, TAB_RETO, type ElegidoChat } from '@/lib/chat-mako-reglas';
@@ -35,16 +41,16 @@ import { FAMILIAS, itemsDe } from '@/app/_components/nav';
 import { anotarTutorialVisto, mostrarEnSuPestana } from './enSuPestana';
 import { RETO_D2_RECORDATORIO, SIGUIENTE_DE_TAREA, dejaParaDespues } from '@/lib/reto/dias';
 import { useManifiestoListo, useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
-import { cerrarDalePlay } from '@/app/_ui/tutorial/entrada';
+import { cerrarDalePlay, dalePlayCerrado, tituloDalePlay } from '@/app/_ui/tutorial/entrada';
 // V5 (20/11): la entrada de cada día (el velo y MaKo escribiendo) y el «dale play», las piezas del chat del onboarding (no otras).
 import { EntradaEscribiendo, useEntrada } from '@/app/_ui/tutorial/EntradaEscribiendo';
 import { CSS_REPRODUCTOR, VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
 import { useDalePlay } from '@/app/_ui/tutorial/useDalePlay';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
-import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutorial/desde-cero';
+import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo, vistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
 import { claveTarea, diaAbierto, diasDelReto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
 import { RETO_EMPEZAR_DIA1, RETO_INTERES_YA, RETO_MUESTRA, RETO_MUESTRA_FIN, muestrasDe, type MuestraReto } from '@/lib/reto/dias';
-import { DIAS_RETO, RETO_D2_EXT, RETO_D2_PERFIL, RETO_MANANA, RETO_PILOTO, cuandoSeAbrio, diaTerminado, finDelDia, marcasDeLaTarea, rotuloDelDia, tareaDespues } from '@/lib/reto/dias';
+import { DIAS_RETO, RETO_D2_EXT, RETO_D2_PERFIL, RETO_MANANA, RETO_PILOTO, cuandoSeAbrio, proximaApertura, diaTerminado, finDelDia, marcasDeLaTarea, rotuloDelDia, tareaDespues } from '@/lib/reto/dias';
 import { NOTA_PRO_UNA_VEZ, TAREA_PRO } from '@/lib/reto/pro-del-reto';
 import { Burbuja, DeLaPersona } from './Burbuja';
 import { SeguirEnPc } from '@/app/onboarding/SeguirEnPc';
@@ -160,29 +166,13 @@ export function marcarTarea(marcas: readonly MarcaReto[], alTerminar: () => void
     { alOmitir: alDejar, libre: m.libre, ...(m.listo ? { listo: m.listo } : {}), ...(m.pasar ? { pasar: true } : {}) });
 }
 
-// LOS TRES PUNTITOS (20/11, auditoría D1-10 y d24-11): lo acordado es que ningún mensaje del reto sale pegado a otro. La primera vez
-// que se ve, MaKo «escribe» y recién después llega, de a uno y en orden. Lo ya visto (en este navegador) sale de una.
+// LO VISTO DE CADA MENSAJE DEL RETO (20/11, D1-10 y d24-11; con el ámbito de ESTE reto): lo que ya salió en este navegador sale de una
+// la próxima vez (la cola de salida lo recibe como historial). Las claves, con el inicio del reto delante.
 const VISTOS = 'mako.reto.vistos';
-export const MS_ESCRIBE = 1200;
-export function useAparicion(claves: readonly string[], amb = ''): { ver: (k: string) => boolean; escribiendo: boolean; listo: boolean } {
-  const [vistos, setVistos] = useState<Set<string> | null>(null);
-  useEffect(() => { try { setVistos(new Set(JSON.parse(localStorage.getItem(VISTOS) ?? '[]') as string[])); } catch { setVistos(new Set()); } }, []);
-  const falta = vistos ? claves.find((k) => !vistos.has(amb + k)) : undefined;
-  useEffect(() => {
-    if (!vistos || !falta) return;
-    // Un día nuevo no espera acá: su entrada es la del motor (el velo con MaKo escribiendo, `useEntrada` en `Dia`; V5).
-    const espera = falta.startsWith('dia:') ? 0 : MS_ESCRIBE;
-    const t = window.setTimeout(() => {
-      const n = new Set(vistos); n.add(amb + falta);
-      try { localStorage.setItem(VISTOS, JSON.stringify([...n].slice(-300))); } catch { /* sin storage: igual se ve */ }
-      setVistos(n);
-    }, espera);
-    return () => window.clearTimeout(t);
-  }, [vistos, falta, amb]);
-  const corte = !vistos ? 0 : falta ? claves.indexOf(falta) : claves.length;
-  return { ver: (k) => { const i = claves.indexOf(k); return i < 0 || i < corte; }, escribiendo: !!vistos && !!falta && !falta.startsWith('dia:'), listo: !!vistos };
-}
-
+const leerVistos = (): Set<string> => { try { return new Set(JSON.parse(localStorage.getItem(VISTOS) ?? '[]') as string[]); } catch { return new Set(); } };
+const anotarVistoEnCola = (k: string): void => {
+  try { const v = leerVistos(); if (v.has(k)) return; v.add(k); localStorage.setItem(VISTOS, JSON.stringify([...v].slice(-300))); } catch { /* sin storage: igual se ve */ }
+};
 
 const YA_MARCADA = 'mako.reto.marcada.';
 /** La marca de Plan del final del día 3 (d24-22): sin clic, con «Entendido». */
@@ -316,24 +306,6 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   const enElPlan3 = termino && actual?.n === 3 && !!e?.enElPlan;
   const eligioManana = !!e && !!siguiente && e.manana === siguiente.n;
   const pregunta = termino && !!siguiente && !eligioManana;
-  // El orden en que llegan los mensajes (las claves de useAparicion).
-  const claves = !d || !e ? [] : [
-    'hola', ...(muestras.length ? ['interes'] : []), ...vistas.flatMap((m) => [`muestra:${m.pestana}`, `muestrafin:${m.pestana}`]),
-    ...(empezo1 ? abiertos.map((x) => `dia:${x.n}`) : []),
-    ...(termino && actual ? [`fin:${actual.n}`] : []),
-    ...(cierre ? ['piloto'] : []),
-    ...(enElPlan3 ? ['plan'] : []),
-    ...(termino && eligioManana && siguiente ? [`manana:${siguiente.n}`] : []),
-  ];
-  const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');
-  const vePlan = enElPlan3 && ap.ver('plan');
-  useEffect(() => {
-    if (!vePlan || yaMarcada('plan-dia-3') || senalAhora()) return;
-    anotarMarcada('plan-dia-3');
-    const t = window.setTimeout(() => marcarTarea([MARCA_PLAN], () => {}), 600);
-    return () => window.clearTimeout(t);
-  }, [vePlan]);
-  useEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [d?.abierto, d?.hechos, ap.escribiendo]);
   // «Empezar mi día 1» (D1-03 y D1-15, verificación del 20/11): llega el día 1 con su entrada, su mensaje y su video, y la marca de
   // Offer Coach sale recién AL TERMINAR el video (onFinVideo → marcarLoQueFalta). Antes salía a los 600 ms, debajo de la entrada, y
   // su velo tapaba el mensaje y el video del día 1.
@@ -343,6 +315,70 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   // vista (y en el chat, «Listo: ya sabes dónde…» y otra vez «¿Seguimos?»): antes salía a los 2,4 s, con el video corriendo.
   const [enCurso, setEnCurso] = useState<MuestraReto | null>(null);
   const muestraPendiente = enCurso && !vistas.some((m) => m.pestana === enCurso.pestana) ? enCurso : null;
+  // LA ENTRADA (memoria, onboarding-16-11-decisiones, «20/11, ~13:00»): lo primero del chat es la LLEGADA, con el video del recorrido
+  // general (LlegadaAlReto, la pieza del chat del onboarding). Recién cuando ese video termina o se omite (el recorrido visto) sale lo
+  // del reto: el saludo, «Me dijiste que…» y la pregunta, de a uno y con sus puntitos.
+  const recorrido = useRecorrido(ID_RECORRIDO, { autoabrir: false });
+  const recorridoVisto = ensayo.activo ? vistoEnEnsayo(ID_RECORRIDO) : recorrido.visto === true;
+  const [llegadaMostrada, setLlegadaMostrada] = useState(false);
+  const puerta = llegadaMostrada && recorridoVisto;
+  // LA COLA DE SALIDA (auditoría de chats del 20/11, reto-3, reto-4 y reto-8; app/_chat/useColaDeSalida.ts): cada mensaje del reto
+  // sale de a uno, con puntitos que duran según su largo (`msEscribiendo`), y lo que trae (el recuadro, la tarjeta del audio) sale
+  // después del texto, con su pausa. Antes useAparicion escalonaba sólo sus globos, con 1,2 s fijos: el recuadro salía con el mensaje y
+  // la muestra pedida, de golpe. Un día entra con su propia entrada (el velo y MaKo escribiendo: `Dia`); la persona, ya.
+  const faltaDe = (x: DiaReto): string[] => !e ? [] : x.n === 7
+    ? abiertos.flatMap((y) => y.tareas.filter((t) => !tareaHecha(e, y.n, t.id)).map((t) => t.id))
+    : x.tareas.filter((t) => !tareaHecha(e, x.n, t.id) && tareaDespues(e, x.n, t.id)).map((t) => t.id);
+  const todosLosDias = diasDelReto(d?.funnel, d?.integraciones);
+  const hora0 = e?.horaWa ?? '9:00';
+  const filas: FilaDeCola[] = !d || !e ? [] : [
+    { id: 'hola', de: 'mako', texto: RETO_HOLA(nombre) },
+    ...(muestras.length ? [{ id: 'interes', de: 'mako', texto: RETO_INTERES_YA(muestras) }] : []),
+    ...vistas.flatMap((m) => [{ id: `muestra:${m.pestana}`, de: 'mako', texto: RETO_MUESTRA(m) }, { id: `muestrafin:${m.pestana}`, de: 'mako', texto: RETO_MUESTRA_FIN(m) }]),
+    // La que pidió recién, con su clave desde el clic (reto-4): al quedar vista no vuelve a salir.
+    ...(muestraPendiente ? [{ id: `muestra:${muestraPendiente.pestana}`, de: 'mako', texto: RETO_MUESTRA(muestraPendiente) }] : []),
+    ...(!empezo1 && !muestraPendiente ? [{ id: `pregunta:${vistas.length}`, de: 'mako', texto: vistas.length ? '¿Seguimos?' : '¿Qué hacemos ahora?' }] : []),
+    ...(!empezo1 ? [] : abiertos.flatMap((x): FilaDeCola[] => {
+      const sig = todosLosDias.find((y) => y.n === x.n + 1);
+      const fin: FilaDeCola[] = !diaTerminado(e, x) ? [] : [
+        { id: `fin:${x.n}`, de: 'mako', texto: finDelDia(x, sig, hora0, nombre, faltaDe(x)) },
+        ...(x.n === 3 && e.enElPlan ? [{ id: 'plan', de: 'mako', texto: RETO_EN_TU_PLAN }] : []),
+        ...(x.n === 7 ? [{ id: 'piloto', de: 'mako', texto: RETO_PILOTO(d.funnel), pieza: !!x.whatsapp }] : []),
+        ...(sig && e.manana === sig.n ? [{ id: `yo-manana:${sig.n}`, de: 'yo', texto: 'Mañana' }, { id: `manana:${sig.n}`, de: 'mako', texto: RETO_MANANA(hora0, sig.n) }] : []),
+      ];
+      return [{ id: `dia:${x.n}`, de: 'dia', texto: '' }, ...fin];
+    })),
+    ...(pregunta && siguiente ? [{ id: `adelantar:${siguiente.n}`, de: 'mako', texto: `¿Adelantas el día ${siguiente.n}?` }] : []),
+  ];
+  // Lo ya visto de ESTE reto sale de una: apenas llega el reto, la cola lo recibe (`mostrarYa`); hasta ahí, nada sale. También lo de
+  // los días anteriores al de hoy (sus cierres no tenían clave antes de reto-6: no se vuelven a escribir).
+  const amb = e?.inicio ? `${e.inicio}|` : '';
+  const [historia, setHistoria] = useState<string | null>(null);
+  const cola = useColaDeSalida(filas, {
+    historial: () => [],
+    retenido: () => historia !== amb || !amb || !puerta,
+    alMostrar: (id) => { if (amb) anotarVistoEnCola(amb + id); },
+  });
+  const mostrarYa = cola.mostrarYa;
+  useEffect(() => {
+    if (!amb || historia === amb || !d || !e) return;
+    const vistos = leerVistos();
+    const hoyN = abiertos[abiertos.length - 1]?.n ?? 1;
+    const deAntes = (id: string) => { const m = /^(?:dia|fin):(\d)$/.exec(id); return id === 'plan' ? hoyN > 3 : m ? Number(m[1]) < hoyN : /^(?:yo-)?manana:(\d)$/.test(id) && Number(id.slice(-1)) <= hoyN; };
+    mostrarYa(filas.filter((x) => vistos.has(amb + x.id) || deAntes(x.id)).map((x) => x.id));
+    setHistoria(amb);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amb, !!d]);
+  const visibles = new Set(cola.visibles.map((x) => x.id));
+  const ver = (id: string) => visibles.has(id);
+  const listo = historia === amb && !!amb;
+  const vePlan = enElPlan3 && ver('plan');
+  useEffect(() => {
+    if (!vePlan || yaMarcada('plan-dia-3') || senalAhora()) return;
+    anotarMarcada('plan-dia-3');
+    const t = window.setTimeout(() => marcarTarea([MARCA_PLAN], () => {}), 600);
+    return () => window.clearTimeout(t);
+  }, [vePlan]);
   const verMuestra = (m: MuestraReto) => {
     const t = tutorialDe(m.pestana);
     const vista = () => { void hacer({ accion: 'muestra', pestana: m.pestana }); };
@@ -364,24 +400,114 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     if (fila) { fila.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     if (sigue.t && !senalAhora()) correr(sigue.t, sigue.n);
   };
-  // EL PERFIL ARRANCA SOLO (verificación OD-11; la maqueta, b-perfil): con la hora guardada (o dejada para después), MaKo manda
-  // RETO_D2_PERFIL y enseguida marca la foto, Settings y el botón de la foto. Una vez por visita y con el motor libre.
-  const perfil2 = !!e && !!actual && actual.n === 2 && empezo1 && (!!e.horaWa || tareaDespues(e, 2, 'hora')) && !tareaHecha(e, 2, 'perfil') && !tareaDespues(e, 2, 'perfil')
-    && ['app', 'extension', 'integraciones'].every((id) => tareaHecha(e, 2, id) || tareaDespues(e, 2, id));
+  // CADA PASO QUE APARECE, CON SU MARCA (auditoría de chats, reto-9; la maqueta marca sola cada tarea que sigue, cuerpo.html
+  // :2031-2093). Antes se marcaba sólo la primera, después del video; hecha ésa, la que seguía había que ir a tocarla. Ahora, la que
+  // toca HOY se marca sola una vez por visita, con el motor libre, recién después del video del día (D1-03) y con su fila ya en el hilo.
+  // También el perfil del día 2 después de la hora (OD-11) y Offer Coach del día 1 si el video ya se vio y recarga (reto-5, c).
+  const tocaHoy = (() => {
+    if (!e || !actual || !empezo1 || termino) return null;
+    const esperaLaHora = (x: TareaReto) => actual.n === 2 && x.id === 'perfil' && !e.horaWa && !tareaDespues(e, 2, 'hora');
+    return actual.tareas.find((x) => !x.siempre && !tareaHecha(e, actual.n, x.id) && !tareaDespues(e, actual.n, x.id) && !esperaLaHora(x)) ?? null;
+  })();
+  const claveToca = tocaHoy && actual ? `${actual.n}:${tocaHoy.id}` : '';
   useEffect(() => {
-    const t = TAREA_PERFIL;
-    if (!perfil2 || !t || yaMarcada('2:perfil')) return;
+    const t = tocaHoy, n = actual?.n;
+    if (!t || !n || yaMarcada(claveToca) || !yaVisto(`video:${n}`)) return;
     const id = window.setTimeout(() => {
-      if (senalAhora() || yaMarcada('2:perfil') || !document.querySelector('[data-recorrido="sb-reto-dia-2-perfil"]')) return;
-      anotarMarcada('2:perfil');
-      correr(t, 2);
+      if (senalAhora() || yaMarcada(claveToca)) return;
+      if (n > 1 && !document.querySelector(`[data-tarea="${claveToca}"]`)) return;
+      const primera = marcasDeLaTarea(t)[0];
+      if (primera && !document.querySelector(primera.sel)) return;
+      anotarMarcada(claveToca);
+      correr(t, n);
     }, MS_ANTES_DEL_PERFIL);
     return () => window.clearTimeout(id);
-  }, [perfil2, correr]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claveToca, correr]);
+  // EL DÍA QUE SE ABRE, CON EL CHAT ABIERTO (reto-7): se relee el reto a la hora en que se abre el que sigue. Antes llegaba recién al
+  // cambiar de pestaña y volver.
+  const proxima = e ? proximaApertura(e, Date.now()) : null;
+  useEffect(() => {
+    if (proxima == null) return;
+    const t = window.setTimeout(() => { void leer(); }, Math.min(Math.max(proxima - Date.now() + 3000, 1000), 2_000_000_000));
+    return () => window.clearTimeout(t);
+  }, [proxima, leer]);
   // La hora CONFIRMADA (verificación R57-F3): la de las burbujas, el cierre del día y «mañana a las…». La del selector, sólo en su
   // tarjeta: antes, tocar otra hora sin confirmarla cambiaba la hora de todos los mensajes.
   const horaWa = e?.horaWa ?? '9:00';
   const horaElegida = hora ?? horaWa;
+  // LAS PIEZAS DEL RETO, CADA UNA CON SU HORA (reto-2 y reto-6): cada día abierto y, debajo, su cierre si terminó. Antes el cierre
+  // («¡Terminaste tu día…!», «Tu reto está en tu Plan», «Perfecto: mañana…») miraba sólo el último día abierto: al adelantar
+  // desaparecía del hilo. El del día de HOY llega con sus puntitos (la cola de salida); los de antes, ya vistos, quedan como están.
+  type Pieza = { t: number; key: string; nodo: ReactNode };
+  const piezas: Pieza[] = [];
+  if (d && e && empezo1) {
+    const ahoraMs = Date.now();
+    const todos = diasDelReto(d.funnel, d.integraciones);
+    for (const dia of abiertos) {
+      if (!ver(`dia:${dia.n}`)) continue;
+      const tDia = dia.n === 1 ? Date.parse(e.dia1Desde ?? e.inicio) : (cuandoSeAbrio(e, dia.n, ahoraMs) ?? ahoraMs);
+      piezas.push({ t: tDia, key: `dia:${dia.n}`, nodo: (
+        <>
+          {/* Lo que eligió en «¿Adelantas el día N?», como su mensaje (verificación D1-06; la maqueta, `yo(rt, r.v)`). */}
+          {e.adelantados?.includes(dia.n) && <DeLaPersona texto={`Adelantar al día ${dia.n}`} />}
+          <Dia dia={dia} e={e} linea={d.linea} hora={horaWa} horaElegida={horaElegida} proUnaVez={!!d.proUnaVez} hoy={dia.n === d.abierto}
+            deAntes={dia.n === d.abierto ? abiertos.filter((x) => x.n < dia.n).flatMap((x) => x.tareas.filter((t) => !tareaHecha(e, x.n, t.id)).map((t) => ({ n: x.n, t }))) : []}
+            onHora={(h) => setHora(h)}
+            onConfirmarHora={() => { if (ensayo.activo) void hacer({ accion: 'hora', hora: horaElegida }); }}
+            onMarcar={(t, n = dia.n) => correr(t, n, () => window.setTimeout(() => marcarLoQueFalta(abiertos.find((x) => x.n === n) ?? dia, [t.id]), 400))}
+            onTocadoEnVideo={() => { void leer(); }}
+            onClipListo={() => { void leer(); }}
+            qrApp={d.qrApp ?? null} integraciones={d.integraciones ?? []}
+            onDespues={(id) => { void hacer({ accion: 'despues', dia: dia.n, id }); }}
+            onDespuesDe={(n, id) => { void hacer({ accion: 'despues', dia: n, id }); }}
+            onFinVideo={() => marcarLoQueFalta(dia)} />
+        </>
+      ) });
+      if (!diaTerminado(e, dia)) continue;
+      const esHoy = dia.n === actual?.n;
+      const verFin = (k2: string) => !esHoy || ver(k2);
+      const sig = todos.find((x) => x.n === dia.n + 1);
+      const faltaDia = faltaDe(dia);
+      const mananaDia = !!sig && e.manana === sig.n;
+      // Terminó cuando se hizo lo último (lo dejado para después no guarda la hora: entonces, al abrirse).
+      const tFin = Math.max(tDia, ...dia.tareas.map((t) => Date.parse(e.hechas[claveTarea(dia.n, t.id)] ?? '') || 0)) + 1;
+      piezas.push({ t: tFin, key: `fin:${dia.n}`, nodo: (
+        <>
+          {verFin(`fin:${dia.n}`) && <Burbuja><p>{finDelDia(dia, sig, horaWa, nombre, faltaDia)}</p></Burbuja>}
+          {dia.n === 3 && !!e.enElPlan && verFin('plan') && <Burbuja><p>{RETO_EN_TU_PLAN}</p></Burbuja>}
+          {/* El cierre del reto (R57-08): el piloto según su funnel y, recién después, la tarjeta del audio para Martín. */}
+          {dia.n === 7 && verFin('piloto') && <Burbuja><p>{RETO_PILOTO(d.funnel)}</p></Burbuja>}
+          {dia.n === 7 && verFin('piloto') && dia.whatsapp && cola.conPieza('piloto') && <TarjetaPrueba p={dia.whatsapp} linea={d.linea} hora={horaWa} hecha={e.pruebas?.['7'] ?? null} />}
+          {/* «Mañana» queda como su mensaje, y MaKo contesta lo de la maqueta con SU hora (verificación D1-06; cuerpo.html, MANANA). */}
+          {mananaDia && sig && verFin(`yo-manana:${sig.n}`) && <DeLaPersona texto="Mañana" />}
+          {mananaDia && sig && verFin(`manana:${sig.n}`) && <Burbuja><p>{RETO_MANANA(horaWa, sig.n)}</p></Burbuja>}
+        </>
+      ) });
+    }
+  }
+  const hiloPorHora = intercalar(piezas, k.items);
+  const ultimoTramo = hiloPorHora.reduce((u, x, i) => ('tramo' in x ? i : u), -1);
+  // EL CHAT BAJA AL ÚLTIMO (reto-1 y reto-10, con el gancho común app/_chat/useBajarAlUltimo.ts): con cada pieza o mensaje nuevo, con
+  // los puntitos, al cerrar el catálogo, y con lo que CRECE (el video, la tarjeta) mientras la persona está abajo. Antes bajaba sólo con
+  // el día o un día completo: al montar el día, con la entrada, las tareas sueltas o lo escrito en la caja, quedaba arriba.
+  // La clave es la de la ÚLTIMA FILA dibujada, nunca una cuenta (el chat del onboarding, 20/11: con una cuenta, la auditoría encontró
+  // que no baja): los puntitos, el último mensaje del reto que ya se ve, la última pieza (un día, con lo que ya salió adentro: sus tareas
+  // hechas o para después y la hora) o el último mensaje de la charla, la muestra pedida y el catálogo.
+  const seguirHilo = useCallback(() => hilo.current, []);
+  const ultimaFila = hiloPorHora[hiloPorHora.length - 1];
+  const delDia = (n: number) => !e ? '' : `${Object.keys(e.hechas).filter((x) => x.startsWith(`${n}:`)).sort().join(',')}/${(e.despues ?? []).filter((x) => x.startsWith(`${n}:`)).sort().join(',')}/${e.horaWa ?? ''}`;
+  const claveUltimaFila = catalogo ? 'catalogo' : !d || !e ? 'carga' : [
+    cola.escribiendo ? 'escribe' : '',
+    cola.visibles[cola.visibles.length - 1]?.id ?? '',
+    !ultimaFila ? '' : 'pieza' in ultimaFila ? `${ultimaFila.pieza.key}#${delDia(Number(ultimaFila.pieza.key.split(':')[1]))}` : `charla:${ultimaFila.tramo[ultimaFila.tramo.length - 1]?.id ?? ''}`,
+    k.enCurso ? 'trabaja' : '',
+    muestraPendiente?.pestana ?? '',
+  ].join('|');
+  useBajarAlUltimo(seguirHilo, claveUltimaFila);
+  // LOS PUNTITOS DE LA CARGA, SÓLO LA PRIMERA VEZ (reto-11; decidido por el Cerebro): mientras carga /api/reto, con nada visto todavía en
+  // este navegador. Con historia, nada mientras carga y después todo de una (antes, cada visita empezaba con «MaKo está escribiendo»).
+  const primeraVez = useSyncExternalStore(sinSuscribir, () => { try { return !localStorage.getItem(VISTOS); } catch { return true; } }, () => false);
   // EL TELÉFONO (verificación R57-F5; decidido por el Cerebro): el reto SIEMPRE dice «Sigamos en tu computadora», con el mismo
   // componente del onboarding. También con la cookie «Versión completa», que abre este Ops Center de escritorio en el teléfono.
   const telefono = useSyncExternalStore(sinSuscribir, () => esTelefono(navigator.userAgent), () => false);
@@ -394,13 +520,13 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
         // con margin-left: auto; la captura de Martín del 20/11 los mostraba pegados al título, con los videos primero).
         acciones: d && e ? <span className="rt-acciones"><DesplegableReto d={d} abierto={menu} onAbrir={setMenu} /><BotonTutoriales activo={catalogo} onClick={() => setCatalogo((x) => !x)} /><PinDelReto dias={empezo1 ? abiertos : []} fijados={k.marcas.fijados.length} /></span> : undefined }}
       arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={RETO_TITULO} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
-      caja={<>{sigue && ap.listo && !ap.escribiendo && (
+      caja={<>{sigue && listo && !cola.escribiendo && (
         <button type="button" className="rt-sigue" onClick={irAlSiguiente}>
           <span aria-hidden>↓</span><span>Tu siguiente paso: <b>{sigue.txt}</b></span>
         </button>
-      )}{d && e && !empezo1 && !muestraPendiente && ap.listo && !ap.escribiendo
+      )}{d && e && !empezo1 && !muestraPendiente && ver(`pregunta:${vistas.length}`)
         ? <QueHacemos titulo={vistas.length ? '¿Seguimos?' : '¿Qué hacemos ahora?'} quedan={quedan} onDia1={empezarDia1} onMostrar={(m) => setEnCurso(m)} />
-        : pregunta && siguiente && ap.listo && !ap.escribiendo
+        : pregunta && siguiente && ver(`adelantar:${siguiente.n}`)
         ? <AdelantarDia n={siguiente.n} onAdelantar={() => void hacer({ accion: 'adelantar', dia: siguiente.n })} onManana={() => void hacer({ accion: 'manana', dia: siguiente.n })} />
         : null}<div className="co-caja"><CajaDelCliente k={k} campo={campo} seguir={() => hilo.current} /></div></>}
       estado="">
@@ -411,48 +537,28 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
       <div className="co-hilo__col rt-hilo" data-recorrido="sb-reto-hilo">
         {/* Mientras llegan los datos (o arranca el reto la primera vez), MaKo escribiendo: los tres puntitos y no «Cargando tu reto…» ni
             «Empezando tu reto…» (20/11, la verificación de OD-09). */}
-        {catalogo && d ? <CatalogoTutoriales diaAbierto={d.abierto} onVolver={() => setCatalogo(false)} /> : !d || !e ? <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo" data-reto-carga=""><span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></span></Burbuja> : (
+        {catalogo && d ? <CatalogoTutoriales diaAbierto={d.abierto} onVolver={() => setCatalogo(false)} /> : !d || !e ? (primeraVez ? <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo" data-reto-carga=""><span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></span></Burbuja> : null) : (
           <>
-            {ap.ver('hola') && <Burbuja><p>{RETO_HOLA(nombre)}</p></Burbuja>}
-            {muestras.length > 0 && ap.ver('interes') && <Burbuja><p>{RETO_INTERES_YA(muestras)}</p></Burbuja>}
+            {/* LA LLEGADA, SIEMPRE PRIMERO (la pieza del chat del onboarding): el video del recorrido general. Lo del reto sale después. */}
+            <LlegadaAlReto nombre={nombre} listo={listo} onMostrada={() => setLlegadaMostrada(true)} />
+            {ver('hola') && <Burbuja><p>{RETO_HOLA(nombre)}</p></Burbuja>}
+            {muestras.length > 0 && ver('interes') && <Burbuja><p>{RETO_INTERES_YA(muestras)}</p></Burbuja>}
             {vistas.map((m) => (
               <Fragment key={m.pestana}>
-                {ap.ver(`muestra:${m.pestana}`) && <Burbuja ancho><VideoDeMuestra m={m} onPlay={() => verMuestra(m)} /><p className="rt-dia__msj">{RETO_MUESTRA(m)}</p></Burbuja>}
-                {ap.ver(`muestrafin:${m.pestana}`) && <Burbuja><p>{RETO_MUESTRA_FIN(m)}</p></Burbuja>}
+                {ver(`muestra:${m.pestana}`) && <Burbuja ancho><VideoDeMuestra m={m} onPlay={() => verMuestra(m)} /><p className="rt-dia__msj">{RETO_MUESTRA(m)}</p></Burbuja>}
+                {ver(`muestrafin:${m.pestana}`) && <Burbuja><p>{RETO_MUESTRA_FIN(m)}</p></Burbuja>}
               </Fragment>
             ))}
             {/* La que pidió recién: su mensaje con el video, hasta que lo vea en la pestaña (y quede en `vistas`). */}
-            {muestraPendiente && (
+            {muestraPendiente && ver(`muestra:${muestraPendiente.pestana}`) && (
               <Burbuja ancho><VideoDeMuestra m={muestraPendiente} onPlay={() => verMuestra(muestraPendiente)} /><p className="rt-dia__msj">{RETO_MUESTRA(muestraPendiente)}</p></Burbuja>
             )}
-            {empezo1 && abiertos.filter((dia) => ap.ver(`dia:${dia.n}`)).map((dia) => (
-              <Fragment key={dia.n}>
-              {/* Lo que eligió en «¿Adelantas el día N?», como su mensaje (verificación D1-06; la maqueta, `yo(rt, r.v)`). */}
-              {e.adelantados?.includes(dia.n) && <DeLaPersona texto={`Adelantar al día ${dia.n}`} />}
-              <Dia dia={dia} e={e} linea={d.linea} hora={horaWa} horaElegida={horaElegida} proUnaVez={!!d.proUnaVez} hoy={dia.n === d.abierto}
-                deAntes={dia.n === d.abierto ? abiertos.filter((x) => x.n < dia.n).flatMap((x) => x.tareas.filter((t) => !tareaHecha(e, x.n, t.id)).map((t) => ({ n: x.n, t }))) : []}
-                onHora={(h) => setHora(h)}
-                onConfirmarHora={() => { if (ensayo.activo) void hacer({ accion: 'hora', hora: horaElegida }); }}
-                onMarcar={(t, n = dia.n) => correr(t, n, () => window.setTimeout(() => marcarLoQueFalta(abiertos.find((x) => x.n === n) ?? dia, [t.id]), 400))}
-                onTocadoEnVideo={() => { void leer(); }}
-                onClipListo={() => { void leer(); }}
-                qrApp={d.qrApp ?? null} integraciones={d.integraciones ?? []}
-                onDespues={(id) => { void hacer({ accion: 'despues', dia: dia.n, id }); }}
-                onDespuesDe={(n, id) => { void hacer({ accion: 'despues', dia: n, id }); }}
-                onFinVideo={() => marcarLoQueFalta(dia)} />
-              </Fragment>
-            ))}
-            {termino && actual && ap.ver(`fin:${actual.n}`) && <Burbuja><p>{finDelDia(actual, siguiente, horaWa, nombre, falta)}</p></Burbuja>}
-            {enElPlan3 && ap.ver('plan') && <Burbuja><p>{RETO_EN_TU_PLAN}</p></Burbuja>}
-            {/* El cierre del reto (R57-08): el piloto según su funnel y, recién después, la tarjeta del audio para Martín. */}
-            {cierre && ap.ver('piloto') && <Burbuja><p>{RETO_PILOTO(d.funnel)}</p></Burbuja>}
-            {cierre && ap.ver('piloto') && actual?.whatsapp && <TarjetaPrueba p={actual.whatsapp} linea={d.linea} hora={horaWa} hecha={e.pruebas?.['7'] ?? null} />}
-            {/* «Mañana» queda como su mensaje, y MaKo contesta lo de la maqueta con SU hora (verificación D1-06; cuerpo.html, MANANA). */}
-            {termino && eligioManana && siguiente && <DeLaPersona texto="Mañana" />}
-            {termino && eligioManana && siguiente && ap.ver(`manana:${siguiente.n}`) && <Burbuja><p>{RETO_MANANA(horaWa, siguiente.n)}</p></Burbuja>}
-            {/* Lo que le escribió a MaKo en este chat, y lo que contestó (su conversación, después de los mensajes del reto). */}
-            {(k.items.length > 0 || k.enCurso) && <HiloDelCliente k={k} />}
-            {ap.escribiendo && <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo"><span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></span></Burbuja>}
+            {/* Los días, sus cierres y lo que le escribió a MaKo en la caja, en UN hilo por hora (reto-2 y reto-6). */}
+            {hiloPorHora.map((x, i) => ('pieza' in x
+              ? <Fragment key={x.pieza.key}>{x.pieza.nodo}</Fragment>
+              // Cada tramo, con SU parte de la charla; sólo el último lleva «MaKo está escribiendo» (HiloDelCliente, sin cambios).
+              : <HiloDelCliente key={`charla-${x.desde}`} k={{ ...k, items: x.tramo, enCurso: i === ultimoTramo && k.enCurso }} />))}
+            {cola.escribiendo && <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo"><span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></span></Burbuja>}
           </>
         )}
       </div>
@@ -565,6 +671,14 @@ export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy =
   const [qrDeAntes] = useState(() => yaVisto('qr-app'));
   const esperaApp = dia.n === 2 && !!qrApp && !tareaHecha(e, 2, 'app') && !tareaDespues(e, 2, 'app');
   useEffect(() => { if (esperaApp) anotarVisto('qr-app'); }, [esperaApp]);
+  // LO QUE TRAE EL DÍA, DESPUÉS DE SU MENSAJE (auditoría de chats, reto-3; decidido por el Cerebro: el QR del día 2 NO sale junto con el
+  // video): la tarjeta del día, el QR y lo que sigue salen con su pausa (MS_PAUSA_PIEZA, la de la cola de salida) después del mensaje.
+  const [conPieza, setConPieza] = useState(() => !(hoy && nuevo));
+  useEffect(() => {
+    if (conPieza || fase !== 'listo') return;
+    const t = window.setTimeout(() => setConPieza(true), MS_PAUSA_PIEZA);
+    return () => window.clearTimeout(t);
+  }, [conPieza, fase]);
   if (fase === 'escribe') {
     return (
       <>
@@ -581,7 +695,8 @@ export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy =
         <VideoDelDia dia={dia} onTocado={onTocadoEnVideo} onFin={onFinVideo} dalePlay={hoy} />
         <p className="rt-dia__msj">{dia.mensaje}</p>
       </Burbuja>
-      {/* El QR de la app, desde que llega el video del día 2 (d24-06), mientras la app no esté y no la dejó para después. */}
+      {conPieza && <>
+      {/* El QR de la app, después del mensaje del día 2 (d24-06; reto-3), mientras la app no esté y no la dejó para después. */}
       {esperaApp && qrApp && <TarjetaQrApp qr={qrApp} onDespues={() => onDespues?.('app')} />}
       {esperaApp && hoy && qrDeAntes && <Burbuja><p>{RETO_D2_RECORDATORIO}</p></Burbuja>}
       {/* El día 1 sin tarjeta (F2; la maqueta: el mensaje y la marca sobre Offer Coach). Sus tareas están en el desplegable. */}
@@ -627,6 +742,7 @@ export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy =
       )}
       {/* Lo que hizo durante el video ya cuenta (el Cerebro, 18/11): si hizo todo, la felicita (sólo el día 2, R57-F4). */}
       {todas && dia.n === 2 && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!</p></Burbuja>}
+      </>}
     </>
   );
 }
@@ -700,6 +816,20 @@ function VideoDelDia({ dia, onTocado, onFin, dalePlay = false }: { dia: DiaReto;
   const [visto] = useState(() => yaVisto(`video:${dia.n}`));
   const titulo = v ? tituloDelVideo(v, dia.n) : `Día ${dia.n}`;
   useDalePlay(raiz, { clave: delReto(dia.video), titulo, activo: dalePlay && conMarcas && !visto && !corre });
+  // CERRAR EL «DALE PLAY» DEL DÍA 1 CON SU X (auditoría de chats, reto-5 a; decidido por el Cerebro, D1-03: «o cuando la persona lo
+  // cierra»): sin darle play, la invitación se va y Offer Coach no se marcaba nunca. Se ve desde aquí, sin tocar useDalePlay: la marca
+  // «{título}: dale play» de este video se fue, quedó cerrada y el video no arrancó.
+  const arranco = useRef(false);
+  const invitaba = useRef(false);
+  const esLaInvitacion = !conMarcas && senal?.tipo === 'marca' && !!senal.invita && senal.paso.titulo === tituloDalePlay(titulo);
+  useEffect(() => {
+    if (esLaInvitacion) { invitaba.current = true; return; }
+    if (!invitaba.current) return;
+    invitaba.current = false;
+    const t = window.setTimeout(() => { if (!arranco.current && dalePlayCerrado(dia.video)) { anotarVisto(`video:${dia.n}`); onFin?.(); } }, 800);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esLaInvitacion]);
   // Con frases que marcan lugares (los días 2 a 7), EN SU MENSAJE (V4 y R57-21): este es su lugar; el video lo pasa el motor encima
   // (marca cada lugar cuando la voz lo nombra y pausa hasta el clic) y lo baja a la esquina al scrollear o navegar.
   if (v && conMarcas) {
@@ -725,7 +855,7 @@ function VideoDelDia({ dia, onTocado, onFin, dalePlay = false }: { dia: DiaReto;
   // Sin marcas (el día 1): el reproductor de la maqueta (V14), que sigue en la esquina si se navega y marca «dale play» (V5). La marca de
   // Offer Coach sale al terminar, en el chat O en la esquina, o al cerrarlo ahí (segunda verificación de D1-03; decidido por el Cerebro).
   const alFin = () => { anotarVisto(`video:${dia.n}`); onFin?.(); };
-  if (v) return <VideoDelMomento clave={dia.video} titulo={titulo} revision={false} onTermina={alFin} onTerminaFuera={alFin} dalePlay={dalePlay && !visto} />;
+  if (v) return <VideoDelMomento clave={dia.video} titulo={titulo} revision={false} onTermina={alFin} onTerminaFuera={alFin} onEmpieza={() => { arranco.current = true; }} dalePlay={dalePlay && !visto} />;
   if (PARA_TODOS || !revision || !listo) return null;
   return <div className="rt-video rt-video--lugar" role="note"><b>Tu video del día {dia.n}</b><span>Todavía no está grabado: va aquí.</span></div>;
 }
@@ -762,8 +892,11 @@ const tituloDelVideo = (v: object, n: number): string => ((v as { pestana?: stri
 /** El video de la pestaña en el mensaje «Te muestro dónde…» (D1-02 y V3; la maqueta, el mensaje de video de MUESTRA). */
 function VideoDeMuestra({ m, onPlay }: { m: MuestraReto; onPlay: () => void }) {
   const v = useVideoTutorial(m.pestana);
+  // Con su «dale play», como el video de cada día (auditoría de chats, reto-9): «Te muestro dónde… Dale play.» lo dejaba sin velo.
+  const boton = useRef<HTMLButtonElement>(null);
+  useDalePlay(boton, { clave: delReto(`muestra-${m.pestana}`), titulo: m.nombre, activo: !!v });
   return (
-    <button type="button" className="rt-video rt-video--pasos" onClick={onPlay} style={v?.poster ? { backgroundImage: `url(${v.poster})` } : undefined}
+    <button ref={boton} type="button" className="rt-video rt-video--pasos" onClick={() => { cerrarDalePlay(delReto(`muestra-${m.pestana}`)); onPlay(); }} style={v?.poster ? { backgroundImage: `url(${v.poster})` } : undefined}
       aria-label={`Ver el video de ${m.nombre}: te llevo a la pestaña`} data-recorrido={`sb-reto-muestra-${m.pestana}`}>
       <span className="rt-video__play" aria-hidden>▶</span><span className="rt-video__dice">{m.nombre}{v?.duracion_s ? ` · ${mmss(v.duracion_s)}` : ''}: te llevo a la pestaña</span>
     </button>
