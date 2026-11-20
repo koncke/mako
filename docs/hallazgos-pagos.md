@@ -2022,6 +2022,37 @@ con ciclo propio (Leila) manda al grupo de MaKo se aplica SÓLO si el pago está
 **Vive en:** lib/binance-pay-reglas.ts · lib/binance-pay.ts · lib/agencia-mes-comprobante.ts (`verificarEnBinance`, `aplicarPagoVerificado`, `esperarElPago`,
 `revisarPagosEnEspera`) · app/api/cron/cobros-reconciliar/route.ts · tests/binance-pay-calce.test.ts.
 
+## El pago de Binance SIN captura: el cron mira la cuenta solo (20/11/2026)
+
+Martín (20/11): «si ya pagan por Binance debería ser todo automático». Hasta acá la activación sola arrancaba SÓLO con la captura en el grupo: si la agencia
+pagaba y no la mandaba, nadie miraba la cuenta. Ahora el cron de cobros, después de la espera (la captura gana), lee los pagos recibidos de las últimas 48 h y los
+calza contra lo que debe cada agencia con la mensualidad prendida (`revisarPagosSinCaptura`).
+
+- **El calce son cuatro cosas a la vez:** QUIÉN PAGA (el Binance ID, o el nombre si Binance no lo da, de alguien que ya le pagó a MaKo por esa agencia); MONTO
+  EXACTO (`asignarPago` da «cubre»: parcial, de más, nada pendiente o dos combinaciones → a Martín); VENTANA (48 h para atrás y más de 15 min de entrado: la
+  captura puede venir en camino); NO USADO (el mismo registro que la captura: `ordenesAnotadas` + `numerosUsados`). Un pago de alguien que nunca le pagó a MaKo
+  por una agencia **no es de nadie**: no se toca ni se le avisa a Martín (puede ser cualquier otro cobro por Binance).
+- **Quién paga se aprende del LIBRO, no de la captura.** El brief pedía «aprende el binanceId del primer calce con captura»: no hizo falta tocar el camino con
+  captura. Las órdenes del libro de cada agencia (entraron con captura o con el «aprobado» de Martín) cruzadas con la cuenta dan su `payerInfo`, y se guarda en
+  `binance.pagadores.<agencia>` (sobrevive a los 90 días de historia de Binance). Medido: Código paga desde **JZ_ (206956446)**; sus 5 pagos de noviembre (94 y 144
+  del 5/11 en el recibo N.º 0002, cargados a mano; 40, 15,67 y 59,54 en el libro) salen todos «usados», también el del 16/11 anotado con un dígito de más.
+- ⚠️ **«Sin cerrar» no es `aplicado_a` vacío.** El primer intento frenaba a la agencia ENTERA si tenía un comprobante del grupo leído y sin aplicar en 72 h. Medido
+  en Código: los comprobantes que Martín cerró a mano (el 15,67 y el 59,54) siguen con `aplicado_a` vacío para siempre, y uno de hoy (US$ 23,5, `dudoso`, sin
+  número) la habría dejado 72 h sin activación automática por CUALQUIER pago. Ahora espera sólo el pago del que habla el comprobante (su número, con un dígito
+  de diferencia, o su monto), y un comprobante cuyo número ya está usado cuenta como cerrado.
+- **Una vez, aunque el cron corra dos veces:** la orden la anota `aplicarPagoDeAgencia` con compare-and-set; el aviso a Martín, `binance.sincaptura.<orden>` con
+  compare-and-set. ⚠️ El que aplica tiene que preguntar **primero** si la orden ya está en el libro: si relee lo que se debe antes, la segunda corrida ve «no se
+  debía nada» y le manda a Martín un aviso falso de un pago que la otra acababa de aplicar (el test de dos corridas a la vez lo encontró).
+- **Reusa, no duplica:** `aplicarPagoVerificado` (exportado, con `medio` y `autor`): el libro, el recibo, las cuentas en pausa que vuelven y el texto «Recibí tu
+  pago de US$ X **por Binance**. Quedó pagado…». A Martín, con la pendiente de siempre (`proponerComprobanteAMartin`): su «aprobado» lo aplica.
+- **Medido en seco el 20/11** (`scripts/binance-sin-captura-en-seco.mts`, nada escrito): noviembre, 5 de 5 usados, 0 a aplicar, 0 a Martín; la ventana del cron, vacía.
+  En memoria, con lo que Código debe hoy (la entrada de Pablo Chávez, US$ 23,5): un pago de JZ_ por 23,5 espera (es el del comprobante de hoy); sin ese
+  comprobante, se aplicaría a la entrada; el mismo monto de otra persona, ajeno.
+- **Sin hacer:** no probado con un pago real sin captura (el próximo de Código). Leila (ciclo propio) no tiene pagos por Binance en los 90 días: su pagador se
+  aprende con su próximo pago con captura. El comprobante de US$ 23,5 de hoy de Código no tiene pago en la cuenta todavía (lo tiene Martín).
+**Vive en:** lib/binance-sin-captura-reglas.ts (puro) · lib/binance-sin-captura.ts · app/api/cron/cobros-reconciliar/route.ts · tests/binance-sin-captura.test.ts
+(14 casos, roto 12 veces) · scripts/binance-sin-captura-en-seco.mts.
+
 ## Los pesos del checkout, al dólar cripto del MOMENTO (19/11/2026)
 
 Martín (18/11): «no del día, sino del momento. Cuando alguien da clic en comprar… que consulte por API». La fuente es el dólar CRIPTO (Martín pasa los pesos a
