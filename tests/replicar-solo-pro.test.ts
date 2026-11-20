@@ -131,8 +131,9 @@ test('LA PANTALLA: Replicar con el candado (y sin arrancar hasta saber el plan),
   assert.match(rep, /export const TEXTO_CANDADO_REPLICAR = textoSoloPro\('replicar-landing'\);/);
   assert.match(cuerpo('app/web-generator/crear/Replicar.tsx', 'CandadoReplicar'), /<CandadoSoloPro funcion="replicar-landing" style=\{style\} \/>/);
   const una = cuerpo('app/web-generator/crear/Replicar.tsx', 'ReplicarUnaPagina');
-  assert.match(una, /const plan = usePlanEsencial\(\);\n\s*const candado = useSoloPro\('replicar-landing'\);\n\s*if \(!candado && plan === false\) return <ReplicarAbierto \{\.\.\.props\} \/>;\n\s*return <ReplicarConCandado/,
-    'abierto SÓLO sabiendo que no es Essential: con `auto` leería sola (paga IA)');
+  // 20/11 (R57-03): por la función y no por el plan (`useCandadoEsencial`): en la prueba, el reto abre una réplica el día 4.
+  assert.match(una, /const plan = useCandadoEsencial\('replicar-landing'\);\n\s*const candado = useSoloPro\('replicar-landing'\);\n\s*if \(!candado && plan === false\) return <ReplicarAbierto \{\.\.\.props\} \/>;\n\s*return <ReplicarConCandado/,
+    'abierto SÓLO sabiendo que no le toca el candado: con `auto` leería sola (paga IA)');
   assert.match(cuerpo('app/web-generator/crear/Replicar.tsx', 'ReplicarConCandado'), /\{candado && <CandadoReplicar /);
   assert.match(cuerpo('app/web-generator/crear/Replicar.tsx', 'FallaReplicar'), /if \(error === TEXTO_CANDADO_REPLICAR\) return <CandadoReplicar /, 'la falla del Diagnóstico');
   // El candado de todas las funciones de Pro: el texto y «Pasar a Pro» a «Tu plan», dentro de CtaPasarAPro.

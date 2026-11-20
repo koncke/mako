@@ -12,7 +12,7 @@
 //   · Una vez por visita (`yaMarcada`), nunca encima de otra marca, y no con la fila escondida (una pantalla angosta): ahí lo dice el reto.
 // =============================================================================
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DIAS_RETO, diaTerminado, type MarcaReto } from '@/lib/reto/dias';
 import { senalAhora } from '@/app/_ui/tutorial/store';
 import { anotarMarcada, marcarTarea, useReto, yaMarcada } from './ChatDelReto';
@@ -28,8 +28,13 @@ function seVe(sel: string): boolean {
   return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight;
 }
 
-/** `activo`: Funnel Coach a la vista, con el reto (el onboarding V2) y el chat del reto cerrado. */
-export function useVueltaAlReto(activo: boolean): void {
+/** Lo que tarda el mensaje «Tu día 1 está completo…» (los tres puntitos y su lectura) antes de la marca (D1-05, verificación del 20/11). */
+export const MS_ANTES_DE_LA_VUELTA = 2600;
+
+/** `activo`: Funnel Coach a la vista, con el reto (el onboarding V2) y el chat del reto cerrado. Devuelve si el día 1 se completó en
+ *  esta visita: Funnel Coach dibuja entonces el mensaje de MaKo (./MensajeVueltaAlReto.tsx), y la marca sale después. */
+export function useVueltaAlReto(activo: boolean): boolean {
+  const [llego, setLlego] = useState(false);
   const { d, leer } = useReto(activo);
   const completo = d?.estado ? diaTerminado(d.estado, DIAS_RETO[0]) : null;
   useEffect(() => {
@@ -43,8 +48,12 @@ export function useVueltaAlReto(activo: boolean): void {
     if (completo == null) return;
     const seCompleto = antes.current === false && completo;
     antes.current = completo;
-    if (!seCompleto || yaMarcada(CLAVE) || senalAhora() || !seVe(MARCA_VUELTA.sel)) return;
+    if (!seCompleto || yaMarcada(CLAVE)) return;
     anotarMarcada(CLAVE);
-    marcarTarea([MARCA_VUELTA], () => {});
+    // Primero el mensaje en el chat (la maqueta: RETO_LISTO y recién después b-ver-reto); la marca, cuando ya se leyó.
+    setLlego(true);
+    const t = window.setTimeout(() => { if (!senalAhora() && seVe(MARCA_VUELTA.sel)) marcarTarea([MARCA_VUELTA], () => {}); }, MS_ANTES_DE_LA_VUELTA);
+    return () => window.clearTimeout(t);
   }, [activo, completo]);
+  return activo && llego;
 }

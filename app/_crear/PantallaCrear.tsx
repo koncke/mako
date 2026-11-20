@@ -323,7 +323,9 @@ function ListaDeProyectos({ tab, nuevo, proyectos, errorProyectos, onReintentar,
         )}
       </div>
       <nav className="cr-lista__items" aria-label={`Tus proyectos de ${tab}`}>
-        <button type="button" className="cr-item cr-item--nuevo" aria-current={creando ? 'true' : undefined} onClick={onNuevo}>
+        {/* Su marca (R57-18): desde el editor de Video, «Tu personaje con IA» se alcanza con la «←» y este renglón. */}
+        <button type="button" className="cr-item cr-item--nuevo" aria-current={creando ? 'true' : undefined} onClick={onNuevo}
+          data-recorrido={marcaCrear(tab, 'nuevo')}>
           <span className="cr-item__ico"><IconoMas /></span><span className="cr-item__nombre">{nuevo}</span>
         </button>
         {errorProyectos ? (

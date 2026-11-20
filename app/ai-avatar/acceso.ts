@@ -52,7 +52,19 @@ export async function requireAiAvatar(): Promise<void> {
   await requireRolWs([], { nav: 'ai-avatar' });
 }
 
-/** El texto del candado si quien mira paga MaKo Essential, o null (pasa). Lo dibuja `CartelSoloPro`; las actions lo devuelven. */
+/**
+ * El texto del candado si quien mira paga MaKo Essential, o null (pasa). Para lo que GENERA (las actions lo devuelven): en la
+ * prueba, la primera vez que pasa ANOTA el uso que el reto le abre (`usar: true`, lib/reto/pro-del-reto-server.ts).
+ */
 export async function candadoDeAiAvatar(): Promise<string | null> {
   return (await esEsencialDeLaSesion()) && !(await abreElReto('ai-avatar', { usar: true })) ? textoSoloPro('ai-avatar') : null;
+}
+
+/**
+ * El mismo candado para DIBUJAR una pantalla (/ai-avatar y /m/ai-avatar, con `CartelSoloPro`): pregunta al reto SIN anotar el
+ * uso (20/11/2026, R57-03). Con `candadoDeAiAvatar` al dibujar, sólo abrir /ai-avatar ya gastaba la ventana de 2 h de su único
+ * uso, y cuando la persona iba a generar ya le quedaba menos (o nada). El uso se gasta al generar, en las actions.
+ */
+export async function cartelDeAiAvatar(): Promise<string | null> {
+  return (await esEsencialDeLaSesion()) && !(await abreElReto('ai-avatar', { usar: false })) ? textoSoloPro('ai-avatar') : null;
 }

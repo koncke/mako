@@ -91,7 +91,8 @@ test('una tab que todavía no se abrió no se promete; el avatar de IA es de Pro
   assert.match(fuente('app/ai-avatar/actions.ts'), /const pro = await candadoDeAiAvatar\(\);\n\s*if \(pro\) return \{ ok: false, error: pro \};/, 'las actions sin el candado');
   for (const rel of ['app/ai-avatar/page.tsx', 'app/m/ai-avatar/page.tsx']) {
     const p = fuente(rel);
-    assert.match(p, /const pro = await candadoDeAiAvatar\(\);/, `${rel} no pregunta por el candado`);
+    // 20/11 (R57-03): la pantalla pregunta con `cartelDeAiAvatar`, que no anota el uso del reto; `candadoDeAiAvatar` lo anota.
+    assert.match(p, /const pro = await cartelDeAiAvatar\(\);/, `${rel} no pregunta por el candado`);
     assert.match(p, /if \(pro\) return <\w+[^>]*><CartelSoloPro texto=\{pro\} \/><\/\w+>;/, `${rel} sin el cartel en lugar del estudio`);
   }
 });

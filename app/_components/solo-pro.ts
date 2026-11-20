@@ -9,16 +9,21 @@
 // recibir un error.
 //
 // Dos fuentes, y basta una:
-//   · `planEsencial` de /api/auth/me (la misma lectura, una vez por pestaña: ./useClienteDeAgencia.ts);
+//   · `planEsencial` de /api/auth/me (la misma lectura, una vez por pestaña: ./useClienteDeAgencia.ts), menos lo que el reto
+//     le abre en su prueba (`proDelReto`, 20/11/2026, R57-03: `candadoEsencial`);
 //   · una respuesta del servidor con `pasarAPro` (`marcarSoloPro`): si la lectura todavía no llegó, o el plan cambió después
-//     de cargar la pestaña, el primer 403 prende el candado en todas las entradas de esa función a la vez.
+//     de cargar la pestaña, el primer 403 prende el candado en todas las entradas de esa función a la vez. También cuando el
+//     uso del reto ya se gastó con la pestaña abierta: el candado vuelve con el primer 403.
 // ⚠️ ES COSMÉTICO, como `nav-visibilidad`: esconder la entrada no defiende nada. Ante la duda (no se pudo leer el plan), no
 //    hay candado; el servidor decide igual.
+// ⚠️ EL CANDADO DE LA PANTALLA NO PUEDE SER MÁS ESTRICTO QUE EL SERVIDOR (R57-03): con `planEsencial` solo, «Replicar» del
+//    Copywriting cortaba sin llamar y Web Generator no mandaba la réplica, aunque el reto se la abría. Por eso se pregunta
+//    por la función, no por el plan.
 // =============================================================================
 
 import { useSyncExternalStore } from 'react';
 import type { FuncionSoloPro } from '@/lib/topes-plan';
-import { leerPlanEsencial, usePlanEsencial } from './useClienteDeAgencia';
+import { leerCandadoEsencial, useCandadoEsencial } from './useClienteDeAgencia';
 
 const marcadas = new Set<FuncionSoloPro>();
 const oyentes = new Set<() => void>();
@@ -41,12 +46,12 @@ export function marcarSoloPro(f: FuncionSoloPro): void {
 
 /** ¿`f` lleva el candado para quien mira? `false` mientras no se sabe (primero se dibuja abierto, como el Sidebar). */
 export function useSoloPro(f: FuncionSoloPro): boolean {
-  const plan = usePlanEsencial();
+  const plan = useCandadoEsencial(f);
   const marcada = useSyncExternalStore(suscribir, () => marcadas.has(f), () => false);
   return plan === true || marcada;
 }
 
 /** Lo mismo, sin hook: para lo que corre fuera de un componente (la «Edición automática», su botón de la barra). */
 export async function esSoloPro(f: FuncionSoloPro): Promise<boolean> {
-  return marcadas.has(f) || (await leerPlanEsencial());
+  return marcadas.has(f) || (await leerCandadoEsencial(f));
 }

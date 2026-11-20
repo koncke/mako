@@ -11,14 +11,18 @@
 // un video que no está, no se muestra (nunca un hueco).
 // =============================================================================
 import { useState } from 'react';
-import { TUTORIALES } from '@/lib/tutoriales';
+import { TUTORIALES, tutorialDe } from '@/lib/tutoriales';
+import { FAMILIAS, itemsDe } from '@/app/_components/nav';
+import { mostrarEnSuPestana } from './enSuPestana';
 import { useManifiesto } from '@/app/_ui/tutorial/useVideoTutorial';
 import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
 // Los videos del reto viven en lib/reto/dias.ts: el nombre de los coaches sólo se escribe ahí (tests/coaches-ops-center.test.ts, 14).
 import { VIDEOS_PARA_EMPEZAR as PARA_EMPEZAR, VIDEOS_DEL_RETO as DEL_RETO } from '@/lib/reto/dias';
 
 type Video = { key: string; pestana?: string; duracion_s?: number };
-export type Tarjeta = { key: string; titulo: string; dur?: number; cerrado?: string };
+export type Tarjeta = { key: string; titulo: string; dur?: number; cerrado?: string;
+  /** Una pestaña: al tocarla lleva a la pestaña de verdad y corre ahí su video, con sus marcas (la maqueta, tab-tour). */
+  pestana?: true };
 export type Grupo = { titulo: string; tarjetas: Tarjeta[] };
 
 
@@ -35,8 +39,32 @@ export function gruposDelCatalogo(videos: readonly Video[], diaAbierto: number):
   const reto = DEL_RETO.map(([k, t]) => { const n = Number(/^reto-dia-(\d)$/.exec(k)?.[1] ?? 0); return tarjeta(k, t, n > diaAbierto ? `Se abre el día ${n}` : undefined); }).filter((x): x is Tarjeta => !!x);
   // Sin «AI Avatar»: la tab se cerró el 14/11 (el personaje está en Video). Las de adentro de Classroom, con su nombre: si no, hay
   // dos «Calendar».
-  const pestanas = TUTORIALES.filter((t) => t.pestana !== 'avatar').map((t) => (usados.has(t.pestana) ? null : tarjeta(t.pestana, t.pestana.startsWith('classroom-') ? `Classroom › ${t.nombre}` : t.nombre))).filter((x): x is Tarjeta => !!x);
-  return [{ titulo: 'Para empezar', tarjetas: empezar }, { titulo: 'Tu reto de 7 días', tarjetas: reto }, { titulo: 'Cada pestaña', tarjetas: pestanas }].filter((g) => g.tarjetas.length);
+  // LAS PESTAÑAS, POR FAMILIA (verificación del 20/11, V1; la maqueta: «Pestañas · {familia}» en el orden de la barra y, al final, «Tu
+  // cuenta» con el Ops Center, la Ticketera y Settings). La familia sale de la barra (app/_components/nav.ts, FAMILIAS).
+  const porGrupo = new Map<string, Tarjeta[]>();
+  for (const t of TUTORIALES) {
+    if (t.pestana === 'avatar' || usados.has(t.pestana)) continue;
+    const x = tarjeta(t.pestana, t.pestana.startsWith('classroom-') ? `Classroom › ${t.nombre}` : t.nombre);
+    if (!x) continue;
+    const g = grupoDeLaRuta(t.ruta);
+    porGrupo.set(g, [...(porGrupo.get(g) ?? []), { ...x, pestana: true }]);
+  }
+  const orden = [...FAMILIAS.map((fa) => `Pestañas · ${fa.label}`), MAS, TU_CUENTA];
+  const pestanas = [...porGrupo.keys()].sort((a, b) => orden.indexOf(a) - orden.indexOf(b)).map((titulo) => ({ titulo, tarjetas: porGrupo.get(titulo)! }));
+  return [{ titulo: 'Para empezar', tarjetas: empezar }, { titulo: 'Tu reto de 7 días', tarjetas: reto }, ...pestanas].filter((g) => g.tarjetas.length);
+}
+
+const TU_CUENTA = 'Tu cuenta';
+const MAS = 'Más';
+const DE_TU_CUENTA = ['/perfil', '/integraciones', '/equipo', '/configuraciones', '/second-brain'];
+const empiezaCon = (p: string, base: string) => p === base || p.startsWith(`${base}/`);
+/** El grupo de un tutorial por su ruta: «Tu cuenta» (Settings y el Ops Center), «Pestañas · {familia}» (la familia de la fila de la
+ *  barra cuya ruta es el comienzo de la suya) o, lo que no está en la barra, «Más». */
+export function grupoDeLaRuta(ruta: string): string {
+  const p = ruta.split('?')[0];
+  if (DE_TU_CUENTA.some((b) => empiezaCon(p, b))) return TU_CUENTA;
+  for (const fa of FAMILIAS) if (itemsDe(fa).some((it) => !!it.href && it.href !== '/' && empiezaCon(p, it.href.split('?')[0]))) return `Pestañas · ${fa.label}`;
+  return MAS;
 }
 
 const mmss = (s?: number) => (s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : '');
@@ -50,7 +78,7 @@ export function CatalogoTutoriales({ diaAbierto, onVolver, videos }: { diaAbiert
   return (
     <div className="rt-cat" data-recorrido="sb-reto-catalogo">
       <div className="rt-cat__cab">
-        <p className="rt-cat__t">Tutoriales de MaKo</p>
+        <div><p className="rt-cat__t">Tutoriales de MaKo</p><p className="rt-cat__sub">Todos los videos, en orden: para empezar, los del reto y el de cada pestaña.</p></div>
         <button type="button" className="co-chip" onClick={onVolver}>Volver al chat</button>
       </div>
       {!m ? <p className="co-vacio">Cargando los videos…</p> : grupos.map((g) => (
@@ -60,7 +88,12 @@ export function CatalogoTutoriales({ diaAbierto, onVolver, videos }: { diaAbiert
             {g.tarjetas.map((t) => (
               <li key={t.key} className="rt-cat__item" data-cerrado={t.cerrado ? '' : undefined}>
                 {viendo === t.key ? <VideoDelMomento clave={t.key} titulo={t.titulo} revision={false} /> : (
-                  <button type="button" className="rt-cat__btn" disabled={!!t.cerrado} onClick={() => setViendo(t.key)}>
+                  <button type="button" className="rt-cat__btn" disabled={!!t.cerrado} onClick={() => {
+                    // Una pestaña, en la pestaña de verdad (V1): la barra la marca y su video corre ahí. Si no está en la barra, aquí mismo.
+                    const tu = t.pestana ? tutorialDe(t.key) : null;
+                    if (tu && mostrarEnSuPestana(tu, { texto: 'Aquí está. Al entrar, te la muestro con su video.' })) { onVolver(); return; }
+                    setViendo(t.key);
+                  }}>
                     <span className="rt-menu__play" aria-hidden>▶</span>
                     <span><b>{t.titulo}</b><small>{t.cerrado ?? `Video${t.dur ? ` · ${mmss(t.dur)}` : ''}`}</small></span>
                   </button>
@@ -91,6 +124,7 @@ export const CSS_CATALOGO = `
 .rt-cat { display: flex; flex-direction: column; gap: 18px; padding: 8px 0 24px; }
 .rt-cat__cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .rt-cat__t { margin: 0; font-weight: 700; font-size: var(--fs-card, 15px); color: var(--ink); }
+.rt-cat__sub { margin: 2px 0 0; font-size: 12px; line-height: 1.4; color: var(--muted, #6b7280); }
 .rt-cat__g { margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
 .rt-cat__lista { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .rt-cat__btn { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }

@@ -11,7 +11,7 @@
 // El QR lo arma /api/reto (el link único de la app, como el paso de los avisos del onboarding).
 // =============================================================================
 
-import { RETO_D2_INT, type IntegracionReto } from '@/lib/reto/dias';
+import { RETO_D2_INT, RETO_D2_INT_LISTAS, type IntegracionReto } from '@/lib/reto/dias';
 import { Burbuja } from './Burbuja';
 
 export type IntegracionConEstado = IntegracionReto & { conectada: boolean };
@@ -31,13 +31,16 @@ export function TarjetaQrApp({ qr, onDespues }: { qr: string; onDespues: () => v
   );
 }
 
-export function TarjetaIntegraciones({ ints, onMostrar }: { ints: readonly IntegracionConEstado[]; onMostrar: () => void }) {
+export function TarjetaIntegraciones({ ints, onMostrar, despues = false, onDespues }: { ints: readonly IntegracionConEstado[]; onMostrar: () => void;
+  /** «Lo hago después» en la tarjeta (verificación del 20/11, d24-05 y d24-08): el día sigue sin conectarlas ahora. */
+  despues?: boolean; onDespues?: () => void }) {
   const todas = ints.every((i) => i.conectada);
   return (
     <>
-      <Burbuja><p>{RETO_D2_INT}</p></Burbuja>
+      {/* «Te falta integrar esto» sólo si falta algo (verificación d24-05: salía aunque estuvieran todas). */}
+      <Burbuja><p>{todas ? RETO_D2_INT_LISTAS : RETO_D2_INT}</p></Burbuja>
       <Burbuja ancho>
-        <div className="rt-tarjeta rt-int" data-recorrido="sb-integra">
+        <div className="rt-tarjeta rt-int" data-recorrido="sb-integra" data-tarea="2:integraciones">
           <p className="rt-tarjeta__t">{todas ? 'Tus integraciones' : 'Te falta integrar esto'}</p>
           <ol className="rt-tareas">
             {ints.map((i) => (
@@ -49,6 +52,8 @@ export function TarjetaIntegraciones({ ints, onMostrar }: { ints: readonly Integ
             ))}
           </ol>
           {!todas && <button type="button" className="rt-tarea__donde rt-int__ver" onClick={onMostrar}>Se conectan en Settings › Integraciones. Te muestro dónde</button>}
+          {!todas && (despues ? <p className="rt-wa__ej">◐ Las conectas después: el día sigue.</p>
+            : onDespues && <button type="button" className="rt-tarea__donde" onClick={onDespues}>Lo hago después</button>)}
         </div>
       </Burbuja>
     </>
