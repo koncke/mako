@@ -408,7 +408,8 @@ export function Dia({ dia, e, linea, hora, proUnaVez = false, hoy = true, onHora
  * EL CLIP DE REGALO DEL DÍA 6 (20/11, R57-02; el Cerebro: «sí, por ApiMart», UN clip por prueba, lo que cuesta anotado y, si ApiMart
  * falla o no hay saldo, se dice claro y no se cobra nada). El clip lo hace la sesión de AI Avatar (app/ai-avatar/regalo/actions.ts,
  * 51d9ef3e5); acá sólo se muestra. Qué vista toca en cada estado: lib/reto/clip-del-reto.ts. Mientras dice «generando» pregunta cada
- * 10 s: esa consulta es la que lo avanza (no hay un cron). Al quedar listo está en su historial de videos, y eso ya marca la tarea
+ * 10 s: esa consulta es la que lo termina con el día 6 abierto (si se va, lo termina el cron de cada 15 min, app/api/cron/clip-regalo).
+ * Al quedar listo está en su historial de videos, y eso ya marca la tarea
  * «Tu primer clip con tu personaje» (lib/reto/senales.ts, `6:clip`): por eso `onListo` relee el reto.
  */
 function ClipDelReto({ onListo }: { onListo?: () => void }) {

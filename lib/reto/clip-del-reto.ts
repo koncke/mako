@@ -3,7 +3,8 @@
 // =============================================================================
 // El clip lo hace la sesión de AI Avatar (app/ai-avatar/regalo/: un clip de 10 s por prueba, por ApiMart, que queda en el historial
 // de videos; si falla o no hay saldo se dice claro y no se cobra). El reto sólo lo muestra: la tarjeta llama
-// `clipDeRegaloAction()` al abrirse y cada 10 s mientras dice «generando» (cada consulta es la que avanza el clip: no hay un cron),
+// `clipDeRegaloAction()` al abrirse y cada 10 s mientras dice «generando» (cada consulta lo termina si ApiMart ya lo hizo; si nadie mira,
+// lo termina el cron de cada 15 min, app/api/cron/clip-regalo),
 // y `pedirClipDeRegaloAction({ frase })` con el botón. Los textos que vienen de allá se muestran tal cual.
 //
 // Acá, lo que se prueba sin navegador (tests/reto-dias.test.ts): qué vista toca en cada estado y cuándo se puede mandar la frase.

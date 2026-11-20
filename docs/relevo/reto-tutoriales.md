@@ -63,7 +63,7 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
   - La tarjeta consulta al abrirse y 10 s después de cada respuesta mientras diga 'generando'; al quedar listo relee el reto (la
     tarea del clip se cierra sola: el regalo queda en el historial como video con avatar).
   - La frase viene escrita con el gancho del guion más nuevo (pedidos de lectura del Copywriter), sin pisar lo que ella escribió.
-  - ⚠️ Sin cron: el clip sólo avanza con el día 6 abierto. Lo que falta para eso es de AI Avatar (docs/hallazgos-onboarding.md).
+  - Si la persona se va, el clip lo termina el cron de AI Avatar (app/api/cron/clip-regalo, cada 15 min).
 - **⚠️ Cada push a la punta CANCELA la corrida del anterior.** Hoy por eso no llegaba nada a main. Se juntan los commits y se sube UNA
   vez; después se espera la corrida, en verde o en rojo.
 
