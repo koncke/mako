@@ -96,7 +96,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'buscar_leads', area: 'crm', tipo: 'lectura',
     titulo: 'Buscar leads por texto',
-    descripcion: 'Busca leads del negocio por nombre, teléfono, email o empresa y devuelve una lista compacta (id, nombre, estado, etapa y etapa_nombre —la etapa en la que la ve el equipo y cómo se llama—, fechas de reuniones, monto de cierre en USD, closer y setter). Es el primer paso antes de cualquier otra operación sobre un lead: de aquí sale el leadId. Compara el texto tal cual (sensible a acentos) y devuelve como máximo 20 resultados.',
+    descripcion: 'Busca leads del negocio por nombre, teléfono, email o empresa y devuelve una lista compacta (id, nombre, estado, etapa y etapa_nombre —la etapa en la que la ve el equipo y cómo se llama—, fechas de reuniones, monto de cierre en USD, closer y setter). Es el primer paso antes de cualquier otra operación sobre un lead: de aquí sale el leadId. Compara sin tildes y por palabras, en cualquier orden, y devuelve como máximo 20 resultados. Si ningún lead se llama así pero alguno se escribe parecido (una letra de diferencia en una palabra del nombre), devuelve "aproximados" sin teléfono ni email, con sus reuniones: no es el nombre exacto y se confirma con la persona antes de dar datos.',
     parametros: [{ nombre: 'texto', tipo: 'string', obligatorio: true, max: 200, descripcion: 'texto a buscar en nombre, teléfono, email o empresa. Si ningún lead se llama así y es el nombre (o una parte) de una campaña de Meta, vuelven los leads de esa campaña con su teléfono; con más de 20 personas, dice cuántas quedaron afuera.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },

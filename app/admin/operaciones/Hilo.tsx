@@ -535,7 +535,7 @@ const Linea = memo(LineaSinMemo, mismaLinea);
  *  cargan para atrás de a tandas). Medido el 17/10/2026: abrir un chat de 60 respuestas trababa ~0,5 s con la CPU ×4. */
 export const TANDA_HILO = 25;
 
-function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, tareas, onFeedback, yaVisto, onYaVisto, marcas, pasos, mostrar, onVerAnteriores }: {
+function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, tareas, onFeedback, yaVisto, onYaVisto, marcas, pasos, escribiendo, mostrar, onVerAnteriores }: {
   lineas: readonly LineaChat[]; pushes: readonly PushP[]; ahora: number; vacio: string;
   /** El empleado de este chat: su muñeco va al lado de lo que hizo, y grande si todavía no hay nada. */
   quien: Quien & { animo: Animo; dato?: string | null };
@@ -547,6 +547,8 @@ function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, tareas,
   marcas?: MarcasChat | null;
   /** Los pasos en vivo del turno abierto (la E, lib/centro-pasos.ts): van en el «Trabajando…». */
   pasos?: readonly PasoDelTurno[];
+  /** Un turno del chat espera su turno en la cola de salida (admin-5, useTurnosDeAUno.ts): sus puntitos, en el «Trabajando…». */
+  escribiendo?: boolean;
   /** Cuántos de los últimos mensajes se dibujan (sin esto, todos) y cómo se piden los de antes. */
   mostrar?: number;
   onVerAnteriores?: () => void;
@@ -590,7 +592,7 @@ function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, tareas,
           : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} vivo={vivo} extras={{ tareas, onFeedback, yaVisto, onYaVisto }} wa={wa} />))}
       {/* «Trabajando…» con sus pasos desplegables, UNA pieza para todos los chats (Trabajando.tsx). Con la clave del chat: al
           cambiar de chat arranca cerrada. */}
-      {trabaja && <Trabajando key={quien.titulo} titulo={quien.titulo} aspecto={quien.aspecto} pasos={pasos} />}
+      {(trabaja || escribiendo) && <Trabajando key={quien.titulo} titulo={quien.titulo} aspecto={quien.aspecto} pasos={pasos} />}
     </>
   );
 }

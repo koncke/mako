@@ -33,6 +33,7 @@
 //    navegar»).
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { bajarAlCrecer } from '@/app/_chat/useBajarAlUltimo';
 import type { ChatResumen, MensajeChat } from '@/lib/chats-tipos';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 import { TextoMarcas } from '@/app/_components/TextoMarcas';
@@ -78,6 +79,17 @@ export function Hilo({ ws, chat, mensajes, equipo, cargando, error, onReintentar
     if (pegado.current) alFondo();
   }, [mensajes]);
   useLayoutEffect(() => { if (bajar) { pegado.current = true; alFondo(); } }, [bajar]);
+  // LO QUE CRECE (20/11/2026, admin-6): la fase o el error que aparecen arriba de la caja achican el hilo, y el último mensaje del
+  // cliente quedaba tapado hasta el próximo sondeo. El mecanismo compartido (app/_chat/useBajarAlUltimo.ts): si estaba abajo, sigue
+  // abajo. Como WhatsApp, a quien lee arriba no lo mueve.
+  const crece = useRef<ReturnType<typeof bajarAlCrecer> | null>(null);
+  useEffect(() => {
+    const el = scroll.current;
+    if (!el) return;
+    crece.current = bajarAlCrecer(el, () => pegado.current);
+    return () => { crece.current?.soltar(); crece.current = null; };
+  }, []);
+  useEffect(() => { crece.current?.mirarHijos(); }, [mensajes]);
 
   useEffect(() => {
     if (!visor) return;

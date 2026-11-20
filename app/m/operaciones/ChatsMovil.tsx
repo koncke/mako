@@ -43,6 +43,9 @@ import { useChatNuevo } from '@/app/admin/operaciones/ChatNuevo';
 import { CriaturaChatNuevo, CuerpoChatNuevo, TituloChatNuevo } from '@/app/admin/operaciones/ChatNuevoPiezas';
 import { CajaChatNuevo } from '@/app/admin/operaciones/CajaChatNuevo';
 import { Hilo, TANDA_HILO } from '@/app/admin/operaciones/Hilo';
+import { claveDelHilo } from '@/app/admin/operaciones/hilo-a-la-vista';
+import { useTurnosDeAUno } from '@/app/admin/operaciones/useTurnosDeAUno';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { TareasVinculadas, irAlTurno } from '@/app/admin/operaciones/Avance';
 import { ElegirMuneco } from '@/app/admin/operaciones/ElegirMuneco';
@@ -277,12 +280,6 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   // (app/_chat/CajaChat.tsx): acá crece el CSS (`field-sizing`) y la que sigue abajo es la hoja.
   const caja = useRef<HTMLTextAreaElement>(null);
   const seguirHoja = useCallback(() => hilo.current?.closest(CUERPO_CHAT) as HTMLElement | null, []);
-  // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado,
-  // así que se baja en el cuadro siguiente (en el mismo efecto no hay todavía qué scrollear).
-  useEffect(() => {
-    const t = setTimeout(() => { const el = hilo.current?.closest(CUERPO_CHAT) as HTMLElement | null; if (el) el.scrollTop = el.scrollHeight; }, 80);
-    return () => clearTimeout(t);
-  }, [abierto, lineas.length]);
 
   // Una sola lista (sin «Sin asignar», 17/10/2026): arriba lo que espera su respuesta (24/10/2026), después lo que trabaja,
   // después un «Completado» sin ver (`centro.avisos` los cuenta juntos; `esperanRespuesta`, sólo las preguntas, las mismas del
@@ -305,6 +302,15 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const verTodo = useCallback(() => setCuantos(Number.MAX_SAFE_INTEGER), []);
   const [menuWA, setMenuWA] = useState<MenuAbiertoWA | null>(null);
   const [panelWA, setPanelWA] = useState<{ tipo: 'info' | 'reenviar'; m: MensajeWA } | null>(null);
+  // Como un chat: abre en lo último y baja con lo nuevo, con la pieza compartida (app/_chat/useBajarAlUltimo.ts, que espera a que
+  // la hoja se mida). Lo nuevo es la CLAVE de la última línea DIBUJADA y del bloque de lo que espera a Martín, que acá va al pie del
+  // hilo (admin-2); nunca `lineas.length`, que cuenta lo que no se dibuja (admin-1). Lo que crece, mientras está abajo (admin-3 y 4).
+  // Los turnos que llegan juntos salen de a uno, con puntitos (admin-5, app/admin/operaciones/useTurnosDeAUno.ts).
+  const vista = useTurnosDeAUno(elegido?.clave ?? '', lineas, elegido ? centro.turnosListos(elegido) : false);
+  const hojaAbierta = !!elegido && !eligiendo && !panelWA;
+  // Con otra identidad cada vez que la hoja se abre: el hilo se monta recién ahí, y la pieza se vuelve a enganchar.
+  const hojaDelHilo = useCallback(() => (hojaAbierta ? seguirHoja() : null), [hojaAbierta, seguirHoja, elegido?.clave]); // eslint-disable-line react-hooks/exhaustive-deps
+  useBajarAlUltimo(hojaDelHilo, claveDelHilo(vista.lineas, [vista.escribiendo, bloque.length + deLaApp.length + preguntas.length]));
   const [reenviando, setReenviando] = useState(false);
   // Lo de AHORA para los callbacks estables: el hilo está memorizado (Hilo.tsx) y una función nueva en cada tecla lo
   // volvería a dibujar entero.
@@ -567,8 +573,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
               <div className="m-operaciones-fijados"><BarraFijados marcas={marcas} lineas={lineas} titulo={elegido.titulo} onSoltar={(id) => void centro.marcar(elegido, { tipo: 'fijar', id, si: false })} verTodo={verTodo} /></div>
             </div>
             <ContextoWA.Provider value={accionesWA}>
-              <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
-                vivo={vivo} onResponder={responderPregunta} tareas={centro.tareasDe(elegido)} onFeedback={feedback} marcas={marcas} pasos={centro.pasosDe(elegido)}
+              <Hilo lineas={vista.lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
+                vivo={vivo} onResponder={responderPregunta} tareas={centro.tareasDe(elegido)} onFeedback={feedback} marcas={marcas} pasos={centro.pasosDe(elegido)} escribiendo={vista.escribiendo}
                 yaVisto={centro.yaVistos?.[elegido.clave] ?? null} onYaVisto={yaVistoCb}
                 mostrar={cuantos} onVerAnteriores={verTodo} />
             </ContextoWA.Provider>

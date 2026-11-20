@@ -5768,6 +5768,11 @@ funden—, o se escapan `\`, `%` y `_` (molde: `leadDeAlumno`), o el patrón es 
 y la decisión la toma una igualdad exacta después.** Y si hay más de un candidato, no se
 elige el primero: se desempata con un dato (el único `ganado`) o no se elige.
 
+**Un nombre que no es exacto también trae candidatos, no a la persona** (ticket #121, 20/11/2026). `buscar_leads` devuelve los que se
+escriben a una letra como `aproximados`, SIN teléfono ni email, y MaKo pregunta «¿Es <nombre>, con reunión el <día> a las <hora>?» antes
+de dar datos. Sólo lo da por hecho si una señal independiente (el día Y la hora de la reunión) coincide con uno solo. Nunca hay tolerancia
+en dígitos, en emails ni donde se decide identidad (`duplicados_lead`, `nombreComparable`). Detalle: `docs/hallazgos-crm.md`.
+
 # Un canal de contacto nuevo se suma en SEIS lugares, y una unión exportada no se copia (23/10/2026)
 
 El @ de Instagram pasó a contar como contacto (`lib/contacto-minimo.ts`) y la tanda tocó más de veinte archivos para que cada puerta lo viera. Lo que

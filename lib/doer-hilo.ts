@@ -313,7 +313,9 @@ export const VIGENCIA_REFS_MS = 14 * 3600_000;
 /** Cuántas cosas por lista, y en total por herramienta. */
 const ITEMS_MAX = 10;
 const ITEMS_TOTAL = 14;
-const CLAVES_ID = ['clave', 'id', 'lead_id', 'tarea_id', 'campana_id', 'landing_id', 'pendiente_id'] as const;
+// `leadId`: el de `reuniones_recientes` (lib/mako-tools.ts). Sin él, una lead hallada por la fecha de su reunión (el ticket #121)
+// no quedaba como ref y el «sí, ésa» del turno siguiente no sabía cuál era.
+const CLAVES_ID = ['clave', 'id', 'lead_id', 'tarea_id', 'campana_id', 'landing_id', 'pendiente_id', 'leadId'] as const;
 // `hacer`: lo que dice una recomendación de `que_recomienda_mako` (lib/api-mako/areas/mako.run.ts, «MaKo inteligente»).
 // `motivo` y `como`: los de una recomendación descartada (`descartadas`), que no trae otro nombre.
 const CLAVES_NOMBRE = ['titulo', 'nombre', 'hacer', 'title', 'name', 'resumen', 'texto', 'asunto', 'etapa', 'motivo', 'como'] as const;

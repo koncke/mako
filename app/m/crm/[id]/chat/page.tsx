@@ -65,7 +65,8 @@ export default async function ChatLeadMovil({ params }: { params: Promise<{ id: 
       {h.chat ? (
         <>
           {h.mensajes.length ? <Mensajes h={h} /> : <VacioM frase="Todavía no hay mensajes en este chat." />}
-          <ComposerChat leadId={h.leadId} chatJid={h.chat.chatJid} telefono={h.chat.telefono} linea={h.chat.linea} />
+          <ComposerChat leadId={h.leadId} chatJid={h.chat.chatJid} telefono={h.chat.telefono} linea={h.chat.linea}
+            ultimo={String(h.mensajes[h.mensajes.length - 1]?.id ?? '')} total={h.mensajes.length} />
         </>
       ) : (
         <VacioM

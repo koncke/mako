@@ -70,7 +70,8 @@ export default async function HiloChatMovil({ params }: { params: Promise<{ clav
           </div>
         )) : <VacioM frase="Todavía no hay mensajes. Escribe el primero." />}
       </div>
-      <ComposerChatsM clave={chat.clave} leadId={chat.leadId} canales={chat.canales} bloqueado={chat.bloqueado} />
+      <ComposerChatsM clave={chat.clave} leadId={chat.leadId} canales={chat.canales} bloqueado={chat.bloqueado}
+        ultimo={String(h.mensajes[h.mensajes.length - 1]?.id ?? '')} total={h.mensajes.length} />
     </PantallaM>
   );
 }

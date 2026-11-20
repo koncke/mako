@@ -24,7 +24,9 @@
 // o el servidor dio 504, el mensaje pudo salir; devolverlo invita a mandarlo dos veces.
 //
 // Al abrir: el último mensaje a la vista y la conversación marcada leída (POST /api/chats/estado `leido`, por
-// persona). Con la pestaña a la vista, el hilo se vuelve a pedir cada 15 s (lo que hace escritorio).
+// persona). Con la pestaña a la vista, el hilo se vuelve a pedir cada 15 s (lo que hace escritorio), también mientras se escribe:
+// sólo lo frena un envío en curso (movil-3, 20/11/2026: con el foco en la caja no llegaba nada). Lo que llega, lo que crece y lo suyo
+// los sigue `useSeguirLaPagina` (app/m/_chat/SeguirLaPagina.tsx, movil-1, 2 y 4): como WhatsApp, a quien lee arriba no lo arrastra.
 // Pegado abajo por portal a #m-pie: PantallaM corre la página al tirar para refrescar, y algo fijo adentro
 // se correría con el gesto (app/m/_ui/LEEME.md).
 //
@@ -53,12 +55,11 @@ import { useConexion, useToastM } from '@/app/m/_ui';
 import type { IdentidadCanal } from '@/lib/chats-tipos';
 import { haptico } from '@/lib/haptico';
 import { tecladoDelComposer } from '@/app/m/mako/chat-ui';
+import { NuevosM, useSeguirLaPagina } from '@/app/m/_chat/SeguirLaPagina';
 import { CADA_MS_HILO } from '../modelo';
 
 /** Lo que el clip deja elegir: el mismo `accept` de escritorio (app/chats/Composer.tsx). */
 export const ACCEPT_LEAD = 'image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx';
-
-const alFinal = () => window.scrollTo({ top: document.documentElement.scrollHeight });
 
 type Respuesta = { ok: boolean; error?: string; incierto?: boolean };
 
@@ -71,12 +72,16 @@ async function mandarArchivo(i: IdentidadCanal, blob: Blob, nombre: string, tipo
   throw new Error(j?.error || `Error ${r.status}`);
 }
 
-export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
+export function ComposerChatsM({ clave, leadId, canales, bloqueado, ultimo, total }: {
   clave: string;
   leadId: number | null;
   canales: IdentidadCanal[];
   bloqueado: boolean;
+  /** La clave del último mensaje dibujado y cuántos hay: lo que llega se ve (movil-1). */
+  ultimo: string;
+  total: number;
 }) {
+  const seguir = useSeguirLaPagina(ultimo, total);
   const router = useRouter();
   const toast = useToastM();
   const { enLinea } = useConexion();
@@ -93,7 +98,8 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
   const [error, setError] = useState<string | null>(null);
   const [pie, setPie] = useState<HTMLElement | null>(null);
   const campo = useRef<HTMLTextAreaElement | null>(null);
-  const escribiendo = useRef(false);
+  /** Un envío en curso: lo único que frena el sondeo (movil-3). */
+  const enviandoAhora = useRef(false);
   const [enfocado, setEnfocado] = useState(false);
   const [teclado, setTeclado] = useState({ corrimiento: 0, abierto: false, reserva: 0 });
 
@@ -106,18 +112,18 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
   const esWa = ident?.canal === 'whatsapp';
   const esEmail = ident?.canal === 'email';
 
-  useEffect(() => { setPie(document.getElementById('m-pie')); alFinal(); }, []);
+  useEffect(() => { setPie(document.getElementById('m-pie')); }, []);
   // El campo de la caja: enfocado o no (para medir el teclado de iOS sólo mientras se escribe).
   useEffect(() => {
     const el = campo.current;
     if (!el) return;
-    const entra = () => { escribiendo.current = true; setEnfocado(true); };
+    const entra = () => setEnfocado(true);
     // Tocar Enviar no cuenta como salir del campo (ComposerOfferM): la franja no se mueve bajo el dedo.
-    const sale = () => { escribiendo.current = enviando; window.setTimeout(() => { if (document.activeElement !== campo.current) setEnfocado(false); }, 0); };
+    const sale = () => { window.setTimeout(() => { if (document.activeElement !== campo.current) setEnfocado(false); }, 0); };
     el.addEventListener('focus', entra);
     el.addEventListener('blur', sale);
     return () => { el.removeEventListener('focus', entra); el.removeEventListener('blur', sale); };
-  }, [pie, enviando]);
+  }, [pie]);
   // El teclado de iOS, con el campo enfocado (mirar siempre se confundiría con el zoom de dos dedos).
   useEffect(() => {
     const vv = window.visualViewport;
@@ -137,29 +143,30 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
     else raiz.style.removeProperty('--m-chats-teclado');
     return () => { raiz.style.removeProperty('--m-chats-teclado'); };
   }, [teclado.reserva]);
-  useEffect(() => { if (teclado.abierto) alFinal(); }, [teclado.abierto]);
+  const bajarConElTeclado = seguir.bajar;
+  useEffect(() => { if (teclado.abierto) bajarConElTeclado(); }, [teclado.abierto, bajarConElTeclado]);
   // Leída al abrir (y no en cada refresco: la marca es de quien MIRA el hilo, una vez por visita).
   useEffect(() => { void postJson('/api/chats/estado', { clave, accion: 'leido' }); }, [clave]);
   // Lo nuevo llega solo, con la pestaña a la vista y sin un envío en curso.
   useEffect(() => {
     const t = window.setInterval(() => {
-      if (document.visibilityState === 'visible' && !escribiendo.current) router.refresh();
+      if (document.visibilityState === 'visible' && !enviandoAhora.current) router.refresh();
     }, CADA_MS_HILO);
     return () => window.clearInterval(t);
   }, [router]);
 
-  /** Salió algo: el hilo se relee y se ve lo último. */
+  /** Salió algo: el hilo se relee, y lo suyo se ve cuando aparece (no a los 400 ms: con la red lenta llegaba después, movil-2). */
   const salio = (aviso = 'Enviado') => {
     haptico('success');
     toast(aviso);
+    seguir.esperarLoSuyo();
     router.refresh();
-    window.setTimeout(alFinal, 400);
   };
 
   const enviar = async () => {
     const t = textoVivo.current.trim();
     if (!t || enviando || !ident || motivo) return;
-    setEnviando(true); escribiendo.current = true; setError(null);
+    setEnviando(true); enviandoAhora.current = true; setError(null);
     let j: Respuesta;
     if (esCanalMaKo(ident)) {
       // Un grupo de MaKo (el super admin, 24/10/2026, docs/diseno-chats.md §8.5): por el canal de MaKo, como en escritorio.
@@ -171,14 +178,14 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
     } else {
       j = await postJson<Respuesta>('/api/chats/social', { convId: Number(ident.ref), texto: t, idempotencia: crypto.randomUUID() }, { timeoutMs: 45_000 });
     }
-    setEnviando(false); escribiendo.current = false;
+    setEnviando(false); enviandoAhora.current = false;
     if (!j.ok && !j.incierto) {
       haptico('error');
       setError(j.error ? `No salió: ${j.error.slice(0, 100)}` : 'No salió el mensaje.');
       return;
     }
     ponerTexto('');
-    if (j.incierto) { setError('No sé si salió. Mira el chat antes de volver a mandarlo.'); router.refresh(); return; }
+    if (j.incierto) { setError('No sé si salió. Mira el chat antes de volver a mandarlo.'); seguir.esperarLoSuyo(); router.refresh(); return; }
     salio();
   };
 
@@ -203,7 +210,7 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
     if (!items.length || enviando || !ident || motivo) return;
     const i = ident;
     const cap = textoVivo.current.trim();
-    setEnviando(true); escribiendo.current = true; setError(null);
+    setEnviando(true); enviandoAhora.current = true; setError(null);
     lista.vaciar(); ponerTexto('');
     try {
       if (i.canal === 'email') {
@@ -229,14 +236,14 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
       }
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : 'No se pudo enviar.');
-    } finally { setEnviando(false); escribiendo.current = false; setFase(null); }
+    } finally { setEnviando(false); enviandoAhora.current = false; setFase(null); }
   }
 
   // ── La nota de voz (sólo WhatsApp): se termina, se escucha, y recién la ➤ la entrega acá ──
   async function enviarAudio(blob: Blob) {
     if (!ident || ident.canal !== 'whatsapp' || motivo) { setError(motivo ?? 'La voz sale sólo por WhatsApp.'); return; }
     const i = ident;
-    setEnviando(true); escribiendo.current = true; setError(null); setFase('Procesando audio…');
+    setEnviando(true); enviandoAhora.current = true; setError(null); setFase('Procesando audio…');
     try {
       let mp3: Blob;
       try {
@@ -251,12 +258,13 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
       salio();
     } catch (e) {
       setError(`No se pudo enviar el audio${e instanceof Error && e.message ? ` (${e.message})` : ''}.`);
-    } finally { setEnviando(false); escribiendo.current = false; setFase(null); }
+    } finally { setEnviando(false); enviandoAhora.current = false; setFase(null); }
   }
 
   const cuerpo = (
     <div className="m-chats-composer m-wa" data-m-sin-barra data-teclado={teclado.abierto ? '' : undefined}
       style={teclado.corrimiento ? { transform: `translateY(${-teclado.corrimiento}px)` } : undefined}>
+      <NuevosM n={seguir.nuevos} onBajar={seguir.bajar} />
       {error && <p className="m-chats-error">{error}</p>}
       {fase && <p className="m-chats-fase" aria-live="polite">{fase}</p>}
       {canales.length > 1 && (
