@@ -44,7 +44,7 @@ export function usePasoAlFunnel({ activo, entregadaEn, ocupado, contenedor }: {
   /** Donde está la oferta: ahí se miran el PDF y el scroll. */
   contenedor: () => HTMLElement | null;
 }): void {
-  const { d, hacer } = useReto(activo);
+  const { d, leer } = useReto(activo);
   const [gesto, setGesto] = useState(false);
   const [ahora, setAhora] = useState(() => Date.now());
   // Una oferta nueva vuelve a empezar la lectura.
@@ -106,6 +106,7 @@ export function usePasoAlFunnel({ activo, entregadaEn, ocupado, contenedor }: {
     marcada.current = true;
     anotarMarcada(CLAVE);
     // Debajo de la fila, en la barra: a la derecha, la tarjeta tapaba el principio de la conversación (la oferta).
-    marcarTarea([{ ...m, lado: 'abajo' }], () => { if (d?.estado) void hacer({ accion: 'hecha', dia: 1, id: TAREA.id }); });
-  }, [activo, hecha, entregadaEn, ahora, gesto, ocupado, d?.estado, hacer]);
+    // Tocar la fila sólo LLEVA a Funnel Coach (20/11, auditoría D1-01): la tarea queda hecha cuando el funnel se guardó.
+    marcarTarea([{ ...m, lado: 'abajo' }], () => { void leer(); });
+  }, [activo, hecha, entregadaEn, ahora, gesto, ocupado, d?.estado, leer]);
 }

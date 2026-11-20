@@ -191,10 +191,85 @@ export const DIAS_RETO: readonly DiaReto[] = [
   },
 ];
 
+// ── «¿Qué hacemos ahora?» (20/11/2026, auditoría D1-02 y V3) ─────────────────────────────────────────────────────────────
+// Lo acordado (memoria onboarding-16-11-decisiones: «Si elige algo, arranca el tutorial de eso, uno por función, con su video»; la
+// maqueta, INTERES_YA, MUESTRA y MUESTRA_FIN): después del saludo, MaKo nombra lo que la persona eligió en «¿Qué te gustaría que MaKo
+// resuelva primero?» (hasta 3, lib/onboarding-arranque.ts → INTERESES_V2) y pregunta «¿Qué hacemos ahora?», con «Empezar mi día 1»
+// (recomendada) y un «Muéstrame {pestaña}» por cada una. Cada una corre el tutorial de esa pestaña con su video.
+export type MuestraReto = { pestana: string; nombre: string; hacer: string };
+export const MUESTRA_DE_INTERES: Readonly<Record<string, MuestraReto>> = {
+  'Conseguir clientes con anuncios': { pestana: 'copilot', nombre: 'Marketing CoPilot', hacer: 'conseguir clientes con anuncios' },
+  'Armar mi landing': { pestana: 'web', nombre: 'Web Generator', hacer: 'armar tu landing' },
+  'Espiar lo que le funciona a mi competencia': { pestana: 'spy', nombre: 'Competitor Spy', hacer: 'espiar a tu competencia' },
+  'Guiones y carruseles que venden': { pestana: 'copywriting', nombre: 'Copywriting', hacer: 'armar tus guiones y carruseles' },
+  // La tab AI Avatar se cerró el 14/11: el personaje está en Video.
+  'Videos con IA y con mi avatar': { pestana: 'video', nombre: 'Video', hacer: 'hacer tus videos con IA' },
+  'Que WhatsApp e Instagram respondan solos': { pestana: 'automations', nombre: 'Automations', hacer: 'que WhatsApp e Instagram respondan solos' },
+  'Ordenar mis ventas en un CRM': { pestana: 'crm', nombre: 'CRM', hacer: 'ordenar tus ventas en el CRM' },
+  'Ver mis números en un tablero': { pestana: 'dashboard', nombre: 'Dashboard', hacer: 'ver tus números en un tablero' },
+  'Armar o mejorar mi oferta': { pestana: 'offer', nombre: 'Offer', hacer: 'armar tu oferta' },
+  'Mi curso y mi comunidad': { pestana: 'classroom', nombre: 'Classroom', hacer: 'armar tu curso y tu comunidad' },
+  'Organizar mi plan y mi equipo': { pestana: 'plan', nombre: 'Plan', hacer: 'organizar tu plan' },
+};
+/** Lo elegido que tiene su pestaña para mostrar, en orden y sin repetir (hasta 3). */
+export const muestrasDe = (intereses: readonly string[] | null | undefined): MuestraReto[] =>
+  [...new Set(intereses ?? [])].map((i) => MUESTRA_DE_INTERES[i]).filter((m): m is MuestraReto => !!m).slice(0, 3);
+const enLista = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
+export const RETO_EMPEZAR_DIA1 = 'Empezar mi día 1';
+export const RETO_INTERES_YA = (ms: readonly MuestraReto[]) => `Me dijiste que lo primero que quieres es ${enLista(ms.map((m) => m.hacer))}. ¿Te muestro cómo hacerlo ahora, o empezamos tu día 1? Si lo resuelves primero, no te preocupes: tu reto te espera aquí.`;
+export const RETO_MUESTRA = (m: MuestraReto) => `Te muestro dónde ${m.hacer}, en ${m.nombre}. Dale play.`;
+// La maqueta dice «Cuando quieras lo armamos juntos»: «juntos» marca género (la regla de los textos neutros).
+export const RETO_MUESTRA_FIN = (m: MuestraReto) => `Listo: ya sabes dónde ${m.hacer}. Cuando quieras, lo armamos; tu reto te espera.`;
+
+// ── Los días 4 a 6, según el funnel (20/11/2026, auditoría d24-14 y R57-01) ─────────────────────────────────────────────────
+// Martín, 15/11: «el reto tiene que servir a CADA funnel». La tabla es la de la maqueta (C:/dev/artefactos-onboarding/cuerpo.html,
+// POR_FUNNEL): qué mira en Competitor Spy, qué página arma, qué carrusel y qué guion, y para qué es el clip. Los funnels de la app
+// (lib/funnel-plan.ts, FUNNELS) van a su columna; «prospección en frío» no está en la maqueta y va con la de WhatsApp, la más
+// parecida (le escribe a la gente y la conversación sigue por chat). Sin funnel elegido, los días de siempre.
+type PorFunnel = { spy: string; web: string; carrusel: string; guion: string; clip: string };
+const POR_FUNNEL: Readonly<Record<'whatsapp' | 'vsl' | 'formulario' | 'instagram' | 'youtube', PorFunnel>> = {
+  whatsapp: { spy: 'Mira sus anuncios que más tiempo llevan activos.', web: 'Tu página, con el botón a tu WhatsApp', carrusel: 'Tu anuncio en carrusel, que abre el chat', guion: 'El guion de tu anuncio en video', clip: 'Con el gancho de tu anuncio.' },
+  vsl: { spy: 'Mira sus anuncios y la página de su video de venta.', web: 'Tu página con tu video de venta y la agenda', carrusel: 'Tu anuncio en carrusel, que lleva a tu página', guion: 'El guion de tu video de venta', clip: 'Con el gancho de tu anuncio.' },
+  formulario: { spy: 'Mira sus anuncios con formulario que más duran.', web: 'Tu página de gracias, con tu agenda', carrusel: 'Tu anuncio en carrusel, con formulario', guion: 'El guion de tu anuncio en video', clip: 'Con el gancho de tu anuncio.' },
+  instagram: { spy: 'Mira sus reels con más vistas y la palabra que piden comentar.', web: 'La página del link de tu bio', carrusel: 'Tu carrusel, con la palabra para comentar', guion: 'El guion de tu reel', clip: 'Con el gancho de tu reel.' },
+  youtube: { spy: 'Mira sus videos con más vistas.', web: 'La página del link de tu descripción, con la agenda', carrusel: 'Tu carrusel, que lleva a tu canal', guion: 'El guion de tu video largo', clip: 'Un short que lleva a tu canal.' },
+};
+const COLUMNA_DEL_FUNNEL: Readonly<Record<string, keyof typeof POR_FUNNEL>> = {
+  'anuncios-a-whatsapp': 'whatsapp', 'anuncios-a-vsl': 'vsl', anuncios: 'formulario', organico: 'instagram', youtube: 'youtube', 'prospeccion-en-frio': 'whatsapp',
+};
+
+/** Los 7 días con los 4 a 6 armados para el funnel elegido en Funnel Coach (el principal). Los ids de las tareas no cambian. */
+export function diasDelReto(funnel?: string | null): readonly DiaReto[] {
+  const col = funnel ? COLUMNA_DEL_FUNNEL[funnel] : undefined;
+  if (!col) return DIAS_RETO;
+  const F = POR_FUNNEL[col];
+  const cambia: Record<number, Record<string, Partial<TareaReto>>> = {
+    4: { spy: { detalle: F.spy }, web: { titulo: F.web } },
+    5: { carrusel: { titulo: F.carrusel }, guion: { titulo: F.guion } },
+    6: { clip: { detalle: F.clip } },
+  };
+  return DIAS_RETO.map((d) => (cambia[d.n] ? { ...d, tareas: d.tareas.map((t) => ({ ...t, ...(cambia[d.n][t.id] ?? {}) })) } : d));
+}
+
 // ── En qué día va ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Lo que se guarda por negocio (`app_settings` → `reto.estado`). */
 export type EstadoReto = { v: 1; inicio: string; adelantado: number; hechas: Record<string, string>; horaWa?: string;
+  /**
+   * Cuándo adelantó por última vez (20/11, auditoría d24-01 y R57-06). Lo acordado: «si el lunes adelanta el día 2 y el 3, el
+   * martes ya tiene el día 4». Sin esto, el calendario se contaba desde el INICIO y, después de adelantar, pasaban días sin que se
+   * abriera uno nuevo. El día que sigue al adelantado se abre el día de calendario siguiente a ese momento, a su hora.
+   */
+  adelantadoEn?: string;
+  /**
+   * Lo que MaKo LEYÓ al dar cada tarea por hecha (20/11, lib/reto/senales.ts): { "3:contactos": "Leí 134 contactos en tu CRM." }.
+   * Desde el 20/11 una tarea queda hecha sólo así; las `hechas` de antes (por tocar la pestaña) no traen lectura y se vuelven a leer.
+   */
+  leidas?: Record<string, string>;
+  /** Cuándo eligió «Empezar mi día 1» (D1-02): hasta ahí, el chat pregunta «¿Qué hacemos ahora?» y no muestra los días. */
+  dia1Desde?: string;
+  /** Las pestañas que ya le mostró por «Muéstrame…» (`MuestraReto.pestana`). */
+  muestras?: string[];
   /** El último día del que salió el correo «Día N del reto de MaKo» (lib/reto/correos.ts): uno por día, una vez. */
   avisado?: number };
 
@@ -213,7 +288,14 @@ export function leerEstado(crudo: unknown): EstadoReto | null {
   const adelantado = Number.isInteger(e.adelantado) ? Math.max(1, Math.min(7, Number(e.adelantado))) : 1;
   const horaWa = typeof e.horaWa === 'string' && (HORAS_WA as readonly string[]).includes(e.horaWa) ? e.horaWa : undefined;
   const avisado = Number.isInteger(e.avisado) ? Math.max(1, Math.min(7, Number(e.avisado))) : undefined;
-  return { v: 1, inicio: e.inicio, adelantado, hechas, ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}) };
+  const adelantadoEn = typeof e.adelantadoEn === 'string' && !Number.isNaN(Date.parse(e.adelantadoEn)) ? e.adelantadoEn : undefined;
+  const leidas: Record<string, string> = {};
+  for (const [k, v] of Object.entries(e.leidas && typeof e.leidas === 'object' ? e.leidas : {})) if (/^\d:[a-z-]+$/.test(k) && typeof v === 'string' && v) leidas[k] = v.slice(0, 200);
+  // Sin `leidas` es un reto de antes del 20/11: sus «hechas» salían de tocar la pestaña y no prueban nada. Se vuelven a leer.
+  const confiables = e.leidas && typeof e.leidas === 'object' ? Object.fromEntries(Object.entries(hechas).filter(([k]) => leidas[k])) : {};
+  const dia1Desde = typeof e.dia1Desde === 'string' && !Number.isNaN(Date.parse(e.dia1Desde)) ? e.dia1Desde : undefined;
+  const muestras = Array.isArray(e.muestras) ? [...new Set(e.muestras.filter((x): x is string => typeof x === 'string' && /^[a-z-]{2,30}$/.test(x)))].slice(0, 11) : [];
+  return { v: 1, inicio: e.inicio, adelantado, hechas: confiables, leidas, ...(dia1Desde ? { dia1Desde } : {}), ...(muestras.length ? { muestras } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}) };
 }
 
 /** La hora de Argentina (la de MaKo), UTC−3. */
@@ -224,15 +306,21 @@ const diaAr = (ms: number) => Math.floor((ms + HORA_AR * 3_600_000) / 86_400_000
 const horaAr = (ms: number) => (((ms + HORA_AR * 3_600_000) % 86_400_000) + 86_400_000) % 86_400_000 / 3_600_000;
 const horaDe = (h: string | undefined) => { const m = /^(\d{1,2}):(\d{2})$/.exec(h ?? '9:00'); return m ? Number(m[1]) + Number(m[2]) / 60 : 9; };
 
+/** Cuántos días se abrieron por calendario desde un momento: uno por cada día de calendario siguiente, a la hora del aviso. */
+function abiertosDesde(desde: number, horaWa: string | undefined, ahora: number): number {
+  const pasados = diaAr(ahora) - diaAr(desde);
+  return pasados <= 0 ? 0 : pasados - (horaAr(ahora) < horaDe(horaWa) ? 1 : 0);
+}
+
 /**
  * El último día ABIERTO: el día 1 se abre al empezar; cada uno de los que siguen, al día de calendario siguiente a la hora de su
- * aviso (la que eligió por WhatsApp, o las 9:00), o antes si lo adelantó.
+ * aviso (la que eligió por WhatsApp, o las 9:00), o antes si lo adelantó. Después de adelantar, el calendario sigue desde el día
+ * adelantado (`adelantadoEn`): adelantar el 2 y el 3 el lunes abre el 4 el martes.
  */
 export function diaAbierto(e: EstadoReto, ahora: number): number {
-  const ini = Date.parse(e.inicio);
-  const pasados = diaAr(ahora) - diaAr(ini);
-  const porCalendario = pasados <= 0 ? 1 : 1 + pasados - (horaAr(ahora) < horaDe(e.horaWa) ? 1 : 0);
-  return Math.max(1, Math.min(7, Math.max(porCalendario, e.adelantado)));
+  const porCalendario = 1 + abiertosDesde(Date.parse(e.inicio), e.horaWa, ahora);
+  const desdeAdelanto = e.adelantado + (e.adelantadoEn ? abiertosDesde(Date.parse(e.adelantadoEn), e.horaWa, ahora) : 0);
+  return Math.max(1, Math.min(7, Math.max(porCalendario, desdeAdelanto)));
 }
 
 export const claveTarea = (dia: number, id: string) => `${dia}:${id}`;

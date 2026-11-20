@@ -7614,3 +7614,10 @@ tests/plan-plazo-hidratacion.test.ts.
 - Sin captura: BoardShell no se monta fuera de la app sin sesión.
 
 **Vive en:** app/plan/board/RazonObjetivo.tsx, app/plan/board/BoardShell.tsx, tests/recorrido-plan-api.test.ts
+
+## La señal «nutricion-activa» de lib/plan-senales.ts da verde para todos (20/11/2026, chat «reto-tutoriales»)
+
+`hayFilas('nutricion_secuencias')` cuenta secuencias, y toda secuencia nace con `activa: false`, también las que siembra el onboarding
+(lib/setting-secuencias.ts, plantilla-crear.ts, secuencias-audios.ts). Así, la tarea del plan que depende de «nutrición activa» puede
+cerrarse sin ninguna automatización prendida. Lo correcto es `.eq('activa', true).is('archivada_at', null)`, como hace
+lib/reto/senales.ts. **Quedó sin arreglar:** no es de este chat.
