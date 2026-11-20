@@ -18,8 +18,6 @@ import { esRevision } from '@/lib/onboarding-v2/revision';
 import { ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, type CoachDelOps } from '@/lib/chat-mako-reglas';
 import type { EnMensaje } from '@/app/_chat/HiloMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
-import type { VideoDeUnChat } from '@/app/_ui/tutorial/VideosDelChat';
-import { FUNNELS, ROTULO_FUNNEL } from '@/lib/funnel-plan';
 
 /** La clave del video de cada coach en el manifiesto. */
 export const CLAVE_VIDEO_DEL_COACH: Record<CoachDelOps, string> = { offer: 'offer-coach', funnel: 'funnel-coach' };
@@ -34,7 +32,7 @@ const LINEA: Record<CoachDelOps, string> = {
  * El saludo del coach con su video adelante: los mensajes de la portada y lo que se dibuja adentro del del video (`enMensaje` de
  * HiloMako). Sin el V2, o sin video fuera de la revisión, el saludo tal cual.
  */
-export function useVideoDelCoach(cual: CoachDelOps, dosCoaches: boolean, saludo: readonly ItemHilo[]) {
+export function useVideoDelCoach(cual: CoachDelOps, dosCoaches: boolean, saludo: readonly ItemHilo[], dalePlay = false) {
   const clave = CLAVE_VIDEO_DEL_COACH[cual];
   const video = useVideoTutorial(dosCoaches ? clave : null);
   const revision = esRevision(dosCoaches);
@@ -45,23 +43,18 @@ export function useVideoDelCoach(cual: CoachDelOps, dosCoaches: boolean, saludo:
     if (!conVideo || !primero || primero.k !== 'msg') return saludo;
     return [{ k: 'msg', id, role: 'assistant', texto: LINEA[cual], at: primero.at }, ...saludo];
   }, [conVideo, saludo, id, cual]);
-  // Quieto, el motor lo marca con «{título}: dale play» (V5, app/_ui/tutorial/useDalePlay.ts).
+  // Quieto, el motor lo marca con «{título}: dale play» (V5, app/_ui/tutorial/useDalePlay.ts), sólo mientras es la portada (el chat
+  // vacío): con la charla empezada, el video sigue arriba (V12) pero no vuelve a pedir play. El video va ARRIBA del texto (F4).
   const enMensaje = useCallback((x: { id: string }): EnMensaje | null => {
     if (x.id !== id) return null;
     return {
-      abajo: cual === 'offer'
-        ? <VideoDelMomento clave="offer-coach" titulo={ORIGEN_OFFER_COACH} revision={revision} dalePlay />
-        : <VideoDelMomento clave="funnel-coach" titulo={ORIGEN_FUNNEL_COACH} revision={revision} dalePlay />,
+      arriba: cual === 'offer'
+        ? <VideoDelMomento clave="offer-coach" titulo={ORIGEN_OFFER_COACH} revision={revision} dalePlay={dalePlay} />
+        : <VideoDelMomento clave="funnel-coach" titulo={ORIGEN_FUNNEL_COACH} revision={revision} dalePlay={dalePlay} />,
     };
-  }, [id, cual, revision]);
+  }, [id, cual, revision, dalePlay]);
   return { items, enMensaje, conVideo };
 }
 
-// Los videos de cada coach del V2 para su ícono de videos (18/11, Martín: «el mismo ícono de videos que tiene el reto… que al
-// cliquearlo se vean los videos de ese chat»; app/_ui/tutorial/VideosDelChat.tsx), con las claves del chat de los videos: su
-// presentación, la clase de la oferta y una clase por funnel.
-export const VIDEOS_DEL_OFFER: readonly VideoDeUnChat[] = [{ clave: 'offer-coach', titulo: `Cómo trabaja ${ORIGEN_OFFER_COACH}` }, { clave: 'offer-coach-clase', titulo: 'La clase de la oferta' }];
-export const VIDEOS_DEL_FUNNEL: readonly VideoDeUnChat[] = [
-  { clave: 'funnel-coach', titulo: `Cómo trabaja ${ORIGEN_FUNNEL_COACH}` },
-  ...FUNNELS.map((f) => ({ clave: `funnel-clase-${f}`, titulo: `La clase de ${ROTULO_FUNNEL[f]}` })),
-];
+// Los videos de cada coach del V2 para su ícono de videos (18/11; V6, 20/11: sólo lo que ya eligió): lib/onboarding-v2/videos-coach.ts.
+export { videosDelFunnel, videosDelOffer } from '@/lib/onboarding-v2/videos-coach';
