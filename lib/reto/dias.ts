@@ -549,6 +549,21 @@ export function cuandoSeAbrio(e: EstadoReto, n: number, ahora: number): number |
   return hi;
 }
 
+/**
+ * CUÁNDO SE ABRE EL QUE SIGUE (auditoría de chats del 20/11, reto-7): el primer minuto en que el día abierto pasa al siguiente, por
+ * calendario o por lo ya adelantado; null con los 7 abiertos. El chat del reto relee a esa hora: con el chat abierto, el día nuevo
+ * llegaba recién al cambiar de pestaña y volver.
+ */
+export function proximaApertura(e: EstadoReto, ahora: number): number | null {
+  const abierto = diaAbierto(e, ahora);
+  if (abierto >= 7) return null;
+  let lo = ahora, hi = ahora + 2 * 86_400_000;
+  if (diaAbierto(e, hi) <= abierto) return null;
+  while (hi - lo > 60_000) { const m = Math.floor((lo + hi) / 2); if (diaAbierto(e, m) > abierto) hi = m; else lo = m; }
+  // Al minuto: el mismo valor en cada dibujo (el reloj del chat no se rearma a cada rato).
+  return Math.ceil(hi / 60_000) * 60_000;
+}
+
 export const claveTarea = (dia: number, id: string) => `${dia}:${id}`;
 /**
  * La marca de una tarea lleva la TAREA, no la pestaña (20/11, f24-04 y R57-F2; la maqueta, `marca: { titulo: t.t, texto: t.d }`):

@@ -3809,3 +3809,32 @@ existía y el test pasaba, pero el camino de la persona se cortaba. El test comp
   desplegable, el catálogo y los fijados. A 375 no entraban con el título: el texto del botón se esconde a la vista.
 - **Lo que quedó sin hacer:** el «dale play» del día 1 (VideoDelMomento, con la clave del video) sigue siendo del navegador. Y el
   correo de «Sigamos en tu computadora» en el teléfono sigue siendo el de la sesión.
+
+## El chat del reto como UN hilo: la auditoría de chats del 20/11, reto-1 a reto-11 (chat «reto-tutoriales», claude5)
+
+- **El diagnóstico obvio no alcanzaba.** Para reto-1 y reto-2, «falta bajar al montar el día» era el diagnóstico a mano, y no
+  alcanza. La charla de la caja se dibujaba DEBAJO de todo el reto (`<HiloDelCliente k={k} />` al final), así que un día nuevo
+  aparecía arriba de esa charla y sus puntitos abajo. Bajar no lo arreglaba: había que ORDENAR. **La regla:** un solo hilo por hora
+  (`intercalar`, app/second-brain/reto/hilo-por-hora.ts, puro y con test). Cada pieza del reto lleva su hora: el día, cuándo se abrió
+  (`cuandoSeAbrio`); su cierre, la hora de su última tarea hecha. La charla se corta en tramos (`HiloDelCliente tramo`) entre ellas.
+- **Lo que crece no baja con una clave sola.** El video, la tarjeta y la entrada del día crecen después de montarse. El reto usa el
+  gancho común `useBajarAlUltimo` (app/_chat/useBajarAlUltimo.ts, con su ResizeObserver), con las piezas, la charla, los puntitos y
+  el catálogo en la clave. Ya no hay un scroll propio.
+- **Un cierre que mira sólo el último día desaparece al adelantar (reto-6).** `termino` y `eligioManana` eran del día abierto.
+  Ahora cada día que terminó lleva su cierre debajo. El de hoy llega con sus puntitos; los de antes quedan como estaban.
+- **El día que se abre con el chat abierto (reto-7):** `/api/reto` se releía sólo al volver a la pestaña. `proximaApertura`
+  (lib/reto/dias.ts) da la hora del que sigue, y el chat relee a esa hora.
+- **Cada paso con su marca (reto-9):** se marcaba sólo la primera tarea, después del video. Ahora la que toca HOY se marca sola una
+  vez por visita: después del video del día, con el motor libre y con su fila ya en el hilo (`data-tarea`). El perfil del día 2
+  (OD-11) y Offer Coach del día 1 al recargar con el video visto (reto-5 c) son casos de esto.
+- **La X del «dale play» no avisaba (reto-5 a):** `useDalePlay` anota la invitación cerrada, pero no le avisa a nadie. El día 1 lo ve
+  desde su lado: la marca «{título}: dale play» se fue, quedó cerrada y el video no arrancó.
+- **Los puntitos de la carga, sólo la primera vez (reto-11, decidido por el Cerebro):** sin nada visto en este navegador. Con
+  historia, mientras carga no se ve nada.
+- **La trampa de esta tanda:** `tests/tutorial-pausas.test.ts` cuenta los `v.play()` y `v.pause()` del motor. Un clic de la
+  persona en el video del mensaje lo puso rojo. Los controles del reproductor viven en app/_ui/tutorial/BarraDelVideo.tsx
+  (`alternarVideo`), no en el motor.
+- **Lo que quedó sin hacer:**
+  - reto-3, reto-4 y reto-8 (las tarjetas y recuadros que salen juntos, la muestra sin puntitos, la duración fija) esperan la cola
+    de salida compartida que arma el chat del onboarding. Ahí entra también el QR del día 2 después del video, con su pausa.
+  - La hora de «lo dejé para después» no se guarda: un día cerrado sólo así toma la hora en que se abrió.

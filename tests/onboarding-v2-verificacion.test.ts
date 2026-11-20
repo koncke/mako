@@ -142,7 +142,8 @@ test('8. OD-08: con el V2, nada arriba del Ops Center: el grupo de WhatsApp (y s
 test('9. OD-09: el chat del reto carga con MaKo escribiendo, sin «Cargando tu reto…» ni «Empezando tu reto…»', () => {
   const r = sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx'));
   assert.doesNotMatch(r, /Cargando tu reto|Empezando tu reto/);
-  assert.match(r, /: !d \|\| !e \? <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo" data-reto-carga="">/);
+  // Sólo la primera vez, con nada visto todavía (auditoría de chats, reto-11; decidido por el Cerebro el 20/11).
+  assert.match(r, /: !d \|\| !e \? \(primeraVez \? <Burbuja><span className="co-escribiendo" role="status" aria-label="MaKo está escribiendo" data-reto-carga="">/);
 });
 
 test('10. OD-10: sin video, el paso que sigue a un clic no vuelve a tocar su `antes` (el Second Brain alterna) y espera la carga', () => {

@@ -232,7 +232,8 @@ test('«¿Qué hacemos ahora?»: lo elegido en el onboarding, con su «Muéstram
   for (const i of INTERESES_V2) assert.ok(muestrasDe([i.label]).length === 1, `«${i.label}» tiene su pestaña`);
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(chat.includes("<QueHacemos titulo={vistas.length ? '¿Seguimos?' : '¿Qué hacemos ahora?'}"), 'el recuadro, arriba de la caja');
-  assert.ok(chat.includes('{empezo1 && abiertos.filter('), 'los días, recién después de «Empezar mi día 1»');
+  // Los días son piezas del hilo por hora desde el 20/11 (auditoría de chats, reto-2).
+  assert.ok(chat.includes('if (d && e && empezo1) {'), 'los días, recién después de «Empezar mi día 1»');
   assert.ok(chat.includes('if (t && mostrarEnSuPestana(t, { texto: `Aquí ${m.hacer}.`, alTerminar: vista })) return;'), 'cada «Muéstrame…» corre su tutorial con su video');
   const ruta = fuente('../app/api/reto/route.ts');
   assert.ok(ruta.includes("body.accion === 'dia1'") && ruta.includes("body.accion === 'muestra'"), 'la API guarda lo elegido');
@@ -250,8 +251,9 @@ test('los tres puntitos: cada mensaje del reto llega después de que MaKo escrib
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   // Con lo visto de ESTE reto (20/11, ~13:00): lo visto en otro negocio no los deja salir juntos.
   assert.ok(chat.includes("const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');"), 'los mensajes pasan por la aparición');
-  assert.ok(chat.indexOf("const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');") < chat.indexOf('ap.escribiendo]'), 'ap se declara antes de usarlo en un efecto');
-  for (const k of ["ap.ver('hola')", "ap.ver('interes')", 'ap.ver(`dia:${dia.n}`)', 'ap.ver(`fin:${actual.n}`)']) assert.ok(chat.includes(k), `${k} espera su turno`);
+  assert.ok(chat.indexOf("const ap = useAparicion(claves, e?.inicio ? `${e.inicio}|` : '');") < chat.indexOf("ap.escribiendo ? 'escribe' : ''"), 'ap se declara antes de usarlo en la clave del scroll');
+  // El cierre de HOY espera su turno (`verFin`); los de días anteriores ya se vieron (reto-6).
+  for (const k of ["ap.ver('hola')", "ap.ver('interes')", 'ap.ver(`dia:${dia.n}`)', 'verFin(`fin:${dia.n}`)']) assert.ok(chat.includes(k), `${k} espera su turno`);
   assert.ok(chat.includes('co-trabajando__puntos'), 'los puntitos del Ops Center');
   assert.ok(chat.includes('!empezo1 && !muestraPendiente && ap.listo && !ap.escribiendo'), 'las opciones, recién cuando MaKo terminó de escribir');
 });
@@ -549,7 +551,8 @@ test('tanda 8 (20/11): el cierre del reto con el piloto y lo pendiente (R57-08),
   assert.equal(RETO_PILOTO(null), RETO_PILOTO('youtube'), 'sin funnel, el de publicar');
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(!/genial/.test(chat), 'sin «genial»');
-  const iFin = chat.indexOf('{finDelDia(actual, siguiente, horaWa, nombre, falta)}'), iPil = chat.indexOf('{RETO_PILOTO(d.funnel)}'), iAudio = chat.indexOf('<TarjetaPrueba p={actual.whatsapp}');
+  // El cierre de CADA día va con su día (auditoría de chats, reto-6): `dia`, no sólo `actual`.
+  const iFin = chat.indexOf('{finDelDia(dia, sig, horaWa, nombre, faltaDia)}'), iPil = chat.indexOf('{RETO_PILOTO(d.funnel)}'), iAudio = chat.indexOf('<TarjetaPrueba p={dia.whatsapp}');
   assert.ok(iFin > 0 && iFin < iPil && iPil < iAudio, 'el cierre, el piloto y recién después la tarjeta del audio');
   assert.ok(chat.includes('? abiertos.flatMap((x) => x.tareas.filter((t) => !tareaHecha(e, x.n, t.id)).map((t) => t.id))'), 'el día 7 nombra lo pendiente de todo el reto');
   // d24-21
@@ -647,7 +650,7 @@ test('d24-22 (20/11): el reto es un proyecto del Plan, con una tarea por día qu
   // El final del día 3 lo cuenta y marca Plan, sólo con el proyecto creado.
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(chat.includes('const enElPlan3 = termino && actual?.n === 3 && !!e?.enElPlan;'), 'sólo con el proyecto creado');
-  assert.ok(chat.includes("{enElPlan3 && ap.ver('plan') && <Burbuja><p>{RETO_EN_TU_PLAN}</p></Burbuja>}"));
+  assert.ok(chat.includes("{dia.n === 3 && !!e.enElPlan && verFin('plan') && <Burbuja><p>{RETO_EN_TU_PLAN}</p></Burbuja>}"));
   assert.equal(RETO_EN_TU_PLAN, 'Tu reto también está en tu Plan: cada día se cierra solo cuando leo que lo hiciste.');
   assert.ok(chat.includes("const MARCA_PLAN: MarcaReto = { sel: 'aside[data-sidebar] a[href^=\"/plan\"]'"), 'marca Plan en la barra');
 });

@@ -110,8 +110,13 @@ export function useAperturaDelCerebro(k: ChatCliente, o: { libre: boolean; propi
   return estado.apertura ? <AperturaMako estado={estado} quien={quien} acciones={{}} onConectar={() => k.setConectando(true)} /> : null;
 }
 
-export function HiloDelCliente({ k, apertura = null, enMensaje }: {
+export function HiloDelCliente({ k, apertura = null, enMensaje, tramo, ultimo = true }: {
   k: ChatCliente;
+  /** UN TRAMO de la charla, no la charla entera (20/11, el chat del reto: un solo hilo por hora, con sus piezas entre medio).
+   *  Sin él, todo `k.items`. */
+  tramo?: readonly ItemHilo[];
+  /** ¿Es el último tramo? Sólo el último lleva «MaKo está escribiendo», la apertura y lo vacío. */
+  ultimo?: boolean;
   /** Lo que va con cada mensaje de MaKo (`HiloMako`): la voz de los coaches del V2 (app/second-brain/ChatDelCoach.tsx). */
   enMensaje?: (x: Extract<ItemHilo, { k: 'msg' }>) => EnMensaje | null;
   /** Lo que MaKo dice primero (`useAperturaDelCerebro`): con el hilo vacío, en lugar de la portada (también sin la app: sus
@@ -123,6 +128,8 @@ export function HiloDelCliente({ k, apertura = null, enMensaje }: {
   // apertura sí (29/10/2026): sus botones no escriben nada.
   // ⚠️ LAS RESPUESTAS RÁPIDAS DEL HILO SIN LA APP (29/10/2026): mandan un mensaje al turno, que sin la app no sale; tocarlas no
   // hacía nada y no lo decía. Ahora lo dicen (`sinMandar`) y no se tocan.
+  const items = tramo ?? k.items;
+  if (!ultimo && (!items.length || !k.cargado || k.errorCarga)) return null;
   return (
     <ContextoWA.Provider value={k.esAutomatizacion || k.esEditor ? null : k.accionesWA}>
       {!k.cargado ? null : k.errorCarga ? (
@@ -130,7 +137,7 @@ export function HiloDelCliente({ k, apertura = null, enMensaje }: {
           <p className="co-portada__dato">{k.errorCarga}</p>
           <button type="button" className="co-chip" onClick={k.recargar}>Reintentar</button>
         </div>
-      ) : !k.items.length && !k.trabajo ? (apertura ?? (k.app === 'bloquea' ? null : (
+      ) : !items.length && !k.trabajo ? (apertura ?? (k.app === 'bloquea' ? null : (
         <div className="co-portada">
           <Muneco titulo={k.nombreMuneco} aspecto={k.aspectoMuneco} animo="despierto" size={76} />
           <p className="co-portada__nombre">{k.esAutomatizacion || k.esEditor ? 'Todavía no hay mensajes en esta charla.' : '¿En qué te ayudo?'}</p>
@@ -140,10 +147,10 @@ export function HiloDelCliente({ k, apertura = null, enMensaje }: {
           </div>}
         </div>
       ))) : (<>
-        <HiloMako items={k.items} quien={{ nombre: k.nombreMuneco, aspecto: k.aspectoMuneco }} ahora={k.ahora} escribiendo={k.enCurso ? { segs: k.segs } : null}
+        <HiloMako items={items} quien={{ nombre: k.nombreMuneco, aspecto: k.aspectoMuneco }} ahora={k.ahora} escribiendo={ultimo && k.enCurso ? { segs: k.segs } : null}
           tarjeta={k.tarjeta} onTarjeta={(x, a) => void k.correrTarjeta(x, a)} onReintentar={k.reintentar} onRecargar={k.recargar}
           onResponder={(t) => k.enviar(t)} sinMandar={k.app === 'bloquea' ? FRASE_RESPONDER : null} onTrabajo={k.alTerminarTrabajo} marcas={k.marcas} enMensaje={enMensaje} />
-        {apertura}
+        {ultimo && apertura}
       </>)}
     </ContextoWA.Provider>
   );

@@ -7,6 +7,11 @@
 //   A1 `cuandoSeAbrio` con el adelanto vigente desde el inicio               → falla «cuándo se abrió»
 //   P1 la marca de la foto vuelve a «Haz clic en tu foto»                    → falla «el perfil, después de la hora»
 //   P2 el perfil vuelve a tener la sección Perfil en el medio                → falla «el perfil, después de la hora»
+//   N1-N4 el nombre sin la guarda del administrador, sin fijar el ámbito, lo visto sin ámbito, el nombre entero → «la entrada al reto»
+//   H1-H2 la columna del hilo sin .rt-hilo, las acciones sin margin-left: auto → falla «la carga del reto y su cabecera»
+//   I1 `intercalar` sin cortar la charla · I2 una pantalla sin la hora de su mensaje → falla «un solo hilo por hora»
+//   M1 la marca de la tarea que toca sin esperar el video · C1 los puntitos de la carga siempre → falla «el scroll común, cada paso…»
+//   (Sacar `abierto >= 7` de `proximaApertura` NO da rojo, y es correcto: la guarda siguiente ya devuelve null con los 7 abiertos.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
@@ -91,7 +96,9 @@ test('OD-11: el perfil del día 2, después de la hora: arranca solo tras su men
   assert.equal(integ.marcas[0].haz, 'Pasa el mouse por tu foto');
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(chat.includes("const esperaLaHora = (x: TareaReto) => dia.n === 2 && x.id === 'perfil' && !e.horaWa && !tareaDespues(e, 2, 'hora');"), 'la cadena no salta a la hora');
-  assert.ok(chat.includes("if (senalAhora() || yaMarcada('2:perfil') || !document.querySelector('[data-recorrido=\"sb-reto-dia-2-perfil\"]')) return;"), 'después de su mensaje');
+  // Después de la hora arranca solo, como «cada paso con su marca» (reto-9): la tarea que toca hoy, con su fila ya en el hilo.
+  assert.ok(chat.includes("const esperaLaHora = (x: TareaReto) => actual.n === 2 && x.id === 'perfil' && !e.horaWa && !tareaDespues(e, 2, 'hora');"), 'el perfil espera la hora');
+  assert.ok(chat.includes('if (n > 1 && !document.querySelector(`[data-tarea="${claveToca}"]`)) return;'), 'después de su mensaje y su fila');
   assert.ok(chat.includes('...(m.pasar ? { pasar: true } : {})'), 'marcarTarea le pasa «pasar» al motor');
   const motor = fuente('../app/_ui/tutorial/MotorTutorial.tsx');
   assert.ok(motor.includes("if (pasa) el.addEventListener('pointerenter', alPasar);"), 'el motor lo cuenta al pasar el mouse');
@@ -102,7 +109,7 @@ test('D1-06: «¿Adelantas el día N?» con el tema «Tu reto», la respuesta de
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   const adel = chat.slice(chat.indexOf('export function AdelantarDia('));
   assert.ok(adel.indexOf('<span className="co-preg__tema">Tu reto</span>') > 0 && adel.indexOf('<span className="co-preg__tema">Tu reto</span>') < adel.indexOf('¿Adelantas el día {n}?</p>'));
-  assert.ok(chat.includes('{termino && eligioManana && siguiente && <DeLaPersona texto="Mañana" />}'));
+  assert.ok(chat.includes('{mananaDia && sig && <DeLaPersona texto="Mañana" />}'), 'con el cierre de su día (reto-6)');
   assert.ok(chat.includes('{e.adelantados?.includes(dia.n) && <DeLaPersona texto={`Adelantar al día ${dia.n}`} />}'));
   assert.ok(fuente('../app/api/reto/route.ts').includes('adelantados: [...new Set([...(e.adelantados ?? []), dia])]'), 'se guarda qué días adelantó');
   const e = leerEstado(JSON.stringify({ inicio: '2026-11-18T15:00:00Z', adelantado: 3, hechas: {}, adelantados: [2, 3, 3, 9, 'x'] }))!;
@@ -186,4 +193,47 @@ test('la carga del reto y su cabecera, como la maqueta (20/11, la captura de Mar
   assert.ok(i('<DesplegableReto ') >= 0 && i('<DesplegableReto ') < i('<BotonTutoriales ') && i('<BotonTutoriales ') < i('<PinDelReto '), 'el orden de la maqueta');
   assert.ok(chat.includes('.rt-menu { position: absolute; top: calc(100% + 8px); right: 0;'), 'el menú abre desde la derecha');
   assert.ok(chat.includes('@media (max-width: 480px) { .rt-btn__txt { position: absolute; width: 1px;'), 'a 375 entra: «Día N de 7», el catálogo y los fijados');
+});
+
+test('auditoría de chats (reto-2, reto-6 y reto-7): un solo hilo por hora, el cierre de cada día y el día que se abre con el chat abierto', async () => {
+  const { intercalar, horasDeLaCharla } = await import('../app/second-brain/reto/hilo-por-hora');
+  const msg = (id: string, at: string | null) => ({ k: 'msg', id, role: 'user', texto: id, at }) as never;
+  const charla = [msg('a', '2026-11-19T13:00:00Z'), { k: 'pantalla', id: 'p', p: {} } as never, msg('b', '2026-11-20T15:00:00Z'), msg('c', null)];
+  assert.deepEqual(horasDeLaCharla(charla), [h('2026-11-19T13:00:00Z'), h('2026-11-19T13:00:00Z'), h('2026-11-20T15:00:00Z'), Infinity], 'la pantalla, con su mensaje; sin hora, al final');
+  const piezas = [{ t: h('2026-11-20T12:00:00Z'), key: 'dia:2' }, { t: h('2026-11-18T15:00:00Z'), key: 'dia:1' }];
+  const hilo = intercalar(piezas, charla).map((x) => ('pieza' in x ? x.pieza.key : x.tramo.map((y) => (y as { id: string }).id).join('')));
+  // El día 1, la charla del 19, el día 2 (abierto el 20 a las 9:00) DEBAJO de esa charla, y lo de después (y lo que sale ahora) al final.
+  assert.deepEqual(hilo, ['dia:1', 'ap', 'dia:2', 'bc']);
+  assert.deepEqual(intercalar([], charla).length, 1, 'sin días, la charla entera');
+  const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
+  assert.ok(chat.includes('const hiloPorHora = intercalar(piezas, k.items);'), 'el chat del reto, por hora');
+  assert.ok(!chat.includes('<HiloDelCliente k={k} />'), 'nunca más la charla entera debajo de todo');
+  assert.ok(fuente('../app/second-brain/PiezasCliente.tsx').includes('const items = tramo ?? k.items;'), 'un tramo de la charla');
+  // reto-6: el cierre de cada día que terminó, debajo de ese día (no sólo el del último).
+  assert.ok(chat.includes("piezas.push({ t: tFin, key: `fin:${dia.n}`, nodo: ("), 'cada día con su cierre');
+  assert.ok(chat.includes('const verFin = (k2: string) => !esHoy || ap.ver(k2);'), 'los de antes, ya vistos, como están');
+  // reto-7: a la hora en que se abre el que sigue, se relee.
+  const { proximaApertura } = await import('../lib/reto/dias');
+  const e: EstadoReto = { v: 1, inicio: '2026-11-18T15:00:00.000Z', adelantado: 1, hechas: {}, horaWa: '9:00' };
+  const p = proximaApertura(e, h('2026-11-18T20:00:00Z'));
+  assert.ok(p != null && Math.abs(p - h('2026-11-19T12:00:00Z')) <= MIN, 'el 2, el 19 a las 9:00');
+  assert.equal(proximaApertura({ ...e, adelantado: 7 }, h('2026-11-18T20:00:00Z')), null, 'con los 7 abiertos, ninguna');
+  assert.ok(chat.includes('const t = window.setTimeout(() => { void leer(); }, Math.min(Math.max(proxima - Date.now() + 3000, 1000), 2_000_000_000));'));
+});
+
+test('auditoría de chats (reto-1, reto-5, reto-9, reto-10 y reto-11): el scroll común, cada paso con su marca, la X del «dale play» y la carga', () => {
+  const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
+  // reto-1 y reto-10: el gancho común, con la clave de la ÚLTIMA fila (nunca una cuenta): los puntitos, la última pieza o mensaje, el catálogo.
+  assert.ok(chat.includes('useBajarAlUltimo(seguirHilo, claveUltimaFila);'));
+  assert.ok(chat.includes("const claveUltimaFila = catalogo ? 'catalogo' : !d || !e ? 'carga' : ["), 'el catálogo y la carga también');
+  assert.ok(!/useBajarAlUltimo\(seguirHilo, `[^`]*\.length/.test(chat), 'sin cuentas en la clave');
+  assert.ok(!chat.includes('el.scrollTop = el.scrollHeight; }, [d?.abierto, d?.hechos, ap.escribiendo]);'), 'sin el scroll de antes');
+  // reto-9: la tarea que toca hoy se marca sola, después del video, con su fila en el hilo.
+  assert.ok(chat.includes('if (!t || !n || yaMarcada(claveToca) || !yaVisto(`video:${n}`)) return;'));
+  assert.ok(chat.includes('if (n > 1 && !document.querySelector(`[data-tarea="${claveToca}"]`)) return;'));
+  assert.ok(chat.includes("useDalePlay(boton, { clave: delReto(`muestra-${m.pestana}`), titulo: m.nombre, activo: !!v });"), 'la muestra con su «dale play»');
+  // reto-5 (a): cerrar el «dale play» del día 1 con su X marca Offer Coach.
+  assert.ok(chat.includes("if (!arranco.current && dalePlayCerrado(dia.video)) { anotarVisto(`video:${dia.n}`); onFin?.(); }"));
+  // reto-11: los puntitos de la carga, sólo la primera vez.
+  assert.ok(chat.includes('!d || !e ? (primeraVez ? <Burbuja>'));
 });
