@@ -2433,6 +2433,9 @@ código nuevo:
   - **El muñeco que Martín elige se guarda por nombre** (app_settings del workspace de la plataforma,
     lib/centro-munecos-db.ts) y se lee estricto antes de escribir. **El Cerebro es SIEMPRE la estrella de MaKo**
     (`ASPECTO_MAKO`, 17/10/2026): va fuera de `FORMAS` y `COLORES`, así que nadie más la puede elegir ni guardar.
+    **La criatura de MaKo es SÓLO del Ops Center** (20/11/2026, la llamada con Leila). El chat del reto, que para Martín es «el
+    nuevo grupo de WhatsApp», lleva el ícono de la app (`ASPECTO_APP_MAKO`: la baldosa con la chispa, la de la foto de la línea).
+    `Muneco` lo dibuja antes de mirar el título, porque un «MaKo» sería la criatura.
   - **LO DE WHATSAPP EN CADA MENSAJE: lo que le llega al chat va en el TEXTO FIRMADO; lo demás es de Martín** (17/10/2026;
     Martín: «agrega todas las funcionalidades de Whatsapp al mantener click en un mensaje»). Responder (la cita) y Reenviar
     salen por mandar.ts con su marca en el texto (lib/centro-mensajes.ts → `armarConCita`, `armarReenvio`); reaccionar,

@@ -104,7 +104,7 @@ import { useChatCliente } from './useChatCliente';
 import { CajaDelCliente, HiloDelCliente, UsoDelCliente, estadoDelCliente } from './PiezasCliente';
 import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
 import { ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, SUBS_VISIBLES, edadCorta, esFilaDe, gurusDeLaBarra, jefeDelGrupo, type CoachDelOps, type ElegidoChat } from '@/lib/chat-mako-reglas';
-import { ASPECTO_MAKO, aspectoDeChat, aspectoDeReferente } from '@/lib/centro-munecos';
+import { ASPECTO_APP_MAKO, ASPECTO_MAKO, aspectoDeChat, aspectoDeReferente } from '@/lib/centro-munecos';
 import { ChatDelReto, useReto } from './reto/ChatDelReto';
 import { MarcaAlReto } from './reto/MarcaAlReto';
 import { asesorPorId, inspiradoEn, referenteDelFunnelCoachV2, referenteDelOfferCoachV2, type IdAsesor } from '@/lib/asesores/catalogo';
@@ -647,7 +647,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
               {filaOnboarding && <div className="co-cuenta">{fila(filaOnboarding)}</div>}
               {retoV2 && (
                 <div className="co-cuenta">
-                  <FilaDeChat titulo="Reto de 7 días" marca="sb-reto-chat" aspecto={ASPECTO_MAKO} animo="despierto" actual={reto && !verMapa && !ticketera} hace=""
+                  <FilaDeChat titulo="Reto de 7 días" marca="sb-reto-chat" aspecto={ASPECTO_APP_MAKO} animo="despierto" actual={reto && !verMapa && !ticketera} hace=""
                     previa={<span className="co-fila__coach">{datosReto.d?.estado ? `Día ${Math.max(1, datosReto.d.abierto)} de 7` : 'Tu reto empieza aquí'}</span>}
                     onElegir={abrirReto} />
                 </div>
