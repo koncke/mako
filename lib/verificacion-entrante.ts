@@ -197,20 +197,22 @@ export function decidirPedidoV2(v: EstadoVerificacion | null | undefined, l: { i
   return 'responder';
 }
 
-/** Los textos de los errores del código, como en la maqueta (rojos, arriba de la caja, y que se entienda qué hacer). */
+/** Los textos de los errores del código: rojos, arriba de la caja, y que se entienda qué hacer. Martín, 19/11, probándolo: «pegué un
+ *  código incorrecto a propósito y me dice: el código tiene 6 números, revisa que esté completo. Eso no tiene sentido». Cada caso,
+ *  el suyo: incompleto, incorrecto, vencido (los textos son los del Cerebro). */
 export const E_SIN_CODIGO_V2 = 'Todavía no tienes el código: toca «Abrir WhatsApp» y te lo mando.';
-export const E_CODIGO_V2 = 'Ese no es el código. Copia los 6 números de mi último mensaje en tu WhatsApp y pégalos aquí.';
-export const E_CODIGO_LARGO_V2 = 'El código tiene 6 números. Revisa que esté completo.';
-export const E_CODIGO_VENCIDO_V2 = 'Ese código venció. Toca «Abrir WhatsApp» y vuelve a mandarme el mensaje: te mando uno nuevo.';
-export const E_CODIGO_TOPE_V2 = 'Probaste muchos códigos. Toca «Abrir WhatsApp» y vuelve a mandarme el mensaje: te mando uno nuevo.';
+export const E_CODIGO_V2 = 'Ese código no es el que te mandó MaKo. Revísalo en WhatsApp o toca «Reenviar el código».';
+export const E_CODIGO_LARGO_V2 = 'Faltan números: el código tiene 6.';
+export const E_CODIGO_VENCIDO_V2 = 'Ese código venció: toca «Reenviar el código».';
+export const E_CODIGO_TOPE_V2 = 'Probaste muchos códigos: toca «Reenviar el código» y te mando uno nuevo.';
 
-/** El código pegado en la app (V2). `intentos`: cuántos equivocados lleva con éste. */
+/** El código pegado en la app (V2). `intentos`: cuántos equivocados lleva con éste. Con 7 o más números es uno equivocado. */
 export function decidirCodigoV2(v: EstadoVerificacion | null | undefined, escrito: string, ahora: number):
   { ok: true } | { ok: false; error: string; suma?: true } {
   const digitos = String(escrito ?? '').replace(/\D/g, '');
   if (!v || !v.v2) return { ok: false, error: E_SIN_CODIGO_V2 };
   if (v.verificado) return { ok: true };
-  if (digitos.length !== LARGO_CODIGO) return { ok: false, error: E_CODIGO_LARGO_V2 };
+  if (digitos.length < LARGO_CODIGO) return { ok: false, error: E_CODIGO_LARGO_V2 };
   if (!v.respondido) return { ok: false, error: E_SIN_CODIGO_V2 };
   if ((v.intentos ?? 0) >= TOPE_INTENTOS_V2) return { ok: false, error: E_CODIGO_TOPE_V2 };
   if (ahora > v.expira) return { ok: false, error: E_CODIGO_VENCIDO_V2 };

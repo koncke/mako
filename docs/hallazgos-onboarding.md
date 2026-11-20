@@ -38,11 +38,30 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 - **La foto de perfil de la línea (la criatura) NO se cambia por Evolution.** Se cambió con `POST /chat/updateProfilePicture`: dio 200
   y la foto quedó bien, pero a los 4 minutos la voz de MaKo se cayó. La trampa, en docs/hallazgos-comunicacion.md. La foto, el nombre
   y la privacidad de una línea se cambian desde el teléfono. El script de las notas compartidas (`foto-linea-mako.mjs`) quedó cortado.
+- **La segunda prueba de Martín (19/11, noche): el código, el número y el primer mensaje.**
+  - *«Pegué un código incorrecto y me dice: el código tiene 6 números».* `decidirCodigoV2` mandaba a «tiene 6 números» todo lo que
+    no tuviera 6 exactos, también un código con números DE MÁS. Ahora cada caso tiene el suyo: menos de 6 → «Faltan números»; 6 que no
+    son, o 7 o más → «no es el que te mandó MaKo»; vencido → «toca "Reenviar el código"».
+  - *«Reenviar el código» mandaba EL MISMO código, con el mismo vencimiento y los mismos intentos.* Con uno vencido o con el tope de
+    equivocados, reenviar no sacaba a nadie del pozo, y los errores mandaban a «Abrir WhatsApp» de nuevo. `reenviarCodigoV2` ahora
+    guarda uno nuevo (plazo e intentos de cero) antes de mandarlo, y los errores nombran ese botón.
+  - *Un número de teléfono adentro de un texto se parte en el guion.* El navegador puede cortar después de «-», y a 1440 el mensaje
+    decía «(+54 9 11 2505-» en un renglón y «2605)» en el otro. `V2_CODIGO` lo arma con espacios que no cortan (U+00A0) y una unión
+    invisible después del guion (U+2060). Para buscar el número en un test, se sacan esos dos caracteres antes.
+  - *El primer mensaje espera al video.* «¡Hola! Para empezar…» sale cuando el video termina o cuando la persona toca la caja, lo que
+    pase primero, con MaKo escribiendo antes (`primero` en `ChatArranqueV2`). Si el manifiesto no trae el video, sale solo a los 2,5 s:
+    sin esa salida, el chat quedaba mudo.
 - **Lo que quedó sin hacer:**
   - la tarjeta de contacto que manda MaKo con el código: va por `/message/sendContact`, con la forma de Evolution v2, y no se probó
     contra la línea;
   - probarlo de punta a punta en producción, después del deploy, en el ws 3;
   - el paso de los avisos (la app en el teléfono): el V2 no lo pide. Va al día 2 del reto, como en la maqueta.
+  - lo que viene después de «Entrar a MaKo», comparado con la maqueta (m-09 a m-13): la pantalla de carga (m-09, m-11) coincide; el
+    video de la m-10 ya no va ahí (pasó al principio del chat). **Faltan la m-12 y la m-13**: el velo oscuro con MaKo escribiendo en el
+    chat «Onboarding», y el video del recorrido como un MENSAJE del chat («dale play») que se va a la esquina al bajar. Hoy el recorrido
+    arranca solo con su video en la esquina (`app/_ui/tutorial/MotorTutorial.tsx`, `VideoChico`). Para la maqueta, el motor tiene que
+    poder manejar un video que vive en el hilo (`app/second-brain/…` + `lib/onboarding-v2/recorrido.ts`);
+  - cortar el video de bienvenida en dos (la bienvenida al principio; el WhatsApp, en el mensaje de ese paso): en curso en este chat.
 
 ## Offer Coach = el motor de Offer: no hacía falta montar OfferApp (19/11/2026)
 

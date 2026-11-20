@@ -62,10 +62,13 @@ test('1. el orden de la maqueta, sin «Ahora no»', () => {
 test('2. los textos de la maqueta, en su orden', () => {
   const e: EstadoArranque = { nombre: 'Valentina', ...TEL, agendado: 'si', negocio: 'Nutri Vale', origen: 'Instagram' };
   const mako = mensajesDeArranque(e, H).antes.filter((m) => m.de === 'mako').map((m) => m.texto);
-  assert.equal(V2_NOMBRE, '¡Hola! Soy MaKo. Para empezar, ¿cómo te llamas?');
+  // Sin «Soy MaKo» (Martín, 19/11), y el WhatsApp dice A QUÉ NÚMERO va el mensaje: el de MaKo, el del sitio.
+  assert.equal(V2_NOMBRE, '¡Hola! Para empezar, ¿cómo te llamas?');
+  assert.match(V2_CODIGO.replace(/\u00a0/g, ' ').replace(/\u2060/g, ''), /mándale el mensaje a MaKo \(\+54 9 11 2505-2605\)/);
+  assert.match(V2_CODIGO, /\(\+54\u00a09\u00a011\u00a02505-\u20602605\)/, 'el número, de una pieza: no se corta en dos renglones');
   assert.deepEqual(mako, [V2_NOMBRE, V2_TELEFONO('Valentina'), V2_CODIGO, V2_AGENDADO, V2_NEGOCIO, '¿Cómo llegaste a MaKo, Valentina?', V2_INTERES]);
   assert.equal(V2_TELEFONO('Valentina'), 'Un gusto, Valentina. ¿A qué WhatsApp te escribo con los avisos y los reportes?');
-  assert.match(V2_CODIGO, /toca «Abrir WhatsApp» y envía el mensaje de confirmación\. Te contesto con un código y lo pegas aquí abajo\./);
+  assert.match(V2_CODIGO, /toca «Abrir WhatsApp» y mándale el mensaje a MaKo \([^)]+\)\. Te contesto con un código y lo pegas aquí abajo\./);
   assert.equal(V2_NEGOCIO, 'Listo, tu WhatsApp quedó confirmado. ¿Cómo se llama tu negocio?');
   // Qué resolver primero: las 11 de la maqueta, hasta 3, en el recuadro.
   const interes = mensajesDeArranque(e, H).antes.at(-1)!;
@@ -127,6 +130,11 @@ test('4. el WhatsApp: el pedido sin el código, MaKo contesta con el código, y 
   assert.deepEqual(decidirCodigoV2(PEDIDO, '482913', ahora), { ok: false, error: E_SIN_CODIGO_V2 });
   const respondido = { ...PEDIDO, respondido: true };
   assert.deepEqual(decidirCodigoV2(respondido, '111111', ahora), { ok: false, error: E_CODIGO_V2, suma: true });
+  // Cada caso, el suyo (Martín, 19/11: «pegué un código incorrecto… me dice: el código tiene 6 números… no tiene sentido»).
+  assert.equal(E_CODIGO_V2, 'Ese código no es el que te mandó MaKo. Revísalo en WhatsApp o toca «Reenviar el código».');
+  assert.deepEqual(decidirCodigoV2(respondido, '4829', ahora), { ok: false, error: 'Faltan números: el código tiene 6.' }, 'incompleto');
+  assert.deepEqual(decidirCodigoV2(respondido, '4829131', ahora), { ok: false, error: E_CODIGO_V2, suma: true }, 'con uno de más es equivocado');
+  assert.deepEqual(decidirCodigoV2({ ...respondido, expira: ahora - 1 }, '482913', ahora), { ok: false, error: 'Ese código venció: toca «Reenviar el código».' });
   assert.deepEqual(decidirCodigoV2({ ...respondido, intentos: TOPE_INTENTOS_V2 }, '482913', ahora), { ok: false, error: E_CODIGO_TOPE_V2 });
   assert.deepEqual(decidirCodigoV2(respondido, '482 913', ahora), { ok: true });
 });
@@ -152,13 +160,20 @@ test('6. la pantalla del V2: la estrella, la caja del Ops Center, UN video y la 
   assert.match(page, /if \(vista\.v2 && !vista\.bloqueo\) \{\n\s*return <ChatArranqueV2 /);
   const v2 = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
   assert.doesNotMatch(v2, /Ahora no/, 'el onboarding es obligatorio');
+  // Sin «Pega aquí el código» ni «Pegar» (Martín, 19/11).
+  assert.doesNotMatch(v2, /[>"']Pega aquí el código|>Pegar</);
+  // El primer mensaje sale cuando termina el video o se toca la caja, con MaKo escribiendo antes (Martín, 19/11).
+  assert.match(v2, /onTermina=\{soltarPrimero\}/);
+  assert.match(v2, /\{primero === 'escribe' && escribiendo\('arr-primero'\)\}/);
+  assert.match(v2, /\{primero === 'listo' && mensajes\.map\(/);
+  assert.match(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /onEnded=\{\(\) => \{ setEstado\('terminado'\); onTermina\?\.\(\); \}\}/);
   assert.match(v2, /<CriaturaMako size=\{36\}/, 'la estrella en la cabecera');
   assert.match(v2, /<CriaturaMako size=\{26\}/, 'la estrella al lado de cada mensaje');
-  assert.match(v2, /<div className=\{`co-caja\$\{etapa === 'listo' && enTelefono \? ' arr-v2__caja--dos' : ''\}`\}>\s*<CajaChat /, 'la caja de una línea del Ops Center');
+  assert.match(v2, /<div className=\{`co-caja\$\{etapa === 'listo' && enTelefono \? ' arr-v2__caja--dos' : ''\}`\} onFocusCapture=\{soltarPrimero\} onPointerDownCapture=\{soltarPrimero\}>\s*<CajaChat /, 'la caja de una línea del Ops Center');
   assert.equal((v2.match(/<VideoDelMomento /g) ?? []).length, 1, 'un solo video');
   assert.match(v2, /const VIDEO_BIENVENIDA = 'onboarding-bienvenida';/);
   // Sólo si el video existe de verdad: nunca un «no está grabado» en producción (el Cerebro, 19/11).
-  assert.match(v2, /\{videoBienvenida && filaMako\('arr-video', <VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="Bienvenida a MaKo" revision=\{false\} \/>\)\}/);
+  assert.match(v2, /\{videoBienvenida && filaMako\('arr-video', <VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="Bienvenida a MaKo" revision=\{false\} onTermina=\{soltarPrimero\} \/>\)\}/);
   // En el teléfono (o una pantalla angosta), el final es «Continuar el onboarding desde la PC», como la maqueta (18/11).
   assert.match(v2, /window\.matchMedia\('\(max-width: 640px\)'\)\.matches\) setEnTelefono\(true\)/);
   assert.match(v2, /\{enTelefono\s*\? <button type="button" onClick=\{\(\) => setEnPc\(true\)\} className="arr-link arr-link--principal">Continuar el onboarding desde la PC<\/button>/);

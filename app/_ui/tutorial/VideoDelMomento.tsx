@@ -27,7 +27,8 @@ const VELOCIDADES = [1, 1.25, 1.5, 2] as const;
 const mmss = (s: number) => { const t = Math.max(0, Math.round(s || 0)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 const conMayuscula = (s: string) => (s ? s.charAt(0).toLocaleUpperCase('es') + s.slice(1) : s);
 
-export function VideoDelMomento({ clave, titulo, revision }: { clave: string; titulo: string; revision: boolean }) {
+/** `onTermina`: cuando el video llegó al final (el onboarding V2 suelta ahí su primera pregunta). */
+export function VideoDelMomento({ clave, titulo, revision, onTermina }: { clave: string; titulo: string; revision: boolean; onTermina?: () => void }) {
   const v = useVideoTutorial(clave);
   const ref = useRef<HTMLVideoElement>(null);
   // Si sale de la vista corriendo (o se navega), sigue abajo a la derecha (Martín, 18/11).
@@ -65,7 +66,7 @@ export function VideoDelMomento({ clave, titulo, revision }: { clave: string; ti
       <div className="mk-vmom__pantalla" onClick={alternar}>
         <video ref={ref} className="mk-vmom__video" src={v.archivo} poster={v.poster} playsInline preload="metadata"
           onPlay={() => setEstado('reproduciendo')} onPause={(e) => { if (!e.currentTarget.ended) setEstado('pausado'); }}
-          onEnded={() => setEstado('terminado')} onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
+          onEnded={() => { setEstado('terminado'); onTermina?.(); }} onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
           onLoadedMetadata={(e) => { if (Number.isFinite(e.currentTarget.duration)) setDur(e.currentTarget.duration); }} />
         {/* Al terminar, otra vez la portada: nunca el último cuadro con los controles encima. */}
         {terminado && v.poster && <img className="mk-vmom__portada" src={v.poster} alt="" />}

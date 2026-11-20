@@ -37,6 +37,7 @@
 // =============================================================================
 
 import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, type CanalId } from './fase-diagnostico';
+import { WHATSAPP_MAKO } from '../app/vsl/_sitio/contacto';
 import { ENTRADAS, TIPOS_CRM, tipoCrmOfrecido, tipoCrmPorId, type EntradaId, type TipoCrm, type TipoCrmId } from './pipeline';
 import { CUANTOS_FUNNELS, nombreDelFunnel, recomendarFunnel, type FunnelRecomendado } from './funnel-recomendado';
 import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
@@ -1771,9 +1772,14 @@ export function fundirBrief(previas: Record<string, string>, nuevas: Record<stri
 // a eso»). Ni el QR de la app: va al día 2 del reto.
 // =============================================================================
 
-export const V2_NOMBRE = '¡Hola! Soy MaKo. Para empezar, ¿cómo te llamas?';
+// Sin «Soy MaKo» (Martín, 19/11: «elimina lo de soy Mako»): lo dice la cabecera y el video de bienvenida.
+export const V2_NOMBRE = '¡Hola! Para empezar, ¿cómo te llamas?';
 export const V2_TELEFONO = (n: string): string => `Un gusto, ${n}. ¿A qué WhatsApp te escribo con los avisos y los reportes?`;
-export const V2_CODIGO = 'Para confirmar tu WhatsApp, toca «Abrir WhatsApp» y envía el mensaje de confirmación. Te contesto con un código y lo pegas aquí abajo.';
+// A QUÉ NÚMERO va el mensaje (Martín, 19/11: «debería decir a qué número se le está por enviar»): el de MaKo, el del sitio.
+// De una pieza: con espacios que no cortan y el guion pegado (U+2060), el número no se parte en dos renglones (la captura a 1440
+// lo mostraba «2505-» arriba y «2605» abajo).
+const NUMERO_MAKO_ENTERO = WHATSAPP_MAKO.visible.replace(/ /g, '\u00a0').replace(/-/g, '-\u2060');
+export const V2_CODIGO = `Para confirmar tu WhatsApp, toca «Abrir WhatsApp» y mándale el mensaje a MaKo (${NUMERO_MAKO_ENTERO}). Te contesto con un código y lo pegas aquí abajo.`;
 export const V2_AGENDADO = '¿Guardaste el contacto de MaKo?';
 export const V2_AGENDADO_OPCIONES = ['Sí', 'No'] as const;
 export const V2_AGENDADO_NO = 'Guárdalo cuando puedas: es la tarjeta que te mandé con el código. Si no estoy en tus contactos, WhatsApp puede frenar lo que te mando, como los avances de tu negocio.';

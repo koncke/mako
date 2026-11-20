@@ -41,6 +41,7 @@ import { CriaturaMako, type Reaccion } from './CriaturaMako';
 import { SeguirEnPc } from './ChatArranque';
 import { tarjetaConNumero } from './arranque-ui';
 import { iniciales } from '@/lib/unicode-seguro';
+import { esconderLaBarra } from '@/app/_ui/tutorial/barra-oculta';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean };
 
@@ -62,6 +63,9 @@ const PH: Partial<Record<EtapaArranque, string>> = {
 };
 /** Cuánto dura la pantalla oscura con MaKo escribiendo, antes de su primer mensaje (el video). */
 const MS_ESCRIBE = 1800;
+/** MaKo escribiendo antes de su primera pregunta, y cuánto se espera al video antes de soltarla sin él. */
+const MS_PRIMERO = 1400;
+const MS_SIN_VIDEO = 2500;
 /** La clave del video de bienvenida (public/tutoriales, el chat de los videos). */
 const VIDEO_BIENVENIDA = 'onboarding-bienvenida';
 
@@ -141,6 +145,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
     const t = texto.trim();
     if (!t || ocupado || etapa === 'listo' || etapa === 'cierre') return;
     setTexto('');
+    setPrimero('listo');
     // El teléfono y el código escritos en la caja valen igual que los de su tarjeta (la ruta los reconoce).
     void responder({ texto: t }, t).then((ok) => { if (!ok) setTexto(t); });
   };
@@ -152,6 +157,24 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
     const t = window.setTimeout(() => setFase('chat'), MS_ESCRIBE);
     return () => window.clearTimeout(t);
   }, [fase]);
+  // EL PRIMER MENSAJE, A SU TIEMPO (Martín, 19/11: «no está bueno de que apenas se me manda el video y automáticamente se me manda el
+  // mensaje de abajo… que salga cuando corresponda, con los tres puntitos»). Al empezar, el video va solo; la primera pregunta sale
+  // cuando el video termina o la persona toca la caja, lo primero que pase (sin video, después de un momento), con MaKo escribiendo
+  // antes. Quien vuelve a mitad del onboarding lo ve todo de una.
+  const [primero, setPrimero] = useState<'espera' | 'escribe' | 'listo'>(empieza ? 'espera' : 'listo');
+  const soltarPrimero = useCallback(() => { setPrimero((p) => (p === 'espera' ? 'escribe' : p)); }, []);
+  useEffect(() => {
+    if (primero !== 'escribe') return;
+    const t = window.setTimeout(() => setPrimero('listo'), MS_PRIMERO);
+    return () => window.clearTimeout(t);
+  }, [primero]);
+  const hayVideo = useRef(false);
+  hayVideo.current = !!videoBienvenida;
+  useEffect(() => {
+    if (fase !== 'chat' || primero !== 'espera') return;
+    const t = window.setTimeout(() => { if (!hayVideo.current) soltarPrimero(); }, MS_SIN_VIDEO);
+    return () => window.clearTimeout(t);
+  }, [fase, primero, soltarPrimero]);
   // Con todo contestado, se cierra el onboarding (por detrás, como siempre).
   const cerrando = useRef(false);
   useEffect(() => {
@@ -176,6 +199,8 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'hilo' }), signal: AbortSignal.timeout(20_000),
     }).then((x) => x.json()).catch(() => null) as { ok?: boolean; chat?: number | null } | null;
     setSaliendo(true);
+    // La barra lateral, escondida hasta que el recorrido la presente (Martín, 19/11: app/_ui/tutorial/barra-oculta.ts).
+    esconderLaBarra();
     router.push(rutaDelHilo(r?.ok && typeof r.chat === 'number' ? r.chat : null));
   }, [entrando, router]);
 
@@ -259,8 +284,9 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
               {fase === 'chat' && (
                 <>
                   {/* UN solo video, el de la bienvenida, como primer mensaje (Martín, 19/11). Al bajar, sigue chiquito abajo a la derecha. */}
-                  {videoBienvenida && filaMako('arr-video', <VideoDelMomento clave={VIDEO_BIENVENIDA} titulo="Bienvenida a MaKo" revision={false} />)}
-                  {mensajes.map((m) => {
+                  {videoBienvenida && filaMako('arr-video', <VideoDelMomento clave={VIDEO_BIENVENIDA} titulo="Bienvenida a MaKo" revision={false} onTermina={soltarPrimero} />)}
+                  {primero === 'escribe' && escribiendo('arr-primero')}
+                  {primero === 'listo' && mensajes.map((m) => {
                     if (m.de === 'yo') return filaYo(m.id, m.texto);
                     const t = tarjeta(m);
                     return filaMako(m.id, <><div className="ch-md"><p>{m.texto}</p></div>{t && <div className="arr-v2__en-mensaje">{t}</div>}</>);
@@ -286,7 +312,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
               onVarias={(vs) => void responder({ opciones: vs }, vs.join(' · '))}
               onOtra={(t) => void responder({ texto: t }, t)} />}
             {/* La caja del Ops Center, la de una línea (Martín, 19/11: «la barra de chat abajo… está como muy alta»). */}
-            <div className={`co-caja${etapa === 'listo' && enTelefono ? ' arr-v2__caja--dos' : ''}`}>
+            <div className={`co-caja${etapa === 'listo' && enTelefono ? ' arr-v2__caja--dos' : ''}`} onFocusCapture={soltarPrimero} onPointerDownCapture={soltarPrimero}>
               <CajaChat texto={texto} onTexto={(v) => { setError(null); setTexto(v); }} onMandar={mandarTexto} placeholder={placeholder} enterManda
                 ocupado={ocupado} apagado={fase !== 'chat' || etapa === 'listo'} sinAdjuntos onErrorMic={(m) => setError(m)} />
             </div>
@@ -320,18 +346,15 @@ function TarjetaTelefono({ inicial, ocupado, onSeguir }: { inicial: string; ocup
 
 /**
  * EL CÓDIGO (la maqueta, `tarjeta('codigo')`): «Abrir WhatsApp» en el verde de WhatsApp abre su chat con MaKo con el pedido escrito;
- * MaKo le contesta con el código y lo pega acá. Debajo, cambiar el número o pedir que se lo reenvíe, y «Pegar».
+ * MaKo le contesta con el código y lo pega acá. Debajo, cambiar el número o pedir que se lo reenvíe. Sin «Pega aquí el código» ni
+ * «Pegar» (Martín, 19/11: «elimina también, pega aquí el código… elimina el botón que dice pegar»): el mensaje de arriba ya lo dice.
  */
 function TarjetaCodigo({ vista, ocupado, onConfirmar, onCambiar, onReenviar, onPedirOtro }: {
   vista: VistaArranque; ocupado: boolean;
   onConfirmar: (codigo: string) => Promise<boolean>; onCambiar: () => void; onReenviar: () => void; onPedirOtro: () => void;
 }) {
   const [codigo, setCodigo] = useState('');
-  const digitos = codigo.replace(/\D/g, '');
-  const confirmar = () => { if (digitos.length >= 6 && !ocupado) void onConfirmar(digitos).then((ok) => { if (ok) setCodigo(''); }); };
-  const pegar = async () => {
-    try { const t = await navigator.clipboard.readText(); const d = t.replace(/\D/g, '').slice(0, 6); if (d) setCodigo(d); } catch { /* sin permiso: se pega a mano */ }
-  };
+  const confirmar = () => { if (codigo.length >= 6 && !ocupado) void onConfirmar(codigo).then((ok) => { if (ok) setCodigo(''); }); };
   const w = vista.whatsapp;
   const vencido = !w || !w.link || w.estado === 'vencido';
   return (
@@ -340,17 +363,16 @@ function TarjetaCodigo({ vista, ocupado, onConfirmar, onCambiar, onReenviar, onP
         ? <><span className="arr-tarjeta__nota">{w?.estado === 'vencido' ? 'Pasó mucho tiempo: pide otro mensaje.' : 'No pude armar el mensaje.'}</span>
           <Button variant="primary" size="sm" loading={ocupado} disabled={ocupado} onClick={onPedirOtro}>Pedir otro</Button></>
         : <a className="arr-v2__wa" href={w!.link!} target="_blank" rel="noopener noreferrer"><Icon name="whatsapp" size={18} />Abrir WhatsApp</a>}
-      <label className="arr-v2__cod-rot" htmlFor="arr-v2-codigo">Pega aquí el código</label>
       <div className="arr-v2__cod-fila">
-        <input id="arr-v2-codigo" className="arr-v2__cod-campo" inputMode="numeric" autoComplete="one-time-code" maxLength={7} placeholder="000000"
-          aria-label="Código" value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/[^\d ]/g, ''))}
+        {/* Sólo los 6 números: lo pegado con espacios o con el texto del mensaje queda en sus números. */}
+        <input id="arr-v2-codigo" className="arr-v2__cod-campo" inputMode="numeric" autoComplete="one-time-code" placeholder="000000"
+          aria-label="El código de 6 números" value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmar(); } }} />
-        <Button variant="primary" size="sm" disabled={digitos.length < 6 || ocupado} loading={ocupado} onClick={confirmar}>Confirmar</Button>
+        <Button variant="primary" size="sm" disabled={codigo.length < 6 || ocupado} loading={ocupado} onClick={confirmar}>Confirmar</Button>
       </div>
       <div className="arr-v2__cod-pie">
         <button type="button" className="arr-v2__link" onClick={onCambiar} disabled={ocupado}>Cambiar número</button>
         <button type="button" className="arr-v2__link" onClick={onReenviar} disabled={ocupado}>Reenviar el código</button>
-        <button type="button" className="arr-v2__pegar" onClick={() => void pegar()}>Pegar</button>
       </div>
     </div>
   );
@@ -487,7 +509,6 @@ const CSS_V2 = `
   background: #25D366; color: #fff; font: 700 15px/1 'Geist', system-ui, sans-serif; text-decoration: none; cursor: pointer; box-shadow: 0 2px 8px rgba(37, 211, 102, .3); }
 .arr-v2__wa:hover { background: #1EBE5A; }
 .arr-v2__wa svg { flex: none; }
-.arr-v2__cod-rot { font-size: 13px; color: var(--dim); line-height: 1.4; }
 .arr-v2__cod-fila { display: flex; gap: 8px; align-items: stretch; }
 .arr-v2__cod-campo { flex: 1; min-width: 0; box-sizing: border-box; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
   font: 600 18px/1.2 'Geist', system-ui, sans-serif; letter-spacing: .32em; text-align: center; font-variant-numeric: tabular-nums; }
@@ -496,7 +517,6 @@ const CSS_V2 = `
 .arr-v2__cod-pie { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
 .arr-v2__link { border: 0; background: none; padding: 2px 0; color: var(--dim); font: inherit; font-size: var(--fs-sm); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .arr-v2__link:hover { color: var(--ink); }
-.arr-v2__pegar { margin-left: auto; background: none; border: 0; padding: 0; color: var(--ink); font: inherit; font-size: var(--fs-sm); font-weight: 700; cursor: pointer; }
 /* El recuadro de opciones: el del Ops Center, con el tema a la izquierda; una lista larga en dos columnas, numerada hacia abajo. */
 .arr-v2__preg .co-preg__cab { justify-content: space-between; }
 .arr-v2__tema { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--surface-2); color: var(--ink); font-size: var(--fs-meta); font-weight: 600; white-space: nowrap; }

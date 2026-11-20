@@ -1042,12 +1042,15 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
   return null;
 }
 
-/** «Reenviar el código» (V2): sólo si MaKo ya le contestó (si no, todavía no le escribió: que toque «Abrir WhatsApp»). */
+/** «Reenviar el código» (V2): sólo si MaKo ya le contestó (si no, todavía no le escribió: que toque «Abrir WhatsApp»). Manda uno
+ *  NUEVO, con su plazo y sus intentos de cero: es la salida de un código vencido o de muchos equivocados (los errores lo nombran). */
 export async function reenviarCodigoV2(ws: number): Promise<{ ok: true } | { ok: false; error: string }> {
   const v = await getVerificacion(ws);
   if (!v?.v2 || !v.respondido || !v.destino) return { ok: false, error: E_SIN_CODIGO_V2 };
   if (v.verificado) return { ok: true };
-  const r = await mandarCodigoV2(v, soloDigitos(v.destino));
+  const nuevo: EstadoVerificacion = { ...v, codigo: codigoNumerico(), expira: Date.now() + MINUTOS_ENTRANTE * 60_000, intentos: 0 };
+  await guardarVerificacion(ws, nuevo);
+  const r = await mandarCodigoV2(nuevo, soloDigitos(v.destino));
   return r.ok ? { ok: true } : { ok: false, error: MAKO_SIN_LINEA };
 }
 
