@@ -50,7 +50,12 @@ test('3. la vista como ADMINISTRADOR muestra lo mismo que ve el cliente: el esta
   assert.match(f, /if \(!p\.mirando && puedeOperar\(/, 'quien opera, sólo en su cuenta');
   // La D7 (decidida el 20/11): lo visto se LEE del dueño mirando cualquier negocio, y se ESCRIBE en él sólo en los de prueba.
   const r = sinComentarios(leer('app/api/recorridos/route.ts'));
-  assert.match(r, /const p = await personaDelOnboarding\(\);\n\s*if \(p\?\.mirando\) return p\.email;/);
+  // El dueño o nadie (20/11, el teléfono mirando el ws 3 mostraba y anotaba al ADMINISTRADOR): `emailDelOnboarding`.
+  assert.match(r, /async function emailDeLaSesion\(\): Promise<string> \{\n\s*return emailDelOnboarding\(\);\n\s*\}/);
+  const so = sinComentarios(leer('lib/seguir-en-pc.ts'));
+  const eo = so.slice(so.indexOf('export async function emailDelOnboarding'), so.indexOf('export async function seguirEnPcPendiente'));
+  assert.match(eo, /if \(!\(await estaImpersonando\(\)\.catch\(\(\) => true\)\)\) return s\.email\.trim\(\)\.toLowerCase\(\);\n\s*return emailDelDuenoDelWs\(/, 'mirando: el dueño, o nada');
+  assert.equal((eo.match(/\bs\.email/g) ?? []).length, 1, 'el email de la sesión, sólo sin mirar (una vez)');
   assert.match(r, /return !p\?\.mirando \|\| escribeComoElCliente\(p\.ws\);/);
   assert.match(r, /if \(!\(await puedeAnotar\(\)\)\) return Response\.json\(\{ ok: true, guardado: false, soloEstaSesion: true \}\);\n\s*const sb = getSupabaseServer\(\);/);
   const { escribeComoElCliente, WS_PRUEBA_COMO_CLIENTE } = await import('../lib/onboarding-v2/revision');
@@ -63,8 +68,9 @@ test('3. la vista como ADMINISTRADOR muestra lo mismo que ve el cliente: el esta
   assert.match(s, /if \(!p \|\| \(p\.mirando && !escribeComoElCliente\(p\.ws\)\)\) return;/);
   // «Te mandamos el link a…» con el email del dueño.
   const pg = sinComentarios(leer('app/onboarding/page.tsx'));
-  assert.match(pg, /email: quien\?\.email \|\| sesion\.email/);
-  assert.match(pg, /email=\{quienPc\?\.email \|\| sesionPc\?\.email \|\| ''\}/);
+  assert.match(pg, /email: await emailDelOnboarding\(\) \}/);
+  assert.match(pg, /email=\{await emailDelOnboarding\(\)\} maqueta \/>/);
+  assert.doesNotMatch(pg, /\|\| sesion(Pc)?\??\.email/, 'nunca cae en el correo de la sesión (el del administrador, mirando)');
   // El dueño sale de un módulo CHICO: el guard del layout raíz lo importa (tests/seguir-en-pc-liviano.test.ts).
   const d = leer('lib/dueno-del-ws.ts');
   assert.deepEqual([...d.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]), ['./supabase']);

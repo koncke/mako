@@ -65,6 +65,21 @@ export async function personaDelOnboarding(): Promise<{ email: string; ws: numbe
 }
 
 /**
+ * EL DUEÑO O NADIE (20/11/2026, el Cerebro en el teléfono, mirando el ws 3: «Entra con tu cuenta martinkoncke@…» y «Te mandamos el
+ * link a martinkoncke@…», el correo del ADMINISTRADOR, y lo visto del recorrido anotado en su fila). El email de la persona del
+ * onboarding, para mostrar, leer y anotar: el de la sesión; mirando un negocio como administrador, el de su dueño, y si el negocio no
+ * tiene dueño (o no se pudo leer), '' (nadie: la pantalla dice «tu correo» y no se lee ni se anota nada). NUNCA el del administrador,
+ * que no es el cliente: antes, `personaDelOnboarding` sin dueño devolvía null y cada pantalla caía en el email de la sesión. Si no se
+ * sabe si está mirando, se toma que sí (el lado seguro).
+ */
+export async function emailDelOnboarding(): Promise<string> {
+  const s = await getUsuarioActual().catch(() => null);
+  if (!s?.email) return '';
+  if (!(await estaImpersonando().catch(() => true))) return s.email.trim().toLowerCase();
+  return emailDelDuenoDelWs(await getWorkspaceActual().catch(() => null)).catch(() => '');
+}
+
+/**
  * EN EL TELÉFONO, «SIGAMOS EN TU COMPUTADORA» SE QUEDA (20/11, OA-10 y OD-12: la maqueta; Martín, 18/11: «la PC es obligatoria»).
  * ¿Le toca esa pantalla a quien entra desde el teléfono? Sólo a quien EMPEZÓ el onboarding V2 (su marca, `empezoElV2`), y mientras
  * NO vio el recorrido del Ops Center en la computadora (`tutorial-ops-center` en `usuarios.perfil`, lo que guarda /api/recorridos).

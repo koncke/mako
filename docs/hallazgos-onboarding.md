@@ -3987,6 +3987,11 @@ de la vista de administrador y scripts/reiniciar-onboarding.mts. RESET (lib/rese
   onboarding anterior trae la de su oferta (`onboarding:<id>`). Ahora se archivan todos los chats «Onboarding» que ya tenía
   (`esContextoDelHilo`): salen de la lista y la conversación queda. Mirando como administrador la lista es la del ADMINISTRADOR (su
   `chart_key`), así que ahí no aparece el del dueño: eso lo decide el Cerebro.
+- **Mirando como administrador: el dueño o NADIE** (`emailDelOnboarding`, lib/seguir-en-pc.ts). El Cerebro, en el teléfono mirando el
+  ws 3: «Entra con tu cuenta martinkoncke@…», el correo del ADMINISTRADOR, y lo visto del recorrido anotado en su fila. Si el negocio
+  no tiene dueño (o no se pudo leer), `personaDelOnboarding` da null y cada pantalla caía en el email de la sesión. Ahora la pantalla
+  dice «tu correo» y /api/recorridos no lee ni anota nada. Que «Sigamos en tu computadora» siguiera saliendo después del recorrido
+  no se reprodujo después (con el preset de teléfono, /onboarding?ws=3 ya mandaba a la app).
 - **El navegador de QUIEN MIRA también guarda el onboarding:** el reinicio limpiaba el del dueño (el layout, una vez), pero el
   administrador que reinicia desde su vista conservaba el «dale play», lo ya escrito del arranque y la llegada de ese negocio, y el
   onboarding arrancaba con «¿cómo te llamas?» antes del video. «Sí, reiniciar» limpia también ahí (`limpiarClavesDelOnboarding`).

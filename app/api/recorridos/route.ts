@@ -37,7 +37,7 @@ import { createHash } from 'node:crypto';
 import { getUsuarioActual } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { idRecorridoValido, perfilConVisto, vistosDePerfil } from '@/lib/recorridos';
-import { personaDelOnboarding } from '@/lib/seguir-en-pc';
+import { emailDelOnboarding, personaDelOnboarding } from '@/lib/seguir-en-pc';
 import { escribeComoElCliente } from '@/lib/onboarding-v2/revision';
 
 export const dynamic = 'force-dynamic';
@@ -50,10 +50,8 @@ type Fila = { id: number; perfil: unknown; updated_at: string | null };
  * mirando un negocio como administrador, su DUEÑO (lib/seguir-en-pc.ts → personaDelOnboarding; la cabecera, la D7).
  */
 async function emailDeLaSesion(): Promise<string> {
-  const p = await personaDelOnboarding();
-  if (p?.mirando) return p.email;
-  const sesion = await getUsuarioActual();
-  return sesion?.email?.trim().toLowerCase() ?? '';
+  // El dueño o nadie (20/11/2026): mirando un negocio sin dueño, '' (no se lee ni se anota). Antes caía en la fila del administrador.
+  return emailDelOnboarding();
 }
 
 /** ¿Se puede ANOTAR? Sin mirar a nadie, sí; mirando un negocio, sólo en los de prueba (ws 3 y ws 9: `escribeComoElCliente`). */
