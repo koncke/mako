@@ -862,6 +862,15 @@ function VideoDelDia({ dia, onTocado, onFin, dalePlay = false }: { dia: DiaReto;
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esLaInvitacion]);
+  // UN DÍA SIN VIDEO NO ESPERA UN VIDEO QUE NO EXISTE (D1-03, decidido por el Cerebro: «Sin video, “abre Offer Coach” marca la fila real
+  // de la barra»). Lo hacía la tarjeta «Tu siguiente paso», que salió con la llamada con Leila (20/11): con el manifiesto leído y sin el
+  // video de hoy, lo que falta se marca igual, como al terminarlo, una vez. Sin anotarlo como visto: un manifiesto que no llegó también
+  // viene vacío y «listo», y la persona perdería su «dale play» para siempre por un error pasajero.
+  const sinVideo = listo && !v && dalePlay;
+  useEffect(() => {
+    if (sinVideo) onFin?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sinVideo]);
   // Con frases que marcan lugares (los días 2 a 7), EN SU MENSAJE (V4 y R57-21): este es su lugar; el video lo pasa el motor encima
   // (marca cada lugar cuando la voz lo nombra y pausa hasta el clic) y lo baja a la esquina al scrollear o navegar.
   if (v && conMarcas) {

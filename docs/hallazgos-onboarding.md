@@ -15,6 +15,10 @@ Lo pedido por Martín (Fathom 205366178, 00:29:00): al terminar el video del dí
 - **Regla:** algo que reacciona al fin de una señal del motor no puede preguntar `senalAhora()` en ese mismo momento. Tiene que esperar
   a que se libere.
 - **«Tu siguiente paso» (rt-sigue) salió entera**, con `SIGUIENTE_DE_TAREA`. Al volver al reto, lo que toca lo marca `tocaHoy`.
+  **Trampa:** la tarjeta era el único camino de un caso borde de D1-03: el día sin video en el manifiesto. Al sacarla, ese día no
+  marcaba nunca. Lo encontró la revisión de los pendientes de la tercera vuelta. Ahora `VideoDelDia`, con el manifiesto leído y sin
+  el video de hoy, marca lo que falta como al terminarlo. No lo anota como visto, porque un manifiesto que no llegó también viene vacío.
+  **Regla:** antes de sacar una pieza de la pantalla, busca qué decisión cumplía.
 - **El ícono de videos, lo último a la derecha de la cabecera** (00:31:46). Gana sobre el orden de la maqueta, que tenía un test.
 - **El reto sin la criatura** (00:39:14). Lleva el ícono de la app, `ASPECTO_APP_MAKO` (lib/centro-munecos.ts), que se aplica con
   el patrón de `retrato`: un campo del aspecto que no se elige ni se guarda. Aparece en la fila, la cabecera, las burbujas (y los
