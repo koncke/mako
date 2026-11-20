@@ -28,7 +28,7 @@ import {
   getCapaActual, getRolWsEfectivo, getWorkspace, getWorkspaceActual, estaImpersonando, rutaConWs, wsSuperAdmin,
 } from './workspace';
 import { requireSesion } from './tab-access';
-import { onboardingPendiente } from './onboarding-state';
+import { mandarAlOnboarding } from './onboarding-state';
 import { RUTA_SEGUIR_EN_PC, seguirEnPcPendiente } from './seguir-en-pc';
 import { HOME_MOVIL, RUTA_CENTRO_M, puedeVerKey } from './movil-rutas';
 import { tipoDeDispositivo, vaAMovil, vistaEscritorioEn, vistaEscritorioGlobal, VISTA_COOKIE } from './movil-dispositivo';
@@ -107,7 +107,8 @@ export async function requireMovil(opts: { navKey?: string | null; onboarding?: 
   // en el teléfono). Con `?ws=` en la URL, el resto de /m lo lleva solo (el Link de app/_ui).
   // Desde el 20/10/2026 entra a SU Ops Center, el Centro (la tab principal del teléfono); hasta ese día, al Dashboard.
   if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect(conWs(RUTA_CENTRO_M, await wsSuperAdmin()));
-  if (opts.onboarding !== false && (await onboardingPendiente())) redirect(await rutaConWs(RUTA_CONFIGURAR_MOVIL));
+  // Estricto (20/11/2026, lib/rebote-onboarding.ts): si no pudo leer el estado, deja pasar; «no pude leer» no es «no terminó».
+  if (opts.onboarding !== false && (await mandarAlOnboarding())) redirect(await rutaConWs(RUTA_CONFIGURAR_MOVIL));
   // «Sigamos en tu computadora» también aquí (20/11, la verificación de OA-10 y OD-12): un link directo a /m, un push, una pestaña
   // guardada o una ruta de escritorio que el proxy desvía a /m entraban a MaKo Mobile. Con el V2, mientras no vio el recorrido en
   // la PC, cualquier pantalla del teléfono va a /onboarding, que la muestra. ⚠️ De lib/seguir-en-pc.ts, el módulo CHICO: este guard lo

@@ -2702,6 +2702,19 @@ onboarding y del reto, nunca los datos. Funciona porque sabe dónde vive cada co
 nueva en el navegador va en `CLAVES_DEL_NAVEGADOR` (lib/reinicio-en-el-navegador.ts). Si no, el reinicio la deja y la persona no ve el
 onboarding entero. **El navegador también es estado:** lo visto que guarda se lo devuelve a la base (`Recorrido.tsx`, `useVisto.ts`).
 
+# Un script que respalda filas de un cliente escribe el respaldo FUERA de cualquier repo
+
+Con `escribirRespaldo` (lib/respaldo-fuera-del-repo.ts): C:/dev/respaldos, `--respaldo=<carpeta>` o MAKO_RESPALDOS, y se niega si la
+carpeta tiene un `.git` hacia arriba. Nunca en la carpeta donde corre el script, ni en una carpeta «ignorada» del repo: el respaldo del
+primer «Reiniciar onboarding» de verdad quedó en la raíz con los datos de una clienta, y git no lo ignoraba (20/11/2026).
+
+# Una guarda que REDIRIGE lee estricto, y dos páginas que se mandan una a la otra llevan cortacircuito
+
+«No pude leer» no es «no terminó»: si la lectura falla, la guarda deja pasar y lo anota (`mandarAlOnboarding`, lib/onboarding-state.ts).
+Y si A redirige a B y B a A, el redirect lleva su marca (`conRebote`, lib/rebote-onboarding.ts) y lo que acaba de rebotar no vuelve:
+se dibuja algo que se toca. Ninguna redirección depende de una escritura que puede no ocurrir (el destino trae lo que la evita, como
+`?chat=`). El 20/11/2026 la app y el onboarding se mandaron uno al otro ~7 minutos en producción.
+
 # Una pantalla que TRABA se dispara con la marca de quien entró al flujo, no con la falta de un «visto» nuevo
 
 El 20/11/2026, «Sigamos en tu computadora» (lib/seguir-en-pc.ts) salía a quien NO tuviera `tutorial-ops-center` en su perfil. Ese visto

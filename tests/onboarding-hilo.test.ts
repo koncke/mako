@@ -35,7 +35,7 @@ test('el chat «Onboarding» se crea una vez, con la conversación entera y en o
   // Desde el 21/10 sale del HISTORIAL guardado, junto por hora con Offer (tests/onboarding-historial.test.ts): armado del
   // estado de hoy, un dato arreglado después cambiaba lo que la persona «contestó».
   assert.match(s, /mensajesDelHilo\(unirConOffer\(historial, h\.sesion\?\.mensajes \?\? \[\]\), \{ nombre: e\.nombre, telefonoVerificado: e\.telefono === 'verificado' \}\)/, 'la conversación no va tal cual (lo que se le preguntó y contestó)');
-  assert.match(f, /if \(!sesiones\.some\(\(s\) => !s\.archived && s\.contexto !== marca\)\) await createSession\(chartKey, null, null\);/,
+  assert.match(f, /if \(!sesiones\.some\(\(s\) => !s\.archived && !esContextoDelHilo\(s\.contexto\)\)\) await createSession\(chartKey, null, null\);/,
     'sin un chat principal antes, el más viejo es el jefe y «Onboarding» se mostraría como «Second Brain»');
   assert.match(f, /const hilo = await createSession\(chartKey, TITULO_HILO, marca\);/);
   assert.match(f, /await guardarEstadoArranque\(\{ hiloChat: hilo\.id, hiloDe: chartKey, hiloAt: new Date\(\)\.toISOString\(\), hiloCreando: undefined,/);

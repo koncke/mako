@@ -8,14 +8,17 @@
 // del reto (lib/reiniciar-onboarding.ts dice qué sí y qué no), así que va en cualquier cliente que el super admin esté mirando.
 // Quién puede lo decide el server (/api/admin/reiniciar-onboarding: super admin, nunca el negocio del dueño).
 //
-// ⚠️ Después de reiniciar NO navega al onboarding: mirándolo como administrador, cada paso que se toca avanza el onboarding DEL
-// CLIENTE (el arranque se guarda en el negocio). Lo tiene que hacer la persona.
+// Después de reiniciar dice que quedó y lleva al onboarding del negocio (20/11, el Cerebro: «no da ninguna señal y deja la pantalla
+// como estaba»). Con navegación COMPLETA (`location.assign`, con el `?ws=` de la pestaña): la pantalla de antes ya no vale.
+// ⚠️ Mirándolo como administrador, cada paso que se TOCA avanza el onboarding DEL CLIENTE (el arranque se guarda en el negocio).
 //
 // ⚠️ La confirmación va en un panel FLOTANTE debajo del botón, no en la barra (medido a 1440 y 375 el 20/11): escrita en la barra la
 // estiraba a 87 px, y la página sólo descuenta 50 (`--barra-agencia`, app/globals.css), así que tapaba lo de arriba de la pantalla.
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
+import { useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
 import { AvisoFlotante } from './AvisoFlotante';
 
 const MONO = "'Geist Mono', monospace";
@@ -35,6 +38,8 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
   const [confirmar, setConfirmar] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number; ancho: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [hecho, setHecho] = useState(false);
+  const ws = useWs();
   const [aviso, setAviso] = useState<{ texto: string; tono: 'info' | 'error' } | null>(null);
   const btn = useRef<HTMLButtonElement | null>(null);
 
@@ -75,12 +80,14 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ aplicar: true }),
       });
       const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
-      if (!j.ok) { setAviso({ texto: j.error || 'No se pudo reiniciar el onboarding.', tono: 'error' }); return; }
-      setConfirmar(false);
-      setAviso({ texto: `Listo: ${cliente} empieza el onboarding la próxima vez que entre. No se borró nada de lo suyo.`, tono: 'info' });
+      if (!j.ok) { setAviso({ texto: j.error || 'No se pudo reiniciar el onboarding.', tono: 'error' }); setBusy(false); return; }
+      // Lo dice el MISMO panel (a la vista, donde se tocó), y lleva al onboarding. `busy` queda prendido: no se vuelve a tocar.
+      setHecho(true);
+      setTimeout(() => window.location.assign(conWs('/onboarding', ws)), 1200);
     } catch (e) {
       setAviso({ texto: e instanceof Error ? e.message : 'No se pudo reiniciar el onboarding.', tono: 'error' });
-    } finally { setBusy(false); }
+      setBusy(false);
+    }
   }
 
   return (
@@ -97,15 +104,17 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
             boxShadow: '0 18px 44px rgba(23,21,17,.32)', padding: '14px 16px', fontFamily: SANS,
           }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.35 }}>
-              ¿Reiniciar el onboarding de {cliente}?
+              {hecho ? `Listo: el onboarding de ${cliente} empieza de cero.` : `¿Reiniciar el onboarding de ${cliente}?`}
             </div>
-            <p style={{ margin: '6px 0 14px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{TEXTO_REINICIAR}</p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <p role={hecho ? 'status' : undefined} style={{ margin: '6px 0 14px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
+              {hecho ? 'No se borró nada de lo suyo. Te llevo a su onboarding…' : TEXTO_REINICIAR}
+            </p>
+            {!hecho && <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button type="button" className="mk-btn mk-btn--sm mk-btn--secondary" onClick={() => setConfirmar(false)} disabled={busy}>No</button>
               <button type="button" className="mk-btn mk-btn--sm mk-btn--primary" onClick={() => void reiniciar()} disabled={busy}>
                 {busy ? 'Reiniciando…' : 'Sí, reiniciar'}
               </button>
-            </div>
+            </div>}
           </div>,
           document.body,
         )

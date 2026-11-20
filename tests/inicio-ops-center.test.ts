@@ -69,7 +69,8 @@ test('3: el repartidor: teléfono primero, después quienOpera, el onboarding y 
   const p = codigo('app/inicio/page.tsx');
   const telefono = p.indexOf('if (telefono) redirect(await rutaConWs(ENTRADA_MOVIL));');
   const opera = p.indexOf('const opera = await quienOpera();');
-  const onboarding = p.indexOf("if (!opera && (await onboardingPendiente())) redirect(await rutaConWs('/onboarding'));");
+  // `mandarAlOnboarding` + `conRebote` (20/11/2026: lee estricto y sin ida y vuelta; tests/onboarding-sin-ida-y-vuelta.test.ts).
+  const onboarding = p.indexOf("if (!opera && (await mandarAlOnboarding())) redirect(await rutaConWs(conRebote('/onboarding', Date.now())));");
   const casa = p.indexOf('redirect(await rutaConWs(casaEnLaComputadora({ opera, capa: opera ? null : await getCapaActual() })));');
   assert.ok(telefono > 0, 'el teléfono sigue resolviéndose antes (lo lleva su propio agente)');
   assert.ok(opera > telefono, '`quienOpera` va después del teléfono');

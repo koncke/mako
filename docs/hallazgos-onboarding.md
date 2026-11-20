@@ -3904,6 +3904,35 @@ existía y el test pasaba, pero el camino de la persona se cortaba. El test comp
     salen después del mensaje, con su pausa. Lo que aparece DENTRO de un día ya va por la cola también: la entrada de abajo.
   - La hora de «lo dejé para después» no se guarda: un día cerrado sólo así toma la hora en que se abrió.
 
+## El ida y vuelta entre la app y el onboarding: imposible por construcción, porque no se pudo ver la causa (20/11/2026, chat «onboarding-v2», claude5)
+
+**Síntoma** (el Cerebro, en producción, 2885104c9, ws 3 como administrador, después de «Reiniciar onboarding»): al tocar «Entrar a
+MaKo», la pantalla en blanco y más de 1000 pedidos en segundos alternando `/second-brain?ws=3&_rsc` y `/onboarding?ws=3&_rsc`, casi
+todos ERR_ABORTED, sin errores en la consola. Duró ~7 minutos (18:43 a 18:50 UTC), también con una carga entera, y se fue solo.
+
+- **El diagnóstico obvio era el equivocado:** «/second-brain redirige al chat «Onboarding» porque `hiloChat` no quedó anotado»
+  (`hiloParaQuienYaTermino`, app/second-brain/page.tsx). Mirando como administrador eso no corre: `hiloDelOnboarding` devuelve null
+  con `?ws=` (`estaImpersonando`). Y ese redirect va a `/second-brain?chat=N`, no a /onboarding.
+- **Lo que se midió después, con la sesión de Martín:** `GET /second-brain?ws=3` con `RSC: 1` da 200 sin `NEXT_REDIRECT`. Sólo
+  `/onboarding?ws=3` redirige a `/second-brain`, y está bien: el onboarding está `done`. Ni con `?reto=1`, ni en el teléfono, ni con
+  la misma pestaña del Cerebro se reprodujo. Los logs de Vercel de esos minutos no se pudieron leer: el endpoint de runtime-logs
+  (`/v1/projects/…/deployments/…/runtime-logs`) es un stream que no corta.
+- **La única explicación que encaja:** las dos puntas leían distinto. `guardOnboarding` (lib/tab-access.ts) leía TOLERANTE: un error
+  de Supabase es `null`, y `null` es el estado inicial, «pending». Así manda a /onboarding, y /onboarding, que lee bien, devuelve. Con
+  el diluvio de pedidos, cada error realimenta el ida y vuelta.
+- **El arreglo no depende de la causa** (lib/rebote-onboarding.ts):
+  - las guardas que REDIRIGEN usan `mandarAlOnboarding` (lib/onboarding-state.ts), que lee ESTRICTO y, si no pudo leer, deja pasar y
+    lo anota. `onboardingPendiente` queda para lo que no redirige;
+  - cada redirect entre las dos lleva `?rebote=<segundos>` (`conRebote`). Lo que acaba de rebotar (30 s) no vuelve: la guarda lo deja
+    pasar, y /onboarding, terminado, muestra «Tu onboarding ya está listo» con «Entrar a MaKo» (un toque, nunca otro redirect);
+  - y /second-brain no redirige al chat «Onboarding» si el pedido ya elige chat (`?chat=` o `?reto=`): ese redirect dependía de una
+    escritura que puede fallar.
+- **Trampa de los tests:** con las dos puntas cortando, sacar el corte de UNA queda en verde (la otra corta sola). El test recorre las
+  dos con todas las combinaciones de lo que cada una lee, y además un pedido rebotado contra cada punta por separado
+  (tests/onboarding-sin-ida-y-vuelta.test.ts).
+- **Sin hacer:** no se sabe por qué la guarda leía distinto durante 7 minutos seguidos (errores al azar habrían cortado el bucle
+  antes). La próxima vez: el log `[onboarding] … no pude leer` / `… la guarda lo ve sin terminar` dice cuál de las dos fue.
+
 ## Reiniciar el onboarding sin tocar lo suyo: el estado vive en tres lados, y uno le devuelve a la base lo que se borró (20/11/2026, chat «onboarding-v2», claude5)
 
 Martín: «resetea al usuario de Leila para que pueda hacer todo el onboarding… y una opción en SuperAdmin para resetear sin que pierda su
@@ -3936,6 +3965,28 @@ de la vista de administrador y scripts/reiniciar-onboarding.mts. RESET (lib/rese
 - **Trampa de TypeScript: `typeof x` en posición de TIPO mira el estrechamiento.** Con `let fila: T | null = null`, más abajo
   `r.data as typeof fila` es `as null`, y `fila` termina en `never` sin que el test lo note (tsx no mira tipos). Lo vio `tsc-acotado`.
   Se castea a un alias con nombre.
+- **El respaldo del primer reinicio de verdad (Leila, ws 11, 20/11) quedó en la RAÍZ del repo, y git no lo ignoraba.** El script lo
+  escribía en la carpeta donde corre, con las claves y el perfil de una clienta: a un `git add` de quedar en el historial. Lo vio el
+  Cerebro y lo movió a C:/dev/respaldos. Ahora va por `escribirRespaldo` (lib/respaldo-fuera-del-repo.ts): C:/dev/respaldos,
+  `--respaldo=<carpeta>` o MAKO_RESPALDOS, y se niega si hay un `.git` hacia arriba (un worktree lo tiene como ARCHIVO). No confía en
+  el .gitignore: una carpeta «ignorada» adentro del repo depende de una línea que alguien puede borrar. El .gitignore suma
+  `respaldo-*.json` igual, por si otro script repite el error.
+- **El WhatsApp ya verificado, en el V2, salía roto (el Cerebro, en producción, después del reinicio).** `pedirConfirmacionV2` contesta
+  `yaVerificado` y el paso pasa sin código, pero la conversación del V2 sólo conocía el camino del código: el mensaje «toca «Abrir
+  WhatsApp»… te contesto con un código» SIN su caja (la tarjeta va sólo en la etapa del código) y «Listo, ya lo cargué.» como respuesta
+  de ella. Esa burbuja era a propósito en el onboarding de antes («la conversación dibuja el código como cargado»), y el V2 la heredó.
+  Ahora la ruta marca `telefonoYa` y el V2 dice «Tu WhatsApp … ya está confirmado», la tarjeta de MaKo en el chat
+  (app/onboarding/TarjetaContactoMako.tsx: no hubo mensaje de WhatsApp que la trajera), «Guárdame en tus contactos…» y «¿Guardaste el
+  contacto de MaKo?». tests/whatsapp-ya-confirmado.test.ts.
+- **Repetir el onboarding renombraba el grupo de WhatsApp:** guardar el nombre del negocio llamaba a `asegurarGrupoMaKo` si el
+  negocio tenía grupo (app/api/onboarding/arranque/route.ts). Con Leila (ws 11, «MaKo Leila») reiniciada, era tráfico contra la línea.
+  Martín, 20/11: no hay más grupos con clientes. Ya no se llama, y la salida del chat «Onboarding» no nombra ningún grupo.
+- **Después de reiniciar quedaban dos filas «Onboarding»:** al crear el chat nuevo se borraban sólo los de la MISMA marca, y la del
+  onboarding anterior trae la de su oferta (`onboarding:<id>`). Ahora se archivan todos los chats «Onboarding» que ya tenía
+  (`esContextoDelHilo`): salen de la lista y la conversación queda. Mirando como administrador la lista es la del ADMINISTRADOR (su
+  `chart_key`), así que ahí no aparece el del dueño: eso lo decide el Cerebro.
+- **«Sí, reiniciar» no daba señal:** el aviso salía chico, abajo a la izquierda, y la pantalla quedaba igual. Ahora lo dice el mismo
+  panel y lleva al onboarding del negocio (navegación completa, con el `?ws=`).
 - **Encontrado de paso:** RESET no borra `perfil.onboardingV2` ni `perfil.recorridos`. Después de un RESET del ws 3, la barra oculta, la
   llegada y «Sigamos en tu computadora» no vuelven a salir.
 - **Sin hacer:**
@@ -3982,17 +4033,15 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
   - De 00:18:08 a 00:22:14 se mostró la MAQUETA (el artefacto), no la app: un «acá está mal» ahí es de la maqueta.
   - Lo de la pantalla compartida no está en el texto: «esto», «acá» sin referente no se inventa.
   - La demo corrió sobre 959450118 y hubo tres deploys después: «ya está» sólo con el código que lo hace.
-- **El bucle de «Entrar a MaKo» (20/11, 18:43–18:50 UTC, ws 3 mirando como administrador, después de «Reiniciar onboarding»):**
-  pantalla en blanco y más de 1000 pedidos alternando `/second-brain?_rsc` y `/onboarding?_rsc`. Se fue solo a los ~7 minutos y
-  no se pudo reproducir. La base decía `status: done` todo el tiempo. Hipótesis que encaja: `getEstadoOnboarding` lee TOLERANTE
-  (lib/onboarding-state.ts:24), un error de lectura vuelve «pending», la guarda manda a /onboarding y /onboarding (que lee bien)
-  devuelve: cada error del diluvio realimenta el ida y vuelta. Los logs de Vercel no se pudieron leer (el endpoint es un stream).
-  **Regla:** una redirección no puede depender de una lectura que, si falla, dice lo contrario; si no pudo leer, deja pasar. Y dos
-  pantallas que se mandan una a la otra necesitan un cortacircuito. (El arreglo, con su test, lo lleva el chat del onboarding.)
+- **El bucle de «Entrar a MaKo» (20/11, 18:43–18:50 UTC):** el síntoma, lo que se midió, por qué el diagnóstico obvio era el
+  equivocado y el arreglo por construcción (con su test) están en «El ida y vuelta entre la app y el onboarding», más arriba (ec7425bf2).
 - **Lo que se encontró en el código y quedó SIN hacer al 20/11, 19:30 UTC** (dueño entre paréntesis):
-  - «Reiniciar onboarding» no borra `perfil.recorridos` del dueño, y «Hola de nuevo» no vuelve a salir (onboarding-v2).
+  - ~~RESET (la barra del Cliente de Prueba) no borra `perfil.recorridos` del dueño, y «Hola de nuevo» no vuelve a salir~~ HECHO:
+    RESET usa `perfilReiniciado`. Y quien termina en el teléfono llega a la PC sin `?reto=1`: /second-brain abre el reto la primera
+    vez (empezó el V2 y no vio el recorrido), sin llevar al chat «Onboarding», que salteaba la llegada (tests/hola-de-nuevo-primero).
+    Sin mirar en producción todavía (onboarding-v2).
   - «Sigamos en tu computadora» promete «el link que te mandamos a tu correo» y nadie lo manda (app/onboarding/SeguirEnPc.tsx:44-46; onboarding-v2).
-  - Guardar el nombre del negocio llama a `asegurarGrupoMaKo` y renombra el grupo (app/api/onboarding/arranque/route.ts:191; onboarding-v2).
+  - ~~Guardar el nombre del negocio llama a `asegurarGrupoMaKo` y renombra el grupo~~ HECHO en 5e6e3e181 (onboarding-v2).
   - `/api/plan/prueba` lee el negocio propio, no el que se mira (app/api/plan/prueba/route.ts:17-18; onboarding-v2).
   - El bloqueo «Instala MaKo para escribir» en ~20 cajas: Martín lo sacó en la llamada (lib/chat-mako-reglas.ts:334-337; wa-no-callarse).
   - La guía CUBOS y su respuesta automática no existen (docs/series/serie-3-ventas.md:113; sin chat).

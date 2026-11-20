@@ -88,8 +88,9 @@ test('4. las trampas de adelantarlo', () => {
   // Que con el nombre vacío el grupo nazca con el del workspace lo prueba EJECUTANDO tests/whatsapp-anti-ban.test.ts («sin el nombre del
   // negocio todavía…»). Acá, que la ruta lo pase vacío y no «tu negocio».
   assert.match(ruta, /pedirMensajeDeVerificacion\(g\.ws, digitos, e\.negocio \|\| ''\)/, 'con «tu negocio» el grupo nace «MaKo <> tu negocio»: vacío, usa el nombre del workspace');
-  // Al decir el negocio, el grupo que ya nació toma el nombre; sin grupo, no se crea uno vacío.
-  assert.match(ruta, /if \(patch\.negocio && \(await getGrupoJidMaKo\(g\.ws\)\.catch\(\(\) => null\)\)\) await asegurarGrupoMaKo\(g\.ws, \{ nombre: patch\.negocio \}\)/);
+  // Al decir el negocio, NINGÚN grupo se crea ni se renombra (20/11/2026: no hay más grupos con clientes; Leila, ws 11, reiniciada
+  // en el V2, habría renombrado «MaKo Leila» contra la línea).
+  assert.doesNotMatch(ruta.replace(/^[ \t]*\/\/.*$/gm, ''), /asegurarGrupoMaKo|getGrupoJidMaKo/);
   // Y el contacto de los reportes, que nació sin nombre.
   assert.match(ruta, /if \(c\?\.telefono && !c\.nombre\) await setContactoReportes\(\{ \.\.\.c, nombre: patch\.nombre \}\)/);
 });

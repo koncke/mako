@@ -357,7 +357,8 @@ test('13. se anota al CONTESTAR (la ruta, con lo que mandó), nunca al mirar, y 
   assert.match(ruta, /await anotarRespuesta\(e, h, CODIGO_CARGADO, confirmado\);/, 'el código no se guarda');
   // Como la escribió en su tarjeta, si vino (20/11, la verificación de OA-F1); si no, en dígitos.
   assert.match(ruta, /await anotarRespuesta\(e, h, visto \?\? `\+\$\{digitos\}`, confirmado\);/);
-  assert.match(ruta, /if \(r\.yaVerificado\) await anotarRespuesta\(\{ \.\.\.e, telefono: 'verificado', telefonoNumero: `\+\$\{digitos\}` \}, h, CODIGO_CARGADO, confirmado\);/, 'ya verificado: el código, como cargado');
+  // En el V2, no (20/11: MaKo dice que ya está confirmado y sigue con su contacto; tests/whatsapp-ya-confirmado.test.ts).
+  assert.match(ruta, /if \(r\.yaVerificado && !yaEnElV2\) await anotarRespuesta\(\{ \.\.\.e, telefono: 'verificado', telefonoNumero: `\+\$\{digitos\}` \}, h, CODIGO_CARGADO, confirmado\);/, 'ya verificado (el de antes): el código, como cargado');
   const srv = leer('lib/onboarding-arranque-server.ts');
   const vista = srv.slice(srv.indexOf('export async function vistaArranque'));
   assert.match(vista, /try \{ e = parseEstado\(await getSettingEstricto\(CLAVE\)\); estricto = true; \} catch \{ e = \{\}; \}/, 'el estado, estricto');

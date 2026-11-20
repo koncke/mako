@@ -22,7 +22,7 @@ import { desbloquearOnboarding, frenoDeArranque } from '@/lib/onboarding-guardia
 import { borrarSettingSi, cambiarSettingSi, getSettingEstricto } from '@/lib/settings';
 import { getContactoReportes, getPerfil, setContactoReportes } from '@/lib/perfil';
 import { setDiagnosticoFase } from '@/lib/fase-store';
-import { asegurarGrupoMaKo, estadoVerificacionEntrante, getGrupoJidMaKo, pedirMensajeDeVerificacion, verificarCodigoContacto } from '@/lib/mako-grupo';
+import { estadoVerificacionEntrante, pedirMensajeDeVerificacion, verificarCodigoContacto } from '@/lib/mako-grupo';
 import { otroNumeroQueEscribioV2, pedirConfirmacionV2, reenviarCodigoV2, verificarCodigoV2 } from '@/lib/mako-grupo';
 import { errorDelTelefono } from '@/lib/verificacion-entrante';
 import { leerSesion } from '@/lib/offer-sesiones';
@@ -100,10 +100,12 @@ export async function POST(req: NextRequest) {
     if (!r.ok) return no(422, r.error);
     const contestado = 'contestado' in r && r.contestado === true;
     // Como lo escribió (20/11, OA-F1): su respuesta se dibuja así; sin eso, con telefonoVisible.
-    await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}`, telefonoVisto: visto, telefonoEntrante: r.yaVerificado ? undefined : true });
+    // En el V2, el WhatsApp YA confirmado lo dice MaKo y sigue con su contacto (`telefonoYa`, 20/11): sin código ni burbuja inventada.
+    const yaEnElV2 = r.yaVerificado && h.v2;
+    await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}`, telefonoVisto: visto, telefonoEntrante: r.yaVerificado ? undefined : true, telefonoYa: yaEnElV2 ? true : undefined });
     await anotarRespuesta(e, h, visto ?? `+${digitos}`, confirmado);
-    // Ya verificado: la conversación dibuja el código como cargado sin pedirlo, y ésa es su respuesta (segunda revisión).
-    if (r.yaVerificado) await anotarRespuesta({ ...e, telefono: 'verificado', telefonoNumero: `+${digitos}` }, h, CODIGO_CARGADO, confirmado);
+    // Ya verificado (el de antes): la conversación dibuja el código como cargado sin pedirlo, y ésa es su respuesta (segunda revisión).
+    if (r.yaVerificado && !yaEnElV2) await anotarRespuesta({ ...e, telefono: 'verificado', telefonoNumero: `+${digitos}` }, h, CODIGO_CARGADO, confirmado);
     return listo(contestado ? { aviso: 'Te mandé el código a ese WhatsApp.' } : {});
   };
 
@@ -188,7 +190,9 @@ export async function POST(req: NextRequest) {
           const c = await getContactoReportes().catch(() => null);
           if (c?.telefono && !c.nombre) await setContactoReportes({ ...c, nombre: patch.nombre }).catch(() => {});
         }
-        if (patch.negocio && (await getGrupoJidMaKo(g.ws).catch(() => null))) await asegurarGrupoMaKo(g.ws, { nombre: patch.negocio }).catch(() => {});
+        // SIN GRUPOS (20/11/2026, Martín en la llamada con Leila: «se terminan los grupos de WhatsApp con clientes», por los baneos).
+        // Guardar el nombre del negocio renombraba el grupo que ya existía (`asegurarGrupoMaKo`): tráfico contra la línea con cada
+        // onboarding repetido (Leila, ws 11, «MaKo Leila», reiniciada en el V2). No se crea ni se renombra ninguno desde aquí.
         const nuevo = await guardarEstadoArranque(patch);
         // Lo que contestó, TAL CUAL, en el historial del onboarding (lib/onboarding-historial.ts): con lo dibujado se perdía
         // el toque de cada confirmación («Sí, se llama así»), porque la pantalla muestra el dato confirmado.
@@ -263,7 +267,7 @@ export async function POST(req: NextRequest) {
         if (!otro) return no(409, 'Ya no veo otro número. Toca «Abrir WhatsApp» y mándame el mensaje desde tu WhatsApp.');
         const malo = errorDelTelefono(otro);
         if (malo) return no(422, malo);
-        await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined });
+        await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined });
         const e2 = await estadoEstricto();
         const h2 = await hechosDelArranque(e2);
         if (etapaDeArranque(e2, h2) !== 'telefono') return no(409, 'Ahora no estoy esperando tu teléfono.');
@@ -278,7 +282,7 @@ export async function POST(req: NextRequest) {
         const h = await hechosDelArranque(e);
         if (!h.v2 || etapaDeArranque(e, h) !== 'codigo') return no(409, 'Ahora no estoy esperando tu código.');
         if (body.action === 'cambiar-numero') {
-          await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined });
+          await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined });
           return listo();
         }
         const r = await reenviarCodigoV2(g.ws);

@@ -4,15 +4,19 @@
 // Roto a propósito el 20/11 (cada uno cae): el WhatsApp verificado sumado a lo que se borra (1 y 3), el server leyendo leads (3), la
 // guardia borrada con su bloqueo (2), la BAJA perdida (2), el navegador sin limpiar el «dale play» (5), el script aplicando sin mostrar
 // antes (3), la ruta sin getSesionAdmin (6), y la tarjeta del WhatsApp sin el número verificado (onboarding-whatsapp-primero, 6).
+// Y el respaldo (7): escribiendo adentro de un repo, con un `.git` archivo (worktree) que no cuenta, pisando uno anterior, el script
+// escribiendo donde corre, y el .gitignore sin `respaldo-*.json`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import {
   LO_QUE_QUEDA, SETTINGS_QUE_MIRA, SETTINGS_QUE_SE_BORRAN, TABLAS_QUE_TOCA, PREFIJO_TUTORIAL, perfilReiniciado, planDeSettings,
 } from '../lib/reiniciar-onboarding';
 import { CLAVES_DEL_NAVEGADOR, CLAVE_LIMPIADO, CLAVE_REINICIO, reinicioDelPerfil, scriptDelReinicio } from '../lib/reinicio-en-el-navegador';
 import { estadoDeLoGuardado } from '../lib/onboarding-contrato';
+import { CARPETA_RESPALDOS_WINDOWS, carpetaDeRespaldos, escribirRespaldo, repoQueLaContiene } from '../lib/respaldo-fuera-del-repo';
 
 const RAIZ = new URL('..', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -138,9 +142,44 @@ test('6. el botón, al lado de RESET en la vista de administrador: dice que no b
   assert.match(barra, /<span style=\{\{ fontSize: 13\.5, minWidth: 0, flexShrink: 1000,/, 'el texto de la barra se achica primero');
   assert.match(barra, /\{!modoAgencia && \(\n\s*<div style=\{\{[^}]*minWidth: 0, overflowX: 'auto'/, 'las herramientas se deslizan; «Salir» queda a la vista');
   assert.match(b, /body: JSON\.stringify\(\{ aplicar: true \}\)/);
-  assert.doesNotMatch(b, /location\.href|router\.push/, 'no navega al onboarding: mirando, cada paso avanzaría el del cliente');
+  // Al terminar dice que quedó y lleva al onboarding de ESE negocio (20/11, el Cerebro: «no da ninguna señal y deja la pantalla como
+  // estaba»): navegación completa, con el `?ws=` de la pestaña.
+  assert.match(b, /setHecho\(true\);\n\s*setTimeout\(\(\) => window\.location\.assign\(conWs\('\/onboarding', ws\)\), \d+\);/);
+  assert.match(b, /\{hecho \? `Listo: el onboarding de \$\{cliente\} empieza de cero\.`/, 'lo dice el mismo panel');
   const ruta = sinComentarios(leer('app/api/admin/reiniciar-onboarding/route.ts'));
   assert.match(ruta, /if \(!\(await getSesionAdmin\(\)\)\) return NextResponse\.json\(\{ ok: false, error: '[^']+' \}, \{ status: 403 \}\);/);
   assert.match(ruta, /const ws = await getWorkspaceActual\(\);/, 'el negocio lo dice el server, nunca el pedido');
   assert.match(ruta, /const \{ resultado \} = await reiniciarOnboarding\(ws, \{ aplicar: body\.aplicar === true \}\);/, 'el respaldo no viaja al navegador');
+});
+
+test('7. el respaldo va FUERA de cualquier repo (el primero, el de Leila, quedó en la raíz sin que git lo ignorara)', () => {
+  // La carpeta: la pasada, MAKO_RESPALDOS, o la de la máquina.
+  assert.equal(carpetaDeRespaldos({ env: {}, plataforma: 'win32' }), CARPETA_RESPALDOS_WINDOWS);
+  assert.equal(carpetaDeRespaldos({ env: {}, plataforma: 'linux', home: '/h' }), join('/h', 'mako-respaldos'));
+  assert.equal(carpetaDeRespaldos({ env: { MAKO_RESPALDOS: '/r' }, plataforma: 'win32' }), resolve('/r'));
+  assert.equal(carpetaDeRespaldos({ pasada: '/p', env: { MAKO_RESPALDOS: '/r' } }), resolve('/p'));
+
+  const base = mkdtempSync(join(tmpdir(), 'respaldo-'));
+  try {
+    assert.equal(repoQueLaContiene(base), null, 'la carpeta temporal no está en un repo: si lo está, este test no prueba nada');
+    // Un worktree tiene `.git` como ARCHIVO: también cuenta.
+    mkdirSync(join(base, 'repo'));
+    writeFileSync(join(base, 'repo', '.git'), 'gitdir: x');
+    const adentro = join(base, 'repo', 'scripts', 'respaldos');
+    assert.equal(repoQueLaContiene(adentro), resolve(base, 'repo'));
+    assert.throws(() => escribirRespaldo(adentro, 'r.json', { a: 1 }), /no va adentro de un repo de git/);
+    assert.equal(existsSync(adentro), false, 'ni crea la carpeta');
+
+    const fuera = join(base, 'respaldos');
+    const archivo = escribirRespaldo(fuera, 'r.json', { a: 1 });
+    assert.deepEqual(JSON.parse(readFileSync(archivo, 'utf8')), { a: 1 });
+    assert.throws(() => escribirRespaldo(fuera, 'r.json', { a: 2 }), /EEXIST/, 'nunca encima de otro respaldo');
+  } finally { rmSync(base, { recursive: true, force: true }); }
+
+  // El script escribe con eso, antes de aplicar; y por si otro script repite el error, git ignora `respaldo-*.json`.
+  const script = sinComentarios(leer('scripts/reiniciar-onboarding.mts'));
+  assert.doesNotMatch(script, /writeFileSync/, 'el respaldo se escribe sólo con escribirRespaldo');
+  const respaldo = script.indexOf('escribirRespaldo(respaldoEn,');
+  assert.ok(respaldo > 0 && respaldo < script.indexOf('aplicar: true'), 'el respaldo se escribe ANTES de tocar la base');
+  assert.match(leer('.gitignore'), /^respaldo-\*\.json$/m);
 });
