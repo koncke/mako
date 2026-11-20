@@ -783,7 +783,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       })}
       {funnelAbierto && (
         <div style={{ display: verFunnel ? 'contents' : 'none' }}>
-          <ChatDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} dosCoaches={dosCoaches} />
+          <ChatDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} dosCoaches={dosCoaches} visible={verFunnel} />
         </div>
       )}
       {offerAbierto && dosCoaches && (

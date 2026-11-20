@@ -309,7 +309,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
               {fase === 'chat' && (
                 <>
                   {/* UN solo video, el de la bienvenida, como primer mensaje (Martín, 19/11). Al bajar, sigue chiquito abajo a la derecha. */}
-                  {videoBienvenida && filaMako('arr-video', <VideoDelMomento clave={VIDEO_BIENVENIDA} titulo="Bienvenida a MaKo" revision={false} onTermina={soltarPrimero} />)}
+                  {videoBienvenida && filaMako('arr-video', <VideoDelMomento clave={VIDEO_BIENVENIDA} titulo="Bienvenida a MaKo" revision={false} onTermina={soltarPrimero} dalePlay />)}
                   {primero === 'escribe' && escribiendo('arr-primero')}
                   {primero === 'listo' && mensajes.map((m) => {
                     if (m.de === 'yo') return filaYo(m.id, m.texto);

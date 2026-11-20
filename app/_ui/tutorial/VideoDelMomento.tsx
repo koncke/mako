@@ -22,14 +22,18 @@ import { Icon } from '@/app/_components/icons';
 import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
 import { useSenal } from './store';
 import { useVideoQueFlota } from './useVideoQueFlota';
+import { useDalePlay } from './useDalePlay';
 
 type Estado = 'quieto' | 'reproduciendo' | 'pausado' | 'terminado';
 const VELOCIDADES = [1, 1.25, 1.5, 2] as const;
 const mmss = (s: number) => { const t = Math.max(0, Math.round(s || 0)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 const conMayuscula = (s: string) => (s ? s.charAt(0).toLocaleUpperCase('es') + s.slice(1) : s);
 
-/** `onTermina`: cuando el video llegó al final (el onboarding V2 suelta ahí su primera pregunta). */
-export function VideoDelMomento({ clave, titulo, revision, onTermina }: { clave: string; titulo: string; revision: boolean; onTermina?: () => void }) {
+/**
+ * `onTermina`: cuando el video llegó al final (el onboarding V2 suelta ahí su primera pregunta). `dalePlay`: mientras está quieto, el
+ * motor lo marca con «{título}: dale play» (V5, ./useDalePlay.ts): el video con el que abre un chat (los coaches, el reto, la bienvenida).
+ */
+export function VideoDelMomento({ clave, titulo, revision, onTermina, dalePlay = false }: { clave: string; titulo: string; revision: boolean; onTermina?: () => void; dalePlay?: boolean }) {
   const v = useVideoTutorial(clave);
   const listo = useManifiestoListo();
   const senal = useSenal();
@@ -43,6 +47,8 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina }: { clave:
   const [durLeida, setDur] = useState(0);
   const [vel, setVel] = useState<number>(1);
   const dur = durLeida || v?.duracion_s || 0;
+  const raiz = useRef<HTMLDivElement>(null);
+  useDalePlay(raiz, { clave, titulo, activo: dalePlay && !!v && estado === 'quieto' && !flotando });
 
   // La placa, sólo con el manifiesto ya leído (F1): mientras carga, nada.
   if (!v) {
@@ -66,7 +72,7 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina }: { clave:
   const corre = estado === 'reproduciendo';
   const terminado = estado === 'terminado';
   return (
-    <div className="mk-vmom" data-clave={clave} data-estado={estado}>
+    <div ref={raiz} className="mk-vmom" data-clave={clave} data-estado={estado}>
       <style>{CSS}</style>
       <div className={`mk-vmom__pantalla${v.play === 'abajo-derecha' ? ' mk-vmom__pantalla--abajo-derecha' : ''}`} onClick={alternar}>
         <video ref={ref} className="mk-vmom__video" src={v.archivo} poster={v.poster} playsInline preload="metadata"
