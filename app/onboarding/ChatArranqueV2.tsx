@@ -24,7 +24,8 @@
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
-import { useRouter } from '@/app/_ui/Link';
+import { useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { InterruptorModo } from '@/app/_components/InterruptorModo';
@@ -339,7 +340,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
   // ENTRAR (20/11, Martín, en producción): al Ops Center con el chat «Reto de 7 días» ya elegido. La llegada (el video del recorrido con su
   // «dale play») es el primer mensaje de ese chat (app/second-brain/LlegadaAlReto.tsx). El chat «Onboarding» se sigue creando: guarda la
   // conversación.
-  const router = useRouter();
+  const ws = useWs();
   const [entrando, setEntrando] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
   const entrar = useCallback(async () => {
@@ -358,8 +359,12 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
     if (flotando?.tipo === 'video') soltarSenal(flotando.id);
     // La barra lateral, escondida hasta que el recorrido la presente (Martín, 19/11: app/_ui/tutorial/barra-oculta.ts).
     esconderLaBarra();
-    router.push(RUTA_AL_RETO);
-  }, [entrando, router]);
+    // ⚠️ NAVEGACIÓN ENTERA, NUNCA router.push (20/11/2026, el bucle de «Entrar a MaKo» en producción, reproducido por el Cerebro): con
+    // el onboarding pendiente, algo de esta página prefetcheó /second-brain, el servidor contestó «a /onboarding» y eso quedó en el Router
+    // Cache del navegador. router.push lo reusaba (aunque cambien los parámetros) y la app y el onboarding se mandaban uno al otro ~5
+    // minutos, hasta que vencía el prefetch. Una carga entera no mira ese caché.
+    window.location.assign(conWs(RUTA_AL_RETO, ws));
+  }, [entrando, ws]);
 
   // ── El hilo ──────────────────────────────────────────────────────────────
   // La hora de cada mensaje: la de cuando apareció en esta pantalla.

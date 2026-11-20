@@ -16,7 +16,7 @@ test('1. «Entrar a MaKo» abre el Ops Center con el chat «Reto de 7 días» ya
   const avisos = leer('lib/reto/avisos.ts');
   assert.match(avisos, new RegExp(`export const RUTA_RETO = '${RUTA_AL_RETO.replace(/[?]/g, '\\?')}';`), 'la misma ruta');
   const v2 = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
-  assert.match(v2, /esconderLaBarra\(\);\n\s*router\.push\(RUTA_AL_RETO\);/);
+  assert.match(v2, /esconderLaBarra\(\);\n\s*window\.location\.assign\(conWs\(RUTA_AL_RETO, ws\)\);/);
   assert.doesNotMatch(v2, /rutaDelHilo/, 'ya no al chat «Onboarding»');
   // ChatSecondBrain abre el reto con `?reto=1`.
   assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /const \[reto, setReto\] = useState\(retoV2 && retoInicial\);/);

@@ -234,6 +234,9 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar, seguirEnPc = fa
       destino = rutaDelHilo(r?.ok && typeof r.chat === 'number' ? r.chat : null);
     }
     setSaliendo(true);
+    // INTERNA a propósito (arriba: el plan que se sigue armando es un fetch en vuelo). El bucle del 20/11 (el Router Cache con un
+    // prefetch de la app hecho con el onboarding pendiente) no puede pasar: en /onboarding nada prefetchea la app (`enElOnboarding`,
+    // app/_ui/Link.tsx), y si igual rebota, un `?rebote=` presente corta (lib/rebote-onboarding.ts). El V2 sí entra con carga entera.
     router.push(destino);
   }, [vista.modo, router]);
   const [enPc, setEnPc] = useState(false);

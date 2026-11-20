@@ -2711,9 +2711,12 @@ primer «Reiniciar onboarding» de verdad quedó en la raíz con los datos de un
 # Una guarda que REDIRIGE lee estricto, y dos páginas que se mandan una a la otra llevan cortacircuito
 
 «No pude leer» no es «no terminó»: si la lectura falla, la guarda deja pasar y lo anota (`mandarAlOnboarding`, lib/onboarding-state.ts).
-Y si A redirige a B y B a A, el redirect lleva su marca (`conRebote`, lib/rebote-onboarding.ts) y lo que acaba de rebotar no vuelve:
-se dibuja algo que se toca. Ninguna redirección depende de una escritura que puede no ocurrir (el destino trae lo que la evita, como
-`?chat=`). El 20/11/2026 la app y el onboarding se mandaron uno al otro ~7 minutos en producción.
+Y si A redirige a B y B a A, el redirect lleva su marca (`conRebote`, lib/rebote-onboarding.ts) y una marca PRESENTE no vuelve (nunca
+por la hora): se dibuja algo que se toca. Ninguna redirección depende de una escritura que puede no ocurrir (el destino trae lo que
+la evita, como `?chat=`). **Y el salto de una pantalla que BLOQUEA (el onboarding) a la app es una carga ENTERA, y esa pantalla no
+prefetchea la app** (`enElOnboarding`, app/_ui/Link.tsx): lo que el servidor contestó a un prefetch mientras bloqueaba queda en el
+Router Cache del navegador, y `router.push` lo reusa. El 20/11/2026 la app y el onboarding se mandaron uno al otro ~5 minutos en
+producción por eso, con el servidor contestando bien.
 
 # Una pantalla que TRABA se dispara con la marca de quien entró al flujo, no con la falta de un «visto» nuevo
 

@@ -25,7 +25,7 @@
 
 import { createContext, useContext, useMemo, type ComponentProps } from 'react';
 import NextLink from 'next/link';
-import { useRouter as useNextRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter as useNextRouter, useSearchParams } from 'next/navigation';
 import { WS_PARAM, conWs, parseWs } from '@/lib/ws-tab';
 
 const WsCtx = createContext<number | null>(null);
@@ -47,13 +47,21 @@ export function WsProvider({ children }: { children: React.ReactNode }) {
 
 type LinkProps = ComponentProps<typeof NextLink>;
 
-/** Igual que el `<Link>` de Next, pero se lleva el cliente puesto. */
+/**
+ * ¿Esta página es el onboarding? Ahí NADA prefetchea la app (20/11/2026, el bucle de «Entrar a MaKo» en producción): con el
+ * onboarding pendiente, el servidor contesta un prefetch de /second-brain con «a /onboarding», el Router Cache del navegador lo guarda,
+ * y al terminar la app y el onboarding se mandaban uno al otro hasta que vencía (~5 minutos).
+ */
+export const enElOnboarding = (ruta: string | null | undefined): boolean => !!ruta && (ruta === '/onboarding' || ruta.startsWith('/onboarding/'));
+
+/** Igual que el `<Link>` de Next, pero se lleva el cliente puesto. En el onboarding, sin prefetch (`enElOnboarding`). */
 export default function Link({ href, ...rest }: LinkProps) {
   const ws = useWs();
+  const ruta = usePathname();
   // `href` también puede ser un objeto UrlObject. Ese caso se deja pasar tal
   // cual: no aparece en este repo y adivinarle la forma sería inventar un bug.
   const destino = typeof href === 'string' ? conWs(href, ws) : href;
-  return <NextLink href={destino} {...rest} />;
+  return <NextLink href={destino} {...rest} {...(enElOnboarding(ruta) ? { prefetch: false } : {})} />;
 }
 
 /**
@@ -71,7 +79,8 @@ export function useRouter() {
     () => ({
       push: (href: string, opts?: Parameters<typeof router.push>[1]) => router.push(conWs(href, ws), opts),
       replace: (href: string, opts?: Parameters<typeof router.replace>[1]) => router.replace(conWs(href, ws), opts),
-      prefetch: (href: string, opts?: Parameters<typeof router.prefetch>[1]) => router.prefetch(conWs(href, ws), opts),
+      // En el onboarding no se prefetchea la app (`enElOnboarding`, arriba).
+      prefetch: (href: string, opts?: Parameters<typeof router.prefetch>[1]) => { if (!enElOnboarding(window.location.pathname)) router.prefetch(conWs(href, ws), opts); },
       back: () => router.back(),
       forward: () => router.forward(),
       refresh: () => router.refresh(),

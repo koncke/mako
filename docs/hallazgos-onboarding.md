@@ -3904,34 +3904,36 @@ existía y el test pasaba, pero el camino de la persona se cortaba. El test comp
     salen después del mensaje, con su pausa. Lo que aparece DENTRO de un día ya va por la cola también: la entrada de abajo.
   - La hora de «lo dejé para después» no se guarda: un día cerrado sólo así toma la hora en que se abrió.
 
-## El ida y vuelta entre la app y el onboarding: imposible por construcción, porque no se pudo ver la causa (20/11/2026, chat «onboarding-v2», claude5)
+## El ida y vuelta entre la app y el onboarding: era el Router Cache del navegador, no el servidor (20/11/2026, chat «onboarding-v2», claude5)
 
-**Síntoma** (el Cerebro, en producción, 2885104c9, ws 3 como administrador, después de «Reiniciar onboarding»): al tocar «Entrar a
-MaKo», la pantalla en blanco y más de 1000 pedidos en segundos alternando `/second-brain?ws=3&_rsc` y `/onboarding?ws=3&_rsc`, casi
-todos ERR_ABORTED, sin errores en la consola. Duró ~7 minutos (18:43 a 18:50 UTC), también con una carga entera, y se fue solo.
+**Síntoma** (el Cerebro, en producción, ws 3 como administrador, después de «Reiniciar onboarding»): al tocar «Entrar a MaKo», la
+pantalla en blanco y cientos de pedidos alternando `GET /second-brain?rebote=<NUEVO cada vez>&ws=3&_rsc` y
+`GET /onboarding?rebote=<SIEMPRE el mismo, viejo>&ws=3&_rsc`, casi todos ERR_ABORTED, sin errores en la consola. Duraba unos 5
+minutos y se iba solo; una pestaña nueva no lo hacía.
 
-- **El diagnóstico obvio era el equivocado:** «/second-brain redirige al chat «Onboarding» porque `hiloChat` no quedó anotado»
-  (`hiloParaQuienYaTermino`, app/second-brain/page.tsx). Mirando como administrador eso no corre: `hiloDelOnboarding` devuelve null
-  con `?ws=` (`estaImpersonando`). Y ese redirect va a `/second-brain?chat=N`, no a /onboarding.
-- **Lo que se midió después, con la sesión de Martín:** `GET /second-brain?ws=3` con `RSC: 1` da 200 sin `NEXT_REDIRECT`. Sólo
-  `/onboarding?ws=3` redirige a `/second-brain`, y está bien: el onboarding está `done`. Ni con `?reto=1`, ni en el teléfono, ni con
-  la misma pestaña del Cerebro se reprodujo. Los logs de Vercel de esos minutos no se pudieron leer: el endpoint de runtime-logs
-  (`/v1/projects/…/deployments/…/runtime-logs`) es un stream que no corta.
-- **La única explicación que encaja:** las dos puntas leían distinto. `guardOnboarding` (lib/tab-access.ts) leía TOLERANTE: un error
-  de Supabase es `null`, y `null` es el estado inicial, «pending». Así manda a /onboarding, y /onboarding, que lee bien, devuelve. Con
-  el diluvio de pedidos, cada error realimenta el ida y vuelta.
-- **El arreglo no depende de la causa** (lib/rebote-onboarding.ts):
-  - las guardas que REDIRIGEN usan `mandarAlOnboarding` (lib/onboarding-state.ts), que lee ESTRICTO y, si no pudo leer, deja pasar y
-    lo anota. `onboardingPendiente` queda para lo que no redirige;
-  - cada redirect entre las dos lleva `?rebote=<segundos>` (`conRebote`). Lo que acaba de rebotar (30 s) no vuelve: la guarda lo deja
-    pasar, y /onboarding, terminado, muestra «Tu onboarding ya está listo» con «Entrar a MaKo» (un toque, nunca otro redirect);
-  - y /second-brain no redirige al chat «Onboarding» si el pedido ya elige chat (`?chat=` o `?reto=`): ese redirect dependía de una
-    escritura que puede fallar.
+- **El diagnóstico obvio (el servidor) era el equivocado, DOS veces:**
+  - Primero, «/second-brain redirige al chat «Onboarding» porque `hiloChat` no quedó anotado». Mirando como administrador eso no corre.
+  - Después, «la guarda lee tolerante: un error de Supabase es «pending»». Se arregló (ec7425bf2) y el bucle siguió.
+  - El servidor contestaba bien todo el tiempo: con `fetch` y `RSC: 1` desde la MISMA pestaña del bucle, /second-brain no traía
+    `NEXT_REDIRECT`, y /onboarding redirigía a /second-brain, como corresponde.
+- **La causa (la reprodujo el Cerebro a las 20:18 UTC):** el Router Cache del navegador. Con el onboarding pendiente, algo de
+  /onboarding prefetcheó /second-brain. El servidor contestó «a /onboarding?rebote=<viejo>», y eso quedó guardado.
+  - «Entrar a MaKo» (`router.push`) lo reusaba aunque cambiaran los parámetros.
+  - /onboarding miraba el rebote por FRESCURA: no reconocía el viejo y devolvía a la app.
+  - Así hasta que vencía el prefetch. La pista estaba en el pedido: el rebote de /onboarding era siempre el mismo.
+- **El arreglo** (lib/rebote-onboarding.ts):
+  - «Entrar a MaKo» del V2 entra con navegación ENTERA (`window.location.assign`), que no mira el Router Cache.
+  - En /onboarding ningún link prefetchea la app (`enElOnboarding`, app/_ui/Link.tsx; también `router.prefetch`).
+  - Cada redirect entre las dos lleva `?rebote=`, y uno PRESENTE corta, viejo o nuevo, sin mirar la hora (`vieneRebotado`). La guarda
+    deja pasar, y /onboarding, terminado, muestra «Tu onboarding ya está listo» con «Entrar a MaKo» (un toque, nunca otro redirect).
+  - Como red, las guardas que redirigen leen ESTRICTO (`mandarAlOnboarding`): si no pudieron leer, dejan pasar.
+  - Y /second-brain no redirige al chat «Onboarding» si el pedido ya elige chat (`?chat=` o `?reto=`).
+- **El onboarding de antes entra con `router.push` A PROPÓSITO:** el plan que se sigue armando es un fetch en vuelo, y una carga
+  entera lo cortaba. Lo cubren las otras dos capas.
 - **Trampa de los tests:** con las dos puntas cortando, sacar el corte de UNA queda en verde (la otra corta sola). El test recorre las
-  dos con todas las combinaciones de lo que cada una lee, y además un pedido rebotado contra cada punta por separado
-  (tests/onboarding-sin-ida-y-vuelta.test.ts).
-- **Sin hacer:** no se sabe por qué la guarda leía distinto durante 7 minutos seguidos (errores al azar habrían cortado el bucle
-  antes). La próxima vez: el log `[onboarding] … no pude leer` / `… la guarda lo ve sin terminar` dice cuál de las dos fue.
+  dos con todas las combinaciones, más el Router Cache con un rebote viejo (tests/onboarding-sin-ida-y-vuelta.test.ts).
+- **La regla:** un salto que sale de una pantalla que bloquea (el onboarding) hacia la app es una carga ENTERA, y esa pantalla no
+  prefetchea la app. Lo que el servidor contestó a un prefetch mientras la bloqueaba queda en el caché del navegador.
 
 ## Reiniciar el onboarding sin tocar lo suyo: el estado vive en tres lados, y uno le devuelve a la base lo que se borró (20/11/2026, chat «onboarding-v2», claude5)
 
@@ -4033,8 +4035,8 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
   - De 00:18:08 a 00:22:14 se mostró la MAQUETA (el artefacto), no la app: un «acá está mal» ahí es de la maqueta.
   - Lo de la pantalla compartida no está en el texto: «esto», «acá» sin referente no se inventa.
   - La demo corrió sobre 959450118 y hubo tres deploys después: «ya está» sólo con el código que lo hace.
-- **El bucle de «Entrar a MaKo» (20/11, 18:43–18:50 UTC):** el síntoma, lo que se midió, por qué el diagnóstico obvio era el
-  equivocado y el arreglo por construcción (con su test) están en «El ida y vuelta entre la app y el onboarding», más arriba (ec7425bf2).
+- **El bucle de «Entrar a MaKo» (20/11, 18:43–18:50 UTC):** era el Router Cache del navegador, no el servidor (el diagnóstico
+  obvio era el equivocado). El síntoma, la causa y el arreglo: «El ida y vuelta entre la app y el onboarding», más arriba.
 - **Lo que se encontró en el código y quedó SIN hacer al 20/11, 19:30 UTC** (dueño entre paréntesis):
   - ~~RESET (la barra del Cliente de Prueba) no borra `perfil.recorridos` del dueño, y «Hola de nuevo» no vuelve a salir~~ HECHO:
     RESET usa `perfilReiniciado`. Y quien termina en el teléfono llega a la PC sin `?reto=1`: /second-brain abre el reto la primera

@@ -33,7 +33,7 @@ import { primerNombre } from '@/lib/onboarding-arranque';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import { ARBOL_VACIO } from '../offer/arbol';
 import { sembrarArranqueDesdeOrigen } from '@/lib/origen-negocio';
-import { conRebote, onboardingDevuelveALaApp, reboteReciente } from '@/lib/rebote-onboarding';
+import { conRebote, onboardingDevuelveALaApp, vieneRebotado } from '@/lib/rebote-onboarding';
 // El onboarding va en el tema de la app, CLARO como todo (17/10/2026, Martín: «El onboarding, que sea white mode,
 // como todo»). Hasta ese día se forzaba oscuro con TemaOscuro/TemaOscuroScript; se fueron como en el Second Brain.
 
@@ -96,7 +96,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   // terminaría en SU propio Second Brain (AGENTS.md, «Hay CINCO formas de navegar»).
   // ⚠️ EL CORTACIRCUITO (20/11/2026, lib/rebote-onboarding.ts: el ida y vuelta de ~7 minutos con la app). Si este pedido ACABA de
   // rebotar de la guarda de la app (que lo vio sin terminar), devolverlo es el bucle: se muestra «ya está listo» y entra con un toque.
-  if (!onboardingDevuelveALaApp({ reboteReciente: reboteReciente(rebote, Date.now()) })) {
+  if (!onboardingDevuelveALaApp({ rebotado: vieneRebotado(rebote) })) {
     console.warn('[onboarding] /onboarding lo ve terminado y la guarda de la app no: «ya está listo», sin ida y vuelta');
     return <OnboardingYaListo href={await rutaConWs(destinoDeTabVieja(tab))} />;
   }

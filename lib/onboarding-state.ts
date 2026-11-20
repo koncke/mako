@@ -11,7 +11,7 @@ import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, OWNER_WS } from './workspace';
 import { capaDef, type PasoOnboarding } from './capas';
 import { pedidoActual } from './pedido-actual';
-import { PARAM_REBOTE, guardiaMandaAlOnboarding, reboteReciente } from './rebote-onboarding';
+import { PARAM_REBOTE, guardiaMandaAlOnboarding, vieneRebotado } from './rebote-onboarding';
 import { aplicarCambiosDePaso, estadoDeLoGuardado, estadoInicial, type CambioDePaso, type OnboardingState } from './onboarding-contrato';
 
 // La FORMA del estado y las reglas puras viven en `onboarding-contrato.ts`, sin
@@ -103,8 +103,8 @@ export async function mandarAlOnboarding(): Promise<boolean> {
   try { estado = await getEstadoOnboardingEstricto(); } catch (e) {
     console.error(`[onboarding] ws ${ws}: no pude leer onboarding.state; dejo pasar sin mandar al onboarding:`, e instanceof Error ? e.message : e);
   }
-  const rebote = reboteReciente((await pedidoActual().catch(() => null))?.query[PARAM_REBOTE], Date.now());
-  const manda = guardiaMandaAlOnboarding({ lectura: estado ? 'ok' : 'fallo', terminado: estado?.status === 'done', reboteReciente: rebote });
+  const rebote = vieneRebotado((await pedidoActual().catch(() => null))?.query[PARAM_REBOTE]);
+  const manda = guardiaMandaAlOnboarding({ lectura: estado ? 'ok' : 'fallo', terminado: estado?.status === 'done', rebotado: rebote });
   if (!manda && estado && estado.status !== 'done' && rebote) {
     console.warn(`[onboarding] ws ${ws}: la guarda lo ve sin terminar y /onboarding lo vio terminado (rebote): dejo pasar, sin ida y vuelta`);
   }

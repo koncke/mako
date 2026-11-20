@@ -66,7 +66,7 @@ test('3. la barra lateral, oculta desde «Entrar a MaKo» hasta el paso que la p
   const v2 = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
   // (20/11, OD-13: entre las dos, la pausa de los videos del onboarding y el cierre del que ya flotaba en la esquina, para que no pasen
   // flotando al Ops Center.)
-  assert.match(v2, /setSaliendo\(true\);\n\s*for \(const v of Array\.from\(document\.querySelectorAll<HTMLVideoElement>\('\.arr-v2 video'\)\)\) v\.pause\(\);\n\s*const flotando = senalAhora\(\);\n\s*if \(flotando\?\.tipo === 'video'\) soltarSenal\(flotando\.id\);\n\s*esconderLaBarra\(\);\n\s*router\.push\(RUTA_AL_RETO\);/, '«Entrar a MaKo» la esconde (y abre el chat del reto)');
+  assert.match(v2, /setSaliendo\(true\);\n\s*for \(const v of Array\.from\(document\.querySelectorAll<HTMLVideoElement>\('\.arr-v2 video'\)\)\) v\.pause\(\);\n\s*const flotando = senalAhora\(\);\n\s*if \(flotando\?\.tipo === 'video'\) soltarSenal\(flotando\.id\);\n\s*esconderLaBarra\(\);\n\s*window\.location\.assign\(conWs\(RUTA_AL_RETO, ws\)\);/, '«Entrar a MaKo» la esconde (y abre el chat del reto)');
   const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
   assert.match(m, /if \(presentaLaBarra\(paso\.sel\)\) mostrarLaBarra\(\);/, 'el paso «Tu panel» la muestra');
   assert.match(m, /const paso = pasoDeFrase\(f, pasos\);\n[^\n]*\n\s*if \(presentaLaBarra\(paso\.sel\)\) mostrarLaBarra\(\);\n\s*if \(lugarDe\(paso\.sel\)\)/, 'y la frase del video que la presenta, antes de buscarla');
