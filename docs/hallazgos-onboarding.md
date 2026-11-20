@@ -3647,6 +3647,26 @@ filas de los coaches tachaban el día 1 entero.
 - **Sin hacer** (nota del Cerebro, para la próxima vez que se toque Calendar): en el video de Calendar, «Toca aquí, en Publicaciones,
   Plan, Ventas o Entregas,» sale con la letra más chica que el resto (el dibujo del pipeline, C:/dev/tutoriales-video).
 
+## El mensaje que nombra algo del video sale cuando la voz llega ahí (20/11/2026, tarde, chat «onboarding-v2», claude5)
+
+- **El síntoma (Martín, en producción):** en el paso del WhatsApp salían juntos el video y el mensaje con «Abrir WhatsApp» y la caja
+  del código: dos mensajes de MaKo de golpe, y el botón antes de que la voz lo nombrara.
+- **Qué quedó:** app/_ui/tutorial/useMensajeDelVideo.ts. El mensaje espera el t_inicio de la frase que lo nombra (los momentos, en
+  lib/onboarding-v2/momentos.ts, buscados en el texto de las frases del manifiesto). Después, los tres puntitos y el mensaje. Así salen
+  la primera pregunta («unas preguntas cortas…», 18,92 s), el mensaje del código («toca Abrir WhatsApp», 3,98 s), con el velo del
+  tutorial sobre el botón, y «¿Guardaste el contacto?» («guarda el contacto», 12,28 s, sólo si el video sigue corriendo).
+- **Nadie queda trabado:** si nadie le da play, sale a los 12 s; si falla, lo pausan o termina, sale; si ya se vio o no hay video,
+  también. Medido en el navegador (el componente de verdad en un bundle con el motor): los puntitos en el segundo 4,0, el código con
+  la marca, sin play a los 13,4 s, y el hilo a 0 px del final en cada paso.
+- **Trampa:** los eventos de un `<video>` (play, pause, timeupdate, ended, error) NO burbujean. Se oyen en CAPTURA desde la fila del
+  mensaje, sin tocar el reproductor (VideoDelMomento lo tocan otros chats).
+- **Trampa:** el globo del velo «abajo» tapaba el campo del código. Va a la «derecha»: a 1440 entra al lado del botón, y a 375 el motor
+  lo pasa abajo solo.
+- **Si una frase se regraba y deja de decirlo,** el mensaje saldría recién al terminar el video: tests/onboarding-mensaje-del-video.test.ts
+  lee el manifiesto de verdad y lo marca.
+- **Visto de paso, sin tocar:** el «dale play» del video de bienvenida (V5) pone sus tapas. Quien vuelve al onboarding en otro navegador
+  (con el video sin ver en ese navegador) no puede tocar la tarjeta del teléfono hasta darle play o cerrarlo (Escape o su X).
+
 ## La segunda verificación: el arreglo cumplía en el caso feliz, no en el de al lado (20/11/2026, tarde, chat «onboarding-v2», claude5)
 
 - **«No me llegó, esperé 5 minutos» daba «Faltan números»** (OA-06). Sin grupo de código, `codigoEnLaCaja` devolvía TODOS los dígitos

@@ -46,11 +46,12 @@ test('1. OA-06: la caja lee el código como lo manda MaKo («482 913») o su men
 
 test('2. OA-02: quien vuelve con el nombre sin contestar ve el video solo; pausarlo o no darle play también suelta la pregunta', () => {
   const v2 = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
-  assert.match(v2, /useState<'espera' \| 'escribe' \| 'listo'>\(inicial\.etapa === 'nombre' \? 'espera' : 'listo'\)/);
-  assert.match(v2, /onTermina=\{soltarPrimero\} onPausa=\{soltarPrimero\} onEmpieza=\{empezoVideo\} dalePlay \/>/);
-  assert.match(v2, /const sinPlay = window\.setTimeout\(\(\) => \{ if \(!arranco\.current\) soltarPrimero\(\); \}, MS_SIN_PLAY\);/);
-  const vm = sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx'));
-  assert.match(vm, /onPause=\{\(e\) => \{ if \(!e\.currentTarget\.ended\) \{ setEstado\('pausado'\); onPausa\?\.\(\); \} \}\}/);
+  // Desde el 20/11 (tarde), con useMensajeDelVideo: pausarlo, que termine o que falle la suelta, y sin play a los MS_SIN_PLAY (lo prueba
+  // con un video de mentira tests/onboarding-mensaje-del-video.test.ts).
+  assert.match(v2, /lugar: filaBienvenida, activo: fase === 'chat', inicial: inicial\.etapa === 'nombre' \? 'espera' : 'listo',\n\s*clave: VIDEO_BIENVENIDA, dice: MOMENTO_NOMBRE\.dice, esperaPlay: MS_SIN_PLAY,/);
+  const h = sinComentarios(leer('app/_ui/tutorial/useMensajeDelVideo.ts'));
+  assert.match(h, /oir\('pause', \(\) => \{ if \(!video\.ended\) listo\(\); \}\);/);
+  assert.match(h, /sinPlay = reloj\.poner\(\(\) => listo\(\), o\.esperaPlay\);/);
 });
 
 test('3. OA-18: el recuadro de «¿Cómo llegaste?» va sin el nombre también plegado y en su aria-label', () => {
