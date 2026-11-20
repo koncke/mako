@@ -33,9 +33,10 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 test('1. en la caja angosta (la estrella y el teléfono) el chip va arriba del campo, nunca en la fila', () => {
   const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   assert.match(piezas, /export function CajaDelCliente\(\{ k, campo, seguir, movil = false, angosta = movil, avisosArriba = false \}/, 'el teléfono es angosto');
-  // 24/10/2026: sin la app (`bloqueada`), ni al final ni arriba: no destraba nada (tests/app-de-escritorio-primero.test.ts, 3).
-  assert.match(piezas, /alFinal=\{angosta \|\| bloqueada \? null : conectar\}/, 'en la angosta, nada al final de la fila');
-  assert.match(piezas, /arriba=\{<>\n\s*\{angosta && conectar && !bloqueada && <div className="co-conectar-ia-arriba">\{conectar\}<\/div>\}/, 'arriba del campo');
+  // Del 24/10 al 20/11/2026, sin la app de escritorio la caja se bloqueaba y el chip no iba; ningún chat la pide ya
+  // (tests/app-de-escritorio-primero.test.ts, 3).
+  assert.match(piezas, /alFinal=\{angosta \? null : conectar\}/, 'en la angosta, nada al final de la fila');
+  assert.match(piezas, /arriba=\{<>\n\s*\{angosta && conectar && <div className="co-conectar-ia-arriba">\{conectar\}<\/div>\}/, 'arriba del campo');
   assert.match(sinComentarios(leer('app/_chat/MakoEnLaTab.tsx')), /<CajaDelCliente k=\{k\} campo=\{caja\} seguir=\{seguirHilo\} angosta \/>/, 'el panel de la estrella, de 440 px');
   // El teléfono (13/11/2026): el chip ni siquiera va arriba del campo, sino en la línea debajo de la cabecera (app/m/_chat/AvisoDeIA.tsx,
   // tests/m-chat-pantalla.test.ts, 9).

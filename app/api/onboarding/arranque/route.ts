@@ -32,6 +32,8 @@ import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
 import { AVISOS_SIN_SOPORTE } from '@/lib/avisos-telefono-reglas';
 import { anotarQueEmpezoElV2 } from '@/lib/seguir-en-pc';
+import { mandarCorreoSeguirEnPc } from '@/lib/seguir-en-pc-correo';
+import { esTelefono } from '@/lib/movil-guard';
 import { CODIGO_CARGADO, E_TELEFONO_INCOMPLETO, MENSAJE_MANDADO, codigoEnLaCaja, etapaDeArranque, funnelDelArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, primerNombre, telefonoComoLoEscribio, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
 import { loQueContesto } from '@/lib/onboarding-historial';
 import {
@@ -349,6 +351,8 @@ export async function POST(req: NextRequest) {
         if (vigente || !(await cambiarSettingSi(CLAVE_CERRANDO, previa, marca))) return NextResponse.json({ ok: true, enCurso: true, vista: await vistaArranque() });
         try {
           const r = await cerrarArranque();
+          // Terminado en el TELÉFONO: el correo que promete «Sigamos en tu computadora» (20/11/2026, la llamada con Leila). Una vez.
+          if (await esTelefono().catch(() => false)) await mandarCorreoSeguirEnPc();
           return listo(r.avisos.length ? { aviso: r.avisos.join(' ') } : {}, { cierre: true });
         } finally {
           await borrarSettingSi(CLAVE_CERRANDO, marca).catch(() => {});

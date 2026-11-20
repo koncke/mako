@@ -93,3 +93,12 @@ test('5. F3 y V6: un video de la lista se ve en su mensaje si está; el botón e
   assert.equal(boton.slice(boton.indexOf('}>') + 2).replace(/<[^>]*>/g, '').trim(), '', 'sin la palabra: el ícono, como «Tutoriales de MaKo» del reto');
   assert.match(boton, /aria-label=\{`Los videos de este chat/);
 });
+
+test('6. el ícono de los videos, SIEMPRE lo último a la derecha de la cabecera (Martín, 20/11, en la llamada con Leila, 00:31:46)', () => {
+  const c = sinComentarios(leer('app/second-brain/ChatDelCoach.tsx'));
+  const der = /<span className="co-cab__der">([\s\S]*?)<\/span>\n\s*\),/.exec(c);
+  assert.ok(der, 'falta la parte derecha de la cabecera');
+  const hijos = der[1].trim().split(/\n\s*/).filter(Boolean);
+  assert.match(hijos.at(-1)!, /^\{dosCoaches && <VideosDelChat videos=\{videosDeLaLista\} \/>\}$/, 'el ícono de los videos no es lo último');
+  assert.equal(hijos.filter((h) => h.includes('<VideosDelChat')).length, 1);
+});

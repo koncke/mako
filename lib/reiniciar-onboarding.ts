@@ -26,6 +26,7 @@ export const SETTINGS_QUE_SE_BORRAN = [
   'onboarding.historial', // el chat «Onboarding»: con el cierre adentro no se le suma nada nuevo
   'onboarding.cerrando', // el candado del cierre (vence solo a los 3 minutos)
   'reto.estado', // el reto de 7 días: el chat lo vuelve a empezar al abrirse (compare-and-set contra «no hay»: tiene que no haber fila)
+  'onboarding.correo-pc', // el correo de «Sigamos en tu computadora» ya mandado (lib/onboarding-v2/correo-pc.ts): con el reinicio, otra vez
 ] as const;
 
 /** Las que se REESCRIBEN: de cero, pero conservando adentro lo que es de la persona (ver `planDeSettings`). */

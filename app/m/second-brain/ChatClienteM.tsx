@@ -215,7 +215,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
       </SheetM>
 
       <PantallaChatM abierto={abierta && elegido != null} onCerrar={cerrar} id="chat-cliente"
-        aviso={panel ? undefined : <AvisoDeIA app={k.app} iaConectada={k.iaConectada} onConectar={() => k.setConectando(true)} />}
+        aviso={panel ? undefined : <AvisoDeIA iaConectada={k.iaConectada} onConectar={() => k.setConectando(true)} />}
         titulo={panel === 'conectar' ? 'Tus cuentas de IA' : panel === 'info' ? 'Info del mensaje' : (
           // El título es el chat, como la cabecera de WhatsApp: la criatura a la izquierda del nombre (ChatsMovil.tsx).
           <span className="m-operaciones-titulo">
