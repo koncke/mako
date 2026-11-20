@@ -478,6 +478,9 @@ function TarjetaCodigo({ vista, ocupado, reescribir, resaltarWa, onConfirmar, on
         ? <><span className="arr-tarjeta__nota">No pude armar el mensaje.</span>
           <Button variant="primary" size="sm" loading={ocupado} disabled={ocupado} onClick={onReintentar}>Volver a intentarlo</Button></>
         : <a className={`arr-v2__wa${resaltarWa ? ' arr-v2__wa--resalta' : ''}`} href={w.link!} target="_blank" rel="noopener noreferrer"><Icon name="whatsapp" size={18} />Abrir WhatsApp</a>}
+      {/* Su mensaje llegó y MaKo no pudo contestarle (20/11, wa-04; el servidor es del chat de WhatsApp: lib/verificacion-entrante.ts →
+          avisoDelPedidoV2): una nota arriba del campo, debajo de «Abrir WhatsApp» (nunca encima). Se va sola cuando MaKo le contesta. */}
+      {w?.aviso && <p className="arr-v2__aviso-wa" role="status" data-aviso-wa="">{w.aviso}</p>}
       <div className="arr-v2__cod-fila">
         {/* Lo pegado: el grupo de 6 números seguidos (el mensaje de MaKo entero trae la hora y otras cifras); si no hay, sus números. */}
         <input id="arr-v2-codigo" className="arr-v2__cod-campo" inputMode="numeric" autoComplete="one-time-code" placeholder="000000"
@@ -637,6 +640,7 @@ const CSS_V2 = `
 .arr-v2__cod-pie { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
 .arr-v2__link { border: 0; background: none; padding: 2px 0; color: var(--dim); font: inherit; font-size: var(--fs-sm); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .arr-v2__link:hover { color: var(--ink); }
+.arr-v2__aviso-wa { margin: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); background: var(--warn-bg); color: var(--ink); font-size: var(--fs-sm); line-height: 1.45; }
 .arr-v2__otro { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); background: var(--warn-bg); }
 .arr-v2__otro b { font-size: var(--fs-sm); color: var(--ink); }
 .arr-v2__otro span { font-size: 13px; color: var(--dim); line-height: 1.4; }

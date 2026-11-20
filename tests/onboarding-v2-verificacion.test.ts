@@ -173,7 +173,9 @@ test('14. V5: la entrada de un día y su «dale play» se guardan en el navegado
     assert.equal(dalePlayCerrado('offer-coach'), true);
   } finally { delete (globalThis as { localStorage?: unknown }).localStorage; }
   assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /onPlay=\{\(\) => \{ setEstado\('reproduciendo'\); if \(dalePlay\) cerrarDalePlay\(clave\); onEmpieza\?\.\(\); \}\}/);
-  assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /onClick=\{\(\) => \{ cerrarDalePlay\(dia\.video\); mostrarTutorial\(tutorialDelDia\(dia\)/);
+  assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /onClick=\{\(\) => \{ anotarVisto\(`video:\$\{dia\.n\}`\); cerrarDalePlay\(dia\.video\); mostrarTutorial\(tutorialDelDia\(dia\)/);
+  // (Y el `visto` del chat del reto, d712c72df: el «dale play» del día sólo si ese video no se vio en este navegador.)
+  assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /activo: dalePlay && conMarcas && !visto \}\);/);
   assert.match(sinComentarios(leer('app/_ui/tutorial/useDalePlay.ts')), /cerrado: cerrado \|\| dalePlayCerrado\(clave\)/);
   // El del WhatsApp sigue SIN «dale play» (la verificación lo anotó como detalle; la decisión está en tests/tutorial-entrada.test.ts, 4:
   // llega junto a la tarjeta del código, y las tapas de la marca no dejarían escribirlo).
@@ -186,11 +188,13 @@ test('15. V9: en «Onboarding», el recorrido de la lista de videos se ve con su
 });
 
 test('16. V10 y F1: «Todavía no está grabado» sólo en las cuentas de Martín, y nunca mientras carga el manifiesto', async () => {
-  const { esRevision } = await import('../lib/onboarding-v2/revision');
-  assert.equal(esRevision(true, 'martinkoncke@gmail.com'), true);
-  assert.equal(esRevision(true, ' TejadoMartin@gmail.com '), true);
+  const { esRevision, EMAILS_REVISION } = await import('../lib/onboarding-v2/revision');
+  // Sin escribir un mail real (tests/sin-mails-reales.test.ts): los de la revisión, por su constante.
+  const [martin, otra] = EMAILS_REVISION;
+  assert.equal(esRevision(true, martin), true);
+  assert.equal(esRevision(true, ` ${otra!.toUpperCase()} `), true, 'sin importar mayúsculas ni espacios');
   assert.equal(esRevision(true, 'cliente.de.prueba@gmail.com'), false, 'el Cliente de Prueba (ws 3) lo ve como un cliente');
-  assert.equal(esRevision(false, 'martinkoncke@gmail.com'), false);
+  assert.equal(esRevision(false, martin), false);
   assert.match(sinComentarios(leer('app/layout.tsx')), /<MotorTutorial revision=\{esRevision\(veV2, sesion\.email\)\} \/>/);
   assert.match(sinComentarios(leer('app/second-brain/VideoDelCoach.tsx')), /const revision = useEsRevision\(\) && dosCoaches;/);
   assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /if \(PARA_TODOS \|\| !revision \|\| !listo\) return null;/);
@@ -219,4 +223,14 @@ test('18. F4: en la llegada al Ops Center, el video va arriba y el texto debajo'
 test('19. V1 y V9: en el catálogo «Tutoriales de MaKo», «Tu WhatsApp con MaKo» es el video del V2, no el de la pantalla vieja', async () => {
   const { VIDEOS_PARA_EMPEZAR } = await import('../lib/reto/dias');
   assert.deepEqual(VIDEOS_PARA_EMPEZAR.map(([k]) => k), ['onboarding-bienvenida', 'onboarding-bienvenida-whatsapp', 'recorrido']);
+});
+
+test('20. wa-04: la tarjeta del código dice el aviso cuando su mensaje llegó y MaKo no pudo contestar (debajo de «Abrir WhatsApp»)', async () => {
+  const { avisoDelPedidoV2, AVISO_SIN_LINEA_V2 } = await import('../lib/verificacion-entrante');
+  const v = { telefono: '5491155550101', codigo: '482913', expira: Date.now() + 60_000, verificado: false, v2: true, entrante: true } as const;
+  assert.equal(avisoDelPedidoV2({ ...v, sinLineaAt: Date.now() }), AVISO_SIN_LINEA_V2, 'el servidor es del chat de WhatsApp');
+  assert.equal(avisoDelPedidoV2({ ...v, sinLineaAt: Date.now(), respondido: true }), null, 'se va cuando MaKo le contesta');
+  const t = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
+  assert.match(t, /\{w\?\.aviso && <p className="arr-v2__aviso-wa" role="status" data-aviso-wa="">\{w\.aviso\}<\/p>\}/);
+  assert.ok(t.indexOf('Abrir WhatsApp</a>}') < t.indexOf('data-aviso-wa') && t.indexOf('data-aviso-wa') < t.indexOf('<div className="arr-v2__cod-fila">'), 'entre «Abrir WhatsApp» y el campo');
 });

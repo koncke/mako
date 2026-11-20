@@ -355,7 +355,8 @@ test('13. se anota al CONTESTAR (la ruta, con lo que mandó), nunca al mirar, y 
   assert.match(leer('app/onboarding/page.tsx'), /const vista = await vistaArranque\(\);/, 'la página no anota');
   assert.match(ruta, /const nuevo = await guardarEstadoArranque\(patch\);\n[\s\S]{0,300}?await anotarRespuesta\(e, h, loQueContesto\(mensajesDeArranque\(e, h\), \{ texto, opcion \}\), confirmado\);/, 'después de guardar');
   assert.match(ruta, /await anotarRespuesta\(e, h, CODIGO_CARGADO, confirmado\);/, 'el código no se guarda');
-  assert.match(ruta, /await anotarRespuesta\(e, h, `\+\$\{digitos\}`, confirmado\);/);
+  // Como la escribió en su tarjeta, si vino (20/11, la verificación de OA-F1); si no, en dígitos.
+  assert.match(ruta, /await anotarRespuesta\(e, h, visto \?\? `\+\$\{digitos\}`, confirmado\);/);
   assert.match(ruta, /if \(r\.yaVerificado\) await anotarRespuesta\(\{ \.\.\.e, telefono: 'verificado', telefonoNumero: `\+\$\{digitos\}` \}, h, CODIGO_CARGADO, confirmado\);/, 'ya verificado: el código, como cargado');
   const srv = leer('lib/onboarding-arranque-server.ts');
   const vista = srv.slice(srv.indexOf('export async function vistaArranque'));
