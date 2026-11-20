@@ -5601,3 +5601,43 @@ titular), no se tiñe.
   sobrevive a la navegación de adentro de la app; al recargar no está. **La trampa: si el tutorial no arranca, la barra quedaría
   escondida para siempre.** Por eso tiene tres salidas: el paso que marca `aside[data-sidebar]` (y la frase del video que lo presenta,
   ANTES de buscarlo: escondido no se encuentra), el final del tutorial, y 9 s sin ningún tutorial.
+
+
+## Las pausas a destiempo de los videos de los tutoriales: era el motor, no los tiempos (20/11/2026)
+
+**Vive en:** `app/_ui/tutorial/MotorTutorial.tsx` (el efecto «0. El video manda», `seguirVideo`, `siguiente`) ·
+`app/_ui/tutorial/pausas.ts` (las reglas, puras) · `tests/tutorial-pausas.test.ts` · la auditoría del Cerebro:
+`side-session-notes/…/auditoria-pausas-tutoriales-20-11.md`.
+
+- **El diagnóstico obvio era el equivocado.** Martín: «había muchos videos que se pausaban en el tiempo incorrecto». Parecía que los
+  tiempos del manifiesto estaban corridos. El Cerebro midió las 58 pausas contra la voz sola y TODAS caen en el silencio del final de
+  su frase. El que pausaba mal era el motor:
+  - con la marca de una frase ausente, pausaba en su t_inicio (el primer `timeupdate`, 0 a 250 ms adentro de la voz: cortaba la
+    primera sílaba) y esperaba hasta 4 s sin tarjeta ni velo. El video parecía colgado. Pasaba con una marca que no existe, con
+    una de otro rol, con una vista vacía (un CRM sin leads, un feed sin posts), en el teléfono con los pasos `soloComputadora` y
+    con las «Mira aquí», que el propio contrato decía que nunca pausan;
+  - después de un clic que navega o abre algo lento (el grafo tarda ~3 s, /perfil, /automations con su fetch) seguía en el acto: la
+    frase siguiente empezaba 0,4 s después, sin su marca, y frenaba a mitad de la voz;
+  - «Siguiente» no hacía el clic, y `pasoDeFrase` tiraba el `antes` del paso. Todo lo que dependía de ese clic (el menú de la foto,
+    Settings, el grafo) congelaba 4 s por frase, en cascada: hasta 6 × 4 s en el día 2 del reto.
+- **Las reglas (pausas.ts):** nunca se pausa en el t_inicio, y una marca que falta se busca mientras dura su voz. El único lugar de
+  pausa es el t_fin: ahí espera una frase marcada que pide el clic, y una sin marca espera sólo si la página está CARGANDO. Después
+  de un clic, el video queda quieto en el silencio de la frase tocada hasta que aparece la marca siguiente, con tope de 6 s.
+- **Cómo se sabe que la página «todavía va a cambiar»:** `CargandoMako` (`.cm-carga`) o una pantalla de carga con `aria-busy` (de
+  200 px o más: hay `aria-busy` chicos que quedan fijos); un link (`<a href>`) a otra ruta o consulta, mientras la URL no cambió
+  (/perfil no tiene `loading.tsx`: la página vieja sigue hasta que llega la nueva, sin ningún indicador); y la página que sigue
+  cambiando (un MutationObserver, sin contar lo del propio motor). Sin ninguna de esas, a los 600 ms y con medio segundo quieta, se
+  suelta: lo que iba a aparecer ya apareció.
+- **El clic de «Siguiente» es sintético (`el.click()`), y el de la persona no.** El motor escucha los clics en captura para saber
+  que tocaron lo marcado: sin mirar `isTrusted`, el clic de «Siguiente» contaba como tocado por la persona y el reto daba la tarea
+  por hecha (`alTocar` → `tareasQueCierra`).
+- **El `antes`, sólo si la marca falta y la frase anterior no se tocó.** El efecto de cada paso tocaba el `antes` al marcar; en el
+  modo video eso volvía a tocar el Second Brain con el grafo ya abierto. Ahora en el modo video lo toca el efecto 0, y sólo cuando la
+  marca no está.
+- **Un `play()` diferido necesita saber si todavía hay capa.** El reintento viejo no se cancelaba: cerrar el video durante la espera
+  dejaba un `v.play()` sobre el `<video>` desmontado, y la voz seguía sonando sin video. Todos los play pasan por `reproducir`, que
+  mira si la capa sigue montada y si el video sigue en la página.
+- **Lo que quedó sin hacer** (las marcas una por una de la auditoría, en su propia tanda): la flecha de volver del Second Brain en
+  la computadora (recorrido-6, `VistaCerebro` sin `alCerrar`), el «+» de Llamadas (calendar-5), «Tus tickets (n)» y la consulta en
+  `TutorialDeLaRuta` (ticketera-5), `data-prioridad` en el Plan del teléfono (plan-4), el lienzo de Automations, el botón de
+  reuniones sin reuniones, las marcas de la Entrada del CoPilot, Image y Video sin query, y el resto de la lista.

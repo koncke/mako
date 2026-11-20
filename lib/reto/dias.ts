@@ -63,7 +63,8 @@ const en = (ruta: string): string => `En ${ruta}`;
 export function tutorialDelDia(d: DiaReto): import('@/lib/tutoriales').TutorialPestana {
   return {
     pestana: d.video, nombre: `Día ${d.n}`, ruta: '/second-brain', intro: d.mensaje,
-    pasos: d.tareas.flatMap((t) => t.marcas.map((m) => ({ sel: m.sel, titulo: m.titulo, texto: m.texto, ...(m.lado ? { lado: m.lado } : {}) }))),
+    // `libre` viaja con el paso (20/11): sin él, el motor tapaba la página alrededor de «Settings» y el menú de la foto se cerraba.
+    pasos: d.tareas.flatMap((t) => t.marcas.map((m) => ({ sel: m.sel, titulo: m.titulo, texto: m.texto, ...(m.lado ? { lado: m.lado } : {}), ...(m.libre ? { libre: true as const } : {}) }))),
   };
 }
 

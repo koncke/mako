@@ -136,5 +136,8 @@ test('el video siempre a la vista y el del día paso a paso (Martín, 18/11)', a
   assert.match(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /useVideoQueFlota\(ref, v \? clave : null, titulo\)/, 'los del onboarding también');
   const motor = leer('app/_ui/tutorial/MotorTutorial.tsx');
   assert.match(motor, /senal\.tipo === 'video' && <VideoFlotante/, 'el flotante lo dibuja el motor');
-  assert.match(motor, /Date\.now\(\) - w\.desde > 4000/, 'un lugar de otra página se espera unos segundos antes de saltearlo');
+  // 20/11 (la auditoría de las pausas): ya no se espera con el video quieto en el t_inicio de la frase («un lugar de otra página se
+  // espera 4 s»: cortaba la voz). Después del clic que navega, el video espera en el SILENCIO de la frase tocada a que llegue lo
+  // marcado (app/_ui/tutorial/pausas.ts; tests/tutorial-pausas.test.ts).
+  assert.match(motor, /soltarRetencion\(r, \{/, 'un lugar de otra página se espera en el silencio de la frase tocada');
 });

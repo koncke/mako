@@ -42,6 +42,11 @@ export type PasoTutorial = {
   antes?: string;
   /** Sin equivalente en el teléfono: el motor saltea el paso en MaKo Mobile. */
   soloComputadora?: true;
+  /**
+   * Sin las tapas alrededor de lo marcado: el mouse tiene que poder pasar por otro lado (el menú de la foto se cierra si el mouse
+   * sale de la foto y no llega al menú). Lo usan las marcas del reto (lib/reto/dias.ts, `MarcaReto.libre`).
+   */
+  libre?: true;
 };
 
 export type TutorialPestana = {

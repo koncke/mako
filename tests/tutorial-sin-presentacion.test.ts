@@ -63,7 +63,7 @@ test('3. la barra lateral, oculta desde «Entrar a MaKo» hasta el paso que la p
   assert.match(v2, /setSaliendo\(true\);\n\s*esconderLaBarra\(\);\n\s*router\.push\(rutaDelHilo\(/, '«Entrar a MaKo» la esconde');
   const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
   assert.match(m, /if \(presentaLaBarra\(paso\.sel\)\) mostrarLaBarra\(\);/, 'el paso «Tu panel» la muestra');
-  assert.match(m, /if \(presentaLaBarra\(pasoDeFrase\(f, pasos\)\.sel\)\) mostrarLaBarra\(\);/, 'y la frase del video que la presenta, antes de buscarla');
+  assert.match(m, /const paso = pasoDeFrase\(f, pasos\);\n[^\n]*\n\s*if \(presentaLaBarra\(paso\.sel\)\) mostrarLaBarra\(\);\n\s*if \(lugarDe\(paso\.sel\)\)/, 'y la frase del video que la presenta, antes de buscarla');
   assert.match(m, /const fin = useCallback\(\(como: 'fin' \| 'omitido' \| 'hecho'\) => \{ mostrarLaBarra\(\); terminar\(senal\.id, como\); \}/, 'al terminar vuelve');
   assert.match(m, /window\.setTimeout\(mostrarLaBarra, ESPERA_BARRA_MS\)/, 'nunca queda escondida sin salida');
   // El recorrido presenta la barra (su paso «Tu panel»).
