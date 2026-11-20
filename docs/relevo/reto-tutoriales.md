@@ -32,6 +32,20 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
 - **⚠️ Trampa de git:** un `pull --rebase origin main` con commits ya subidos a la punta (y todavía no en main) los reescribe, y el
   push siguiente es rechazado. Con una punta se une main con `merge`, como hace subir.mjs.
 
+## Hecho (tanda 3, punta/reto-tutoriales)
+
+- **Los tres puntitos (D1-10, d24-11, 701b8e302).** Cada mensaje nuevo llega después de que MaKo escribe 1,2 s, de a uno.
+  - Lo ya visto se guarda en el navegador: `mako.reto.vistos`, `useAparicion`.
+  - Las opciones aparecen recién cuando MaKo terminó de escribir.
+- **El catálogo «Tutoriales de MaKo» (V1, D1-07, 0572946ca + 638c67305).** El ícono de videos en la cabecera cambia el hilo por el catálogo.
+  - Lo arma `gruposDelCatalogo` (app/second-brain/reto/CatalogoTutoriales.tsx). No muestra AI Avatar, y las de Classroom van con su nombre.
+  - **⚠️ El nombre de los coaches** se escribe sólo en lib/reto/dias.ts (`VIDEOS_DEL_RETO`). tests/coaches-ops-center.test.ts (14) frena cualquier «Offer Coach» escrito en una pantalla.
+- **El fin de cada día (D1-06, d24-13, R57-07, R57-F1, R57-F4, f24-02, 59610a104).** Vive en `diaTerminado` y `finDelDia`, con su frase para «te falta…».
+  - «¿Adelantas…?» sale recién con el día terminado, en el recuadro de opciones.
+  - «Lo hago después» y «Mañana» quedan guardados en `reto.estado`.
+  - La prueba por WhatsApp va al final del día.
+  - Sin «te escribo»: el WhatsApp de cada mañana todavía no existe.
+
 ## Lo que decidió el Cerebro (20/11)
 
 - **R57-02, el clip de 10 s del día 6: SÍ, por ApiMart.** Martín decidió el 17/11 que el video de los CLIENTES va por ApiMart (Flow es
@@ -67,16 +81,15 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
    - Lo elegido se pide en lib/onboarding-arranque.ts:1785-1799.
    - Cada opción corre `mostrarTutorial(tutorialDe(<pestaña>), { video })`.
    - La marca del día 1 sale recién al elegir «Empezar mi día 1».
-4. **El chat del reto:**
+4. **El chat del reto:** (los tres puntitos ya están; falta la caja, que espera al Cerebro: ¿a quién le escribe?)
    - **La caja con audio (D1-09, R57-13):** para que la caja exista hay que decidir a quién le escribe. Mi propuesta: al MaKo del Ops Center, con el contexto del reto.
    - **Los tres puntitos antes de cada mensaje nuevo (D1-10, d24-11):** marcarlo por día en sessionStorage.
    - **Las opciones en el recuadro de arriba de la caja**, no en la burbuja.
-5. **El fin de cada día (D1-06, d24-13, R57-07, R57-F4):** «¿Adelantas…?» sale recién al terminar el día, con el texto FIN_DIA.
+5. ~~**El fin de cada día**~~ (hecho). Antes decía: «¿Adelantas…?» sale recién al terminar el día, con el texto FIN_DIA.
    - En el día 1 se recomienda «Adelantar»; desde el día 3, «Mañana» va primero y sin recomendar.
    - «Mañana» se guarda en /api/reto.
    - Se saca «¡Hiciste todo lo del día N!» de los días 3 a 7.
 6. **Los videos:**
-   - **V1:** el catálogo «Tutoriales de MaKo», con su ícono en la cabecera del reto.
    - **d24-10 / R57-21 / V4:** el video que se reproduce en el mensaje y pasa a la esquina sólo al salir de la vista.
    - **V14:** el reproductor de VideoDelMomento.
 7. **Lo bajo:**
@@ -106,3 +119,9 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
   - La foto se saca con Playwright de C:/dev/playwright-medidor, por la cola `C:/dev/artefactos-animaciones/tools/turno.mjs`.
 - **Tipos:** `tsc-acotado` no corre con la PC ocupada (lo cortó el vigía de RAM el 20/11). Los corre GitHub en la punta.
 - **El ensayo «desde cero»:** guarda el reto en el navegador y no lee lo hecho. Ahí las tareas no se cierran solas. Está pendiente decidir si leen las señales de verdad.
+
+## Esperando al Cerebro (20/11)
+
+- **Essential (R57-03):** A o B. Ver arriba.
+- **La caja del chat del reto (D1-09, R57-13):** a quién le escribe. La propuesta es al MaKo del Ops Center, con el contexto del reto.
+- **El clip del día 6 por ApiMart:** toca el estudio de AI Avatar, donde trabaja la sesión «ai-avatar-codigo». Lo hace ella o se espera a que termine.
