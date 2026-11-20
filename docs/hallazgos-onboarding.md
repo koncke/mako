@@ -3986,17 +3986,13 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
   - De 00:18:08 a 00:22:14 se mostró la MAQUETA (el artefacto), no la app: un «acá está mal» ahí es de la maqueta.
   - Lo de la pantalla compartida no está en el texto: «esto», «acá» sin referente no se inventa.
   - La demo corrió sobre 959450118 y hubo tres deploys después: «ya está» sólo con el código que lo hace.
-- **El bucle de «Entrar a MaKo» (20/11, 18:43–18:50 UTC, ws 3 mirando como administrador, después de «Reiniciar onboarding»):**
-  pantalla en blanco y más de 1000 pedidos alternando `/second-brain?_rsc` y `/onboarding?_rsc`. Se fue solo a los ~7 minutos y
-  no se pudo reproducir. La base decía `status: done` todo el tiempo. Hipótesis que encaja: `getEstadoOnboarding` lee TOLERANTE
-  (lib/onboarding-state.ts:24), un error de lectura vuelve «pending», la guarda manda a /onboarding y /onboarding (que lee bien)
-  devuelve: cada error del diluvio realimenta el ida y vuelta. Los logs de Vercel no se pudieron leer (el endpoint es un stream).
-  **Regla:** una redirección no puede depender de una lectura que, si falla, dice lo contrario; si no pudo leer, deja pasar. Y dos
-  pantallas que se mandan una a la otra necesitan un cortacircuito. (El arreglo, con su test, lo lleva el chat del onboarding.)
+- **El bucle de «Entrar a MaKo» (20/11, 18:43–18:50 UTC):** el síntoma, lo que se midió, por qué el diagnóstico obvio era el
+  equivocado y el arreglo por construcción (con su test) están en «El ida y vuelta entre la app y el onboarding», más arriba (ec7425bf2).
 - **Lo que se encontró en el código y quedó SIN hacer al 20/11, 19:30 UTC** (dueño entre paréntesis):
-  - «Reiniciar onboarding» no borra `perfil.recorridos` del dueño, y «Hola de nuevo» no vuelve a salir (onboarding-v2).
+  - RESET (la barra del Cliente de Prueba) no borra `perfil.recorridos` del dueño, y «Hola de nuevo» no vuelve a salir. «Reiniciar
+    onboarding» sí borra los `tutorial-*` (`perfilReiniciado`) (onboarding-v2).
   - «Sigamos en tu computadora» promete «el link que te mandamos a tu correo» y nadie lo manda (app/onboarding/SeguirEnPc.tsx:44-46; onboarding-v2).
-  - Guardar el nombre del negocio llama a `asegurarGrupoMaKo` y renombra el grupo (app/api/onboarding/arranque/route.ts:191; onboarding-v2).
+  - ~~Guardar el nombre del negocio llama a `asegurarGrupoMaKo` y renombra el grupo~~ HECHO en 5e6e3e181 (onboarding-v2).
   - `/api/plan/prueba` lee el negocio propio, no el que se mira (app/api/plan/prueba/route.ts:17-18; onboarding-v2).
   - El bloqueo «Instala MaKo para escribir» en ~20 cajas: Martín lo sacó en la llamada (lib/chat-mako-reglas.ts:334-337; wa-no-callarse).
   - La guía CUBOS y su respuesta automática no existen (docs/series/serie-3-ventas.md:113; sin chat).
