@@ -38,7 +38,7 @@ export function diaDelAudio(transcripcion: string, candidatos: readonly number[]
   if (candidatos.length <= 1) return candidatos[0] ?? null;
   const t = sinTildes(transcripcion);
   if (/\bguion(es)?\b/.test(t) && candidatos.includes(5)) return 5;
-  if (/\b(crm|leads?|carga|cargame|cargalo|cargala|cargues?)\b/.test(t) && candidatos.includes(3)) return 3;
+  if (/\b(crm|leads?|carg\w*)\b/.test(t) && candidatos.includes(3)) return 3;
   return candidatos[0];
 }
 
@@ -96,7 +96,7 @@ export const instruccionDelGuion = (idea: string): string =>
 export function tituloDelGuion(idea: string): string {
   const t = idea.replace(/\s+/g, ' ').trim()
     .replace(/^(hola[,!.]?\s+)?(mako[,:.]?\s+)?/i, '')
-    .replace(/^(quiero|necesito|hazme|escr[ií]beme|armame|ármame)\s+(un\s+)?gui[oó]n\s+(sobre|de|para|acerca de)\s+/i, '')
+    .replace(/^(quiero|necesito|hazme|escr[ií]beme|[aá]rmame)\s+(un\s+)?gui[oó]n\s+(sobre|de|para|acerca de)\s+/i, '')
     .replace(/[.!?…]+$/, '').trim();
   if (!t) return 'Tu guion del reto';
   const corto = t.length > 60 ? `${t.slice(0, 59).replace(/\s+\S*$/, '')}…` : t;
