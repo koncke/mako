@@ -86,6 +86,14 @@ Los tres corolarios, cada uno pagado por un caso real de abajo:
   En el del WhatsApp el play tapaba «es por donde MaKo». Se elige un cuadro con el centro libre (el del mensaje ya escrito, 7,5 s)
   con `pantallas-onboarding/poster.mjs`, que hay que volver a correr después de un `hacer.mjs … web` (si no, la vuelve a pisar).
   Toda portada nueva se mira con el play encima.
+- **La bienvenida presenta el reto (OA-17): su propio guion, y la voz del unido guardada aparte.** El guion V1 (las palabras de
+  Martín del 16/11) pasó a `onboarding-bienvenida`, de 5 frases, y se renderiza solo: ya no sale del corte del unido. Antes de
+  regenerar, la carpeta de trabajo del unido se copió a `trabajo/onboarding-bienvenida-unido`, porque `frase-nueva.mjs` arma el
+  video del WhatsApp con ESA voz. Al regenerar, `hacer.mjs` pisa `voz.mp3` y `alin.json` de su carpeta, y sin la copia el video
+  del WhatsApp no se podía volver a armar igual.
+- **Cuando ningún cuadro tiene el centro libre, se corre el play.** En la bienvenida, todos los cuadros tienen en el centro la
+  cabeza del personaje o el texto. El manifiesto acepta `play: 'abajo-derecha'` y el reproductor lo pone ahí sólo para ese video;
+  lo escribe `poster.mjs`, junto con la portada.
 - **`onboarding-whatsapp` ya existía** (el video de la pantalla de octubre, `app/onboarding/ChatArranque.tsx`). El pedazo nuevo es
   `onboarding-bienvenida-whatsapp`: antes de elegir el nombre de un video, se busca en el manifiesto y en el código.
 
