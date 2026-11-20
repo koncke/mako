@@ -137,7 +137,7 @@ export function respuestaDePago(p: { pedido: PedidoDePago; texto: string; m: Par
 }
 
 /** Lo que pide el texto que acompaña una foto: confirmar, preguntar, revisar. */
-const PIDE_ALGO = /\?|\b(confirm\w*|esta bien|es correcto|es asi|cuanto|cuanta|por que|que es|me dice|aca dice|aqui dice|dice que|revis\w*|fijate|chequea\w*)\b/;
+const PIDE_ALGO = /\?|\b(confirm\w*|esta bien|es correcto|es asi|cuanto|cuanta|por que|que es|me dice|dice que|revis\w*|chequea\w*)\b/;
 
 /**
  * ¿ES UNA PREGUNTA Y NO UN PAGO? Una foto con un texto que pregunta o pide confirmar algo, y en la que la lectura no encontró un N.º de

@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { esPreguntaYNoPago, lineaDePago, montoDicho, pidePagoDeLaMensualidad, respuestaDePago, type ParaLaConsulta } from '../lib/agencia-mes-consulta-reglas';
+import { esPreguntaYNoPago, lineaDePago, montoDicho, pidePagoDeLaMensualidad, respuestaDePago, type DondePagar, type ParaLaConsulta } from '../lib/agencia-mes-consulta-reglas';
 import { diferencialDe, type Pendiente } from '../lib/agencia-mes-reglas';
 import { PROMPT_COMPROBANTE } from '../lib/comprobante-reglas';
 
@@ -65,9 +65,9 @@ const M: ParaLaConsulta = {
   ],
   pendientes: [PENDIENTE],
 };
-const CON_ID = { medio: 'Binance', binancePayId: '123456789', linkBinance: null };
-const SIN_ID = { medio: 'Binance', binancePayId: null, linkBinance: null };
-const responder = (texto: string, donde = CON_ID, m = M) => respuestaDePago({ pedido: pidePagoDeLaMensualidad(texto)!, texto, m, donde });
+const CON_ID: DondePagar = { medio: 'Binance', binancePayId: '123456789', linkBinance: null };
+const SIN_ID: DondePagar = { medio: 'Binance', binancePayId: null, linkBinance: null };
+const responder = (texto: string, donde: DondePagar = CON_ID, m: ParaLaConsulta = M) => respuestaDePago({ pedido: pidePagoDeLaMensualidad(texto)!, texto, m, donde });
 
 test('la entrada de Pablo Chavez es la de la app: US$ 23,50, 15 días del 20/11 al 04/12', () => {
   assert.equal(ENTRADA.montoUsd, 23.5);
