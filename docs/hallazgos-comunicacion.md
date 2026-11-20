@@ -13678,7 +13678,8 @@ correr nunca el turno. Por eso ningún test vio el cartel. Con `crearPostgrest({
   - **Trampa:** «cuando» sin tilde es una conjunción («escríbeme cuando quieras»); sólo «cuándo» pregunta.
   - **Lo que no cambió, a propósito:** en un grupo de WhatsApp CUALQUIER participante hace las escrituras simples con su «sí». Ahí
     el no-admin del #120 canceló la propuesta de la dueña con «No invites por mail a nadie». La regla del no-admin vale sólo para
-    un pedido DELEGADO. Si alguien que no es admin puede escribir en la agenda del negocio, lo decide Martín.
+    un pedido DELEGADO. Martín lo decidió el 20/11: «Sí, cualquiera del grupo». Las escrituras simples las pide y confirma
+    cualquiera del grupo, y la regla queda como está. Lo delegado de alguien que no es admin sigue esperando a Martín.
   - **Quedó sin hacer:** una corrección a una propuesta («no invites a nadie») la cancela y pide repetir todo, en vez de volver a
     proponer sin eso (la rama de la confirmación de lib/mako-doer-in.ts).
   - Tests: `tests/ticket-120-agenda-pide-datos.test.ts`.
