@@ -31,7 +31,7 @@ import { cssRecorrido, useRecorrido } from '../Recorrido';
 import { Z_PISO_RECORRIDO, necesitaScroll, posicionTarjeta, recorteDe, type Caja, type Medida, type PosicionTarjeta } from '@/lib/recorridos';
 import { pasosPara, tutorialDeRuta, type PasoTutorial, type TutorialPestana } from '@/lib/tutoriales';
 import { motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
-import { useVideoTutorial } from './useVideoTutorial';
+import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
 import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigueLosPasos, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
@@ -692,13 +692,15 @@ function VideoChico({ tutorial, video, vidRef, autoplay, manda, sub, revision, a
   sub: string; revision: boolean; arriba: boolean; onCerrar: () => void; onOmitir: () => void;
 }) {
   const [cerrado, setCerrado] = useState(false);
+  const manifiestoListo = useManifiestoListo();
   useEffect(() => {
     const v = vidRef.current;
     if (!v || !autoplay) return;
     // Con sonido si el navegador deja (ya hubo un clic en la página); si no, en silencio, con sus controles.
     v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
   }, [video?.archivo, autoplay, vidRef]);
-  if (cerrado || (!video && !revision)) return null;
+  // La placa «Todavía no está grabado», sólo con el manifiesto ya leído (20/11, F1): mientras carga, nada.
+  if (cerrado || (!video && !(revision && manifiestoListo))) return null;
   const cerrar = () => { vidRef.current?.pause(); setCerrado(true); onCerrar(); };
   return (
     <div role="complementary" className="mk-tuto__video" data-arriba={arriba ? '' : undefined} aria-label={`El video de ${tutorial.nombre}`}>

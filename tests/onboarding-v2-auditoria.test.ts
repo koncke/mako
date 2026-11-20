@@ -154,3 +154,12 @@ test('13. OA-12: el sol y la luna también en la entrada («Hola, soy MaKo»), y
   assert.match(e, /<span className="en-modo" role="presentation" onClick=\{\(e\) => e\.stopPropagation\(\)\}><InterruptorModo variante="sitio" \/><\/span>/);
   assert.match(e, /\.en-modo \{ position: absolute; top: 27px; right: max\(16px, calc\(\(100% - 960px\) \/ 2\)\); z-index: 1; \}/, 'alineado al bloque de 960, como la cabecera del chat');
 });
+
+test('14. V10 y F1: el manifiesto de los videos, fresco en cada visita; y «Todavía no está grabado» sólo con el manifiesto ya leído', () => {
+  const h = sinComentarios(leer('app/_ui/tutorial/useVideoTutorial.ts'));
+  assert.doesNotMatch(h, /force-cache/, 'un navegador que ya lo tenía no veía los videos nuevos');
+  assert.match(h, /fetch\(RUTA_MANIFIESTO, \{ cache: 'no-cache' \}\)/);
+  assert.match(h, /export function useManifiestoListo\(\): boolean \{/);
+  assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /if \(!v\) \{\n\s*return revision && listo\n/);
+  assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /if \(cerrado \|\| \(!video && !\(revision && manifiestoListo\)\)\) return null;/);
+});

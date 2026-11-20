@@ -19,7 +19,7 @@
 // =============================================================================
 import { useRef, useState, type MouseEvent } from 'react';
 import { Icon } from '@/app/_components/icons';
-import { useVideoTutorial } from './useVideoTutorial';
+import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
 import { useVideoQueFlota } from './useVideoQueFlota';
 
 type Estado = 'quieto' | 'reproduciendo' | 'pausado' | 'terminado';
@@ -30,6 +30,7 @@ const conMayuscula = (s: string) => (s ? s.charAt(0).toLocaleUpperCase('es') + s
 /** `onTermina`: cuando el video llegó al final (el onboarding V2 suelta ahí su primera pregunta). */
 export function VideoDelMomento({ clave, titulo, revision, onTermina }: { clave: string; titulo: string; revision: boolean; onTermina?: () => void }) {
   const v = useVideoTutorial(clave);
+  const listo = useManifiestoListo();
   const ref = useRef<HTMLVideoElement>(null);
   // Si sale de la vista corriendo (o se navega), sigue abajo a la derecha (Martín, 18/11).
   useVideoQueFlota(ref, v ? clave : null, titulo);
@@ -40,8 +41,9 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina }: { clave:
   const [vel, setVel] = useState<number>(1);
   const dur = durLeida || v?.duracion_s || 0;
 
+  // La placa, sólo con el manifiesto ya leído (F1): mientras carga, nada.
   if (!v) {
-    return revision
+    return revision && listo
       ? <><style>{CSS}</style><div className="mk-vmom mk-vmom--lugar" data-clave={clave} role="note"><b>Tu video: {titulo}</b><span>Todavía no está grabado: va aquí.</span></div></>
       : null;
   }

@@ -5640,6 +5640,10 @@ titular), no se tiñe.
 - **Un `play()` diferido necesita saber si todavía hay capa.** El reintento viejo no se cancelaba: cerrar el video durante la espera
   dejaba un `v.play()` sobre el `<video>` desmontado, y la voz seguía sonando sin video. Todos los play pasan por `reproducir`, que
   mira si la capa sigue montada y si el video sigue en la página.
+- **El manifiesto de los videos se pedía con `force-cache`** (`useVideoTutorial`): un navegador que ya lo tenía seguía con la lista
+  de antes de un deploy y no veía los videos nuevos (con «sin video, NADA», el lugar quedaba vacío). Ahora `no-cache`: revalida en
+  cada visita. Y «cargando» no es «no hay»: `useManifiestoListo` deja que la placa «Todavía no está grabado» salga sólo con el
+  manifiesto ya leído (antes se veía un momento aunque el video existiera). V10 y F1 de la auditoría.
 - **Las marcas que faltaban en la página (la tanda siguiente, tests/tutorial-marcas-auditoria.test.ts):**
   - *Una función no viaja del servidor: la flecha de volver del grafo no existía en la computadora* (recorrido-6). El Grafo la
     dibuja sólo con `alCerrar`, y el mapa de escritorio lo arma el servidor (`pagina.tsx`). El volver de escritorio ya llegaba por
