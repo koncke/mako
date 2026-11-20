@@ -77,10 +77,10 @@ test('4. el reproductor del chat lo pide quieto, y el onboarding y la llegada lo
   assert.match(v, /<div ref=\{raiz\} className="mk-vmom"/);
   const a = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
   assert.match(a, /<VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="Bienvenida a MaKo" revision=\{false\} dalePlay \/>/);
-  // El del WhatsApp llega en medio de la charla: sin «dale play». Lo que se marca es «Abrir WhatsApp», cuando llega su mensaje (20/11,
-  // tarde: tests/onboarding-mensaje-del-video.test.ts).
-  assert.match(a, /<VideoDelMomento clave=\{VIDEO_WHATSAPP\} titulo="Tu WhatsApp con MaKo" revision=\{false\} \/>/);
-  const l = sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx'));
+  // El del WhatsApp, con su «dale play» (20/11, tarde): la tarjeta del código llega después, cuando la voz nombra el botón, así que las
+  // tapas del «dale play» ya no la tapan. Lo que se marca entonces es «Abrir WhatsApp» (tests/onboarding-mensaje-del-video.test.ts).
+  assert.match(a, /<VideoDelMomento clave=\{VIDEO_WHATSAPP\} titulo="Tu WhatsApp con MaKo" revision=\{false\} dalePlay \/>/);
+  const l = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
   assert.match(l, /useDalePlay\(play, \{ clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' \}\);/);
   assert.match(l, /<button ref=\{play\} type="button" className="sbl-video" onClick=\{empezar\}/);
 });

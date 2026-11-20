@@ -38,7 +38,7 @@ export function HojaDelGrupo({ ws, grupo, onCerrar, onLeido, onCambio, onSalio }
   const k = useHiloDelGrupo({ ws, visible: true, onLeido });
   // La hoja mide su cuerpo después del primer pintado (el mismo cuidado que ChatClienteM.tsx): lo que escrolea es el cuerpo, no el hilo.
   const seguirHoja = useCallback(() => hilo.current?.closest(CUERPO_CHAT) as HTMLElement | null, []);
-  const s = useSeguirElHilo({ contenedor: seguirHoja, mensajes: k.mensajes, pendientes: k.pendientes.length, conError: k.pendientes.filter((p) => p.estado === 'error').length, listo: k.estado === 'listo' && !viendo, visible: !viendo });
+  const s = useSeguirElHilo({ contenedor: seguirHoja, mensajes: k.mensajes, pendientes: k.pendientes.length, conError: k.pendientes.filter((p) => p.estado === 'error').length, pensando: k.pensando, listo: k.estado === 'listo' && !viendo, visible: !viendo });
   const { marcarLeido } = k;
   useEffect(() => { if (!viendo && s.abajo && k.estado === 'listo') marcarLeido(); }, [viendo, s.abajo, k.estado, k.mensajes, k.ahora, marcarLeido]);
   const desdeLeido = useRef<number | null>(null);

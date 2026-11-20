@@ -104,13 +104,15 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
       <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
         cabecera={{
           clave: tab, titulo, aspecto, animo: k.enCurso ? 'trabajando' : 'despierto', onMuneco: eligeReferente ? () => setEligiendo(true) : undefined, onVolver,
+          // A la DERECHA de la cabecera, como en la maqueta (`.mq-arriba { margin-left: auto }`, cuerpo.html): el botón de los videos y lo
+          // demás iban pegados al título, a la izquierda (Martín, 20/11, en el reto; lo mismo en Offer Coach y Funnel Coach).
           acciones: (
-            <>
+            <span className="co-cab__der">
               {dosCoaches && <VideosDelChat videos={videosDeLaLista} />}
               {r && <span className="co-cab__inspirado">{inspiradoEn(r)}</span>}
               {plan && !mostrandoCerebro && <button type="button" className="co-chip" aria-pressed={mostrandoPlan} onClick={() => setViendoPlan((v) => !v)}>{mostrandoPlan ? 'Ver el chat' : 'Ver el plan'}</button>}
               {r && <BotonSecondBrainDe referente={r} viendo={mostrandoCerebro} onCambiar={(si) => { setViendoCerebro(si); if (si) setViendoPlan(false); }} />}
-            </>
+            </span>
           ),
         }}
         reemplazo={mostrandoCerebro && r ? <CerebroDelGuru referente={r} /> : undefined}

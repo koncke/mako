@@ -14,6 +14,7 @@ import { estaImpersonando, getWorkspaceActual, wsSuperAdmin } from './workspace'
 import { veOnboardingV2 } from './onboarding-v2/revision';
 import { getSupabaseServer } from './supabase';
 import { CLAVE_EMPEZO_V2, empezoElV2, vistosDePerfil } from './recorridos';
+import { emailDelDuenoDelWs } from './dueno-del-ws';
 import { puedeOperar } from './operaciones-reglas';
 
 /**
@@ -27,23 +28,38 @@ export const RUTA_SEGUIR_EN_PC = '/onboarding';
 const ID_RECORRIDO_PC = 'tutorial-ops-center';
 
 /**
+ * DE QUIÉN ES EL ESTADO DEL ONBOARDING V2 QUE SE DIBUJA (Martín, 20/11, probando en Lalaland «como administrador»: la vista como
+ * administrador muestra LO MISMO que ve el cliente). La persona logueada; mirando un negocio como administrador, su DUEÑO. Lo que se
+ * mira por persona (empezó el V2, vio el recorrido) se lee y se anota en la fila del dueño. `mirando`: un administrador mira el negocio.
+ */
+export async function personaDelOnboarding(): Promise<{ email: string; ws: number | null; mirando: boolean } | null> {
+  const s = await getUsuarioActual();
+  if (!s?.email) return null;
+  const ws = await getWorkspaceActual().catch(() => null);
+  const mirando = await estaImpersonando().catch(() => false);
+  const email = mirando ? await emailDelDuenoDelWs(ws).catch(() => '') : s.email.trim().toLowerCase();
+  return email ? { email, ws, mirando } : null;
+}
+
+/**
  * EN EL TELÉFONO, «SIGAMOS EN TU COMPUTADORA» SE QUEDA (20/11, OA-10 y OD-12: la maqueta; Martín, 18/11: «la PC es obligatoria»).
  * ¿Le toca esa pantalla a quien entra desde el teléfono? Sólo a quien EMPEZÓ el onboarding V2 (su marca, `empezoElV2`), y mientras
  * NO vio el recorrido del Ops Center en la computadora (`tutorial-ops-center` en `usuarios.perfil`, lo que guarda /api/recorridos).
  * Decidido por el Cerebro (20/11, tarde, en la memoria): con el interruptor para todos, un cliente que ya usa MaKo Mobile y nunca
- * pasó por el V2 no tiene la marca, y nunca queda trabado en /onboarding. Mirando a un cliente, nunca. Quien opera la plataforma
- * (Martín en la suya), nunca: su email está en la revisión del V2 y el guard de /m lo dejaba fuera de su teléfono. Si no se puede
- * leer, no (la persona entra como siempre).
+ * pasó por el V2 no tiene la marca, y nunca queda trabado en /onboarding. Mirando un negocio como administrador, lo del DUEÑO
+ * (`personaDelOnboarding`: lo mismo que ve el cliente; antes daba siempre que no, y la barra no se escondía). Quien opera la plataforma
+ * en SU cuenta (Martín en la suya), nunca: su email está en la revisión del V2 y el guard de /m lo dejaba fuera de su teléfono. Si no
+ * se puede leer, no (la persona entra como siempre).
  */
 export async function seguirEnPcPendiente(): Promise<boolean> {
   try {
-    if (await estaImpersonando().catch(() => true)) return false;
-    const s = await getUsuarioActual();
-    const email = s?.email?.trim().toLowerCase();
-    if (!s || !email) return false;
-    if (!veOnboardingV2({ email: s.email, ws: await getWorkspaceActual().catch(() => null) })) return false;
-    // Quien opera: la misma regla que `quienOpera` (lib/second-brain-opera.ts), sin importar el Centro.
-    if (puedeOperar(await getSesionAdmin().catch(() => null), await wsSuperAdmin().catch(() => -1))) return false;
+    const p = await personaDelOnboarding();
+    if (!p) return false;
+    const { email } = p;
+    if (!veOnboardingV2({ email, ws: p.ws })) return false;
+    // Quien opera, en su cuenta: la misma regla que `quienOpera` (lib/second-brain-opera.ts), sin importar el Centro. Mirando un
+    // negocio, no: ahí se ve lo del cliente.
+    if (!p.mirando && puedeOperar(await getSesionAdmin().catch(() => null), await wsSuperAdmin().catch(() => -1))) return false;
     const { data, error } = await getSupabaseServer().from('usuarios').select('perfil').eq('email', email).maybeSingle();
     if (error) return false;
     const perfil = (data as { perfil?: unknown } | null)?.perfil;
@@ -54,16 +70,16 @@ export async function seguirEnPcPendiente(): Promise<boolean> {
 
 
 /**
- * Anota que la persona de la sesión empezó el onboarding V2: lo llama la ruta del arranque (app/api/onboarding/arranque/route.ts)
- * con cada respuesta del V2, y escribe sólo la primera vez. Mirando a un cliente, no (el super admin no se lo empieza a nadie).
+ * Anota que la persona empezó el onboarding V2: lo llama la ruta del arranque (app/api/onboarding/arranque/route.ts) con cada respuesta
+ * del V2, y escribe sólo la primera vez. Mirando un negocio como administrador, en su DUEÑO (`personaDelOnboarding`: quien contesta así
+ * el onboarding del negocio lo está haciendo como el cliente, y el cliente lo ve igual).
  * ⚠️ El jsonb `perfil` tiene varios escritores y cada uno lo reescribe ENTERO: se conserva todo lo demás y se escribe con
  * compare-and-set sobre `updated_at`, como /api/recorridos. Nunca tira: una marca que no se pudo anotar deja a la persona
  * entrar a MaKo Mobile como siempre, que es lo seguro.
  */
 export async function anotarQueEmpezoElV2(): Promise<void> {
   try {
-    if (await estaImpersonando().catch(() => true)) return;
-    const email = (await getUsuarioActual())?.email?.trim().toLowerCase();
+    const email = (await personaDelOnboarding())?.email;
     if (!email) return;
     const sb = getSupabaseServer();
     for (let intento = 0; intento < 3; intento++) {

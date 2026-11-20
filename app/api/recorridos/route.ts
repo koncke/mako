@@ -35,14 +35,24 @@ import { createHash } from 'node:crypto';
 import { getUsuarioActual } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { idRecorridoValido, perfilConVisto, vistosDePerfil } from '@/lib/recorridos';
+import { personaDelOnboarding } from '@/lib/seguir-en-pc';
+import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 type Fila = { id: number; perfil: unknown; updated_at: string | null };
 
-/** El email de la sesión, normalizado como se guarda en `usuarios`. '' = sin persona. */
+/**
+ * El email de la persona cuyos recorridos se leen y se anotan, normalizado como se guarda en `usuarios`. '' = sin persona.
+ * La de la sesión; mirando como administrador un negocio con el onboarding V2, su DUEÑO (Martín, 20/11: «la vista como administrador
+ * muestra lo mismo que ve el cliente»; lib/seguir-en-pc.ts → personaDelOnboarding). Esto da vuelta, SÓLO ahí, la regla D7 (el super
+ * admin que mira un cliente no le consume el recorrido): en un negocio del V2, lo que el administrador ve y cierra es lo del cliente.
+ * Con el V2 sólo en la revisión (lib/onboarding-v2/revision.ts), alcanza al Cliente de Prueba; con el interruptor para todos, a todos.
+ */
 async function emailDeLaSesion(): Promise<string> {
+  const p = await personaDelOnboarding();
+  if (p?.mirando && veOnboardingV2({ ws: p.ws })) return p.email;
   const sesion = await getUsuarioActual();
   return sesion?.email?.trim().toLowerCase() ?? '';
 }

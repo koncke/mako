@@ -569,7 +569,9 @@ export function useRecorrido(id: string, opciones?: { soloLocal?: boolean; autoa
   // Los del motor (`tutorial-…`) son los suyos. Se puede seguir abriendo a mano (`reabrir`).
   const delMotor = id.startsWith('tutorial-');
   const abierto = modo === 'abierto' || (modo === 'auto' && autoabrir && visto === false && (delMotor || typeof window === 'undefined' || !motorSeOcupa(window.location.pathname)));
-  return { visto, abierto, reabrir, marcarVisto, onCerrar };
+  // `quien`: la huella de la persona (la del dueño, mirando un negocio del V2 como administrador: /api/recorridos), para recordar por
+  // persona lo que no es un recorrido (la llegada al reto ya mostrada: app/second-brain/LlegadaAlReto.tsx).
+  return { visto, abierto, reabrir, marcarVisto, onCerrar, quien: resp?.quien ?? null };
 }
 
 /** La misma hoja, para el motor de los tutoriales (app/_ui/tutorial/MotorTutorial.tsx): se ve igual que este recorrido. */

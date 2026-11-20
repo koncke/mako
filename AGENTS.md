@@ -2661,16 +2661,25 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
 - **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
   desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 
-# Un chat sigue al último mensaje también cuando el mensaje CRECE (y lo que nombra el video sale cuando la voz llega ahí)
+# Un chat con MaKo baja por la CLAVE de la última fila y saca sus mensajes por la cola (y lo que nombra el video, cuando la voz llega ahí)
 
-Martín, 20/11/2026: «siempre se haga scroll automático hacia el último mensaje». Bajar una vez al montar el mensaje no alcanza: un video,
-una imagen o una tarjeta crecen después.
+Martín, 20/11/2026: «siempre se haga scroll automático hacia el último mensaje», con los tres puntitos antes de cada mensaje y nunca dos
+juntos. La auditoría de chats encontró que el scroll bajaba con una CUENTA de filas, que no cambia al contestar (entran dos mensajes y se
+van dos marcas en el mismo render).
 
-- **Un chat nuevo usa `useBajarAlUltimo` (app/_chat/useBajarAlUltimo.ts)**, nunca un `scrollTop = scrollHeight` en un efecto: baja
-  con cada mensaje nuevo y con lo que crece mientras la persona está abajo, y si subió a leer, no la arrastra. Un mensaje que no sale
-  de la lista del chat (una llegada, sus puntitos) lo avisa con `avisarMensajeNuevo()`.
-- **Un mensaje que nombra algo de un video sale cuando la voz llega ahí** (app/_ui/tutorial/useMensajeDelVideo.ts, con sus tres
-  puntitos), y nunca deja a nadie esperando: sin play, con error, pausado o ya visto, sale igual.
+- **Un chat con MaKo usa `useBajarAlUltimo` (app/_chat/useBajarAlUltimo.ts) con la clave de la ÚLTIMA fila dibujada**, nunca una cuenta
+  ni un `scrollTop = scrollHeight` en un efecto. Una fila que no sale de la lista del chat avisa con `avisarMensajeNuevo()`.
+- **Sus mensajes salen por la cola (`useColaDeSalida`, app/_chat/useColaDeSalida.ts):** de a uno, con puntitos según su largo, y la
+  tarjeta, el recuadro o el botón después del texto. El historial, de una.
+- **Un chat con PERSONAS usa app/_chat/grupo/useSeguirElHilo.ts** (como WhatsApp: no arrastra a quien lee arriba, cuenta lo nuevo).
+- **Un mensaje que nombra algo de un video sale cuando la voz llega ahí** (app/_ui/tutorial/useMensajeDelVideo.ts) y nunca deja a nadie
+  esperando: sin play, con error, pausado o ya visto, sale igual.
+
+# Mirando un negocio como administrador, el estado del onboarding es el del DUEÑO
+
+Martín, 20/11/2026, probando en Lalaland «como administrador»: la vista como administrador muestra LO MISMO que ve el cliente. Lo que se
+guarda por persona en el onboarding (empezó el V2, vio el recorrido, la barra oculta) se lee y se anota con `personaDelOnboarding()`
+(lib/seguir-en-pc.ts), que da el dueño del negocio que se mira. Nunca con la persona de la sesión ni con un «mirando, nunca».
 
 # Una pantalla que TRABA se dispara con la marca de quien entró al flujo, no con la falta de un «visto» nuevo
 

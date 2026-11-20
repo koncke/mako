@@ -3,15 +3,20 @@
 // EL CHAT SIEMPRE BAJA AL ÚLTIMO MENSAJE (20/11/2026)
 // =============================================================================
 // Martín, probando el onboarding en producción: «siempre se haga scroll automático hacia el último mensaje para que el usuario sepa
-// dónde están las cosas». Cada chat bajaba UNA vez, cuando se montaba el mensaje (`scrollTop = scrollHeight` con el largo de la
-// lista), y un video se dibuja después: la portada y los metadatos llegan más tarde y el mensaje CRECE, con el chat ya quieto arriba.
-// Lo mismo una imagen lenta o una tarjeta que se arma después.
+// dónde están las cosas». La auditoría de los chats (el Cerebro, 20/11) encontró la causa, y NO era el video (VideoDelMomento tiene
+// caja fija): era lo que dispara el scroll. Cada chat bajaba con una CUENTA (el largo de la lista, más los puntitos y lo pendiente),
+// y al contestar el servidor suma dos mensajes mientras se van los puntitos y lo pendiente en el mismo render: la cuenta no cambia y
+// el hilo no baja. Y en el Ops Center, filas que viven fuera de la lista (la llegada) no las cuenta nadie.
 //
-// La regla, para todos los chats:
-//   · un mensaje NUEVO baja siempre al último (`nuevo` cambia, o alguien avisa con `avisarMensajeNuevo`);
-//   · lo que CRECE (un video, una imagen, una tarjeta) también baja, mientras la persona está abajo (ResizeObserver sobre el hilo
-//     y sus hijos);
-//   · si la persona SUBIÓ a leer, lo que crece no la arrastra; el próximo mensaje nuevo, sí.
+// La regla, para los chats con MaKo:
+//   · un mensaje NUEVO baja siempre al último: `nuevo` es la CLAVE de la última fila dibujada (su id, los puntitos, su pieza), nunca
+//     una cuenta; una fila que no sale de la lista del chat avisa con `avisarMensajeNuevo`;
+//   · lo que CRECE o se achica (una tarjeta que se arma, el recuadro o el error arriba de la caja) baja mientras la persona está abajo
+//     (ResizeObserver sobre el hilo y sus hijos);
+//   · si la persona SUBIÓ a leer, lo que crece no la arrastra; el próximo mensaje nuevo, sí;
+//   · sin animación (`auto`), y la primera vez antes de pintar: al recargar, el hilo aparece abajo.
+// Los chats con PERSONAS (los grupos y la bandeja) siguen con app/_chat/grupo/useSeguirElHilo.ts: lo nuevo de otros no baja a quien
+// lee arriba, y un botón cuenta cuántos llegaron (como WhatsApp, decisión del 3/11). Comparten `bajarAlCrecer`.
 // El núcleo (`seguirAlUltimo`) no usa React: lo prueba tests/bajar-al-ultimo.test.ts con un hilo de mentira.
 // UN solo mecanismo para lo que crece (`bajarAlCrecer`): lo usa también el chat de los grupos (app/_chat/grupo/useSeguirElHilo.ts),
 // que decide por su cuenta cuándo está abajo (lo nuevo de otros no la baja si está leyendo: cuenta cuántos llegaron, como WhatsApp).
@@ -97,9 +102,9 @@ export function seguirAlUltimo(el: HiloQueEscrolea, o: { arriba?: () => boolean;
 }
 
 /**
- * El hilo de un chat que sigue al último mensaje. `contenedor`: lo que escrolea (estable: un useCallback). `nuevo`: cambia con cada
- * mensaje nuevo (el largo de la lista, los puntitos, una fase). `arriba`: el chat abre arriba (el chat nuevo del Ops Center, con su
- * portada) y mientras tanto no baja. `suave`: el mensaje nuevo baja con animación.
+ * El hilo de un chat con MaKo que sigue al último mensaje. `contenedor`: lo que escrolea (estable: un useCallback). `nuevo`: la clave
+ * de la ÚLTIMA fila dibujada (cambia con cada mensaje nuevo, sus puntitos o su pieza). `arriba`: el chat abre arriba (el chat nuevo
+ * del Ops Center, con su portada) y mientras tanto no baja. `suave`: con animación (ningún chat la usa: la auditoría pide `auto`).
  */
 export function useBajarAlUltimo(contenedor: () => HTMLElement | null, nuevo: unknown, o: { arriba?: boolean; suave?: boolean } = {}): void {
   const seguidor = useRef<SeguidorDelHilo | null>(null);
@@ -116,7 +121,7 @@ export function useBajarAlUltimo(contenedor: () => HTMLElement | null, nuevo: un
     };
     enganchar();
     const t = s ? 0 : window.setTimeout(enganchar, MS_HOJA_MEDIDA);
-    const alNuevo = () => seguidor.current?.bajar(true);
+    const alNuevo = () => seguidor.current?.bajar();
     window.addEventListener(EVENTO_MENSAJE_NUEVO, alNuevo);
     return () => {
       window.clearTimeout(t);

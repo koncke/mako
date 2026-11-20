@@ -17,12 +17,14 @@ import type { MensajeDelHilo } from '@/lib/grupo-reglas';
 const CERCA_DE_ABAJO_PX = 90;
 const MS_HOJA_MEDIDA = 80;
 
-export function useSeguirElHilo({ contenedor, mensajes, pendientes, conError = 0, listo, visible }: {
+export function useSeguirElHilo({ contenedor, mensajes, pendientes, conError = 0, pensando = false, listo, visible }: {
   contenedor: () => HTMLElement | null;
   mensajes: readonly MensajeDelHilo[];
   pendientes: number;
   /** Cuántos no salieron: el «Reintentar» va debajo del globo, y sin bajar queda tapado por la caja. */
   conError?: number;
+  /** MaKo está pensando: sus puntitos se agregan al final y, si estaba abajo, tienen que verse (la auditoría de chats, ops-center-8a). */
+  pensando?: boolean;
   listo: boolean;
   visible: boolean;
 }) {
@@ -92,6 +94,16 @@ export function useSeguirElHilo({ contenedor, mensajes, pendientes, conError = 0
     if (llegaron.length) setNuevos((n) => n + llegaron.filter((m) => !m.autor.propio && m.autor.tipo !== 'sistema').length);
     return undefined;
   }, [ultimo, pendientes, conError, listo, visible]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // LOS PUNTITOS DE MAKO PENSANDO SE VEN (20/11, la auditoría de los chats, ops-center-8a): llegan con el sondeo y su fila se agregaba
+  // debajo del borde. Si estaba abajo, baja; leyendo arriba, no (como lo nuevo de otros: la decisión del 3/11, «como WhatsApp»).
+  useEffect(() => {
+    if (!pensando || !listo || !visible) return;
+    mirarHijos.current?.();
+    if (!estabaAbajo.current) return;
+    const t = window.setTimeout(bajar, 0);
+    return () => window.clearTimeout(t);
+  }, [pensando, listo, visible, bajar]);
 
   return { nuevos, abajo, bajar };
 }

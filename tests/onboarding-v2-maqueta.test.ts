@@ -172,8 +172,9 @@ test('6. la pantalla del V2: la estrella, la caja del Ops Center, los dos videos
   // pausarlo, sin play o sin video) o al tocar la caja, con MaKo escribiendo antes (Martín, 19/11). La espera y sus desvíos:
   // app/_ui/tutorial/useMensajeDelVideo.ts, tests/onboarding-mensaje-del-video.test.ts.
   assert.match(v2, /lugar: filaBienvenida, activo: fase === 'chat', inicial: inicial\.etapa === 'nombre' \? 'espera' : 'listo',/);
-  assert.match(v2, /\{primero === 'escribe' && escribiendo\('arr-primero'\)\}/);
-  assert.match(v2, /\{primero === 'listo' && mensajes\.map\(/);
+  // Desde el 20/11 (tarde), por la cola de salida: de a uno, con sus puntitos, y su pieza después (tests/cola-de-salida.test.ts).
+  assert.match(v2, /\{cola\.visibles\.map\(\(f\) => \{/);
+  assert.match(v2, /\{escribe && escribiendo\('arr-pensando'\)\}/);
   assert.match(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /onEnded=\{\(\) => \{ setEstado\('terminado'\); onTermina\?\.\(\); \}\}/);
   assert.match(v2, /<CriaturaMako size=\{36\}/, 'la estrella en la cabecera');
   assert.match(v2, /<CriaturaMako size=\{26\}/, 'la estrella al lado de cada mensaje');
@@ -187,7 +188,7 @@ test('6. la pantalla del V2: la estrella, la caja del Ops Center, los dos videos
   // mensaje justo antes del paso del código. No es `onboarding-whatsapp`, el de la pantalla vieja.
   assert.match(v2, /const VIDEO_WHATSAPP = 'onboarding-bienvenida-whatsapp';/);
   // (Desde el 20/11, tarde, el mensaje del código sale a su momento del video, con sus puntitos: tests/onboarding-mensaje-del-video.test.ts.)
-  assert.match(v2, /const video = videoWhatsapp \? filaMako\('arr-video-whatsapp', <VideoDelMomento clave=\{VIDEO_WHATSAPP\} [^>]*\/>, \{ lugar: filaWhatsapp \}\) : null;/);
+  assert.match(v2, /if \(f\.id === FILA_VIDEO_WHATSAPP\) return filaMako\(f\.id, <VideoDelMomento clave=\{VIDEO_WHATSAPP\} [^>]*\/>, \{ lugar: filaWhatsapp \}\);/);
   assert.equal(mensajesDeArranque({ nombre: 'Vale', telefono: 'codigo', telefonoNumero: '+54 9 11 5555 0101', telefonoEntrante: true }, H).antes.at(-1)?.id, 'arr-codigo', 'el id del mensaje del código');
   // En el teléfono (o una pantalla angosta), el final es «Continuar el onboarding desde la PC», como la maqueta (18/11).
   assert.match(v2, /window\.matchMedia\('\(max-width: 640px\)'\)\.matches\) setEnTelefono\(true\)/);
