@@ -17,6 +17,17 @@ import { Burbuja } from './Burbuja';
 /** Lo que contestan las dos acciones del clip de regalo (el tipo vive en app/ai-avatar/regalo/clip.ts, que es del servidor). */
 type SalidaClip = Awaited<ReturnType<typeof clipDeRegaloAction>>;
 
+/** El gancho de su guion más nuevo (el del día 5), con los pedidos del Copywriter (sólo lectura). Sin guion o sin acceso: ''. */
+async function ganchoDeSuGuion(): Promise<string> {
+  try {
+    const l = await pedirListar();
+    const p = guionMasNuevo(l.ok ? l.paginas : null);
+    if (!p) return '';
+    const a = await pedirAbrir(p.id);
+    return a.ok ? ganchoDelGuion(a.doc.contenido) : '';
+  } catch { return ''; }
+}
+
 /**
  * EL CLIP DE REGALO DEL DÍA 6 (20/11, R57-02; el Cerebro: «sí, por ApiMart», UN clip por prueba, lo que cuesta anotado y, si ApiMart
  * falla o no hay saldo, se dice claro y no se cobra nada). El clip lo hace la sesión de AI Avatar (app/ai-avatar/regalo/actions.ts,

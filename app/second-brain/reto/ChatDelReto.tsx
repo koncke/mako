@@ -43,17 +43,6 @@ import { Burbuja } from './Burbuja';
 import { ClipDelReto } from './ClipDelReto';
 
 
-/** El gancho de su guion más nuevo (el del día 5), con los pedidos del Copywriter (sólo lectura). Sin guion o sin acceso: ''. */
-async function ganchoDeSuGuion(): Promise<string> {
-  try {
-    const l = await pedirListar();
-    const p = guionMasNuevo(l.ok ? l.paginas : null);
-    if (!p) return '';
-    const a = await pedirAbrir(p.id);
-    return a.ok ? ganchoDelGuion(a.doc.contenido) : '';
-  } catch { return ''; }
-}
-
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null;
   /** El funnel que eligió en Funnel Coach: arma los días 4 a 6 (`diasDelReto`, 20/11). */
   funnel?: string | null;
