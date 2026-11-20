@@ -99,7 +99,9 @@ export type Vigencia =
 /** `sin-agencia` (29/10/2026, lib/agencia-baja.ts): la agencia dio de baja la cuenta de su cliente; la reabre SÓLO su propio plan. */
 /** `paga-para-entrar` (6/11/2026, lib/agencia-mes.ts): la mensualidad de una agencia no entró (la entrada de un cliente, o el
  *  total del mes el día 6). La pone y la saca SÓLO la mensualidad: con el pago, la cuenta vuelve a entrar sola. */
-export type MotivoCorte = 'baja' | 'devuelto' | 'renovacion-sin-autorizar' | 'impago' | 'sin-agencia' | 'paga-para-entrar';
+// `prueba-terminada` (19/11/2026): el negocio cargado a mano al que Martín le apagó «Habilitado sin cobro» terminó sus 7 días de prueba sin un plan
+// suyo (lib/cuenta-sin-cobro-reglas.ts, `pasoSinCobro`). Vale aunque el corte general esté apagado (lib/workspace.ts) y se levanta con su plan.
+export type MotivoCorte = 'baja' | 'devuelto' | 'renovacion-sin-autorizar' | 'impago' | 'sin-agencia' | 'paga-para-entrar' | 'prueba-terminada';
 
 /** N meses después de la fecha (YYYY-MM-DD o ISO), con el día capado al último del mes. Devuelve YYYY-MM-DD. */
 export function mesesDespuesDe(fecha: string, n: number): string {
@@ -403,6 +405,11 @@ export function textoDelCorte(c: CorteGuardado | null, opts: { paraAgencia?: boo
     return { titulo: 'Tu pago no entró', detalle: `Tu plan está pagado hasta el ${fecha} y la renovación no se pudo cobrar. Tus datos están guardados: paga y vuelves a entrar en el acto.` };
   }
   if (c.motivo === 'sin-agencia') return { titulo: 'Tu agencia dejó de administrar tu cuenta', detalle: 'Tus datos están guardados. Si quieres seguir usando MaKo, elige tu plan y vuelves a entrar en el acto.' };
+  if (c.motivo === 'prueba-terminada') {
+    return opts.paraAgencia
+      ? { titulo: 'Este cliente está pausado', detalle: `Su prueba gratis terminó el ${fecha}. Sus datos están guardados.` }
+      : { titulo: 'Tu prueba gratis terminó', detalle: `Terminó el ${fecha}. Tus datos están guardados: activa tu plan y vuelves a entrar en el acto.` };
+  }
   if (c.motivo === 'devuelto') return { titulo: 'Tu plan se devolvió', detalle: 'El pago de tu plan se devolvió. Para volver a entrar, escríbenos.' };
   return { titulo: 'Tu plan terminó', detalle: `Lo pagado cubría hasta el ${fecha}. Tus datos están guardados: renueva tu plan y vuelves a entrar.` };
 }

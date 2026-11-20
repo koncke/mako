@@ -174,8 +174,13 @@ export function ofertaParaElContexto(o: OfertaDelCoach): string {
 // DÓNDE está en la lista, nunca con un botón (Martín, 18/11: «ese tipo de botones jamás»).
 
 /** Lo que dice el chat vacío del Offer Coach. `inspiradoEn`: el nombre entero de quien aconseja (null = MaKo, o el candado). */
+/** La presentación del Offer Coach del V2 (su primera línea). Con el motor de Offer (19/11/2026) va SOLA arriba de la conversación de
+ *  Offer, que trae su propio pedido del documento (lib/offer-reglas.ts → primerMensajeFunnel): ese pedido no se repite. */
+export const holaDelOfferCoach = (inspiradoEn: string | null): string =>
+  `Soy Offer Coach${inspiradoEn ? `, inspirado en ${inspiradoEn}` : ''}. Vamos a armar una oferta tan buena que dé vergüenza decirte que no. Al final te dejo su diagnóstico.`;
+
 export function saludoDelOfferCoach(o: OfertaDelCoach, inspiradoEn: string | null): string {
-  const hola = `Soy Offer Coach${inspiradoEn ? `, inspirado en ${inspiradoEn}` : ''}. Vamos a armar una oferta tan buena que dé vergüenza decirte que no. Al final te dejo su diagnóstico.`;
+  const hola = holaDelOfferCoach(inspiradoEn);
   // La del perfil no la armó nadie (se siembra con el nombre del onboarding): se arma desde el principio, como sin oferta.
   if (o.estado === 'hay' && o.de !== 'perfil') return `${hola}\n\n${renglonDeLaOferta(o)} Si no es esa, dime cuál.\n\n¿La revisamos juntos?`;
   const pide = '¿Tienes un documento de tu oferta, tu guion de ventas o el link de tu web? Súbelo o pégalo aquí. Si no, cuéntame qué vendes, a quién y a qué precio.';

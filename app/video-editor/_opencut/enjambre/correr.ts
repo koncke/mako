@@ -75,12 +75,16 @@ import { textoSoloPro } from "@/lib/topes-plan";
 
 export type ResultadoEnjambre =
 	| { ok: true; pasos: number; hechos: number; saltados: number; fallas: number; detenido: boolean; tocado: boolean; resumen: string }
-	| { ok: false; motivo: "ocupado" | "sin-proyecto" | "vacio" | "solo-pro"; texto: string };
+	| { ok: false; motivo: "ocupado" | "sin-proyecto" | "vacio" | "sin-voz" | "solo-pro"; texto: string };
 
 const NO_ARRANCA: Record<Extract<ResultadoEnjambre, { ok: false }>["motivo"], string> = {
 	ocupado: "Ya hay una edición automática en curso.",
 	"sin-proyecto": "No hay un proyecto abierto.",
 	vacio: "La línea de tiempo está vacía: agrega tu video primero.",
+	// Ticket 99 (Leila, 14/11/2026): con un recorrido sin voz, los diez agentes se salteaban y sólo decía «no tenían nada
+	// que hacer». Ahora no arranca, dice por qué y qué hacer con un video así.
+	"sin-voz":
+		"Tu video no tiene sonido en la pista principal, y la edición automática trabaja sobre lo que se dice: corta las pausas, subtitula y elige el B-roll. Para un video sin voz, pídele al chat lo que quieres: textos, música, velocidad o transiciones.",
 	// Editar con IA es SÓLO de MaKo Pro (14/11/2026, lib/editores-ia-pro.ts). Corre en el navegador: el candado es éste, y lo
 	// cruzan las tres entradas (el botón del panel, el de la barra y una propuesta del chat o de la API con `edicion_automatica`).
 	"solo-pro": textoSoloPro("ia-editores"),
@@ -155,6 +159,8 @@ type Contexto = {
 	 * vez para el B-roll va a dar lo mismo.
 	 */
 	subtitulosNoSalieron: boolean;
+	/** subs-01 escuchó y no reconoció una voz (pasos, música, ambiente): no se limpia «la voz» (ticket 99). */
+	vozNoReconocida: boolean;
 };
 
 /** ¿Sigue abierto el proyecto y la escena de la corrida? Entre dos esperas la persona pudo abrir otro. */
@@ -199,7 +205,7 @@ const renglon = (s: string) => (s ? s[0].toLowerCase() + s.slice(1) : s);
  */
 async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: EstadoLinea }): Promise<ComoTermina> {
 	const { editor, paso, agente } = ctx;
-	const decision = decidirPaso(paso.id, antes.estado, ctx.receta);
+	const decision = decidirPaso(paso.id, antes.estado, ctx.receta, { vozNoReconocida: ctx.vozNoReconocida });
 	if (!decision.hace) {
 		anotar(agente, "salta", decision.porque);
 		return "salteado";
@@ -519,6 +525,11 @@ export async function correrEnjambre(
 	const escena = editor.scenes.getActiveSceneOrNull();
 	if (!proyecto || !escena) return { ok: false, motivo: "sin-proyecto", texto: NO_ARRANCA["sin-proyecto"] };
 	if (editor.timeline.getTotalDuration() <= 0) return { ok: false, motivo: "vacio", texto: NO_ARRANCA.vacio };
+	// Sin un clip con sonido en la pista principal, cada agente se saltearía (ticket 99): se dice por qué, en el panel.
+	if (!leer(editor)?.estado.conVoz.length) {
+		useEnjambre.setState({ resumen: NO_ARRANCA["sin-voz"], error: false });
+		return { ok: false, motivo: "sin-voz", texto: NO_ARRANCA["sin-voz"] };
+	}
 
 	const desdeElChat = opciones.desdeElChat === true;
 	empezarCorrida({ desdeElChat });
@@ -545,6 +556,7 @@ export async function correrEnjambre(
 	const receta = recetaDelProyecto?.editor ?? null;
 	if (recetaDelProyecto && receta) anotar(PASOS[0].agente, "mira", `sigue la receta ${cita(recetaDelProyecto.nombre)}`);
 	let subtitulosNoSalieron = false;
+	let vozNoReconocida = false;
 
 	try {
 		for (const paso of pasos) {
@@ -552,7 +564,7 @@ export async function correrEnjambre(
 			useEnjambre.setState({ paso: paso.id });
 			fijarAgente(paso.agente, "trabajando");
 			anotar(paso.agente, "empieza", renglon(paso.titulo));
-			const ctx: Contexto = { editor, paso, agente: paso.agente, quietos, ...lugar, frases, subtitulosNoSalieron, receta };
+			const ctx: Contexto = { editor, paso, agente: paso.agente, quietos, ...lugar, frases, subtitulosNoSalieron, vozNoReconocida, receta };
 			const empezo = Date.now();
 			let como: ComoTermina;
 			try {
@@ -571,6 +583,7 @@ export async function correrEnjambre(
 				const lineasAntes = useEnjambre.getState().lineas.length;
 				como = await correrPaso(ctx, antes);
 				if (paso.id === "revision") qaMal = useEnjambre.getState().lineas.slice(lineasAntes).filter((l) => l.tipo === "qa-mal").length;
+				if (paso.id === "subtitulos" && useEnjambre.getState().lineas.slice(lineasAntes).some((l) => l.texto === MOTIVO_SUBTITULOS["sin-voz"])) vozNoReconocida = true;
 			} catch (error) {
 				console.error(`[enjambre] ${paso.id}`, error);
 				anotar(paso.agente, "falla", "algo se rompió en este paso");

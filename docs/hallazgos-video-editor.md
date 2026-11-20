@@ -6,6 +6,74 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## «No active project» al SALIR de un proyecto, no al entrar (19/11/2026, ticket 118)
+
+**Síntoma:** un ticket automático de Leila (ws 11), «La pantalla Video se rompió», con `Error: No active project` en
+`/video-editor?ver=…`. La pila de `errores_app` es `getActive` ← `saveNow` ← un temporizador.
+
+**El diagnóstico obvio era el equivocado.** Se sospechaba que al entrar con `?ver=…` algo pedía las escenas o el render antes
+de cargar el proyecto. No fue al entrar: fue al SALIR, y no se rompió nada en pantalla. Fue una promesa rechazada que nadie
+esperó. `ReportarErrores` la atrapa con `unhandledrejection`, y `tituloDeError` llama a todo error del navegador «la pantalla
+se rompió».
+
+**Causa:**
+- `closeProject` pone `active = null` y DESPUÉS llama a `scenes.clearScenes()`, que avisa a los suscriptores.
+- El `SaveManager` toma ese aviso como un cambio (`markDirty`), y 800 ms después `saveNow` llama a `project.getActive()`.
+- `getActive()` TIRA sin proyecto: el `if (!activeProject) return` que venía después nunca llegaba.
+- El `hasPendingSave` quedaba en true para siempre, y el `beforeunload` preguntaba «¿salir sin guardar?» en la lista de proyectos.
+
+Pasaba en cada salida: «Volver», la acción `volver-inicio` y la plantilla nueva desde la biblioteca. Desde el primer día del
+motor (`7a2cf1629`).
+
+**Y un daño callado:** `prepareExit` sólo guardaba si cambiaba la miniatura. Un cambio hecho menos de 800 ms antes de «Volver»
+quedaba para un guardado que llegaba con el proyecto ya cerrado, y se perdía.
+
+**La regla:**
+- En el motor, `getActive()` / `getActiveScene()` son para lo que corre CON proyecto (una acción, un comando).
+- Lo que corre por su cuenta (un temporizador, un suscriptor, un `await` largo) usa `getActiveOrNull()` /
+  `getActiveSceneOrNull()` y sale si es null.
+- Una promesa lanzada con `void` en un temporizador lleva su `.catch`: si no, cualquier fallo es un ticket de «pantalla rota».
+
+Vive en `app/video-editor/_opencut/core/managers/save-manager.ts` y `project-manager.ts` (`prepareExit`). Lo reproduce
+`tests/video-editor-guardado-al-cerrar.test.ts`.
+
+**Sin hacer:** si `prepareExit` llega con un guardado EN CURSO (`isSaving`), `flush` vuelve sin esperarlo. Ese guardado termina
+después de `closeProject` y `saveCurrentProject` vuelve a poner `this.active`, el proyecto que se acababa de cerrar. No se vio
+pasar; está en `project-manager.ts` → `saveCurrentProject`.
+
+## La edición automática con un video SIN VOZ: «no tiene nada que editar», y después lo cortó en astillas (18/11/2026, ticket 99)
+
+**Síntoma:** Leila (ws 11) subió el recorrido de una casa (un plano visto desde arriba con una mujer que camina, sin voz) y
+escribió «le subí las tomas y la instrucción y me dice que no tiene nada que editar» (14/11 21:54 UTC).
+
+**El diagnóstico obvio era el equivocado: no fue el chat.** Su hilo (`video_editor_chats`) no tiene un mensaje entre 20:20 y
+22:05, y `anthropic_usage` no tiene ni una llamada del editor en ese rato: fue el botón «Editar con MaKo» del panel
+«Edición automática», que corre en el navegador y no deja rastro en la base. Lo que quedó: la copia del proyecto
+(`video_editor_proyectos`) tiene DOS medios con el mismo nombre, `NHT_recorrido_borrador_unido.mp4`, uno `sin_audio` (25,5 s)
+y otro con el sonido de los pasos (25,61 s).
+- **Sin audio:** cada agente mira `conVoz` (los clips de la pista principal con sonido) y los diez se saltean; el panel sólo
+  decía «Ningún agente cambió nada · 9 no tenían nada que hacer», sin el porqué ni qué hacer.
+- **Con los pasos (22:07, después del ticket):** «Quitar las pausas» busca las pausas en el audio SIN RUIDO, y RNNoise se
+  come los pasos: entre paso y paso todo es «pausa». La principal quedó en 23 pedazos de 0,15 s (25,5 s → 10,5 s), con
+  «Reducir el ruido» y −14 LUFS encima (las huellas del agente: `reducir_ruido` y `normalizado: "youtube"`).
+
+**La regla:**
+- La edición automática trabaja sobre lo que se DICE. Sin sonido en la principal no arranca y lo dice en el panel (no un toast
+  rojo), con qué hacer: pedirle al chat textos, música, velocidad o transiciones. El catálogo del chat dice lo mismo, para que
+  la IA no la elija con un video sin voz.
+- Lo que queda de una voz son FRASES; de unos pasos, una música o un ambiente, golpes sueltos. «Borrar silencios» (el botón, el
+  chat y el agente) no corta si la mitad de lo que quedaría dura menos de 0,3 s (`quedanPedacitos`, con 5 pedazos o más).
+  Medido con la misma cuenta: unos pasos dejan 0,22 s; la voz más entrecortada (palabras sueltas de 0,25 s), 0,34 a 0,54 s.
+  Cada pedazo lleva 80 ms de margen a cada lado: ningún pedazo dura menos de 0,16 s.
+- Si subs-01 no reconoció una voz, «Limpiar la voz» se saltea: le sacaría al video lo que suena.
+
+**Sin hacer:** con los pasos, la edición automática igual corre (sólo deja el volumen a −14 LUFS y la revisión); no
+sabe hacer lo que Leila pedía (textos por espacio, música, acelerar los tramos). Eso lo hace el chat con su instrucción.
+
+**Vive en:** `app/video-editor/_opencut/audio/silencios-plan.ts` (`quedanPedacitos`) · `audio/borrar-silencios.ts` ·
+`enjambre/correr.ts` (`NO_ARRANCA["sin-voz"]`, `vozNoReconocida`) · `enjambre/plan.ts` · `lib/editor-video/chat-catalogo.ts` ·
+`tests/video-editor-silencios.test.ts` · `tests/video-editor-enjambre.test.ts` (22)
+
 ## Las cinco del doc, enteras: un aviso que el doc ponía encima del dato, y una oferta que dejó de ser de checkout (18/11/2026, F164)
 
 **Qué entró:** `gancho` (24 s, con la toma de apoyo, el dato y el aviso de la mediana), `testimonio` (33 s, con la toma

@@ -7,6 +7,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import { mismoGuion } from './numeros.mjs';
 
 const RAIZ = 'C:/dev/tutoriales-video';
 const PESTANAS = `${RAIZ}/pestanas-copia`;
@@ -61,7 +62,10 @@ const otras = /faltante|sobrante|repetida|de más:/i.test(chequeo);   // «de m�
 const faltas = [...chequeo.matchAll(/falta: «(.+?)»/g)].map((m) => m[1]);
 const pegadas = difs.filter(([a, b]) => faltas.some((f) => b === f + a || b === f.replace(/s$/, '') + a));
 const soloOrtografia = !/sobrante|repetida|de más:/i.test(chequeo) && faltas.every((f) => f === 'ei' || (/^d[oó]lares$/.test(f) && chequeo.includes('$')) || pegadas.some(([a, b]) => b.startsWith(f.replace(/s$/, '')))) && difs.filter((d) => !pegadas.includes(d)).every(([a, b]) => /^\d+$/.test(a) || a === b + 's' || b === a + 's' || ORTOGRAFIA.some(([x, y]) => x === a && y === b));
-const dijoBien = chequeo.includes('✅') || ((difs.length > 0 || faltas.length > 0) && soloOrtografia);
+// numbers in words in the script («tres mil dólares») and in digits from the transcriber («$3,000»): both to digits (motor/numeros.mjs)
+const oidoTexto = (chequeo.match(/transcripción: «(.*)»$/m) || [])[1] || '';
+const igualConNumeros = !!oidoTexto && mismoGuion(textoPantalla, oidoTexto, ORTOGRAFIA);
+const dijoBien = chequeo.includes('✅') || ((difs.length > 0 || faltas.length > 0) && soloOrtografia) || igualConNumeros;
 const diferencias = difs.map(([a, b]) => `${a} → ${b}`);
 paso('chequeo: ' + chequeo.split('\n').filter(Boolean).slice(0, 2).join(' · '));
 
@@ -261,6 +265,8 @@ beats.forEach((b) => {
   // the classic «letters behind the person» (the Cerebro, 18/11): on the hook and on «Eso es el…», the text is BIG and its last
   // line passes behind his head; on the close, it sits above him
   if (b.modo === 'heroe' && (rol === 'gancho' || rol === 'que-es')) b.detras = true;
+  // the hook: NOTHING of it is covered, in any frame (the Cerebro, 19/11: «la cabeza tapa el final del gancho», day 3)
+  if (b.detras && rol === 'gancho') b.gancho = true;
   // an object in his hand when the sentence is about it: a microphone for a voice note, a phone for the phone
   if (/nota de voz|grábale|audio/i.test(b.text)) { b.objeto = 'mic'; b.pose = 'sostiene'; }
   else if (/celular|teléfono/i.test(b.text) && b.modo !== 'titulo') { b.objeto = 'tel'; b.pose = 'sostiene'; }
@@ -310,7 +316,7 @@ if (modo === 'video' || modo === 'web') {                        // 'web': only 
   for (; crf <= 37; crf += 2) {
     execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', salida, '-vf', 'scale=1280:720:flags=lanczos', '-c:v', 'libx264', '-preset', 'slow', '-crf', String(crf),
       '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', web]);
-    peso = statSync(web).size; if (peso <= (g.clase ? 5 : 1.5) * 1024 * 1024) break;   // a 2-4 min class does not fit in 1,5 MB with clean text: up to 5 MB
+    peso = statSync(web).size; if (peso <= (g.pesoMaxMb ?? (g.clase ? 5 : 1.5)) * 1024 * 1024) break;   // a 2-4 min class does not fit in 1,5 MB with clean text: up to 5 MB; `pesoMaxMb` for other long ones (the reto days with their «why», 19/11: 60-95 s)
   }
   const poster = `${PUBLICO}/${id}.jpg`;
   const tPoster = (beats.find((b) => b.type !== 'app') || beats[0]); const tp = ((tPoster.s + Math.min(tPoster.e, tPoster.s + 1600)) / 2 / 1000).toFixed(2);
@@ -320,7 +326,7 @@ if (modo === 'video' || modo === 'web') {                        // 'web': only 
   man.videos.push({ key: id, pestana: g.pestana, ruta: g.ruta, archivo: `/tutoriales/${id}.mp4`, poster: `/tutoriales/${id}.jpg`, duracion_s: +dur.toFixed(2),
     peso_kb: Math.round(peso / 1024), guion: textoPantalla.replace(/Ei-Ai/g, "AI"), frases: FRASES,
     pantallas: enPantalla.map((i) => ({ paso: i + 1, sel: g.pasos[i].sel || null, marcado: !!rects[i] })),
-    ...(g.soloPro ? { solo_pro: true } : {}), formato: g.v4 ? 4 : 3, voz: `${VOZ.model_id} · ${VOZ.voz}`, dice_el_guion: dijoBien, chequeo: diferencias.length ? diferencias.join(' · ') + (soloOrtografia ? ' (ortografía del transcriptor)' : '') : 'idéntico',
+    ...(g.soloPro ? { solo_pro: true } : {}), formato: g.v4 ? 4 : 3, voz: `${VOZ.model_id} · ${VOZ.voz}`, dice_el_guion: dijoBien, chequeo: diferencias.length || faltas.length ? diferencias.concat(faltas.map((f) => `falta ${f}`)).join(' · ') + (soloOrtografia || igualConNumeros ? ' (ortografía del transcriptor)' : '') : 'idéntico',
     hecho: new Date().toISOString() });
   man.videos.sort((a, b) => (todos.findIndex((x) => x.id === a.key) - todos.findIndex((x) => x.id === b.key)));
   writeFileSync(MANIFIESTO_PUB, JSON.stringify(man, null, 1));

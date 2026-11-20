@@ -98,7 +98,9 @@ export const TABLAS_DE_INQUILINO = [
   // lib/ia-pc.ts con el service role.
   'ia_pc_codigos', 'ia_pc_dispositivos', 'ia_pc_turnos',
   'identidades_fiscales',
-  'ig_conversaciones', 'ig_mensajes', 'image_disenos', 'image_editor_chats', 'image_subidos', 'insistencias', 'kpi_registros', 'kpis',
+  'ig_conversaciones', 'ig_mensajes', 'image_disenos', 'image_editor_chats', 'image_subidos', 'insistencias',
+  // Inspiración (mig 0422, 19/11/2026): las carpetas del negocio y los links de Instagram que guardó (docs/inspiracion/diseno.md).
+  'inspiracion_carpetas', 'inspiracion_piezas', 'kpi_registros', 'kpis',
   'landing_analyses', 'landing_doc_comentarios', 'landing_doc_versiones', 'landing_docs', 'landing_drafts', 'landing_sugerencias', 'landing_visits', 'lead_audit',
   'lead_formularios', 'lead_funnel', 'lead_insights', 'lead_magnets', 'lead_orden', 'lead_respuestas', 'leads',
   // La papelera del CRM (mig 0340). ⚠️ La 0340 va ANTES del deploy: el reset del cliente de prueba borra de acá y una tabla

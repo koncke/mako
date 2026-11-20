@@ -23,13 +23,14 @@ import { borrarSettingSi, cambiarSettingSi, getSettingEstricto } from '@/lib/set
 import { getContactoReportes, getPerfil, setContactoReportes } from '@/lib/perfil';
 import { setDiagnosticoFase } from '@/lib/fase-store';
 import { asegurarGrupoMaKo, estadoVerificacionEntrante, getGrupoJidMaKo, pedirMensajeDeVerificacion, verificarCodigoContacto } from '@/lib/mako-grupo';
+import { pedirConfirmacionV2, reenviarCodigoV2, verificarCodigoV2 } from '@/lib/mako-grupo';
 import { leerSesion } from '@/lib/offer-sesiones';
 import { idDelFunnelDefault } from '@/lib/funnels';
 import { estaImpersonando } from '@/lib/workspace';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
 import { AVISOS_SIN_SOPORTE } from '@/lib/avisos-telefono-reglas';
-import { CODIGO_CARGADO, MENSAJE_MANDADO, etapaDeArranque, funnelDelArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
+import { CODIGO_CARGADO, MENSAJE_MANDADO, etapaDeArranque, funnelDelArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, primerNombre, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
 import { loQueContesto } from '@/lib/onboarding-historial';
 import {
   FaltaParaCerrar, anotarRespuesta, asegurarFunnelPrincipal, hechosConfirmados, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
@@ -90,7 +91,10 @@ export async function POST(req: NextRequest) {
       telefono: digitos,
     });
     // Sin el negocio todavía (el WhatsApp va primero): vacío, y el grupo nace con el nombre del workspace (`verificarCodigoContacto`).
-    const r = await pedirMensajeDeVerificacion(g.ws, digitos, e.negocio || '');
+    // En el V2 (19/11/2026) MaKo le CONTESTA con el código en el chat privado y no hay grupo: el nombre es el de la persona, para el saludo.
+    const r = h.v2
+      ? await pedirConfirmacionV2(g.ws, digitos, e.nombre ? primerNombre(e.nombre) : '')
+      : await pedirMensajeDeVerificacion(g.ws, digitos, e.negocio || '');
     if (!r.ok) return no(422, r.error);
     await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}`, telefonoEntrante: r.yaVerificado ? undefined : true });
     await anotarRespuesta(e, h, `+${digitos}`, confirmado);
@@ -123,6 +127,14 @@ export async function POST(req: NextRequest) {
         const freno = await frenoDeArranque({ req, ws: g.ws, usuario: usuarioGuardia, texto: opcion === undefined ? texto : undefined });
         if (freno) return NextResponse.json({ ok: false, error: freno.error, ...(freno.bloqueado ? { bloqueado: true } : {}), vista: await vistaArranque() }, { status: freno.status });
 
+        // EL CÓDIGO DEL V2 (19/11/2026): el que MaKo le contestó por WhatsApp, pegado aquí. Sin grupo (lib/mako-grupo.ts → verificarCodigoV2).
+        if (h.v2 && etapa === 'codigo' && texto && /\d/.test(texto)) {
+          const r = await verificarCodigoV2(g.ws, texto);
+          if (!r.ok) return no(422, r.error);
+          await guardarEstadoArranque({ telefono: 'verificado' });
+          await anotarRespuesta(e, h, CODIGO_CARGADO, confirmado);
+          return listo();
+        }
         // El código del WhatsApp: se verifica contra lo que MaKo mandó (lib/mako-grupo.ts).
         if (etapa === 'codigo' && texto && /^\D*\d{6}\D*$/.test(texto)) {
           const r = await verificarCodigoContacto(g.ws, texto.replace(/\D/g, ''));
@@ -137,7 +149,9 @@ export async function POST(req: NextRequest) {
         const escrito = etapa === 'telefono' && opcion === undefined && texto ? telefonoEscrito(texto) : null;
         if (escrito) return await pedirCodigo(e, h, confirmado, escrito);
 
-        const lectura = leerRespuesta(e, h, { texto, opcion, opcionTexto, pregunta });
+        // Las varias elegidas de una vez (V2: «qué resolver primero», hasta 3).
+        const opciones = Array.isArray(body.opciones) ? body.opciones.filter((o): o is string => typeof o === 'string').slice(0, 12) : undefined;
+        const lectura = leerRespuesta(e, h, { texto, opcion, opcionTexto, pregunta, opciones });
         // La pregunta cambió (una pestaña vieja): no se anota nada y vuelve la conversación de HOY.
         if (!lectura.ok && lectura.cambio) return NextResponse.json({ ok: false, error: lectura.error, vista: await vistaArranque() }, { status: 409 });
         if (!lectura.ok) return no(422, lectura.error);
@@ -202,7 +216,9 @@ export async function POST(req: NextRequest) {
         const confirmado = await hechosConfirmados(h);
         // «Pedir otro» desde la tarjeta del mensaje (venció, o no se pudo armar): otro código para el mismo número, sin anotar otra respuesta.
         if (etapaDeArranque(e, h) === 'codigo' && e.telefonoEntrante && e.telefonoNumero) {
-          const r = await pedirMensajeDeVerificacion(g.ws, e.telefonoNumero.replace(/\D/g, ''), e.negocio || '');
+          const r = h.v2
+            ? await pedirConfirmacionV2(g.ws, e.telefonoNumero.replace(/\D/g, ''), e.nombre ? primerNombre(e.nombre) : '')
+            : await pedirMensajeDeVerificacion(g.ws, e.telefonoNumero.replace(/\D/g, ''), e.negocio || '');
           if (!r.ok) return no(422, r.error);
           if (r.yaVerificado) await guardarEstadoArranque({ telefono: 'verificado' });
           return listo();
@@ -212,6 +228,22 @@ export async function POST(req: NextRequest) {
         const digitos = crudo.replace(/\D/g, '');
         if (digitos.length < 8) return no(422, 'Escribe tu número completo, con el código de país.');
         return await pedirCodigo(e, h, confirmado, digitos);
+      }
+
+      // V2 (19/11/2026), la tarjeta del código: «Reenviar el código» (MaKo se lo vuelve a mandar al chat donde ella le escribió) y
+      // «Cambiar número» (vuelve a la pregunta del WhatsApp). Sólo en la etapa del código.
+      case 'reenviar':
+      case 'cambiar-numero': {
+        const e = await estadoEstricto();
+        const h = await hechosDelArranque(e);
+        if (!h.v2 || etapaDeArranque(e, h) !== 'codigo') return no(409, 'Ahora no estoy esperando tu código.');
+        if (body.action === 'cambiar-numero') {
+          await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoEntrante: undefined });
+          return listo();
+        }
+        const r = await reenviarCodigoV2(g.ws);
+        if (!r.ok) return no(422, r.error);
+        return listo({ aviso: 'Te lo volví a mandar por WhatsApp.' });
       }
 
       // ¿Ya llegó su mensaje por WhatsApp? Lo confirma el webhook (lib/mako-grupo.ts → confirmarPorMensajeEntrante); acá sólo

@@ -28,7 +28,7 @@ import { puerta } from '@/lib/image-editor/server';
 import { candadoIaDeEditores } from '@/lib/editores-ia-pro';
 import { rateLimit } from '@/lib/rate-limit';
 import { replicarEjemplo, type EjemploAReplicar } from '@/lib/carruseles/replica-servidor';
-import { streamDeReplica } from '@/lib/carruseles/replica-stream';
+import { hastaDeLaReplica, streamDeReplica } from '@/lib/carruseles/replica-stream';
 import { leerPedidoGuiado } from '@/lib/carruseles/guiado';
 import { esIdDeVertical } from '@/lib/thumbnails/verticales';
 import { vistaDeOtro } from '@/lib/vista-de-otro';
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   const que = body?.que === 'thumbnail' ? 'thumbnail' : 'carrusel';
   if (!vertical && (!Number.isSafeInteger(id) || id === 0 || (que === 'thumbnail' && id < 0))) return fallo(que === 'thumbnail' ? 'Falta la miniatura.' : 'Falta el carrusel.', 400);
   const ejemplo: EjemploAReplicar = vertical ? { que: 'vertical', id: String(body?.id) } : { que, id };
-  const pedido = typeof body?.pedido === 'string' ? body.pedido.slice(0, 400) : null;
+  const pedido = typeof body?.pedido === 'string' ? body.pedido.slice(0, 600) : null;
   // Lo que contestó el dueño en el guiado (lib/carruseles/guiado.ts): se lee sin creerle; la oferta se vuelve a buscar en SU base.
   // Sin oferta también se escribe (12/11/2026, «Replicar» sin preguntas): un negocio sin ofertas cargadas recibe su versión con lo
   // que se sabe de él, y la oferta se elige después. Antes: «Falta elegir la oferta.», 400.
@@ -75,8 +75,10 @@ export async function POST(req: NextRequest) {
   const vista = await vistaDeOtro().catch(() => null);
   const negocioAjeno = vista && vista.clienteWs === p.ws ? vista.clienteNombre : null;
 
+  // ⏱ La corrida termina ANTES del aviso de la ruta (ticket 119): con el plazo, lo escrito se guarda y llega su `fin` de verdad.
+  const hastaMs = hastaDeLaReplica(Date.now(), AVISO_ANTES_DEL_TOPE_MS);
   const stream = streamDeReplica(
-    (alEvento) => runWithWorkspace(p.ws, () => replicarEjemplo(p.ws, p.quien, ejemplo, { pedido, guiado, negocioAjeno, alEvento })),
+    (alEvento) => runWithWorkspace(p.ws, () => replicarEjemplo(p.ws, p.quien, ejemplo, { pedido, guiado, negocioAjeno, alEvento, hastaMs })),
     {
       plazoMs: AVISO_ANTES_DEL_TOPE_MS, minutos: Math.floor(AVISO_ANTES_DEL_TOPE_MS / 60_000), negocioAjeno,
       alFallar: (e) => console.error('[carruseles] replicar:', e instanceof Error ? e.message : e),

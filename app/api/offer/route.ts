@@ -40,6 +40,9 @@
 //                                                   volver a tocar «Guardar» lo puede arreglar)
 //   · 'renombrar'      { id, titulo }            → { sesion }
 //   · 'borrar'         { id }                    → { ok: true }  (borra también los audios)
+//   · 'coach'                                    → { sesion, opcionArmar }  (la conversación del Offer Coach del onboarding V2, por
+//                                                   negocio y en el funnel principal; la crea la primera vez. Sólo con
+//                                                   el V2: lib/onboarding-v2/offer-coach-db.ts)
 //   ('listar' de la v1 se reemplazó por 'arbol'.)
 //
 // ⚠️ GATE: `adminDeWorkspaceActual()`, NO `resolverWsAdmin` — aquél le devuelve el ws1 (de Mauricio, un
@@ -87,7 +90,7 @@ import { usuarioDeUrlInstagram } from '@/lib/instagram-buscar';
 import { noPudeLeerInstagram, textoDelPerfil } from '@/lib/instagram-perfil';
 import { leerPerfilInstagram } from '@/lib/instagram-perfil-server';
 import { esZip, textoDeZip } from '@/lib/offer-zip';
-import { leerFunnels } from '@/lib/funnels';
+import { idDelFunnelDefault, leerFunnels } from '@/lib/funnels';
 import { sanearFunnelIds } from '@/lib/funnels-elegidos';
 import { listarOfertas } from '@/lib/ofertas';
 import { guardarFaseSiNoHay } from '@/lib/fase-store';
@@ -98,7 +101,7 @@ import {
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
   canalQueDijo, conCobroDelPrecio, conCanalDeLaOferta, conLoQueDijoElDueno, fundirPiezasDelTurno, preguntaPorOtrasOfertas, estadoDeLaOferta, faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
-  MAX_DOCS_LOTE, leyendoParaVista, mensajeLeyendo, resumenDelLote, credencialEnLaUrl, PIDE_ACCESO, sinResumirDeOffer,
+  MAX_DOCS_LOTE, leyendoParaVista, mensajeLeyendo, resumenDelLote, credencialEnLaUrl, PIDE_ACCESO, sinResumirDeOffer, OPCION_ARMAR,
   type AudioGuardado, type DocumentoGuardado, type MensajeGuardado, type PlanDiagnostico,
 } from '@/lib/offer-reglas';
 import { getSetting } from '@/lib/settings';
@@ -113,6 +116,9 @@ import { contextoDeReferente } from '@/lib/asesores/contexto';
 // El candado de los referentes (14/11/2026): aconsejar con la ficha de un gurú es de MaKo Pro, también desde Offer.
 import { candadoDeReferentesDe } from '@/lib/asesores/candado';
 import { leerReferente } from '@/lib/funnel-plan-db';
+import { referenteDelOfferCoachV2 } from '@/lib/asesores/catalogo';
+import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
+import { guardarSesionDelOfferCoach, sesionDelOfferCoach } from '@/lib/onboarding-v2/offer-coach-db';
 import {
   ConflictoCAS, ErrorOffer, TITULO_DEFAULT, actualizarSesion, arbolOffer, audiosDe, borrarSesion, crearSesion, guardarComoOferta,
   leerFila, nombreNegocioOffer, sesionVaciaDe, vistaSesion, type FilaOffer,
@@ -264,6 +270,9 @@ export async function POST(req: NextRequest) {
         case 'nueva':
           return await nueva(body);
 
+        case 'coach':
+          return await delOfferCoach(ws);
+
         case 'subir-url': {
           const nombre = cadena(body.nombre).slice(0, 200);
           const mime = cadena(body.mime);
@@ -391,6 +400,34 @@ async function nueva(body: Record<string, unknown>): Promise<Response> {
   const ctx = await contextoOffer({ funnelId, ofertaBaseId });
   const fila = await sesionNueva(ctx, [], { funnelId, ofertaBaseId });
   return ok({ sesion: await vistaSesion(fila) });
+}
+
+/** ¿Quien pide, en este negocio, tiene los dos coaches del onboarding V2? Sin la sesión, no: nunca se prende por un error. */
+async function conDosCoaches(ws: number): Promise<boolean> {
+  const usuario = await getUsuarioActual().catch(() => null);
+  return !!usuario && veOnboardingV2({ email: usuario.email, ws });
+}
+
+/**
+ * 'coach' → { sesion }: LA CONVERSACIÓN DEL OFFER COACH DEL ONBOARDING V2 (19/11/2026; Martín: «Offer Coach = el motor de Offer»).
+ * La guardada, si sigue existiendo; si no, una en el funnel principal (la vacía de ese funnel, si la hay, como 'nueva'), y queda
+ * guardada como la del Offer Coach. El funnel principal se asegura como en el onboarding (todo negocio nuevo lo trae de fábrica).
+ * Sin el V2, 404: lo decide el servidor, no la pantalla (lib/onboarding-v2/revision.ts).
+ */
+async function delOfferCoach(ws: number): Promise<Response> {
+  if (!(await conDosCoaches(ws))) return no(404, 'Esto no está disponible en tu cuenta.');
+  // Con el texto de «Armar mi oferta»: el Ops Center lo reconoce al tocarlo y arma, como la tab (no lo manda como un mensaje).
+  const guardada = await sesionDelOfferCoach();
+  const fila = guardada ? await leerFila(guardada) : null;
+  if (fila) return ok({ sesion: await vistaSesion(fila), opcionArmar: OPCION_ARMAR });
+  // Import dinámico: el arranque trae el QR y el CRM, que el resto de Offer no necesita.
+  const { asegurarFunnelPrincipal } = await import('@/lib/onboarding-arranque-server');
+  await asegurarFunnelPrincipal().catch((e) => console.warn('[offer:coach] no pude asegurar el funnel principal:', msg(e)));
+  const funnelId = await idDelFunnelDefault().catch(() => null);
+  if (funnelId == null) return no(409, 'No encontré tu funnel principal. Crea uno en el CRM y vuelve a intentarlo.');
+  const nueva = (await sesionVaciaDe(funnelId, null)) ?? await sesionNueva(await contextoOffer({ funnelId }), [], { funnelId, ofertaBaseId: null });
+  await guardarSesionDelOfferCoach(nueva.id);
+  return ok({ sesion: await vistaSesion(nueva), opcionArmar: OPCION_ARMAR });
 }
 
 // ── leer / leer-link ─────────────────────────────────────────────────────────
@@ -934,7 +971,11 @@ async function reintentarTurno(body: Record<string, unknown>, inicio: number): P
  *  tramos de su curso que hablan de lo último que dijo el dueño. Es el MISMO referente que el del chat del coach: las conversaciones
  *  de oferta cuelgan de él en el Ops Center, y no pueden aconsejar con otro. */
 async function referenteDelOfferCoach(mensajes: MensajeGuardado[]): Promise<string> {
-  const id = await leerReferente();
+  const elegido = await leerReferente();
+  // Con el onboarding V2 (19/11/2026), el del OFFER COACH: el de oferta que eligió o Hormozi de fábrica (lib/asesores/catalogo.ts), la
+  // misma cara que tiene su chat. Uno de anuncios (Juan ADS) es del Funnel Coach y no aconseja la oferta.
+  const wsV2 = await getWorkspaceActual().catch(() => null);
+  const id = wsV2 != null && (await conDosCoaches(wsV2)) ? referenteDelOfferCoachV2(elegido) : elegido;
   if (!id) return '';
   // ⛔ SÓLO MaKo Pro EL REFERENTE, NO LA TAB OFFER (14/11/2026, lib/asesores/candado.ts, `FUNCIONES_SOLO_PRO` → 'chat-referentes').
   // Cada conversación de Offer corría con la MISMA ficha que el chat del gurú (`contextoDeReferente`, 5.200 caracteres en cada

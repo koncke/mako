@@ -18,6 +18,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { RUTA_LINEA_MAKO } from '@/lib/chats-links';
 
 type Alerta = { tipo: 'caida' | 'sin_confirmar'; instancia: string; desde: string | null; status: number };
 
@@ -128,7 +129,7 @@ export function AlertaVozMaKo() {
           {roja ? 'Reconéctala desde el panel de la línea' : 'Estado en el panel de la línea'}
         </span>
       ) : (
-        <a href="/agencia?canal=1" style={{
+        <a href={RUTA_LINEA_MAKO} style={{
           flex: 'none', padding: '10px 18px', borderRadius: 10, background: '#fff', color: fondo,
           fontWeight: 700, fontSize: 14, textDecoration: 'none',
         }}>

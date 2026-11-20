@@ -60,7 +60,8 @@ export async function leerCreditoApi(ahora = Date.now()): Promise<LecturaCredito
     gastos = null;
   }
 
-  const filas = resumenCredito({ vinculadas, gastos, wsConClave, ahora });
+  // `wsPlataforma`: lo suyo no cuenta como un cliente que usó el crédito (`clientes`, 19/11/2026; sólo números, los nombres los lee el vigía).
+  const filas = resumenCredito({ vinculadas, gastos, wsConClave, ahora, wsPlataforma: ws });
   // Los negocios con un crédito asignado (el ws1): su interruptor y lo que llevan gastado de él en el ciclo de la cuenta.
   const asignados: AsignadoCredito[] = [];
   for (const a of CREDITO_DE_UN_NEGOCIO) {

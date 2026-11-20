@@ -25,6 +25,7 @@ import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { REGISTRO } from '../lib/api-mako/registro';
 import { RUTAS_REST } from '../lib/api-mako/rest';
+import { DEFS_AL_FINAL } from '../lib/api-mako/areas/contenido.def';
 
 const RAIZ = join(__dirname, '..');
 type Escena = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -57,7 +58,11 @@ test('1. las tres están declaradas con lo que decide su riesgo, al final de su 
     assert.equal(d.lenta, true, `${id} espera a un modelo: es lenta`);
     assert.equal((d.gating as { rolMinimo?: string }).rolMinimo, 'admin', `${id} es de admin`);
     const delArea = REGISTRO.filter((x) => x.area === area).map((x) => x.id);
-    assert.ok(delArea.indexOf(id) >= delArea.length - 2, `${id} va al final de su área (el orden decide el presupuesto del chat)`);
+    // «Al final» = detrás de todo lo de ANTES: lo único que puede seguirle es lo que se declaró DESPUÉS, en el orden de
+    // DEFS_AL_FINAL (19/11/2026: Inspiración, que por la misma regla va detrás de éstas y no les saca el lugar).
+    const despues = area === 'contenido' ? DEFS_AL_FINAL.slice(DEFS_AL_FINAL.findIndex((x) => x.id === id) + 1).map((x) => x.id) : [];
+    if (area === 'contenido') assert.deepEqual(delArea.slice(delArea.indexOf(id) + 1), despues, `${id} va al final de su área (el orden decide el presupuesto del chat)`);
+    else assert.ok(delArea.indexOf(id) >= delArea.length - 2, `${id} va al final de su área (el orden decide el presupuesto del chat)`);
   }
   // Cargar: por la app ya está `cargar_guion_propio` (la acción del botón); ésta es WhatsApp y HTTP, sobre la MISMA función.
   assert.deepEqual([...(def('cargar_guiones_anuncio').canales as string[])].sort(), ['http', 'whatsapp']);

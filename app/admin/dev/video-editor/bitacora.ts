@@ -883,4 +883,38 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '18 nov', hora: '23:50', chat: 'Ticket 99: la edición automática con un video sin voz', sesion: 'local_0168298b-4989-4026-b103-56c2d2765a99', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La edición automática con un video sin voz: dice por qué y no lo rompe (ticket #99, Leila)',
+    puntos: [
+      'Leila subió el recorrido de una casa, sin voz, y la edición automática le dijo que ningún agente tenía nada que hacer, sin decir por qué. Ahora, si el video no tiene sonido, no arranca: dice que trabaja sobre lo que se dice y que, para un video sin voz, le pida al chat lo que quiere (textos, música, velocidad, transiciones).',
+      'Con el sonido de los pasos, «Quitar las pausas» lo había cortado en 23 pedacitos de un quinto de segundo. Ahora, si lo que quedaría son pedacitos y no frases, no se corta (también con el botón «Borrar silencios» y desde el chat), y «Limpiar la voz» no le saca los pasos a un video donde no se reconoció una voz.',
+      'El chat ya no elige la edición automática para un video sin voz: hace lo que se le pidió con las demás herramientas.',
+      'Medido con unos pasos sintéticos (quedaban 22 pedazos de 0,22 s) y con la voz más entrecortada (pedazos de 0,34 a 0,54 s, que se siguen cortando).',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/audio/silencios-plan.ts · borrar-silencios.ts · silencios-aviso.ts — no cortar en pedacitos lo que no es una voz',
+      'app/video-editor/_opencut/enjambre/correr.ts · plan.ts · components/enjambre-view.tsx — no arrancar sin sonido, y no «limpiar la voz» sin voz',
+      'app/video-editor/_opencut/chat/aplicar.ts · lib/editor-video/chat-catalogo.ts · docs/api-mako.md — lo que dice el chat y cuándo elige la edición automática',
+      'tests/video-editor-silencios.test.ts · video-editor-enjambre.test.ts',
+    ],
+    revisar: '/video-editor',
+    tickets: [99],
+  },
+  {
+    fecha: '19 nov', hora: '13:10', chat: 'Ticket 118: el error al salir de un proyecto', sesion: 'local_0168298b-4989-4026-b103-56c2d2765a99', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Salir de un proyecto ya no deja un error escondido ni el aviso de «cambios sin guardar» (ticket #118, Leila)',
+    puntos: [
+      'A Leila le apareció «No active project» al volver de un proyecto a la lista. No se le rompió la pantalla: el guardado automático se disparaba un instante después de cerrar el proyecto y lo buscaba cuando ya no estaba. Pasaba cada vez que alguien salía de un proyecto.',
+      'Ahora, sin proyecto abierto, el guardado no tiene nada que hacer y no falla. La lista de proyectos tampoco pregunta «¿salir sin guardar?» cuando no hay nada sin guardar.',
+      'El último cambio antes de «Volver» se guarda ANTES de cerrar el proyecto. Antes, un cambio hecho menos de un segundo antes de salir podía perderse.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/core/managers/save-manager.ts — sin proyecto, el guardado no falla ni queda pendiente',
+      'app/video-editor/_opencut/core/managers/project-manager.ts — al salir, guarda lo que esperaba su guardado',
+      'tests/video-editor-guardado-al-cerrar.test.ts',
+    ],
+    revisar: '/video-editor',
+    tickets: [118],
+  },
 ];

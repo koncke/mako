@@ -15,6 +15,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { avisoDeMora, deudaDe, pagarDeuda } from '@/lib/plan-deuda';
 import { reactivarPlan } from '@/lib/compra-plan';
 import { paisDelVisitante } from '@/lib/compra-plan-reglas';
+import { pruebaSinCobroDe } from '@/lib/cuenta-sin-cobro';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -29,14 +30,25 @@ async function wsDelAdmin(): Promise<{ ws: number; email: string; nombre: string
 export async function GET() {
   const a = await wsDelAdmin();
   // Lo pide el aviso de la esquina en cada carga: UNA lectura de la vigencia (la mora), nada más.
-  if (!a) return Response.json({ mora: null });
-  return Response.json({ mora: await avisoDeMora(a.ws).catch(() => null) });
+  if (!a) return Response.json({ mora: null, prueba: null });
+  // Y la prueba del negocio cargado a mano al que Martín le apagó «Habilitado sin cobro» (19/11/2026, lib/cuenta-sin-cobro.ts): un ajuste leído; los
+  // cobros, sólo si está apagado.
+  const [mora, prueba] = await Promise.all([avisoDeMora(a.ws).catch(() => null), pruebaSinCobroDe(a.ws).catch(() => null)]);
+  return Response.json({ mora, prueba });
 }
 
 export async function POST(req: NextRequest) {
   const a = await wsDelAdmin();
   if (!a) return Response.json({ error: 'Sólo el admin del negocio paga su plan.' }, { status: 403 });
   const body = (await req.json().catch(() => ({}))) as { accion?: string };
+  // «Elegir mi plan» durante la prueba (19/11/2026): su plan, con la tarjeta ahora y el primer cobro el día que termina (donde la pasarela lo deja).
+  if (body.accion === 'prueba') {
+    const prueba = await pruebaSinCobroDe(a.ws).catch(() => null);
+    if (!prueba) return Response.json({ error: 'Tu prueba ya no está en curso: activa tu plan desde «Tu plan».' }, { status: 409 });
+    if (!a.email) return Response.json({ error: 'Tu sesión no tiene email.' }, { status: 400 });
+    const r = await reactivarPlan(a.ws, { email: a.email, nombre: a.nombre, pais: paisDelVisitante(req.headers.get('x-vercel-ip-country')) }, { inicioAt: prueba.hasta });
+    return r.ok ? Response.json({ url: r.link }) : Response.json({ error: r.error }, { status: r.status });
+  }
   if (body.accion === 'deuda') {
     const r = await pagarDeuda(a.ws, { crear: true });
     if (r.tipo === 'link' && r.url) return Response.json({ url: r.url });

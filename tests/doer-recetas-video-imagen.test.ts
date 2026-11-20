@@ -82,7 +82,9 @@ test('toda operación de video o imagen del registro está en un grupo (o es una
     // Las plantillas de venta de AI Avatar (6/11/2026): una lista de formas de negocios ficticios, como listar_plantillas_video.
     'ver_plantillas_avatar',
     // Las miniaturas de YouTube de ejemplo (6/11/2026, la tab Thumbnails): una lista de la biblioteca, como buscar_carruseles.
-    'buscar_thumbnails']);
+    'buscar_thumbnails',
+    // Los videos del personaje en cubos (19/11/2026): una lista de lo ya hecho, como ver_avatares.
+    'ver_videos_cubos']);
   // Guardar un carrusel en las referencias (04/11/2026) no edita ningún diseño: la receta del Image Editor (qué diseño,
   // qué tamaño, los textos que son hechos) no tiene nada que decirle, y su descripción ya dice de dónde sale el id.
   // «Hacer el mío» (crear_carrusel_desde_referencia) crea con guías en cada lámina, sin textos que inventar: lo que falta
@@ -98,8 +100,10 @@ test('toda operación de video o imagen del registro está en un grupo (o es una
   // editar_ejemplo_carrusel (la IA del negocio lee el negocio; el chat sólo pasa el id).
   // «Traer tu outlier» (traer_outlier, 11/11/2026): el chat sólo pasa el link que pegó la persona; si no es de Instagram ni de
   // YouTube, o es un Short, lo dice su propio `preparar`. No toca ningún diseño: no hay receta que decirle.
+  // «Crear un video en cubos» (crear_video_cubos, 19/11/2026): no edita ningún proyecto ni diseño, crea uno nuevo con lo que
+  // trae (guion, formato, personaje y voz), y se revisa y confirma en /mako/revisar; lo que falta (el guion) lo pide su `preparar`.
   const ACCIONES_SIN_RECETA = new Set(['guardar_carrusel', 'crear_carrusel_desde_referencia', 'cambiar_biblioteca_carruseles', 'editar_ejemplo_carrusel', 'guardar_preset_subtitulos', 'borrar_preset_subtitulos',
-    'guardar_thumbnail', 'editar_ejemplo_thumbnail', 'traer_outlier']);
+    'guardar_thumbnail', 'editar_ejemplo_thumbnail', 'traer_outlier', 'crear_video_cubos']);
   const sinGrupo = REGISTRO
     .filter((d) => d.area === 'video' || d.area === 'imagen')
     .map((d) => d.id)

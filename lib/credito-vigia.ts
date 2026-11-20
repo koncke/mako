@@ -14,7 +14,7 @@
 // =============================================================================
 
 import 'server-only';
-import { CLAVE_USO_DEL_CREDITO, PREFIJO_AVISO_DEL_CREDITO, avisosDelCredito, type AvisoDelCredito } from './credito-api';
+import { CLAVE_USO_DEL_CREDITO, PREFIJO_AVISO_DEL_CREDITO, avisosDelCredito, type AvisoDelCredito, type FilaCredito } from './credito-api';
 import { leerCreditoApi } from './credito-api-db';
 import { borrarSettingSi, cambiarSettingSi, getSettingsConPrefijo, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
@@ -32,12 +32,32 @@ export type CorridaDelVigia = {
 async function mandar(a: AvisoDelCredito, ws: number): Promise<boolean> {
   const { enviarAlGrupoSuperAdmin } = await import('./mako-grupo');
   const { crearNotificacion } = await import('./notificaciones');
-  const grupo = await enviarAlGrupoSuperAdmin(`Crédito de Claude · ${a.texto}`).then((r) => r.ok, (e) => { console.error(`[credito-vigia] no salió al grupo: ${msg(e)}`); return false; });
+  // El texto ya dice de qué se trata («Se terminó el crédito de Claude de la cuenta…», 19/11/2026): sin el prefijo de antes.
+  const grupo = await enviarAlGrupoSuperAdmin(a.texto).then((r) => r.ok, (e) => { console.error(`[credito-vigia] no salió al grupo: ${msg(e)}`); return false; });
   const campanita = await crearNotificacion({
     ws, tipo: 'credito-claude', severidad: a.nivel === '80' ? 'warn' : 'urgente', titulo: a.nivel === '80' ? 'El crédito de Claude se está acabando' : a.nivel === '100' ? 'Se acabó el crédito de Claude de una cuenta' : 'No pude leer el gasto del crédito de Claude',
-    descripcion: a.texto.slice(0, 280), link: '/admin/operaciones', entityType: 'credito-claude', entityId: a.cuenta, payload: { nivel: a.nivel }, origen: 'sistema:credito-claude',
+    descripcion: a.texto.replace(/\n· /g, ' ').slice(0, 280), link: '/admin/operaciones', entityType: 'credito-claude', entityId: a.cuenta, payload: { nivel: a.nivel }, origen: 'sistema:credito-claude',
   }).then((id) => id != null, () => false);
   return grupo || campanita;
+}
+
+/**
+ * El nombre de los negocios que usaron el crédito, para el aviso de «se quedan sin Claude» (19/11/2026). Va acá y no en la lectura del
+ * Uso (lib/credito-api-db.ts), que le devuelve a la pantalla sólo números (tests/credito-api.test.ts, el 6). Si no se puede leer, sin
+ * nombres: el aviso dice «el negocio N».
+ */
+async function nombresDeLosClientes(filas: readonly FilaCredito[]): Promise<Record<number, string>> {
+  const ids = [...new Set(filas.flatMap((f) => f.clientes ?? []))];
+  const nombres: Record<number, string> = {};
+  if (!ids.length) return nombres;
+  try {
+    const { getSupabaseServer } = await import('./supabase');
+    const { data } = await getSupabaseServer().from('workspaces').select('id, nombre').in('id', ids);
+    for (const w of (data ?? []) as Array<{ id: number; nombre: string | null }>) if (w.nombre) nombres[Number(w.id)] = w.nombre;
+  } catch (e) {
+    console.warn(`[credito-vigia] no pude leer los nombres de los clientes: ${msg(e)}`);
+  }
+  return nombres;
 }
 
 export async function vigilarCreditoClaude(ahora = Date.now()): Promise<CorridaDelVigia> {
@@ -47,7 +67,7 @@ export async function vigilarCreditoClaude(ahora = Date.now()): Promise<CorridaD
     const ws = await wsSuperAdmin();
     return await runWithWorkspace(ws, async () => {
       const ya = new Set((await getSettingsConPrefijo(PREFIJO_AVISO_DEL_CREDITO)).keys());
-      const { avisos, uso, completo } = avisosDelCredito(lectura.filas, ya, ahora);
+      const { avisos, uso, completo } = avisosDelCredito(lectura.filas, ya, ahora, undefined, await nombresDeLosClientes(lectura.filas));
       // Con el % de alguna cuenta sin saber, NO se guarda: queda el último completo, que vence solo a las 2 h (`leerUsoDelCredito`).
       // Guardarlo con huecos y la hora de ahora borraba el % de la cuenta que iba al 95%, y la plataforma volvía a usarla.
       if (completo) await setSetting(CLAVE_USO_DEL_CREDITO, JSON.stringify({ at: new Date(ahora).toISOString(), cuentas: uso }));

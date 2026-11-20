@@ -5580,3 +5580,24 @@ acento, nunca un cuadro gris»): en producción salió exactamente un cuadro gri
 `#F2B01E`), que es lo que usa el «OUTLIER» marcado. **Regla:** para «un fondo con color» se mira el VALOR del token en
 app/globals.css, no su nombre; para una superficie neutra que no se vea vacía, se dibuja algo adentro (ahí, la página con su
 titular), no se tiñe.
+
+
+## Un `<aside>` que no es la barra se estira con la barra del super admin; la presentación de los tutoriales ya no existe (19/11/2026)
+
+**Vive en:** `app/globals.css` (la regla `[data-barra-agencia] aside`) · `app/_ui/tutorial/MotorTutorial.tsx` ·
+`app/_ui/tutorial/barra-oculta.ts` · `app/_ui/ui.css` · `tests/tutorial-sin-presentacion.test.ts`.
+
+- **«Fíjate lo horrible que se ve el video, como si fuera una columna larguísima» (Martín, 19/11).** Lo obvio era el CSS del video
+  (el alto, el `aspect-ratio`). No: el video del costado del tutorial era un `<aside>`, y la regla global de la barra del super admin,
+  `[data-barra-agencia] aside { top: …; height: calc(100vh - …) !important }`, estira TODO `<aside>`, no sólo la barra lateral. Medido
+  con el CSS real a 1440: 206 px de alto como `<div>`, 850 px como `<aside>`. **Sólo lo ve quien tiene la barra del super admin**
+  (Martín, Leandro): el cliente no, y por eso parece que «anda bien». **Regla: lo que flota (videos, tarjetas, avisos) no es un
+  `<aside>`**; va `<div role="complementary">`. El test 2 fija la regla global: si cambia, se revisa.
+- **La presentación de los tutoriales («Cómo funciona X», «Omitir recorrido», «Empezar») se sacó de raíz** (Martín: «no lo quiero ver
+  nunca más en ningún lugar de ninguna tab»). Con frases, el video arranca apenas está; sin ellas, el primer paso a los 1,5 s. Para
+  saltearlo se cierra el video del costado (`fin('omitido')`). El test 1 lo fija para el motor y para cualquier `Cómo funciona ${…}` de
+  `app/`.
+- **La barra lateral, oculta desde «Entrar a MaKo» hasta el paso que la presenta.** Un atributo en `<html>` (`data-barra-oculta`)
+  sobrevive a la navegación de adentro de la app; al recargar no está. **La trampa: si el tutorial no arranca, la barra quedaría
+  escondida para siempre.** Por eso tiene tres salidas: el paso que marca `aside[data-sidebar]` (y la frase del video que lo presenta,
+  ANTES de buscarlo: escondido no se encuentra), el final del tutorial, y 9 s sin ningún tutorial.

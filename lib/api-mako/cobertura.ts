@@ -26,8 +26,14 @@ export const CUBIERTAS: Readonly<Record<string, readonly string[]>> = {
   'app/admin/cobros/recibos-actions.ts#reenviarReciboAction': ['reenviar_recibo'],
   'app/admin/operaciones/acciones.ts#desconectarComputadoraAction': ['desconectar_computadora'],
   'app/agency/actions.ts#marcarEntradaPagadaAction': ['marcar_entrada_pagada'],
+  'app/ai-avatar/cubos/actions.ts#inicioCubosAction': ['ver_videos_cubos'],
+  'app/ai-avatar/cubos/actions.ts#crearVideoCubosAction': ['crear_video_cubos'],
   'app/calendario/actions.ts#crearEventoGoogleAction': ['crear_evento_google'],
   'app/competitor-spy/actions.ts#sumarSugeridoAction': ['sumar_sugerido'],
+  'app/copywriter/inspiracion/acciones.ts#leerInspiracionAction': ['listar_inspiracion'],
+  'app/copywriter/inspiracion/acciones.ts#decidirInspiracionAction': ['ordenar_inspiracion'],
+  'app/copywriter/inspiracion/acciones.ts#volverInspiracionAction': ['ordenar_inspiracion'],
+  'app/copywriter/inspiracion/acciones.ts#borrarInspiracionAction': ['borrar_inspiracion'],
   'app/configuraciones/plan/actions.ts#empezarPlanYaAction': ['empezar_mi_plan_ya'],
   'app/creaciones/actions.ts#listarCreacionesAction': ['listar_creaciones'],
   'app/creaciones/actions.ts#verCreacionAction': ['ver_creacion'],
@@ -98,6 +104,13 @@ export const EXCEPCIONES: Readonly<Record<string, string>> = {
   // Si un negocio se cobra o no: lo decide Martín al tocar el interruptor, en pantalla; por el chat o la API un texto malicioso podría dejar de cobrarle a un negocio.
   'app/admin/_polar/datos/sin-cobro-actions.ts#ponerSinCobroAction': 'decide si un negocio se cobra (habilitado sin cobro): sólo el super admin, en pantalla; el código no cambia ninguna cuenta solo',
   'app/admin/cobros/actions.ts#guardarPagoDirectoAction': 'cambia a dónde le paga el público (alias, CVU, Binance): por el chat o la API sería un vector de fraude; sólo el super admin, en pantalla',
+  // El personaje en cubos de AI Avatar (19/11/2026, docs/editor-video/ai-avatar-por-codigo.md). Leer y crear tienen su operación
+  // (ver_videos_cubos, crear_video_cubos, arriba en CUBIERTAS). Lo de acá son los PASOS de la pantalla, que por la API se
+  // resuelven adentro de crear_video_cubos; y el MP4 se arma en el navegador de la persona («Descargar MP4»), sin acción del servidor.
+  'app/ai-avatar/cubos/actions.ts#guionCubosAction': 'el guion lo escribe el propio chat de MaKo: por la API se pasa ya escrito a crear_video_cubos',
+  'app/ai-avatar/cubos/actions.ts#personajeDesdeFotoAction': 'leer la foto es un paso de la pantalla: por la API el personaje se pasa por partes a crear_video_cubos',
+  'app/ai-avatar/cubos/actions.ts#cambiarCubosAction': 'retocar el personaje o el formato de un video ya hecho es de la pantalla del estudio; por la API se crea otro con crear_video_cubos',
+  'app/ai-avatar/cubos/actions.ts#borrarCubosAction': 'borrar un video (y su voz, que no se recupera) se hace en la pantalla del estudio, con su confirmación',
 };
 
 /**

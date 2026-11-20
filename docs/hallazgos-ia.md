@@ -8214,3 +8214,46 @@ habilitarla es decisión de Martín: habilitarla es volver a prestarle IA a un c
   pega (2.749 leídos): mejorar la caché del turno rinde más que elegir el modelo.
 - **Lo que quedó SIN hacer:** la caché del turno del grupo lee poco (lib/anthropic.ts marca el system y las herramientas; el
   historial cambia en cada turno). Es lo que más pesaría si el volumen sube.
+
+### El crédito de Claude se terminó en las dos cuentas el mismo día y MaKo sólo había gastado US$6 (19/11/2026)
+
+**Vive en:** `lib/credito-api.ts` (`avisosDelCredito`, el texto) · `lib/credito-vigia.ts` (lo manda) · `lib/credito-negocio.ts` (el
+reparto) · `lib/mako-doer-in.ts` (`claudeDelGrupo`, el turno del grupo)
+
+- **El síntoma:** a las 21:11 UTC, dos avisos al grupo de SuperAdmin («claude1: Anthropic contestó «sin crédito» (US$6 de 200 (3%),
+  según lo que registró MaKo). Se saltea hasta el próximo ciclo y MaKo sigue con las otras cuentas.», y otro igual con claude2).
+  Martín: «no entiendo lo que me quiere decir».
+- **Lo medido en producción:** MaKo anotó US$5,7 por cuenta en noviembre (US$12 en total desde octubre). La primera vez en la
+  historia que Anthropic dijo «credit balance is too low» fue ese día, en las DOS cuentas: la 1 se cortó entre las 20:21 y las
+  21:10 UTC, y la 2 entre las 11:55 y las 21:10. Sólo claude1 y claude2 tienen la clave cargada; claude3, claude4 y claude5 nunca
+  se vincularon (US$600 por mes sin usar).
+- ⚠️ **El diagnóstico obvio («el registro de MaKo no anota todo») no cierra.** Con US$12 anotados en siete semanas, faltarían
+  US$194 por cuenta, y dos gastos de a poco no se terminan el mismo día. Fue algo del lado de Anthropic. Quedan dos causas
+  posibles, y desde acá no se distingue cuál fue:
+  - el crédito del ciclo venció y el nuevo no llegó (llega con el cobro del plan, y MaKo no sabe qué día se cobra ninguno);
+  - lo gastó otra clave de esas mismas organizaciones, porque **el saldo es de la ORGANIZACIÓN, no de la clave**.
+
+  El saldo no se lee con la clave: sólo en platform.claude.com → Billing, con la sesión de cada cuenta.
+- ⚠️ **El aviso mentía por mirar una cuenta sola.** «Sigue con las otras cuentas» salía siempre, aunque no quedara ninguna. Ahora
+  `avisosDelCredito` arma «con qué sigue» con TODAS las filas: las vinculadas, legibles, sin «sin crédito» y bajo US$200. Y cada
+  aviso dice, en líneas:
+  - qué pasó;
+  - si cuadra con lo que gastó MaKo (desde el 90 %);
+  - con qué sigue MaKo: otra cuenta, o, si no queda NINGUNA, Gemini y la lista de clientes que se quedan sin Claude (los que
+    usaron cualquier cuenta en el ciclo, sin la plataforma: `clientes` de `resumenCredito`, con su nombre);
+  - cuándo vuelve (sin `diaDeCobro`, «MaKo no sabe qué día es»);
+  - qué hacer: vincular las que faltan, o mirar Billing cuando no cuadra.
+
+  Sin «%» ni «según lo que registró MaKo». Test: tests/credito-vigia.test.ts, el 4, con los datos de esa noche, probado rompiéndolo.
+- **Qué deja de andar sin ninguna cuenta:**
+  - Lo interno de MaKo (ws 9) cae a Gemini: el carrusel de las 21:11 salió con gemini-flash-lite.
+  - Se quedan sin Claude los negocios que usaban el crédito: Mauricio (ws 1, crédito asignado: Closing, Offer, Copywriter y
+    WhatsApp), Leandro (ws 10, su Claude es la clave 2), y en WhatsApp Código (13), Brigitte (15), Sergio (20), Marcela (23) y
+    Sellers (24). Un grupo SIN IA propia no tiene nada después de Claude (`hayRespaldoDespuesDeClaude`): le sale el cartel de
+    «conecta tu IA».
+- **Lo que quedó SIN hacer:**
+  - Ese cartel le echa la culpa al cliente cuando lo que se acabó es el crédito de MaKo (lib/mako-doer-in.ts, el cartel de
+    `sin_keys`).
+  - Ninguna cuenta tiene `diaDeCobro` en `CUENTAS_DEL_CREDITO` (lib/credito-api.ts): sin él, el ciclo es el mes calendario y el
+    aviso no puede decir qué día vuelve. Es un dato que carga Martín.
+  - Los dos avisos salen por separado aunque se corten en la misma corrida: uno por cuenta, por el reclamo de cada uno.

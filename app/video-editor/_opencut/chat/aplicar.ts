@@ -58,7 +58,7 @@ import { revertirClip } from "@/app/video-editor/_opencut/commands/timeline/elem
 import { congelarCuadro } from "@/app/video-editor/_opencut/commands/timeline/element/congelar";
 import { alternarNormalizacion } from "@/app/video-editor/_opencut/audio/normalizar";
 import { quitarSilencios, type ResultadoSilencios } from "@/app/video-editor/_opencut/audio/borrar-silencios";
-import { NO_ENCONTRE, textoSinSilencios } from "@/app/video-editor/_opencut/audio/silencios-aviso";
+import { NO_ENCONTRE, NO_ES_VOZ, textoSinSilencios } from "@/app/video-editor/_opencut/audio/silencios-aviso";
 import { NORMALIZAR_OBJETIVO } from "@/app/video-editor/_opencut/audio/claves";
 import type { ClipConAudio } from "@/app/video-editor/_opencut/audio/decodificar";
 import { loadFonts } from "@/app/video-editor/_opencut/fonts/google-fonts";
@@ -115,6 +115,7 @@ const SIN_SILENCIOS: Record<Exclude<Extract<ResultadoSilencios, { ok: false }>["
 	ocupado: "ya se están borrando silencios",
 	"sin-audio": "el clip no tiene audio",
 	"todo-silencio": "el clip es todo silencio: no se borra entero",
+	"no-es-voz": NO_ES_VOZ,
 	error: "no se pudo leer el audio",
 };
 

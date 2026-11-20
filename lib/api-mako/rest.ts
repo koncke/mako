@@ -711,6 +711,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/contenido/outliers/{outlierId}/replica', 'replicar_outlier_copywriter'],
   // Y lo que trae la persona (14/11/2026, lib/copywriter/pegado.ts): un link o un texto, replicado como un outlier más.
   ['POST', '/contenido/outliers/pegado', 'replicar_link_o_texto_copywriter'],
+  // Inspiración (19/11/2026, docs/inspiracion/diseno.md): lo guardado por WhatsApp, ordenarlo y borrarlo.
+  ['GET', '/contenido/inspiracion', 'listar_inspiracion'],
+  ['POST', '/contenido/inspiracion/{piezaId}/carpeta', 'ordenar_inspiracion'],
+  ['DELETE', '/contenido/inspiracion/{piezaId}', 'borrar_inspiracion'],
   // ── video ─────────────────────────────────────────────────────────────────
   ['GET', '/video/anuncios', 'listar_anuncios_video'],
   ['GET', '/video/anuncios/{planId}', 'ver_anuncio_video'],
@@ -735,6 +739,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/video/presets-subtitulos', 'guardar_preset_subtitulos'],
   ['DELETE', '/video/presets-subtitulos/{preset}', 'borrar_preset_subtitulos'],
   ['GET', '/video/avatares', 'ver_avatares'],
+  // El personaje en cubos (19/11/2026): leer sus videos y proponer uno nuevo (se confirma en /mako/revisar).
+  ['GET', '/video/cubos', 'ver_videos_cubos'],
+  ['POST', '/video/cubos', 'crear_video_cubos'],
   // ── integraciones ─────────────────────────────────────────────────────────
   ['GET', '/integraciones/agente-claude', 'ver_estado_agente_claude'],
   ['GET', '/integraciones/cuotas-ia', 'ver_cuotas_ia'],

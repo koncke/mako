@@ -49,10 +49,19 @@ if (que !== 'vertical' && (!Number.isSafeInteger(id) || id === 0)) { console.log
 
 const t0 = Date.now();
 const seg = () => `${((Date.now() - t0) / 1000).toFixed(1)} s`;
+// --plazo <s>: el aviso de la ruta (285 en la pantalla) y la corrida acotada como allá (19/11/2026, ticket 119: «Editar» tiene que
+// terminar y guardar ANTES del aviso). Sin esto, cada pedido con su plazo entero, como la API de MaKo.
+const plazo = Number(op('plazo'));
+const RS = Number.isFinite(plazo) && plazo > 0 ? await imp('lib/carruseles/replica-stream.ts') : null;
 const r = await runWithWorkspace(ws, () => R.replicarEjemplo(ws, 'script:probar-editar', que === 'vertical' ? { que, id: idVertical } : { que, id }, {
   seco: !tiene('guardar'),
+  ...(RS ? { hastaMs: RS.hastaDeLaReplica(t0, plazo * 1000) } : {}),
   // --avatar cara|look|ninguno: lo que contestaría el dueño en el guiado (sin esto, la API vieja: sin foto del negocio).
-  guiado: op('avatar') ? { ofertaId: null, ofertaLibre: null, avatar: op('avatar') as 'cara' | 'look' | 'ninguno', cambio: 'textos', pedido: null } : null,
+  // --oferta «…» (la escrita a mano: «Lo escribo yo») y --pedido «…» (lo que escribe en la caja del chat): lo mismo que manda la
+  // pantalla (19/11/2026, la prueba de hacer DENTRO de MaKo los carruseles de ventas).
+  guiado: op('avatar') || op('oferta') || op('pedido')
+    ? { ofertaId: null, ofertaLibre: op('oferta'), avatar: (op('avatar') ?? 'cara') as 'cara' | 'look' | 'ninguno', cambio: 'textos', pedido: op('pedido') }
+    : null,
   alEvento: (e: { fase: string; [k: string]: unknown }) => {
     if (e.fase === 'leer') console.log(`[${seg()}] leer: ${e.vistas} de ${e.laminas} láminas llegaron a la IA`);
     else if (e.fase === 'escribir') console.log(`[${seg()}] escribir: con ${e.con}`);
@@ -69,6 +78,24 @@ const paginas = (r.doc?.pages as Array<{ objects?: Array<{ type?: string; text?:
 const notas = (r.doc?.pages as Array<{ notes?: string }> | undefined)?.[0]?.notes;
 if (notas) console.log(`  Notas: ${notas.replace(/\s+/g, ' ').slice(0, 500)}`);
 paginas.forEach((p, i) => console.log(`  Lámina ${i + 1}: ${(p.objects ?? []).filter((o) => o.type === 'image').map((o) => `[${o.name}]`).join(' ')} ${(p.objects ?? []).filter((o) => o.type === 'textbox').map((o) => `«${String(o.text).slice(0, 60)}»`).join(' · ') || '(sin textos)'}`));
+// Cuántos textos de la IA llegaron a la lámina (19/11/2026): la plancha TIRA en silencio los que no ubica y deja las letras del
+// original. Con @vilmanunez llegaron 5 de 21 y la pantalla decía «lista». La letra de una captura que queda como en el original
+// también cuenta como perdida: mirar cuáles son antes de alarmarse.
+if (r.replica && paginas.length) {
+  const plano = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  const perdidos: string[] = [];
+  let total = 0;
+  (r.replica.laminas as Array<{ textos: Array<{ rol: string; texto: string }> }>).forEach((l, i) => {
+    const puestos = (paginas[i]?.objects ?? []).filter((o) => o.type === 'textbox').map((o) => plano(String(o.text)));
+    for (const t of l.textos) {
+      if (t.rol === 'rotulo' || t.rol === 'firma' || !t.texto.trim()) continue;
+      total++;
+      const n = plano(t.texto).slice(0, 12);
+      if (!puestos.some((p) => p.includes(n))) perdidos.push(`${i + 1}: «${t.texto.replace(/\s+/g, ' ').slice(0, 40)}»`);
+    }
+  });
+  console.log(`  Textos de la IA que llegaron a la lámina: ${total - perdidos.length} de ${total}${perdidos.length ? ` · perdidos: ${perdidos.slice(0, 8).join(' · ')}` : ''}`);
+}
 // --salida <carpeta>: el diseño (doc.json), lo que leyó la IA (replica.json), las láminas que miró (original-N.jpg) y la plancha de
 // cada lámina (plancha-N.jpg), para mirarlas y para probar la plancha sin pagar otra IA (13/11/2026).
 if (op('salida') && r.doc) {

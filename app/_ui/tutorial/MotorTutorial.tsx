@@ -15,7 +15,7 @@
 //   · el último paso con `clic` (y una marca) espera el clic de la persona en lo marcado: «Haz clic en…». El clic NO se frena;
 //   · el video chico de Martín, abajo a la derecha, del manifiesto de public/tutoriales (lib/tutoriales/videos.ts). Sin video para
 //     esa pestaña, ningún video (nunca otro en su lugar); en la revisión, el lugar marcado «Tu video de esta pestaña».
-//   · EL VIDEO Y LA MARCA JUNTOS (Martín, 18/11): si el video trae sus frases con marca, después de «Empezar» los pasos los pone el
+//   · EL VIDEO Y LA MARCA JUNTOS (Martín, 18/11): si el video trae sus frases con marca, apenas está (arranca solo) los pasos los pone el
 //     video. Al llegar una frase con `sel`, marca ese lugar (con el texto y el lado del paso de lib/tutoriales que marca lo mismo) y,
 //     si `espera_clic`, PAUSA hasta que tocan lo marcado o «Siguiente». Si `cierra_despues`, cierra el panel que se abrió antes de
 //     marcar lo siguiente. Una marca que no está en la página no frena nada. Al terminar el video, el cierre es el CTA del tutorial.
@@ -32,6 +32,7 @@ import { useVideoTutorial } from './useVideoTutorial';
 import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigueLosPasos, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
+import { mostrarLaBarra, presentaLaBarra } from './barra-oculta';
 
 /**
  * Los tutoriales cuyo video tiene que seguir SUS pasos, en su orden (`sigueLosPasos`): el recorrido aprobado. El «recorrido» de la
@@ -41,6 +42,10 @@ import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from '.
 const VIDEO_FIEL = new Set(['recorrido']);
 /** Cuánto se espera a que aparezca lo de un paso antes de saltearlo. */
 const ESPERA_PASO_MS = 3000;
+/** Cuánto se espera a que el video del tutorial traiga sus frases antes de arrancar con el primer paso (el manifiesto llega rápido). */
+const ESPERA_VIDEO_MS = 1500;
+/** Cuánto queda escondida la barra sin que arranque un tutorial que la presente. */
+const ESPERA_BARRA_MS = 9000;
 /** MaKo Mobile: por debajo de esto la pestaña es la del teléfono (los pasos `soloComputadora` no van). */
 const ANCHO_TELEFONO = 768;
 
@@ -113,6 +118,8 @@ export function MotorTutorial({ revision }: { revision: boolean }) {
   }, []);
   const senal = useSenal();
   const ensayo = useEnsayo();
+  // La barra escondida al entrar (./barra-oculta.ts) nunca queda sin salida: si en un rato no arrancó ningún tutorial, vuelve.
+  useEffect(() => { if (senal) return; const t = window.setTimeout(mostrarLaBarra, ESPERA_BARRA_MS); return () => window.clearTimeout(t); }, [senal]);
   return (
     <>
       {ensayo.activo && (
@@ -206,13 +213,13 @@ function VideoFlotante({ senal }: { senal: Extract<Senal, { tipo: 'video' }> }) 
   return createPortal(
     <div className="mk-tuto" style={{ zIndex: Z_PISO_RECORRIDO }}>
       <style>{CSS_TUTORIAL}</style>
-      <aside className="mk-tuto__video" aria-label={`El video: ${senal.titulo}`}>
+      <div role="complementary" className="mk-tuto__video" aria-label={`El video: ${senal.titulo}`}>
         <header className="mk-tuto__vcab"><span className="mk-tuto__vfoto" aria-hidden>M</span><b>Martín · MaKo</b>
           <button type="button" className="mk-tuto__vx" aria-label="Cerrar el video" onClick={() => terminar(senal.id, 'omitido')}>
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
           </button></header>
         <video ref={ref} className="mk-tuto__vid" src={v.archivo} poster={v.poster} controls playsInline preload="metadata" onEnded={() => terminar(senal.id, 'fin')} />
-      </aside>
+      </div>
     </div>,
     document.body,
   );
@@ -229,7 +236,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   const [videoArriba, setVideoArriba] = useState(false);
   const tarjetaRef = useRef<HTMLDivElement>(null);
 
-  // El video de la pestaña y, si trae frases con marca, el modo en que el video manda (después de «Empezar»).
+  // El video de la pestaña y, si trae frases con marca, el modo en que el video manda (arranca solo apenas está).
   const videoPedido = useVideoTutorial(senal.tipo === 'tutorial' ? senal.video ?? null : null);
   const videoPropio = useVideoTutorial(senal.tipo === 'tutorial' ? senal.tutorial.pestana : null);
   const videoAlgun = videoPedido ?? videoPropio;
@@ -264,7 +271,8 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   // Entre una frase con marca y la siguiente, sólo el video: ni velo ni tarjeta (la página sigue usable).
   const soloVideo = modoVideo && !paso;
 
-  const fin = useCallback((como: 'fin' | 'omitido' | 'hecho') => terminar(senal.id, como), [senal.id]);
+  // Al terminar (también salteado), la barra escondida al entrar vuelve (./barra-oculta.ts).
+  const fin = useCallback((como: 'fin' | 'omitido' | 'hecho') => { mostrarLaBarra(); terminar(senal.id, como); }, [senal.id]);
   /** Terminó el video: el cierre es el CTA del tutorial (su último paso, con «Haz clic en…»), si no se tocó ya con el video. */
   const irAlCierre = useCallback(() => {
     const decidir = () => {
@@ -295,7 +303,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   }, [frase, irAlCierre, senal, pasoFrase]);
   const siguiente = useCallback(() => {
     if (modoVideo) { if (cierre) fin('fin'); else seguirVideo(); return; }
-    // «Empezar» con un video que trae sus frases: desde aquí manda el video (con sonido: hubo un clic).
+    // Al arrancar, con un video que trae sus frases: desde aquí manda el video (con sonido si el navegador deja; si no, en silencio).
     if (i === -1 && conFrases && vidRef.current) {
       const v = vidRef.current;
       setModoVideo(true);
@@ -306,14 +314,15 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
     if (i >= pasos.length - 1) { fin(senal.tipo === 'marca' ? 'hecho' : 'fin'); return; }
     setEl(null); setGeo({ hueco: null, tarjeta: null }); setI(i + 1);
   }, [modoVideo, cierre, seguirVideo, i, conFrases, pasos.length, fin, senal.tipo]);
-  // Directo (el «▶» del video del día): sin la presentación, apenas el video con sus frases está listo.
-  const directo = senal.tipo === 'tutorial' && !!senal.directo;
-  useEffect(() => { if (directo && conFrases && !modoVideo && i === -1 && vidRef.current) siguiente(); }, [directo, conFrases, modoVideo, i, siguiente]);
-  /** La persona cerró el video mientras mandaba: sigue con las tarjetas, desde el primer paso. */
-  const sinVideo = useCallback(() => {
-    if (!modoVideo) return;
-    setModoVideo(false); setFrase(null); setCierre(false); setCierreFrase(null); setEl(null); setGeo({ hueco: null, tarjeta: null }); setI(0);
-  }, [modoVideo]);
+  // SIN LA PRESENTACIÓN, NUNCA (Martín, 19/11: el cuadro de la presentación, con «Omitir recorrido» y «Empezar»: «no lo quiero ver
+  // nunca más en ningún lugar de ninguna tab… muy, muy, muy molesto»). Todo tutorial arranca solo: con un video que trae sus frases,
+  // el video manda apenas está; sin él, el primer paso. Para saltearlo, se cierra el video del costado (`VideoChico` → `fin`).
+  useEffect(() => { if (conFrases && !modoVideo && i === -1 && vidRef.current) siguiente(); }, [conFrases, modoVideo, i, siguiente]);
+  useEffect(() => {
+    if (i !== -1 || conFrases || modoVideo) return;
+    const t = window.setTimeout(() => { setEl(null); setGeo({ hueco: null, tarjeta: null }); setI(0); }, ESPERA_VIDEO_MS);
+    return () => window.clearTimeout(t);
+  }, [i, conFrases, modoVideo]);
 
   // 0b. Lo marcado por una frase desapareció (cerraron el panel tocando afuera, cambió la vista): el video sigue, nunca queda
   // pausado sin salida.
@@ -348,6 +357,8 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
       if (!f) return;
       // Lo que abrió la frase anterior se cierra primero; la próxima vuelta (≈250 ms) ya marca.
       if (porCerrar.current) { porCerrar.current = false; cerrarLoAbierto(); return; }
+      // La frase que presenta la barra la muestra antes de buscarla (estaba escondida desde «Entrar a MaKo»: ./barra-oculta.ts).
+      if (presentaLaBarra(pasoDeFrase(f, pasos).sel)) mostrarLaBarra();
       // Una marca que no está en la página no frena el video; si se acaba de navegar, se la espera hasta 4 s (con el video quieto).
       if (!lugarDe(pasoDeFrase(f, pasos).sel)) {
         if (esperando.current?.id !== f.id) { esperando.current = { id: f.id, desde: Date.now() }; v.pause(); }
@@ -374,6 +385,8 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   // 1. Cada paso: lo de `antes`, y esperar a que aparezca lo marcado (hasta 3 s; una marca espera siempre).
   useEffect(() => {
     if (!paso) return;
+    // El paso que presenta la barra la muestra (estaba escondida desde «Entrar a MaKo»: ./barra-oculta.ts).
+    if (presentaLaBarra(paso.sel)) mostrarLaBarra();
     let vivo = true;
     if (paso.antes) { const a = lugarDe(paso.antes); if (a) a.click(); }
     const desde = Date.now();
@@ -465,11 +478,11 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
 
   if (typeof document === 'undefined') return null;
   const t = geo.tarjeta;
-  const visible = !!t && (!paso || !!geo.hueco);
+  const visible = !!t && !!paso && !!geo.hueco;
   const z = zParaMarcar(el);
   const estiloFlecha: CSSProperties | null = paso && t && t.flecha != null ? (t.lado === 'abajo' || t.lado === 'arriba' ? { left: t.flecha - 6 } : { top: t.flecha - 6 }) : null;
-  const titulo = paso ? paso.titulo : senal.tipo === 'tutorial' ? `Cómo funciona ${senal.tutorial.nombre}` : '';
-  const texto = paso ? paso.texto : senal.tipo === 'tutorial' ? senal.tutorial.intro : '';
+  const titulo = paso ? paso.titulo : '';
+  const texto = paso ? paso.texto : '';
   const haz = esperaClic ? (paso?.haz ?? (senal.tipo === 'marca' ? senal.paso.haz : null)) : null;
   const total = senal.tipo === 'tutorial' ? pasos.length : 1;
 
@@ -479,16 +492,16 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
       {senal.tipo === 'tutorial' && (
         <VideoChico tutorial={senal.tutorial} video={video} vidRef={vidRef} autoplay={!conFrases} manda={soloVideo}
           sub={paso?.sub ?? senal.tutorial.intro} revision={revision} arriba={videoArriba}
-          onCerrar={sinVideo} onOmitir={() => fin('omitido')} />
+          onCerrar={() => fin('omitido')} onOmitir={() => fin('omitido')} />
       )}
       {geo.hueco
         ? <>
             <div className="mk-rec__hueco" style={{ left: geo.hueco.x, top: geo.hueco.y, width: geo.hueco.ancho, height: geo.hueco.alto }} aria-hidden />
             {!(senal.tipo === 'marca' && senal.libre) && <Tapas h={geo.hueco} />}
           </>
-        // Sin hueco: el velo entero sólo en la presentación (sin paso). Un paso que todavía espera su lugar NO tapa nada: si el lugar no
-        // aparece (otra pantalla, una ventana angosta), la página sigue usable.
-        : !paso && !soloVideo ? <div className="mk-rec__velo" aria-hidden /> : null}
+        // Sin hueco, nada: un paso que todavía espera su lugar NO tapa nada (si no aparece, la página sigue usable). La presentación
+        // con el velo entero ya no existe (19/11).
+        : null}
       <div ref={tarjetaRef} className="mk-rec__tarjeta" role="dialog" aria-modal="false" aria-label={titulo} tabIndex={-1}
         style={{ left: t?.x ?? 0, top: t?.y ?? 0, visibility: visible && !soloVideo ? 'visible' : 'hidden' }}>
         {estiloFlecha && t && <span className="mk-rec__flecha" data-lado={t.lado} style={estiloFlecha} aria-hidden />}
@@ -543,14 +556,14 @@ function Pie({ senal, paso, ultimo, esperaClic, hayAnterior, conVideo, siguiente
       <span className="mk-rec__aire" />
       {hayAnterior && <Button variant="secondary" size="sm" onClick={atras}>Atrás</Button>}
       {/* Con el video mandando, «Siguiente» sigue sin tocar lo marcado (Martín: «hasta que toque el botón marcado, o Siguiente»). */}
-      {(conVideo || !esperaClic) && <Button variant="primary" size="sm" onClick={siguiente}>{conVideo ? 'Siguiente' : !paso ? 'Empezar' : ultimo ? 'Listo' : 'Siguiente'}</Button>}
+      {(conVideo || !esperaClic) && <Button variant="primary" size="sm" onClick={siguiente}>{conVideo ? 'Siguiente' : ultimo ? 'Listo' : 'Siguiente'}</Button>}
     </div>
   );
 }
 
 /**
  * El video chico de Martín de ESTA pestaña, abajo a la derecha. Sin video, nada (en la revisión, su lugar marcado). Con frases con
- * marca, no arranca solo: lo arranca «Empezar» y desde ahí manda; entre frase y frase (sin tarjeta) lleva «Omitir recorrido» abajo (`manda`).
+ * marca, manda desde que arranca; entre frase y frase (sin tarjeta) lleva «Omitir recorrido» abajo (`manda`). Cerrarlo saltea el tutorial.
  */
 function VideoChico({ tutorial, video, vidRef, autoplay, manda, sub, revision, arriba, onCerrar, onOmitir }: {
   tutorial: TutorialPestana; video: VideoTutorial | null; vidRef: RefObject<HTMLVideoElement | null>; autoplay: boolean; manda: boolean;
@@ -566,7 +579,7 @@ function VideoChico({ tutorial, video, vidRef, autoplay, manda, sub, revision, a
   if (cerrado || (!video && !revision)) return null;
   const cerrar = () => { vidRef.current?.pause(); setCerrado(true); onCerrar(); };
   return (
-    <aside className="mk-tuto__video" data-arriba={arriba ? '' : undefined} aria-label={`El video de ${tutorial.nombre}`}>
+    <div role="complementary" className="mk-tuto__video" data-arriba={arriba ? '' : undefined} aria-label={`El video de ${tutorial.nombre}`}>
       <header className="mk-tuto__vcab"><span className="mk-tuto__vfoto" aria-hidden>M</span><b>Martín · MaKo</b>
         <button type="button" className="mk-tuto__vx" aria-label="Cerrar el video" onClick={cerrar}>
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
@@ -576,7 +589,7 @@ function VideoChico({ tutorial, video, vidRef, autoplay, manda, sub, revision, a
         : <div className="mk-tuto__lugar" role="note"><b>Tu video de esta pestaña</b><span>Todavía no está grabado: va aquí.</span></div>}
       {!video && sub && <p className="mk-tuto__sub">{sub}</p>}
       {manda && <div className="mk-tuto__vpie"><button type="button" onClick={onOmitir}>Omitir recorrido</button></div>}
-    </aside>
+    </div>
   );
 }
 

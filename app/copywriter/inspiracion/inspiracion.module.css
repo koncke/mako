@@ -1,0 +1,66 @@
+/* Copywriting › Inspiración (./Inspiracion.tsx, 19/11/2026): la bandeja de a una tarjeta y las carpetas. Sólo tokens de la casa. */
+.raiz { display: grid; gap: 16px; max-width: 1040px; margin: 0 auto; padding: 8px 0 32px; color: var(--ink); }
+.cabeza { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.cabeza h1 { margin: 0; font-size: var(--fs-page, 26px); }
+.bajada { margin: 4px 0 0; color: var(--dim); max-width: 62ch; }
+.boton {
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 14px;
+  font-weight: 650; letter-spacing: .02em; text-decoration: none; cursor: pointer; white-space: nowrap;
+}
+.boton:disabled { opacity: .45; cursor: default; }
+.pestanas { display: flex; gap: 8px; flex-wrap: wrap; }
+.pestanas button { border: 1px solid var(--border); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 7px 14px; font-weight: 650; cursor: pointer; }
+.pestanas button[aria-selected='true'] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.error { margin: 0; color: var(--bad); background: var(--bad-bg); border-radius: 10px; padding: 10px 12px; }
+.bandeja { display: grid; gap: 12px; }
+.barra { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-weight: 650; }
+.tarjeta {
+  display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, .08); touch-action: pan-y; user-select: none; cursor: grab;
+}
+.foto { position: relative; display: block; background: #0d0f13; min-height: 360px; }
+.foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.sinFoto { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-weight: 650; }
+.abrir { position: absolute; left: 10px; bottom: 10px; background: rgba(0, 0, 0, .65); color: #fff; font-size: 12px; padding: 3px 8px; border-radius: 6px; }
+.sello { position: absolute; top: 18px; padding: 3px 12px; border: 3px solid; border-radius: 8px; font-size: 22px; font-weight: 800; background: rgba(255, 255, 255, .9); }
+.selloSi { left: 16px; color: var(--good); border-color: var(--good); transform: rotate(-12deg); }
+.selloNo { right: 16px; color: var(--bad); border-color: var(--bad); transform: rotate(12deg); }
+.cuerpo { padding: 18px 20px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.cuerpo p { margin: 0; }
+.quien { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 13px; color: var(--dim); }
+.quien b { color: var(--ink); }
+.etiqueta { border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; font-size: 12px; color: var(--ink); }
+.pie { color: var(--dim); font-size: 14px; }
+.gancho { border-left: 3px solid var(--accent); padding-left: 10px; font-style: italic; }
+.que { color: var(--dim); font-size: 14px; }
+.sospecha { font-size: 13px; color: var(--dim); background: color-mix(in srgb, var(--accent-soft) 16%, var(--surface)); border-radius: 8px; padding: 8px 10px; }
+.pregunta { margin: 4px 0 0; font-size: 22px; line-height: 1.25; }
+.acciones { display: flex; gap: 10px; flex-wrap: wrap; }
+.acciones button { flex: 1 1 120px; padding: 13px; border-radius: 12px; font-size: 16px; font-weight: 750; letter-spacing: .04em; cursor: pointer; border: 1px solid; }
+.si { background: var(--good); border-color: var(--good); color: #fff; }
+.no { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+.acciones button:disabled { opacity: .5; cursor: default; }
+.elegir { display: grid; gap: 10px; border-top: 1px solid var(--border); padding-top: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--border); background: var(--bg); color: var(--ink); border-radius: 999px; padding: 7px 12px; cursor: pointer; }
+.chip:hover { border-color: var(--accent); }
+.nueva { display: grid; gap: 8px; }
+.nueva input { font: inherit; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--ink); width: 100%; }
+.ayuda { margin: 0; text-align: center; font-size: 13px; color: var(--dim); }
+.vacio { background: var(--surface); border: 1px dashed var(--border); border-radius: 14px; padding: 24px; text-align: center; color: var(--dim); }
+.vacio p { margin: 4px 0; }
+.carpetas { display: grid; gap: 20px; }
+.carpeta h2 { margin: 0 0 4px; font-size: 18px; display: flex; gap: 8px; align-items: baseline; }
+.carpeta h2 span { color: var(--accent); }
+.grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 46%), 1fr)); gap: 12px; margin-top: 8px; }
+.mini { display: grid; grid-template-rows: auto 1fr; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; color: inherit; text-decoration: none; position: relative; }
+.mini img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; display: block; background: #0d0f13; }
+.mini > .sinFoto { position: static; aspect-ratio: 4 / 5; background: #0d0f13; }
+.mini div { padding: 10px 12px; display: grid; gap: 4px; min-width: 0; }
+.mini p { margin: 0; font-size: 13px; color: var(--dim); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.quienOrdeno { font-size: 11px; color: var(--accent); }
+@media (max-width: 720px) {
+  .tarjeta { grid-template-columns: 1fr; }
+  .foto { min-height: 0; height: 300px; }
+  .pregunta { font-size: 19px; }
+}

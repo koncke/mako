@@ -20,6 +20,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Imágenes de ejemplo de los presets', detalle: 'Generar en Flow (gratis) una imagen por preset; hoy sólo dos tienen imagen real y el resto muestra el degradado de su categoría', estado: 'sigue' },
   { titulo: 'El video con la voz elegida o clonada', detalle: 'Reemplazar la voz de Flow por la de ElevenLabs (STS) y remuxar en el navegador con mediabunny', estado: 'cola' },
   { titulo: 'Guion largo con labios guiados por audio', detalle: 'Donde HeyGen gana: un motor de retrato + audio (InfiniteTalk o StableAvatar). Es gasto de medios: lo decide Martín', estado: 'cola' },
+  { titulo: 'Personaje en cubos: el video animado por código', detalle: 'El formato de la galería con tu guion, tu personaje en cubos y tu voz; el MP4 se arma en tu navegador. Sólo la revisión de Martín, con dos formatos', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -80,5 +81,29 @@ export const BITACORA: Hito[] = [
       'Se deprecaron las cuatro secciones de HeyGen (sus rutas redirigen) y la pantalla de Voces: la voz elegida no llegaba al video.',
     ],
     revisar: '/ai-avatar',
+  },
+  {
+    fecha: '19 nov', hora: '00:00', chat: 'Cerebro', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8', cuenta: 'claude5', actor: 'martin', tipo: 'prompt',
+    titulo: 'El avatar animado por código, dentro de AI Avatar',
+    pedido: 'quiero que los vayas guardando todo y que se lo delegues a otro chat para que implemente dentro de la funcionalidad de AI Avatar justamente este avatar que es súper fácil de crear, que prácticamente no gasta tokens porque no es IA generativa, sino que es prácticamente CSS y HTML, para que los usuarios de MaKo lo puedan ir creando. Entonces quiero de que esto sea súper, súper simple, y la mejor prueba que puedo hacer de esta funcionalidad es utilizar, ya sea en el browser o en Claude en Chrome, esta funcionalidad e intentar replicar un video que ya creamos desde acá, desde el mismo Claude, pero ahora dentro de MaKo.',
+    puntos: ['El Cerebro lo pasó al chat «ai-avatar-codigo», con la regla de que sale detrás del interruptor de la revisión y con el deploy diario.'],
+  },
+  {
+    fecha: '19 nov', hora: '04:00', chat: 'ai-avatar-codigo', sesion: 'local_a2f3a36c-9be8-4f25-8ab6-5d3291d5060b', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Personaje en cubos: el video animado por código, con el MP4 armado en tu navegador',
+    puntos: [
+      'En AI Avatar, «Crear influencer» abre el personaje en cubos: eliges el formato («Palabras gigantes» o «Subtítulos karaoke»), escribes el guion o se lo pides a MaKo, armas tu personaje (desde tu foto o a mano) y eliges la voz.',
+      'La animación es la página de la galería con tus datos: no es IA generativa. Sólo gastan MaKo Tokens el guion, la lectura de la foto y la voz de MaKo.',
+      'El MP4 se arma en tu computadora, cuadro por cuadro: el servidor no renderiza nada.',
+      'Probado contra la galería: el mismo guion y la misma voz dan el mismo video (≤ 0,01 % de píxeles distintos).',
+      'Lo ve sólo tu revisión (tus cuentas y el ws 3), hasta que lo apruebes.',
+    ],
+    archivos: [
+      'app/ai-avatar/cubos/EstudioCubos.tsx — la pantalla (copia el estudio AI Influencer de Higgsfield)',
+      'app/ai-avatar/cubos/mp4.ts — el MP4 en el navegador',
+      'public/avatar-cubos/ — las plantillas, el kit de la galería y el fotografiador',
+      'lib/ai-avatar/cubos-*.ts — formatos, personaje, tiempos, voz, proyectos e interruptor',
+    ],
+    revisar: '/ai-avatar?cubos=1',
   },
 ];

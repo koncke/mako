@@ -288,6 +288,9 @@ const TENANT_TABLES = new Set<string>([
   // `getTenantDb()` es PASSTHROUGH y la lista de competidores de un negocio muestra la de TODOS —
   // y a quién mira un negocio es exactamente lo que no puede salir de su workspace.
   'spy_competidores', 'spy_piezas',
+  // Inspiración (mig 0422, 19/11/2026): las carpetas del negocio y cada link de Instagram que guardó por WhatsApp. Sin estas
+  // líneas `getTenantDb()` es passthrough y la bandeja de un negocio mostraría lo guardado por todos.
+  'inspiracion_carpetas', 'inspiracion_piezas',
   // Vistas de cohortes: getTenantDb NO scopea vistas por sí solo, pero estas
   // exponen workspace_id (mig 0084) y solo se LEEN (select) → el proxy inyecta
   // .eq('workspace_id', ws) y corta el leak del agregado global. OJO: scripts de
@@ -371,6 +374,9 @@ export const negocioPausado = cache(async (ws: number): Promise<boolean> => {
   // «Paga para entrar» (6/11/2026, la mensualidad de una agencia, lib/agencia-mes.ts): vale aunque el corte general esté
   // apagado. Lo pone y lo saca la mensualidad: con el pago, vuelve a entrar sola.
   if (corte?.motivo === 'paga-para-entrar' && corte.vigente) return true;
+  // «Prueba terminada» (19/11/2026, lib/cuenta-sin-cobro.ts): el negocio cargado a mano al que Martín le apagó «Habilitado sin cobro» y no activó
+  // su plan en sus 7 días. Vale aunque el corte general esté apagado; con su plan (o si Martín lo vuelve a prender) se reabre solo.
+  if (corte?.motivo === 'prueba-terminada' && corte.vigente) return true;
   return CORTE_DE_ACCESO_PRENDIDO;
 });
 

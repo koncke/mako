@@ -192,6 +192,10 @@ test('la clave de Competitors Spy sólo lee Instagram: no es la vuelta del scrap
     // el link que pegó el negocio, con SU clave de Spy y, si no tiene, la de la plataforma; con tope por lectura (US$0,01) y por
     // día (20 links). No entra a `leads`: va a la biblioteca de carruseles, del negocio.
     'lib/carruseles/traer-servidor.ts',
+    // 19/11/2026: Inspiración (docs/inspiracion/diseno.md). Lee UNA publicación pública por el link que el dueño mandó por
+    // WhatsApp, con el mismo molde que «Traer tu outlier»: su clave de Spy o la de la plataforma, tope por lectura (US$0,01) y
+    // por día (40 links). No entra a `leads`: va a `inspiracion_piezas`, del negocio.
+    'lib/inspiracion/servidor.ts',
     'lib/instagram-perfil-server.ts', 'lib/instagram-perfil.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-catalogo.ts', 'lib/metodo-verificar.ts',
     // 4/11/2026: el buscador de Spy por red (Google y el buscador de Instagram por nombre). Es Spy, con la misma clave, sin
     // escribir nada: candidatos que la persona confirma. Su cupo es aparte (`TOPE_BUSQUEDAS_SPY_POR_DIA`).

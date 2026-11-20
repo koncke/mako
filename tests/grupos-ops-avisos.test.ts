@@ -139,10 +139,12 @@ test('el contexto del turno: sólo de la app, no toca Evolution; mixto, a los do
 
 test('⚠️ reintentos sin burbujas de más, con WhatsApp caído', () => {
   const r = R();
-  assert.equal(r.ticket.t1, true, 'el aviso de un ticket quedó en el hilo: salió');
-  assert.equal(r.ticket.t2, false, 'ya estaba avisado');
-  assert.equal(r.ticket.filas, 1, 'cada corrida del cron sumaba una burbuja');
-  assert.equal(r.ticket.avisado, true);
+  // 19/11/2026 (#118 de Leila): «quedó en el hilo» NO es «salió por WhatsApp». Con WhatsApp caído el aviso del ticket no queda avisado y se
+  // reintenta en la vuelta siguiente; el reintento REUSA la copia del hilo (`copiaSinWhatsApp`), así que sigue habiendo una sola burbuja.
+  assert.equal(r.ticket.t1, false, 'quedó sólo en el hilo de la app: se reintenta, no se da por avisado');
+  assert.equal(r.ticket.t2, false, 'WhatsApp sigue caído: se vuelve a reintentar');
+  assert.equal(r.ticket.filas, 1, 'el reintento reusa la copia: cada corrida del cron sumaba una burbuja');
+  assert.equal(r.ticket.avisado, false);
   assert.equal(r.arreglo.a1.ok, true);
   assert.equal(r.arreglo.a2.motivo, 'ya-avisado', 'la reserva no se borra si quedó en el hilo');
   assert.equal(r.arreglo.filas, 1);

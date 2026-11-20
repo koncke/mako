@@ -434,6 +434,9 @@
    destino queda abajo: se llega con la rueda o el dedo, sin barra). Se engancha en `data-fija="no"` (la barra no está
    abierta y fija: el rail, también cuando se abre encima al pasar el cursor, así no aparece y desaparece al pasar el mouse).
    Abierta y fija sigue la receta de arriba: adelgazada, nunca escondida. */
+/* LA BARRA OCULTA AL ENTRAR (onboarding V2, 19/11/2026; app/_ui/tutorial/barra-oculta.ts): desde «Entrar a MaKo» hasta el paso del
+   recorrido que la presenta («Tu panel»). */
+html[data-barra-oculta] aside[data-sidebar] { display: none !important; }
 aside[data-sidebar][data-fija="no"] .mk-scroll-oscuro {
   scrollbar-width: none;
   -ms-overflow-style: none;

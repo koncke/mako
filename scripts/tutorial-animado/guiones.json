@@ -9,12 +9,12 @@
   "v5": true,
   "pasos": [
    {
-    "dice": "¡Hola! Soy Martín, el creador de Máko. Bueno, mi versión en cubos.",
+    "dice": "¡Hola! Soy Martín, el creador de Máko.",
     "rol": "gancho"
    },
    {
     "dice": "Te doy la bienvenida a Máko: desde hoy tienes un equipo entero trabajando para tu negocio.",
-    "rol": "que-es"
+    "rol": "gancho"
    },
    {
     "dice": "Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho.",
@@ -22,6 +22,49 @@
    },
    {
     "dice": "Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Una de ellas es tu WhatsApp: es por donde Máko te manda avances sobre tu negocio.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Máko te contesta con un código, y lo pegas en el chat.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y guarda el contacto de Máko en tu teléfono: así esos avances siempre te llegan.",
+    "rol": "cierre"
+   }
+  ]
+ },
+ {
+  "id": "onboarding-bienvenida-whatsapp",
+  "pestana": "Onboarding · Bienvenida · WhatsApp",
+  "ruta": "/onboarding",
+  "icono": "lucide:sparkles",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Tu WhatsApp es por donde Máko te manda avances sobre tu negocio.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Máko te contesta con un código, y lo pegas en el chat.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y guarda el contacto de Máko en tu teléfono: así esos avances siempre te llegan.",
     "rol": "cierre"
    }
   ]
@@ -813,15 +856,47 @@
   "v5": true,
   "pasos": [
    {
-    "dice": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso.",
+    "dice": "¿Sabías que quien te pide información empieza a perder las ganas de comprar a los ocho minutos?",
     "rol": "gancho"
    },
    {
-    "dice": "Primero, la app de Máko en tu teléfono: te avisa al instante de lo que pasa en tu negocio, y abres Máko desde el celular.",
+    "dice": "Te doy la bienvenida al día dos: hoy conectamos todo, para que ningún lead se te enfríe.",
     "rol": "que-es"
    },
    {
-    "dice": "No es lo mismo que escribirle a Máko por WhatsApp: es la aplicación.",
+    "dice": "Imagina que vendes un programa de coaching de tres mil dólares.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Alguien llena tu formulario de Meta a las nueve de la noche.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Si lo ves al día siguiente, esa persona ya habló con otro coach.",
+    "rol": "porque"
+   },
+   {
+    "dice": "En cambio, con Meta conectado en tus integraciones, ese lead entra solo a tu CRM.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Y con la app de Máko en tu teléfono, tienes tu CRM y tus avisos en el bolsillo.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Lo ves esa misma noche, y le contestas en minutos.",
+    "rol": "porque"
+   },
+   {
+    "dice": "En algo de tres mil dólares, esos minutos son la diferencia entre una venta y un no.",
+    "rol": "porque"
+   },
+   {
+    "dice": "¿Crees que igual contestas rápido? Un lead que no ves, no lo puedes contestar.",
+    "rol": "porque"
+   },
+   {
+    "dice": "La app no es lo mismo que escribirle a Máko por WhatsApp: es la aplicación de Máko en tu teléfono.",
     "rol": "cosa"
    },
    {
@@ -867,7 +942,15 @@
     "sel": "[data-recorrido=\"tour-settings-info\"]"
    },
    {
-    "dice": "Para cerrar el día, dile a Máko por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+    "dice": "Hoy ganas velocidad: lo que pasa en tu negocio, lo ves en tu teléfono.",
+    "rol": "cierre"
+   },
+   {
+    "dice": "Para cerrar el día, dile a Máko por WhatsApp a qué hora te escribe sobre el reto.",
+    "rol": "cierre"
+   },
+   {
+    "dice": "Le escribes tú primero, y así WhatsApp no frena sus mensajes.",
     "rol": "cierre"
    }
   ],
@@ -898,7 +981,16 @@
    }
   ],
   "v6": true,
-  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa"
+  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa",
+  "fuentes": [
+   {
+    "curso": "Fórmula Ventas Ilimitadas 2024 - Julián Otálora (app/conocimientos/curso-formula-ventas-ilimitadas-2024.ts:840)",
+    "leccion": "Clase 58, «23. 7 leyes de persuasión en whatsapp» (transcripción public/cono-tx/1IxgKmG0dxGbuWYK_D98guMjepDWIolp3.json), ley 1",
+    "idea": "Un lead se enfría en unos ocho minutos sin respuesta: contestar rápido es la regla más simple y la más poderosa. Se tomó sólo la idea. El ejemplo se armó con MaKo: un coaching de 3.000 dólares, un formulario de Meta a las nueve de la noche y el CRM en el teléfono. Esta idea queda SÓLO en el día 2 (el día 3 ya no la repite)."
+   }
+  ],
+  "porque": "19/11: gancho → porqué con un ejemplo de los cursos → los toques de siempre → cierre (guiones-dias-2-7.md)",
+  "pesoMaxMb": 5
  },
  {
   "id": "reto-dia-3",
@@ -910,11 +1002,39 @@
   "v5": true,
   "pasos": [
    {
-    "dice": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda.",
+    "dice": "¿Cuántas personas te preguntaron el precio y nunca más supiste de ellas?",
     "rol": "gancho"
    },
    {
-    "dice": "Primero, toca aquí, en CRM, y carga tus clientes: con un CSV o, si ya usas otro CRM, lo integramos.",
+    "dice": "Te doy la bienvenida al día tres: hoy ordenas tus contactos y dejas a Máko atendiendo tus mensajes.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Esa gente ya te conoce: recuperarla cuesta mucho menos que salir a buscar a alguien nuevo.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Pero si pasa un mes sin noticias tuyas, le compra a otro.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Piensa en una mentoría de dos mil dólares con ciento cincuenta contactos olvidados en tu WhatsApp.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Si los cargas en el CRM, les escribes de nuevo y regresan tres, son seis mil dólares que ya tenías.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Y mientras estás en una llamada, los mensajes nuevos se quedan esperando.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Con una automatización, Máko les contesta o te deja la respuesta lista.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Primero, toca aquí, en CRM, y carga tus clientes con un CSV, aunque vengan de otro sistema.",
     "rol": "accion",
     "tipo": "toca",
     "sel": "aside[data-sidebar] a[href^=\"/crm\"]"
@@ -936,6 +1056,10 @@
     "rol": "accion",
     "tipo": "toca",
     "sel": "aside[data-sidebar] a[href^=\"/calendario\"]"
+   },
+   {
+    "dice": "Con esto, tus clientes quedan en un solo lugar y vuelves a hablarles a tiempo.",
+    "rol": "cierre"
    },
    {
     "dice": "Y pruébalo por WhatsApp: mándale a Máko un audio pidiéndole que cargue un lead en tu CRM.",
@@ -970,7 +1094,16 @@
    }
   ],
   "v6": true,
-  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa"
+  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa",
+  "fuentes": [
+   {
+    "curso": "Aumenta tu valor y ATV Advantage (app/conocimientos/curso-aumenta-tu-valor-y-atv-advantage.ts)",
+    "leccion": "6. Reactivación de leads perdidos (6. SALES › Setting; transcripción public/cono-tx/1AOLhD3k7Ttn74XFLGTg_2ZP3o8ezFeF0.json)",
+    "idea": "Los leads que ya te hablaron y no compraron ya te conocen: reactivarlos es más fácil que conseguir uno nuevo. El error más común es reactivar tarde: al mes ya le compró a la competencia. Hay que tenerlos organizados y escribirles un mensaje personalizado."
+   }
+  ],
+  "porque": "19/11: gancho → porqué con un ejemplo de los cursos → los toques de siempre → cierre (guiones-dias-2-7.md)",
+  "pesoMaxMb": 5
  },
  {
   "id": "reto-dia-4",
@@ -982,8 +1115,40 @@
   "v5": true,
   "pasos": [
    {
-    "dice": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia.",
+    "dice": "¿Por qué hay anuncios que duran meses al aire, y otros se apagan en una semana?",
     "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida al día cuatro: hoy copias lo que ya le funciona a tu competencia.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Si un anuncio lleva meses activo, es porque a su dueño le sigue dejando más dinero del que cuesta.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Otros de tu mercado ya pagaron para descubrir qué atrae clientes.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Toma una agencia que hace los anuncios de clínicas dentales, por mil quinientos dólares al mes.",
+    "rol": "porque"
+   },
+   {
+    "dice": "En Competitor Spy, la agencia ve que un rival tiene un anuncio corriendo hace noventa días.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Ahí mismo descubre a dónde manda a quien hace clic, y mira su web por dentro.",
+    "rol": "porque"
+   },
+   {
+    "dice": "¿Y copiar no está mal? No, si tomas cómo está armado, y no su texto ni sus videos.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Con esa estructura y su propia oferta, su página no arranca de cero.",
+    "rol": "porque"
    },
    {
     "dice": "Primero, toca aquí, en Competitor Spy, y agrega a tres competidores: mira lo que más tiempo llevan activo, porque si sigue activo, vende.",
@@ -996,6 +1161,10 @@
     "rol": "accion",
     "tipo": "toca",
     "sel": "aside[data-sidebar] a[href^=\"/web-generator\"]"
+   },
+   {
+    "dice": "Hoy partes de algo probado, no de una corazonada.",
+    "rol": "cierre"
    },
    {
     "dice": "Y por WhatsApp, pregúntale a Máko qué le está funcionando a tu competencia.",
@@ -1025,7 +1194,21 @@
    }
   ],
   "v6": true,
-  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa"
+  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa",
+  "fuentes": [
+   {
+    "curso": "Fórmula Ventas Ilimitadas 2024 (app/conocimientos/curso-formula-ventas-ilimitadas-2024.ts; transcripción public/cono-tx/1JUxDcENlFE_UOiY0LaGtYEk6Z8kb5KZy.json)",
+    "leccion": "14. Espía los embudos de tu competencia",
+    "idea": "De ¶10: no se sabe si un anuncio vende, pero si lleva tiempo activo es porque le siguen poniendo dinero, y nadie paga un anuncio que no trae ventas. De ¶0-2: no se inventa desde cero; se modela a quien ya tiene resultados, y modelar no es bajar el video del otro. Se tomaron las ideas. Las frases, el ejemplo (una agencia de anuncios para clínicas dentales, 1.500 dólares al mes, un anuncio rival de noventa días) y la objeción «¿Y copiar no está mal?» se armaron con MaKo."
+   },
+   {
+    "curso": "Vender por FB e IG Ads (app/conocimientos/curso-vender-por-fb-e-ig-ads.ts; transcripción public/cono-tx/14xIMzz2zNDDMYKtdNEMXpf474OKfu9wT.json)",
+    "leccion": "4. Biblioteca de Anuncios de Facebook",
+    "idea": "De ¶11: el anuncio te lleva a la página donde capturan prospectos, y puedes armar una parecida y mejorarla. En el guion se ve a dónde manda el anuncio y la web del rival en Competitor Spy, y la estructura se arma con la oferta propia en Web Generator."
+   }
+  ],
+  "porque": "19/11: gancho → porqué con un ejemplo de los cursos → los toques de siempre → cierre (guiones-dias-2-7.md)",
+  "pesoMaxMb": 5
  },
  {
   "id": "reto-dia-5",
@@ -1037,8 +1220,40 @@
   "v5": true,
   "pasos": [
    {
-    "dice": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco.",
+    "dice": "¿Te pasa que se te van horas pensando qué publicar, y después casi nadie lo ve?",
     "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida al día cinco: hoy armas una semana de contenido, sin hoja en blanco.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Lo que más rinde casi nunca sale de cero: parte de una idea que ya enganchó.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Por eso Máko te muestra las piezas que rindieron varias veces lo usual de quien las publicó.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Pongamos una coach de liderazgo que cobra dos mil quinientos dólares.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Ella elige un carrusel que tuvo cuatro veces las reacciones que suele tener esa cuenta.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Máko le pregunta su oferta y lo arma con esa idea, que ya demostró que engancha.",
+    "rol": "porque"
+   },
+   {
+    "dice": "¿Y si esa pieza es de otro rubro? Lo que se toma es el ángulo y el gancho, no el tema.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Con que le traiga un solo cliente, esa idea prestada ya vale dos mil quinientos dólares.",
+    "rol": "porque"
    },
    {
     "dice": "Primero, toca aquí, en Ímich, y replica un carrusel que ya funcionó, con tu oferta.",
@@ -1054,6 +1269,10 @@
     "rol": "accion",
     "tipo": "toca",
     "sel": "aside[data-sidebar] a[href^=\"/copywriter\"]"
+   },
+   {
+    "dice": "Hoy te llevas tu carrusel y tu guion de la semana, con ideas que la gente ya eligió.",
+    "rol": "cierre"
    },
    {
     "dice": "Y por WhatsApp, mándale a Máko un audio con la idea de tu guion: te lo escribe.",
@@ -1086,7 +1305,16 @@
    }
   ],
   "v6": true,
-  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa"
+  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa",
+  "fuentes": [
+   {
+    "curso": "Growth Partner - Jaime Jiguera (app/conocimientos/curso-growth-partner.ts)",
+    "leccion": "Clase 36, «2024-02-08 Setting & Generar Reuniones con Emilio Villarreal (Fase 2)» (sesión de soporte); transcripción public/cono-tx/11ncVw2wzlPDQygofo97WkYYyggnLeULO.json ¶41, ¶67-68, ¶97-98",
+    "idea": "«Still like an artist»: el contenido que funciona no se inventa desde cero, se modela lo que ya funcionó (su ángulo, su gancho) y se le da un giro. Va en la frase 3 y en la objeción «¿Y si esa pieza es de otro rubro?» (¶97-98: mirar el ángulo y el gancho de lo viral), con otras palabras (no se usa el «hacerlo a tu manera» de ¶42)."
+   }
+  ],
+  "porque": "19/11: gancho → porqué con un ejemplo de los cursos → los toques de siempre → cierre (guiones-dias-2-7.md)",
+  "pesoMaxMb": 5
  },
  {
   "id": "reto-dia-6",
@@ -1098,21 +1326,50 @@
   "v5": true,
   "pasos": [
    {
-    "dice": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte.",
+    "dice": "¿Tienes videos que se quedaron en una idea, porque nunca encontraste el momento de ponerte frente a la cámara?",
     "rol": "gancho"
    },
    {
-    "dice": "Toca aquí, en Video: en Ei-Ai Avatar armas tu personaje con una foto tuya.",
-    "rol": "accion",
-    "tipo": "toca",
-    "sel": "aside[data-sidebar] a[href^=\"/video-editor\"]",
-    "ver": {
-     "ei-ai": "AI"
-    }
+    "dice": "Te doy la bienvenida al día seis: hoy haces tu video con IA, sin grabarte.",
+    "rol": "que-es"
    },
    {
-    "dice": "Y con él haces tu clip de 10 segundos, de regalo, con el gancho del guion que escribiste ayer.",
+    "dice": "Lo que frena tus videos casi nunca son las ideas: es el tiempo que se va en tomas, luces y edición.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Con tu personaje, escribes lo que quieres decir y Máko hace el video por ti.",
+    "rol": "porque"
+   },
+   {
+    "dice": "¿Te preocupa que no diga lo tuyo? Lo escribes tú, y lo dice tal cual.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Y en un video corto, todo se decide al principio: si el gancho no detiene a la persona, pasa de largo.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Piensa en un agente inmobiliario que gana cinco mil dólares por cada venta.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Si mil personas ven su clip de diez segundos y el gancho le trae una sola venta, ese clip vale cinco mil dólares.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Toca aquí, en Video: en Crear desde cero, abre «Tu personaje con IA» y sube una foto tuya.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "aside[data-sidebar] a[href^=\"/video-editor\"]"
+   },
+   {
+    "dice": "Con tu personaje haces tu primer clip, con el gancho del guion que escribiste ayer.",
     "rol": "cosa"
+   },
+   {
+    "dice": "Hoy te llevas tu personaje y tu primer clip, listos para publicar.",
+    "rol": "cierre"
    },
    {
     "dice": "Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
@@ -1145,7 +1402,21 @@
    }
   ],
   "v6": true,
-  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa"
+  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa",
+  "fuentes": [
+   {
+    "curso": "Cursos HeyGen - Samuel Acosta (app/conocimientos/curso-cursos-heygen.ts)",
+    "leccion": "1. Cómo HeyGen crea videos profesionales con IA (public/cono-tx/1HyPCDbCgUvDUftZF-brunwTKCvsc_dR5.json)",
+    "idea": "Lo que frena el video no es el talento ni el equipo, sino la fricción de grabar y editar. Con IA se pasa de la idea al video en minutos, sin set ni cámara."
+   },
+   {
+    "curso": "TikTok 100K - Jordi Segués (app/conocimientos/curso-tiktok-100k-jordi-segues.ts)",
+    "leccion": "6.1 - PARTE 1 El gancho (los 2 primeros segundos) (public/cono-tx/1Lv0VdBrqI_wm4McgmMeho8Wpj30iArNX.json)",
+    "idea": "En un video corto todo se juega al principio: si el gancho no frena a la persona, se va y no escucha el resto."
+   }
+  ],
+  "porque": "19/11: gancho → porqué con un ejemplo de los cursos → los toques de siempre → cierre (guiones-dias-2-7.md)",
+  "pesoMaxMb": 5
  },
  {
   "id": "reto-dia-7",
@@ -1157,8 +1428,40 @@
   "v5": true,
   "pasos": [
    {
-    "dice": "Te doy la bienvenida al día 7, el último del reto.",
+    "dice": "¿Cuántas veces empezaste algo con todas las ganas, y al mes ya lo habías dejado?",
     "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida al día siete, el último: tu Marketing CoPilot lee lo que armaste y ordena tus próximos pasos.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "A casi nadie le falta motivación. Le falta saber qué sigue.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Si al despertar te preguntas por dónde empezar, gastas la energía antes de trabajar.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Mira una consultora que cobra dos mil dólares por proyecto: le alcanzan cuatro clientes al mes.",
+    "rol": "porque"
+   },
+   {
+    "dice": "No necesita hacerse viral: necesita constancia.",
+    "rol": "porque"
+   },
+   {
+    "dice": "El lunes abre su Plan y ya tiene la lista: los reels por grabar, sus correos y el arreglo de su web.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Así no afloja aunque los resultados todavía no se vean. En ese tramo abandona la mayoría.",
+    "rol": "porque"
+   },
+   {
+    "dice": "Las ventas no salen de un día inspirado. Salen de cumplir, con o sin aplausos.",
+    "rol": "porque"
    },
    {
     "dice": "Primero, toca aquí, en Marketing CoPilot: revisa tu oferta, tu página y tu contenido.",
@@ -1171,6 +1474,10 @@
     "rol": "accion",
     "tipo": "toca",
     "sel": "aside[data-sidebar] a[href^=\"/plan\"]"
+   },
+   {
+    "dice": "Hoy terminas con algo que vale más que las ganas: un sistema para cada lunes.",
+    "rol": "cierre"
    },
    {
     "dice": "Y mándale a Máko un audio por WhatsApp con cómo te fue en el reto.",
@@ -1200,7 +1507,21 @@
    }
   ],
   "v6": true,
-  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa"
+  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa",
+  "fuentes": [
+   {
+    "curso": "MasteryHaus - Sofía Contreras (app/conocimientos/curso-masteryhaus.ts, módulo 9 «Aprende a Gestionar Tu Tiempo»)",
+    "leccion": "No necesitas motivación (n 242; transcripción public/cono-tx/1SQJvQkGpU07tBXu5HQGDT_BqXIFMqdIY.json ¶0-5)",
+    "idea": "Lo que falta no es motivación sino un plan definido de antemano: la energía se pierde en decidir cada día qué hacer, y fijar cuándo y qué multiplica las posibilidades de cumplir."
+   },
+   {
+    "curso": "MasteryHaus - Sofía Contreras (app/conocimientos/curso-masteryhaus.ts, módulo 9)",
+    "leccion": "Beneficios de poner el foco en los sistemas (n 243; transcripción public/cono-tx/1kGWvGndvOlpFQZKZpPb7kzfGy-geiGZ9.json ¶3-6)",
+    "idea": "Los resultados son compuestos y llegan al final de la curva; la mayoría abandona antes de verlos («valle de la decepción»). Enfocarse en cumplir los pasos del sistema evita abandonar."
+   }
+  ],
+  "porque": "19/11: gancho → porqué con un ejemplo de los cursos → los toques de siempre → cierre (guiones-dias-2-7.md)",
+  "pesoMaxMb": 5
  },
  {
   "id": "ops-center",

@@ -21,7 +21,7 @@
 
 import type { OperacionChat } from "@/lib/editor-video/chat-catalogo";
 import type { EdicionDeReceta } from "@/lib/video-recetas";
-import { NO_ENCONTRE } from "@/app/video-editor/_opencut/audio/silencios-aviso";
+import { NO_ENCONTRE, NO_ES_VOZ } from "@/app/video-editor/_opencut/audio/silencios-aviso";
 import { MOTIVO_SUBTITULOS } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { NO_HAY_MULETILLAS } from "@/app/video-editor/_opencut/transcripcion/modelo";
 
@@ -170,13 +170,20 @@ export type Decision =
 	| { hace: false; porque: string };
 
 const SIN_VOZ = "no hay un video con sonido en la pista principal";
+/** Suena, pero no es una voz (subs-01 no la reconoció): lo que suena es el video (ticket 99). */
+export const SONIDO_SIN_VOZ = "no se reconoció una voz: reducir el ruido le sacaría lo que suena (pasos, música o ambiente)";
 
 /**
  * `receta` (12/11/2026): la de un proyecto replicado (lib/video-recetas.ts → `editor`). Probando la tab entera, la
  * Edición automática de «La palabra clave gigante» dejó las claves en lima y del mismo tamaño que el resto: ahora la
  * receta manda en la pausa que se borra, si hay subtítulos, su estilo (correr.ts) y el tamaño y color de las claves.
  */
-export function decidirPaso(paso: PasoId, e: EstadoLinea, receta: EdicionDeReceta | null = null): Decision {
+export function decidirPaso(
+	paso: PasoId,
+	e: EstadoLinea,
+	receta: EdicionDeReceta | null = null,
+	{ vozNoReconocida = false }: { vozNoReconocida?: boolean } = {},
+): Decision {
 	const voz = e.conVoz.length > 0;
 	switch (paso) {
 		case "pausas":
@@ -208,6 +215,8 @@ export function decidirPaso(paso: PasoId, e: EstadoLinea, receta: EdicionDeRecet
 			return voz ? { hace: true, directo: true } : { hace: false, porque: "no hay voz que leer para elegir dónde" };
 		case "ruido": {
 			if (!voz) return { hace: false, porque: SIN_VOZ };
+			// subs-01 escuchó y no había voz: «Limpiar la voz» le sacaría los pasos o el ambiente, que es lo que suena (ticket 99).
+			if (vozNoReconocida) return { hace: false, porque: SONIDO_SIN_VOZ };
 			const sucios = e.conVoz.filter((c) => !c.ruido);
 			if (!sucios.length) return { hace: false, porque: "la voz ya tiene «Reducir el ruido»" };
 			return { hace: true, operaciones: sucios.map((c) => ({ op: "reducir_ruido", ref: c.ref, activo: true })) };
@@ -271,7 +280,9 @@ export function esNadaQueHacer(error: string): boolean {
 		/^Ya no hay nada que cambiar/.test(t) ||
 		t.startsWith(NO_HAY_MULETILLAS) ||
 		/^no se cortó las muletillas/.test(t) ||
-		t === MOTIVO_SUBTITULOS["sin-voz"]
+		t === MOTIVO_SUBTITULOS["sin-voz"] ||
+		// Un video sin voz (pasos, música, ambiente): no cortar sus «pausas» es lo correcto, no una falla (ticket 99).
+		t === NO_ES_VOZ
 	);
 }
 

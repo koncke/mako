@@ -347,3 +347,70 @@ test('el botón dice DÓNDE buscó cuando no hay pausas (ticket 31): sin nada el
 //
 // Rotura del worker (10/11/2026, base 21/0): «Borrar silencios» vuelve a la cuenta en la pantalla
 // (`reductorEnEsteHilo(motorRnnoise)`) → 20/1 (el cableado). Lo demás del worker, en tests/video-editor-ruido-hilo.test.ts.
+
+// ── Ticket 99 (Leila, 14/11/2026): un video SIN VOZ no se corta en astillas ──────────────────────
+// Un recorrido de una casa, sin voz y con los pasos: la edición automática lo dejó en 23 pedacitos de 0,15 s (su copia en
+// la base, 25,5 s → 10,5 s). Lo que queda de una voz son frases; de unos pasos, golpes sueltos.
+import { PEDACITO_S, PEDACITOS_MIN, quedanPedacitos } from '../app/video-editor/_opencut/audio/silencios-plan';
+import { NO_ES_VOZ } from '../app/video-editor/_opencut/audio/silencios-aviso';
+
+/** Pedazos de las duraciones dadas, uno tras otro con 0,5 s de silencio entre cada uno. */
+const enFila = (largos: number[]): [number, number][] => {
+  let t = 0;
+  return largos.map((s) => {
+    const tramo: [number, number] = [t, t + s];
+    t += s + 0.5;
+    return tramo;
+  });
+};
+
+test('ticket 99: lo que quedaba del recorrido de Leila son pedacitos; lo que queda de una voz, frases', () => {
+  // Lo que quedó en su línea de tiempo (a 1,2× de velocidad), llevado a segundos de la fuente.
+  const leila = [0.18, 0.684, 0.18, 0.18, 0.18, 0.372, 0.3, 0.18, 0.504, 0.18, 0.18, 0.18, 5.064, 0.336, 0.24, 0.324, 0.18, 0.192, 0.288, 0.18, 0.192, 0.204, 2.136];
+  assert.equal(quedanPedacitos(enFila(leila)), true, 'el recorrido de Leila: 23 pedazos, la mitad de 0,2 s o menos');
+  // Una voz: frases de medio segundo a tres, y alguna palabra suelta.
+  assert.equal(quedanPedacitos(enFila([1.8, 0.9, 2.4, 0.6, 1.2, 3.1, 0.45])), false);
+  // Medido el 18/11/2026 con la cuenta de abajo: palabras sueltas de 0,25 s con pausas de medio segundo, y unos pasos.
+  assert.equal(quedanPedacitos(enFila([0.54, 0.42, 0.36, 0.42, 0.34, 0.4, 0.38])), false, 'palabras sueltas siguen siendo voz');
+  assert.equal(quedanPedacitos(enFila([0.44, ...Array(20).fill(0.22), 0.24])), true, 'los pasos sintéticos de abajo');
+  // Pocos pedazos no alcanzan para decir que no es voz: «sí», «no», «ajá» en un clip corto.
+  assert.equal(quedanPedacitos(enFila(Array(PEDACITOS_MIN - 1).fill(0.15))), false);
+  assert.equal(quedanPedacitos(enFila(Array(PEDACITOS_MIN).fill(0.15))), true);
+  assert.equal(quedanPedacitos(enFila(Array(9).fill(PEDACITO_S))), false, 'en el borde, se corta');
+  assert.equal(quedanPedacitos([]), false);
+});
+
+test('ticket 99: unos PASOS en una casa callada, por la misma cuenta del botón y del chat, no se cortan', async () => {
+  // Un paso cada 0,55 s: un golpe de 60 ms que se apaga, sobre el aire de una habitación (rosa a −60 dBFS).
+  const largo = 12;
+  const pasos = rosa(Math.round(largo * SR), 71).map((x) => x * 0.001);
+  const golpe = rosa(Math.round(0.06 * SR), 72);
+  for (let t = 0.3; t < largo - 0.1; t += 0.55) {
+    const i0 = Math.round(t * SR);
+    for (let i = 0; i < golpe.length && i0 + i < pasos.length; i++) pasos[i0 + i] += golpe[i] * 0.5 * Math.exp(-i / (0.015 * SR));
+  }
+  const silencios = await sinRuido(pasos);
+  const quedan = tramosQueQuedan({ desde: 0, hasta: largo, silencios });
+  // Sin el arreglo, esto se cortaba: quedan 22 pedazos de 0,22 s (medido el 18/11/2026), como las astillas de Leila.
+  assert.ok(quedaAlgo(quedan) && quedan.length >= 15, `quedarían ${quedan.length} pedazos: ${quedan.map(([a, b]) => (b - a).toFixed(2)).join(', ')}`);
+  assert.equal(quedanPedacitos(quedan), true, `no los reconoce como pedacitos: ${quedan.map(([a, b]) => (b - a).toFixed(2)).join(', ')}`);
+  // Y una voz con sus pausas sigue cortándose como siempre: con frases, y con palabras sueltas de 0,25 s.
+  const voces: Array<Array<[number, number]>> = [
+    [[0.3, 1.1], [1.6, 2.9], [3.4, 4.2], [4.7, 6.2], [6.8, 7.6], [8.1, 9.4]],
+    [[0.3, 0.55], [1.0, 1.3], [1.8, 2.05], [2.5, 2.8], [3.3, 3.55], [4.0, 4.3], [4.8, 5.1]],
+  ];
+  for (const frases of voces) {
+    const hablada = voz(SR, frases);
+    const deLaVoz = tramosQueQuedan({ desde: 0, hasta: hablada.length / SR, silencios: await sinRuido(hablada) });
+    assert.ok(quedaAlgo(deLaVoz) && !quedanPedacitos(deLaVoz), `la voz: ${deLaVoz.map(([a, b]) => (b - a).toFixed(2)).join(', ')}`);
+  }
+});
+
+test('ticket 99, el cableado: el runner no corta pedacitos y el chat y la edición automática lo dicen como «nada que hacer»', () => {
+  const runner = fuente('audio', 'borrar-silencios.ts');
+  assert.match(runner, /if \(quedanPedacitos\(tramosQueQuedan\(\{ desde, hasta, silencios \}\)\)\) \{\s*noEsVoz\+\+;\s*continue;/);
+  assert.match(runner, /if \(noEsVoz > 0\) return \{ ok: false, motivo: "no-es-voz" \};/);
+  assert.match(runner, /r\.motivo === "no-es-voz"\) toast\(NO_ES_VOZ/);
+  assert.match(fuente('chat', 'aplicar.ts'), /"no-es-voz": NO_ES_VOZ,/);
+  assert.match(NO_ES_VOZ, /^lo que suena no es una voz/);
+});

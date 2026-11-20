@@ -31,6 +31,60 @@ Los tres corolarios, cada uno pagado por un caso real de abajo:
 
 ---
 
+## El video de bienvenida del onboarding: dos videos juntos, el gancho sin tapar, las pantallas de cerca y el corte en dos (19/11/2026)
+
+**Vive en:** `scripts/tutorial-animado/guiones.json` (`onboarding-bienvenida`) · `scripts/tutorial-animado/pantallas-onboarding/`
+(las 5 pantallas de WhatsApp y `montar.mjs`) · `C:/dev/tutoriales-video/motor/hacer.mjs` y `engine3.js`.
+
+- **Juntar dos videos no es pegarlos.** El de WhatsApp enseñaba el flujo VIEJO («manda el mensaje con tu código… queda confirmado
+  solo»). En el onboarding V2, MaKo contesta con un código y se pega en el chat. Antes de unir dos videos, cada parte se coteja con
+  el producto de hoy: el guion se reescribió y la voz es nueva.
+- **«Te doy la bienvenida» quedaba tapada, y `tapado ok` no lo marcó.** Con `rol: 'que-es'` el texto pasa por detrás de la cabeza
+  a propósito: la regla deja tapar hasta el tercio de abajo de una línea, y «bienvenida» quedaba en 95 %, «desde 76 %». El chequeo
+  la dio por buena porque cumplía esa regla. Pero el Cerebro pide que el texto NO se tape nunca. Lo único que el motor dibuja grande
+  y sin tapar nada es el `gancho` (`b.gancho`: 100 % visible en cada cuadro): para una frase que no se puede tapar, `rol: 'gancho'`.
+- **Una frase de 10 palabras al costado sale con la letra chica.** `textoLado` la ajusta a 3 líneas en el 52 % del ancho, de 112 px
+  para abajo, y `trozos` sólo parte lo que pasa de 10 palabras. Como gancho va centrada y con más ancho.
+- **Las pantallas, sin tocar el motor.** `engine3` no dibuja la app desde el 18/11 (Martín: «nada de screenshots»), pero el Cerebro
+  pide que lo que dice la voz se VEA. Las pantallas se arman en HTML (`pantallas-whatsapp.html?s=1…5`) y se montan con ffmpeg sobre
+  el 1080p, en el segundo de su frase: `montar.mjs` lee la voz (`alin.json`) y busca cada frase. Después,
+  `hacer.mjs <id> web` rehace el 720p. El original queda al lado (`.sin-pantallas.mp4`).
+- **En la app el video se ve en ~470 px: un texto de 30 px queda en 7.** Cada pantalla se acerca a lo que nombra la frase (×2 a ×2,3:
+  el botón, el mensaje escrito, el código, el recuadro, la tarjeta), con el título en una franja arriba.
+- **`subir.mjs` copia el manifiesto entero del motor encima del del repo.** Antes de subir se compara contra el de main: esta vez
+  sólo cambiaba `onboarding-bienvenida`.
+- **Para mirar los cuadros:** en el Chromium sin ventana de esta PC, las animaciones CSS quedan en `currentTime 0`. Se capturan con
+  `screenshot({ animations: 'disabled' })` (ver docs/hallazgos-onboarding.md).
+- **El corte en dos (19/11, noche): la bienvenida se corta del aprobado, sin regenerarla.** Martín pidió «cortes como los pasos»: la
+  bienvenida al principio del chat y lo del WhatsApp en el mensaje de ese paso. El corte va en el CAMBIO DE ESCENA (`beats.js`:
+  19,54 s), no en el medio del silencio entre palabras: la última palabra de la bienvenida termina a 18,98 y la primera del WhatsApp
+  empieza a 19,62. Para la bienvenida: `hacer.mjs onboarding-bienvenida` (el unido de 38 s) → `montar.mjs` (las pantallas; escribe
+  `.unido.mp4`) → `cortar.mjs` (el pedazo, su 720p y su línea del manifiesto).
+- **Un pedazo cortado de un video no siempre se entiende suelto.** El del WhatsApp arrancaba «Una de ellas es tu WhatsApp» (una de las
+  preguntas de la bienvenida), y el Cerebro pidió «Tu WhatsApp es por donde MaKo te manda avances…». Para cambiar UNA frase sin
+  perder la voz aprobada, el del WhatsApp pasó a ser su propio guion (`onboarding-bienvenida-whatsapp`): `frase-nueva.mjs` genera
+  sólo esa frase, la pega delante de la voz aprobada (desde el final de la frase vieja, con el mismo silencio) y arma la alineación
+  (la nueva + la vieja corrida). Con `voz.mp3`, `guion.txt` y `alin.json` en `trabajo/<id>/`, `hacer.mjs` no regenera la voz y
+  renderiza el video entero: la música sigue corrida y cada escena cae en su lugar. Para ese video: `frase-nueva.mjs` →
+  `hacer.mjs <id> video` → renombrarlo a `.sin-pantallas.mp4` → `montar.mjs <id>` → `hacer.mjs <id> web`. El volumen de la frase
+  nueva quedó parejo con el resto (−19 y −20 dB de media), y el chequeo dio «dice exactamente el guion».
+- **Las pantallas de adentro del video son una foto de la app: cuando la app cambia, el video miente.** Al cortarlo, el pedazo del
+  WhatsApp mostraba «envía el mensaje de confirmación» y «Pega aquí el código», justo lo que Martín había pedido sacar esa misma
+  tarde. Se vio mirando los cuadros, no en ningún test. Cada vez que cambia un texto o un botón que sale en un video, se rehacen sus
+  pantallas (`pantallas-whatsapp.html` → `capturar.cjs` → `montar.mjs`).
+- **Una pantalla de cerca encima del video: corte seco, y nada cortado (el Cerebro, 19/11, mirando cuadro por cuadro).**
+  - *Un fundido mezcla dos textos.* Con 0,18 s de fundido, el texto de la escena de abajo («Para confirmarlo, toca…») se veía
+    a la vez que la pantalla, y quedaba ilegible. Las pantallas son opacas y de cuadro entero: `montar.mjs` corta seco (`FUNDE = 0`).
+    El corte seco destapa otra cosa: al entrar a la escena del cierre, la cabeza del personaje pasa ~0,1 s por delante del texto. La
+    última pantalla se queda 0,10 s más (`QUEDA`), hasta que el cierre se acomoda.
+  - *Acercar sobre un botón corta lo que está al lado.* El ×2 centrado en «Abrir WhatsApp» dejaba la tarjeta y el texto de arriba
+    cortados a la derecha («toca «Abrir Whats», «2505-26»), y otra pantalla asomaba medio renglón bajo el título. Ahora se acerca
+    la pieza entera (la tarjeta; el anillo marca el botón) hasta donde entra a lo ancho, y la regla se mide sola: en
+    `pantallas-whatsapp.html`, un texto que no entra entero se oculta, y una pieza cortada deja la pantalla anotada y `capturar.cjs`
+    no la captura.
+- **`onboarding-whatsapp` ya existía** (el video de la pantalla de octubre, `app/onboarding/ChatArranque.tsx`). El pedazo nuevo es
+  `onboarding-bienvenida-whatsapp`: antes de elegir el nombre de un video, se busca en el manifiesto y en el código.
+
 ## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
 
 **Vive en:** `scripts/tutorial-animado/vsl-julio/assemble.sh` · `scripts/tutorial-animado/LEEME.md`
@@ -2316,3 +2370,49 @@ una tanda con su chequeo; `renders.mjs` renderiza y deja una hoja de cuadros por
   del interruptor). Sin su lugar, el video está en el manifiesto y no se ve.
 - Las pestañas de Classroom y Equipo describen la pantalla de Pro (en Essential, según el código, muestran un candado o son de una
   sola persona). No verificado en la app.
+
+### Los días 2 a 7 del reto, con su porqué (19/11/2026, chat «reto-tutoriales», claude5)
+
+Cada día pasó de «toca aquí, toca allá» a gancho → porqué con un ejemplo de los cursos → los toques de siempre (mismos `sel`, mismo
+orden) → cierre. Los guiones los escribió y criticó la corrida `wf_8a54fd74-15a` (`C:/dev/tutoriales-video/guiones-dias-2-7.md`); lo
+que esa corrida encontró en el código de la app está en docs/hallazgos-onboarding.md, «Las tareas del reto dicen lo que el video marca».
+
+- **La fuente de los guiones es `C:/dev/tutoriales-video/guiones.json`, no la del repo.** La leen `hacer.mjs` y `voces.mjs`, y
+  `subir.mjs` copia ESA a `scripts/tutorial-animado/guiones.json` en cada subida. El relevo del 18/11 llamaba «la fuente» a la del
+  repo: si se edita la del repo a mano, la próxima subida la pisa sin avisar.
+- **Los montos van en letras en la voz** («tres mil dólares», «mil quinientos»), como los demás números. El transcriptor los
+  devolvió en letras en los seis videos. Pero el chequeo compara palabra por palabra: el día que escriba «$3,000», una toma buena
+  saldría con «tres → 3», «falta: mil», «falta: dólares», y `voces.mjs` pagaría dos tomas más (~500 créditos cada una). Ahora
+  `motor/numeros.mjs` pasa los dos lados a cifras antes de comparar y saca «dólares», «US» y «USD»; «tres tres» sigue siendo una
+  palabra repetida, no un seis. En pantalla los montos se leen en letras: `ver` cambia una palabra por otra, y «tres mil» → «3.000»
+  son dos palabras que pasan a una, lo que corre el reloj de las palabras que siguen.
+- **Una frase que se entiende escrita puede no entenderse dicha.** «En Competitor Spy ve que un rival…» se oye como una orden («ve»)
+  y no como lo que hace la agencia del ejemplo: pasó a «En Competitor Spy, la agencia ve…». «No es lo mismo que escribirle a Máko
+  por WhatsApp: es la aplicación» había quedado lejos de la frase de la app, después de la objeción: ahora nombra la app.
+- **La galería es de la cuenta que la publica.** La de claude2 (`GJAQbPZw2nC3uvy82X8WcX`) no se abre desde claude5: cada cuenta la
+  publica de nuevo, como artefacto nuevo. `pagina.mjs` escribía en el scratchpad de la sesión del 18/11; ahora toma la carpeta de
+  `PUB` (`PUB=<scratchpad>/pub-tutoriales node motor/pagina.mjs`).
+- **Un día del reto con su porqué dura lo que una clase (60 a 95 s) y no entra en 1,5 MB.** El día 2 (94 s) llegó al último CRF del
+  ciclo (37) y pesó 2,2 MB igual: `hacer.mjs` lo dejaba pasar por encima del tope sin avisar, con la letra más sucia. Ahora cada
+  guion puede traer su tope (`pesoMaxMb`); los días 2 a 7 llevan 5 MB, como las clases, y salen con la letra limpia (CRF 23, 4 a 5 MB).
+- **La hoja de cuadros de `renders.mjs` era de 4×5 cuadros, uno cada 2 s: miraba sólo los primeros 40 s.** En un video de 94 s, más
+  de la mitad (todos los toques del día 2) no estaba en la hoja que hay que MIRAR. Ahora las filas salen del largo del video.
+- **El render no avisa si la línea del log es vieja:** `trabajo/_renders.log` y `_voces.log` acumulan las corridas. Buscar
+  «reto-dia-2: ✅» encuentra la del día anterior (pasó dos veces el 19/11: un «55 s» que en realidad era el video del 18/11). Se lee lo
+  que viene después del encabezado de ESTA corrida (`# renders <fecha de hoy> · <key>`).
+- **Medido:** seis voces, siete tomas (el día 7 pidió una más), ~3.500 créditos de ElevenLabs. Cada render, de 3 a 4,5 min con la
+  pasada de cuadros; la cola del navegador (`turno.mjs`) sumó esperas de varios minutos con otros chats renderizando.
+- **⚠️ El gancho salía tapado, y «tapado ok» no lo veía (19/11, el Cerebro: «la cabeza tapa el final del gancho», día 3).** Eran dos
+  cosas a la vez:
+  - **La medida salteaba la entrada.** El texto grande entraba subiendo 300 px desde atrás del muñeco, y en los primeros cuadros
+    su última línea cruzaba la cabeza: «su··te» en el día 3. `render2.cjs` medía desde los 250 ms de cada pantalla, justo después.
+  - **La regla misma lo permitía.** La del 18/11 (letras por detrás) deja que la cabeza tape el tercio de abajo de la última línea:
+    los seis ganchos daban «ok» con palabras al 82-96 % visibles.
+  - **Ahora el gancho no lo tapa nada, en ningún cuadro.** `hacer.mjs` marca sus pantallas (`b.gancho`, rol `gancho`), y
+    `engine3.js` hace tres cosas: el texto crece en su lugar sin subir, va hasta 70 px más arriba, y el muñeco queda con el pelo
+    0,5 × el tamaño de la letra + 24 px debajo de la última línea (debajo de la p, la g y la y). Ese lugar es el mismo en todas las
+    pantallas del gancho, así que al pasar de una a otra la cabeza no sube a la siguiente.
+  - **La medida corre en cada cuadro del video (30 por segundo) desde el primero, con cero píxeles tapados.** «Te doy la
+    bienvenida…» sigue con la regla del 18/11.
+  - **Regla:** una medida que «da ok» se contrasta con un cuadro mirado de cerca en el momento que no mide (la entrada). Si la
+    hoja muestra algo tapado y la medida dice ok, falla la medida, no la hoja.

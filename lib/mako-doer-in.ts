@@ -98,6 +98,10 @@ import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno, getWorkspac
 import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
+import { veInspiracion } from '@/lib/inspiracion/revision';
+import { paraInspiracion } from '@/lib/inspiracion/links';
+import { respuestaWhatsApp } from '@/lib/inspiracion/clasificar';
+import { guardarDeWhatsApp } from '@/lib/inspiracion/servidor';
 import { RUTA_CHATS, PARAM_CHATS } from '@/lib/chats-links';
 import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheapTools, cheapDisponible, CASCADA_STT } from '@/lib/ai-cheap';
 import { paraWhatsApp, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, bloqueAgendaGoogle, hechoGoogleCalendar, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
@@ -2088,6 +2092,29 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     }
     // Las imágenes y los PDF que vinieron DENTRO de un lote (`adjuntoDelLote`): ya bajados y leídos, van como bloques con el lote entero.
     if (!mediaBlocks && data.adjuntosDelLote?.length) mediaBlocks = bloquesDeAdjuntos(data.adjuntosDelLote, texto);
+
+    // ── INSPIRACIÓN (19/11/2026, docs/inspiracion/diseno.md): un link de Instagram que no pide nada se guarda y se ordena solo ──────
+    // Martín: «cuando detecta que es un link de Instagram… lo guarda automáticamente en la competencia y lo ordena». Va ANTES de la
+    // memoria y del clasificador del turno: no se paga el turno y la regla 6 de lib/mako-intencion.ts no lo manda al Plan como
+    // borrador. Sólo quien administra el negocio (ni un invitado ni el equipo) y detrás del interruptor (lib/inspiracion/revision.ts).
+    // Si junto al link PIDE algo («replicá este reel»), `paraInspiracion` da null y sigue el turno de siempre.
+    const inspiracion = !hayInvitado && veInspiracion({ ws: wsData }) ? paraInspiracion(sinPrefijoDeLote(texto)) : null;
+    if (inspiracion) {
+      if (soloApp && msgId) await reaccionarMensaje(jid, key, EMOJI_RECIBIDO).catch(() => false);
+      const guardados = await guardarDeWhatsApp(wsData, inspiracion.links, { nota: inspiracion.nota, mensajeId: msgId || null }).catch((e) => {
+        console.error(`[doer] ws=${wsData} inspiración: no pude guardar: ${e instanceof Error ? e.message : String(e)}`);
+        return null;
+      });
+      const dicho = guardados?.length
+        ? respuestaWhatsApp(guardados, linkApp('/copywriter?ver=inspiracion', wsData))
+        : 'No pude guardar ese link ahora: mándamelo de nuevo en un rato.';
+      const env = await enviarAGrupoJid(jid, dicho);
+      if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+      await siNoLlego(wsData, actorDeWhatsApp(participante, data.pushName), soloApp, [env]);
+      await guardarTurno(wsData, jid, 'user', texto, msgId).catch(() => {});
+      if (env.ok) await guardarTurno(wsData, jid, 'assistant', dicho, undefined).catch(() => {});
+      return { engaged: true, reply: dicho };
+    }
 
     // Historial (memoria) + system — TODO scopeado al workspace del grupo (wsData).
     // 12 turnos (antes 24): la memoria útil rara vez pasa de ahí y el historial es INPUT
