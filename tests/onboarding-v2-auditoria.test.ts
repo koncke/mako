@@ -163,3 +163,17 @@ test('14. V10 y F1: el manifiesto de los videos, fresco en cada visita; y «Toda
   assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /if \(!v\) \{\n\s*return revision && listo\n/);
   assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /if \(cerrado \|\| \(!video && !\(revision && manifiestoListo\)\)\) return null;/);
 });
+
+test('15. F2: el video que pasó a la esquina vuelve al chat cuando su mensaje se ve otra vez, desde el segundo en que iba', async () => {
+  const { reproducirFlotante, volverAlChat, anotarTiempoFlotante, senalAhora } = await import('../app/_ui/tutorial/store');
+  reproducirFlotante('onboarding-bienvenida', 'Bienvenida', 3);
+  anotarTiempoFlotante(7.5);
+  assert.equal(volverAlChat('otro-video'), null, 'otro video no lo cierra');
+  assert.equal(volverAlChat('onboarding-bienvenida'), 7.5, 'el segundo en que iba');
+  assert.equal(senalAhora(), null, 'el flotante se cerró');
+  assert.equal(volverAlChat('onboarding-bienvenida'), null, 'ya no flota');
+  const h = sinComentarios(leer('app/_ui/tutorial/useVideoQueFlota.ts'));
+  assert.match(h, /if \(!e\.isIntersecting\) \{ flotar\(\); continue; \}\n\s*const t = volverAlChat\(clave\);/);
+  assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /onTimeUpdate=\{\(e\) => anotarTiempoFlotante\(e\.currentTarget\.currentTime\)\}/);
+  assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /\{flotando && <span className="mk-vmom__esquina" role="status">Se está viendo en la esquina ↘<\/span>\}/);
+});

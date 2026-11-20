@@ -5644,6 +5644,10 @@ titular), no se tiñe.
   de antes de un deploy y no veía los videos nuevos (con «sin video, NADA», el lugar quedaba vacío). Ahora `no-cache`: revalida en
   cada visita. Y «cargando» no es «no hay»: `useManifiestoListo` deja que la placa «Todavía no está grabado» salga sólo con el
   manifiesto ya leído (antes se veía un momento aunque el video existiera). V10 y F1 de la auditoría.
+- **El video que pasa a la esquina era de ida nomás** (`useVideoQueFlota`): salía de la vista y flotaba, y al volver a verse había
+  dos reproductores del mismo video. Ahora el flotante anota su segundo en el store (`anotarTiempoFlotante`), y el mismo
+  IntersectionObserver, al verse otra vez, lo cierra (`volverAlChat`) y sigue en el chat desde ahí. Mientras flota, su lugar dice
+  «Se está viendo en la esquina ↘» (F2 de la auditoría).
 - **Las marcas que faltaban en la página (la tanda siguiente, tests/tutorial-marcas-auditoria.test.ts):**
   - *Una función no viaja del servidor: la flecha de volver del grafo no existía en la computadora* (recorrido-6). El Grafo la
     dibuja sólo con `alCerrar`, y el mapa de escritorio lo arma el servidor (`pagina.tsx`). El volver de escritorio ya llegaba por

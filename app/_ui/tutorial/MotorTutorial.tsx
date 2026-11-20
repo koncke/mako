@@ -30,7 +30,7 @@ import { Button } from '../Button';
 import { cssRecorrido, useRecorrido } from '../Recorrido';
 import { Z_PISO_RECORRIDO, necesitaScroll, posicionTarjeta, recorteDe, type Caja, type Medida, type PosicionTarjeta } from '@/lib/recorridos';
 import { pasosPara, tutorialDeRuta, type PasoTutorial, type TutorialPestana } from '@/lib/tutoriales';
-import { motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
+import { anotarTiempoFlotante, motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
 import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
 import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigueLosPasos, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
@@ -250,7 +250,8 @@ function VideoFlotante({ senal }: { senal: Extract<Senal, { tipo: 'video' }> }) 
           <button type="button" className="mk-tuto__vx" aria-label="Cerrar el video" onClick={() => terminar(senal.id, 'omitido')}>
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
           </button></header>
-        <video ref={ref} className="mk-tuto__vid" src={v.archivo} poster={v.poster} controls playsInline preload="metadata" onEnded={() => terminar(senal.id, 'fin')} />
+        <video ref={ref} className="mk-tuto__vid" src={v.archivo} poster={v.poster} controls playsInline preload="metadata" onEnded={() => terminar(senal.id, 'fin')}
+          onTimeUpdate={(e) => anotarTiempoFlotante(e.currentTarget.currentTime)} />
       </div>
     </div>,
     document.body,
