@@ -191,6 +191,36 @@ export const DIAS_RETO: readonly DiaReto[] = [
   },
 ];
 
+// ── Los días 4 a 6, según el funnel (20/11/2026, auditoría d24-14 y R57-01) ─────────────────────────────────────────────────
+// Martín, 15/11: «el reto tiene que servir a CADA funnel». La tabla es la de la maqueta (C:/dev/artefactos-onboarding/cuerpo.html,
+// POR_FUNNEL): qué mira en Competitor Spy, qué página arma, qué carrusel y qué guion, y para qué es el clip. Los funnels de la app
+// (lib/funnel-plan.ts, FUNNELS) van a su columna; «prospección en frío» no está en la maqueta y va con la de WhatsApp, la más
+// parecida (le escribe a la gente y la conversación sigue por chat). Sin funnel elegido, los días de siempre.
+type PorFunnel = { spy: string; web: string; carrusel: string; guion: string; clip: string };
+const POR_FUNNEL: Readonly<Record<'whatsapp' | 'vsl' | 'formulario' | 'instagram' | 'youtube', PorFunnel>> = {
+  whatsapp: { spy: 'Mira sus anuncios que más tiempo llevan activos.', web: 'Tu página, con el botón a tu WhatsApp', carrusel: 'Tu anuncio en carrusel, que abre el chat', guion: 'El guion de tu anuncio en video', clip: 'Con el gancho de tu anuncio.' },
+  vsl: { spy: 'Mira sus anuncios y la página de su video de venta.', web: 'Tu página con tu video de venta y la agenda', carrusel: 'Tu anuncio en carrusel, que lleva a tu página', guion: 'El guion de tu video de venta', clip: 'Con el gancho de tu anuncio.' },
+  formulario: { spy: 'Mira sus anuncios con formulario que más duran.', web: 'Tu página de gracias, con tu agenda', carrusel: 'Tu anuncio en carrusel, con formulario', guion: 'El guion de tu anuncio en video', clip: 'Con el gancho de tu anuncio.' },
+  instagram: { spy: 'Mira sus reels con más vistas y la palabra que piden comentar.', web: 'La página del link de tu bio', carrusel: 'Tu carrusel, con la palabra para comentar', guion: 'El guion de tu reel', clip: 'Con el gancho de tu reel.' },
+  youtube: { spy: 'Mira sus videos con más vistas.', web: 'La página del link de tu descripción, con la agenda', carrusel: 'Tu carrusel, que lleva a tu canal', guion: 'El guion de tu video largo', clip: 'Un short que lleva a tu canal.' },
+};
+const COLUMNA_DEL_FUNNEL: Readonly<Record<string, keyof typeof POR_FUNNEL>> = {
+  'anuncios-a-whatsapp': 'whatsapp', 'anuncios-a-vsl': 'vsl', anuncios: 'formulario', organico: 'instagram', youtube: 'youtube', 'prospeccion-en-frio': 'whatsapp',
+};
+
+/** Los 7 días con los 4 a 6 armados para el funnel elegido en Funnel Coach (el principal). Los ids de las tareas no cambian. */
+export function diasDelReto(funnel?: string | null): readonly DiaReto[] {
+  const col = funnel ? COLUMNA_DEL_FUNNEL[funnel] : undefined;
+  if (!col) return DIAS_RETO;
+  const F = POR_FUNNEL[col];
+  const cambia: Record<number, Record<string, Partial<TareaReto>>> = {
+    4: { spy: { detalle: F.spy }, web: { titulo: F.web } },
+    5: { carrusel: { titulo: F.carrusel }, guion: { titulo: F.guion } },
+    6: { clip: { detalle: F.clip } },
+  };
+  return DIAS_RETO.map((d) => (cambia[d.n] ? { ...d, tareas: d.tareas.map((t) => ({ ...t, ...(cambia[d.n][t.id] ?? {}) })) } : d));
+}
+
 // ── En qué día va ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Lo que se guarda por negocio (`app_settings` → `reto.estado`). */

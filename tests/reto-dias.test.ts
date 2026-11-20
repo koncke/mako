@@ -198,6 +198,21 @@ test('cada tarea del reto se cierra por lo que MaKo LEE, nunca por tocar la pest
   assert.ok(!ruta.includes("accion === 'hecha'"), 'la API ya no acepta «hecha» por un toque');
 });
 
+test('los días 4 a 6 cambian según el funnel elegido (20/11, d24-14 y R57-01; la tabla de la maqueta)', async () => {
+  const { diasDelReto } = await import('../lib/reto/dias');
+  const t = (f: string | null, n: number, id: string) => diasDelReto(f).find((d) => d.n === n)!.tareas.find((x) => x.id === id)!;
+  assert.equal(t('anuncios-a-whatsapp', 4, 'web').titulo, 'Tu página, con el botón a tu WhatsApp');
+  assert.equal(t('anuncios-a-vsl', 4, 'web').titulo, 'Tu página con tu video de venta y la agenda');
+  assert.equal(t('organico', 5, 'carrusel').titulo, 'Tu carrusel, con la palabra para comentar');
+  assert.equal(t('organico', 5, 'guion').titulo, 'El guion de tu reel');
+  assert.equal(t('youtube', 6, 'clip').detalle, 'Un short que lleva a tu canal.');
+  assert.equal(t('anuncios', 4, 'spy').detalle, 'Mira sus anuncios con formulario que más duran.');
+  assert.equal(diasDelReto(null), DIAS_RETO, 'sin funnel, los días de siempre');
+  assert.deepEqual(diasDelReto('youtube').map((d) => d.tareas.map((x) => x.id)), DIAS_RETO.map((d) => d.tareas.map((x) => x.id)), 'los ids no cambian (las lecturas y lo guardado siguen valiendo)');
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.ok(chat.includes('diasDelReto(d.funnel).filter') && chat.includes('diasDelReto(d.funnel).map'), 'el chat y el desplegable usan los días del funnel');
+});
+
 test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, sin clip de regalo, sin la tab AI Avatar', () => {
   const texto = JSON.stringify(DIAS_RETO);
   assert.doesNotMatch(texto, /integramos|lo hacemos por ti|nuestro equipo/i, 'nada que prometa un equipo: Martín no tiene');

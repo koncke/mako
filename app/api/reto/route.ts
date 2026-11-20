@@ -57,9 +57,14 @@ async function linea(): Promise<string | null> {
   } catch { return null; }
 }
 
-function respuesta(e: EstadoReto | null, numero: string | null) {
+/** El funnel principal que eligió en Funnel Coach (`funnel_coach.plan`): arma los días 4 a 6 (`diasDelReto`). Sin plan, null. */
+async function funnel(): Promise<string | null> {
+  try { const p = JSON.parse((await getSetting('funnel_coach.plan')) ?? 'null') as { funnel?: unknown } | null; return typeof p?.funnel === 'string' ? p.funnel : null; } catch { return null; }
+}
+
+async function respuesta(e: EstadoReto | null, numero: string | null) {
   const { abierto, dias, hechos } = estadoDeLosDias(e, Date.now());
-  return Response.json({ ok: true, ve: true, estado: e, abierto, dias, hechos, linea: numero });
+  return Response.json({ ok: true, ve: true, estado: e, abierto, dias, hechos, linea: numero, funnel: await funnel() });
 }
 
 export async function GET() {

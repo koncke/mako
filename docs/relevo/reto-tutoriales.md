@@ -19,7 +19,17 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
   - El día adelantado no lleva aviso: `avisado` sube hasta él.
 - **Sin la marca automática a los 0,9 s (D1-03, d24-09, R57-12).** Lo que falta se marca al terminar o cerrar el video del día. La marca del día 1 va sin «Lo hago después» (F1).
 
-## Decisiones que son de Martín (avisadas al Cerebro; no se tocaron)
+## Lo que decidió el Cerebro (20/11)
+
+- **R57-02, el clip de 10 s del día 6: SÍ, por ApiMart.** Martín decidió el 17/11 que el video de los CLIENTES va por ApiMart (Flow es
+  para su contenido).
+  - Va UN clip por prueba.
+  - Lo que cuesta queda registrado, en MaKo Tokens o en la tabla de costos.
+  - Si ApiMart falla o no hay saldo, se dice claro y no se cobra nada.
+- **d24-23, «integrar tu CRM»: AFUERA** mientras no exista una integración con otro CRM. El día 3 ofrece sólo el CSV. Es una
+  **función pendiente**, no un olvido: hace falta una integración con GoHighLevel, HubSpot o Pipedrive en lib/integraciones-catalogo.ts.
+
+## Lo que se le avisó al Cerebro (las dos ya las decidió, arriba)
 
 - **R57-02, el clip de 10 s de regalo:** Martín lo decidió el 15/11 (memoria `reto-7-dias-prueba`), y el 19/11 lo saqué de las tareas y del video del día 6 porque la app no lo regala.
   - Medido el 20/11: en la prueba va UN video con el personaje (`prueba.avatares: 1`).

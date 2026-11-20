@@ -26,9 +26,11 @@ import { mostrarTutorial, senalAhora, senalarDondeTocar } from '@/app/_ui/tutori
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { useVideoQueFlota } from '@/app/_ui/tutorial/useVideoQueFlota';
 import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutorial/desde-cero';
-import { claveTarea, diaAbierto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
+import { claveTarea, diaAbierto, diasDelReto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
 
-type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null };
+type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null;
+  /** El funnel que eligió en Funnel Coach: arma los días 4 a 6 (`diasDelReto`, 20/11). */
+  funnel?: string | null };
 
 /** Lo del ensayo «desde cero» (app/_ui/tutorial/desde-cero.ts): el mismo cálculo que /api/reto, con el estado en el navegador. */
 function datosDelEnsayo(base: DatosReto | null, e: EstadoReto | null): DatosReto {
@@ -115,7 +117,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
 
   useEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [d?.abierto, d?.hechos, manana]);
 
-  const abiertos = d && e ? DIAS_RETO.filter((x) => x.n <= d.abierto) : [];
+  // Los días 4 a 6, armados para su funnel (20/11, auditoría d24-14 y R57-01).
+  const abiertos = d && e ? diasDelReto(d.funnel).filter((x) => x.n <= d.abierto) : [];
   const horaWa = hora ?? e?.horaWa ?? '9:00';
   return (
     <PanelDeChat hilo={hilo}
@@ -254,7 +257,7 @@ export function DesplegableReto({ d, abierto, onAbrir }: { d: DatosReto; abierto
           <div className="rt-menu__segs" aria-hidden>{d.dias.map((x, i) => <i key={i} data-e={x} />)}</div>
           <p className="rt-menu__ley"><span><i data-e="hecho" />Listo</span><span><i data-e="hoy" />Hoy</span><span><i data-e="medias" />A medias</span><span><i />Por venir</span></p>
           <ol className="rt-menu__lista">
-            {DIAS_RETO.map((dia, i) => {
+            {diasDelReto(d.funnel).map((dia, i) => {
               const est = d.dias[i];
               const futuro = est === 'luego';
               const etiqueta = ESTADO[est] || (dia.n === actual + 1 ? `Mañana, a las ${hora}` : `Día ${dia.n}`);
