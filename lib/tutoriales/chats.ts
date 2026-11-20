@@ -30,6 +30,9 @@ export const TUTORIAL_CHATS: TutorialPestana = {
       texto: 'Escaneas el QR desde tu celular y listo: tus chats entran aquí.',
       sub: 'Para empezar, toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.',
       lado: 'abajo',
+      // Con canales, WhatsApp vive en «Canal › Conectar un canal» (20/11): la frase de «Canal» deja el menú abierto, y el motor
+      // toca la opción; si está cerrado, abre «Canal» primero.
+      antes: ['button[aria-label="Canal"]', '[data-recorrido="tour-chats-conectar"]'],
     },
   ],
 };

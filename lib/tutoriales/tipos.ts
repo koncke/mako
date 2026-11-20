@@ -38,8 +38,10 @@ export type PasoTutorial = {
   /**
    * Un selector que se toca ANTES de marcar el paso (abrir un menú, «Mostrar más»), porque el control todavía no está en la
    * página. Si no se encuentra (ya se tocó, o en el teléfono no existe), se sigue sin tocarlo.
+   * Una CADENA (20/11): lo que está detrás de dos clics («Canal › Conectar un canal», «las hojas › Nueva hoja»). El motor
+   * arranca desde el último eslabón que ya está a la vista (el menú pudo quedar abierto) y espera cada uno antes de tocarlo.
    */
-  antes?: string;
+  antes?: string | readonly string[];
   /** Sin equivalente en el teléfono: el motor saltea el paso en MaKo Mobile. */
   soloComputadora?: true;
   /**
