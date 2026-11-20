@@ -2691,10 +2691,12 @@ van dos marcas en el mismo render).
 - **Un chat con PERSONAS usa app/_chat/grupo/useSeguirElHilo.ts** (como WhatsApp: no arrastra a quien lee arriba, cuenta lo nuevo).
 - **Un mensaje que nombra algo de un video sale cuando la voz llega ahí** (app/_ui/tutorial/useMensajeDelVideo.ts) y nunca deja a nadie
   esperando: sin play, con error, pausado o ya visto, sale igual.
-- **Un «dale play» sobre un póster propio espera a que el póster cargue** (`videoDibujado`, app/_ui/tutorial/entrada.ts; 20/11/2026,
-  el Cerebro en producción). «A la vista» (`useDalePlay`) mide el LUGAR, no si hay algo dibujado: con un arranque en frío la tarjeta
-  salía oscureciendo todo sobre un cuadro vacío. El `activo` lleva `videoDibujado({ poster, posterCargado })` con el `onLoad` del `<img>`
-  y, para el póster en caché, `complete && naturalWidth > 0` al dibujarlo (como app/second-brain/LlegadaAlReto.tsx).
+- **Un «dale play», o cualquier marca sobre un video, sale recién con el póster DIBUJADO** (`videoDibujado`, app/_ui/tutorial/entrada.ts;
+  20/11/2026, el Cerebro en producción). «A la vista» (`useDalePlay`) mide el LUGAR, no si hay algo dibujado: con un arranque en frío
+  la tarjeta salía oscureciendo todo sobre un cuadro vacío o negro. Todo `useDalePlay` lleva en su `activo` la espera del póster:
+  `usePosterDibujado(v?.poster)` (app/_ui/tutorial/usePosterDibujado.ts) para un `<video poster>` o un fondo, que no avisan cuándo
+  cargó; o el `onLoad` de un `<img>` propio más `complete && naturalWidth > 0` (app/second-brain/LlegadaAlReto.tsx). Lo vigila
+  tests/llegada-dale-play-dibujado.test.ts, que revisa cada `useDalePlay(` de esos archivos.
 
 # Mirando un negocio como administrador, el estado del onboarding es el del DUEÑO
 

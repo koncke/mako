@@ -14,11 +14,13 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
   SU póster cargado (no otro), y el `<img>` lo anota en `onLoad`. Un póster en la caché puede cargar antes de que React escuche, así
   que también se mira `complete && naturalWidth > 0` al dibujarlo. Lo fija tests/llegada-dale-play-dibujado.test.ts, roto de a una
   rotura (4).
-- **Regla** (en AGENTS.md): un «dale play» sobre un póster propio espera a que el póster cargue. Estar «a la vista» no alcanza.
-- **Sin hacer, sin verificar:** `VideoDelMomento` (la bienvenida, el WhatsApp y los coaches) marca con `!!v && estado === 'quieto'`.
-  Dibuja un `<video poster=…>`, así que con el manifiesto leído ya hay un cuadro, pero negro hasta que llega el póster. No lo vi en
-  producción. Si el Cerebro lo ve sobre un cuadro negro, es el mismo arreglo, con el `loadeddata` del `<video>`
-  (app/_ui/tutorial/VideoDelMomento.tsx).
+- **El mismo criterio en todos los videos con marca** (el Cerebro, esa noche): `VideoDelMomento` (la bienvenida, el WhatsApp y los
+  coaches) y, en el reto, el video de cada día y el de muestra. **Trampa:** un `<video poster>` (y un `background-image`) NO avisa
+  cuándo cargó su póster, y `loadeddata` habla del video, no del póster. `usePosterDibujado` pide el mismo archivo con un `Image`
+  (la misma URL, la misma caché) y cuenta cuando ESE carga; uno roto (`naturalWidth` 0) no cuenta. Al irse, la limpieza suelta el
+  `onload`. Una bandera `vivo` además de eso resultó redundante: la rotura que la sacaba quedaba en verde, así que se fue.
+- **Regla** (en AGENTS.md): un «dale play», o cualquier marca sobre un video, sale recién con el póster dibujado. Estar «a la vista»
+  no alcanza. El test revisa cada `useDalePlay(` de esos archivos: uno nuevo sin la espera cae.
 
 ## La llamada con Leila: lo que sigue lo marca la barra (20/11/2026, noche, claude5, chat «reto-tutoriales»)
 

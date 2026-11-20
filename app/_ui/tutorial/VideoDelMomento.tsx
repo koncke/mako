@@ -24,6 +24,7 @@ import { senalarDondeTocar, soltarSenal, useSenal, type MotivoFin } from './stor
 import { BANDERA_FLOTA, pausaPorFlotar, useVideoQueFlota } from './useVideoQueFlota';
 import { fraseEnElTiempo, type FraseVideo } from '@/lib/tutoriales/videos';
 import { useDalePlay } from './useDalePlay';
+import { usePosterDibujado } from './usePosterDibujado';
 import { cerrarDalePlay } from './entrada';
 
 type Estado = 'quieto' | 'reproduciendo' | 'pausado' | 'terminado';
@@ -67,7 +68,9 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, o
   const [vel, setVel] = useState<number>(1);
   const dur = durLeida || v?.duracion_s || 0;
   const raiz = useRef<HTMLDivElement>(null);
-  useDalePlay(raiz, { clave, titulo, activo: dalePlay && !!v && estado === 'quieto' && !flotando });
+  // Recién con el póster dibujado (20/11/2026, el Cerebro): nunca sobre el cuadro negro mientras el póster viene en camino.
+  const dibujado = usePosterDibujado(v?.poster);
+  useDalePlay(raiz, { clave, titulo, activo: dalePlay && !!v && estado === 'quieto' && !flotando && dibujado });
   // La frase que suena, y la marca de la que tiene lugar (videos-5).
   const fraseAhora = useRef<string | null>(null);
   const marca = useRef(0);

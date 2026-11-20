@@ -170,7 +170,9 @@ test('R57-F5: en el teléfono el reto SIEMPRE dice «Sigamos en tu computadora»
 
 test('V5: el «dale play» del día dice el título del video («Día 2: conecta todo»)', () => {
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
-  assert.ok(chat.includes('const titulo = v ? tituloDelVideo(v, dia.n) : `Día ${dia.n}`;\n  useDalePlay(raiz, { clave: delReto(dia.video), titulo, activo: dalePlay && conMarcas && !visto && !corre });'));
+  // (20/11: y recién con el póster dibujado, tests/llegada-dale-play-dibujado.test.ts.)
+  assert.ok(chat.includes('const titulo = v ? tituloDelVideo(v, dia.n) : `Día ${dia.n}`;\n'));
+  assert.ok(chat.includes('useDalePlay(raiz, { clave: delReto(dia.video), titulo, activo: dalePlay && conMarcas && !visto && !corre && posterDibujado });'));
   assert.ok(chat.includes('<VideoDelMomento clave={dia.video} titulo={titulo}'), 'también el del día 1');
 });
 
@@ -242,7 +244,7 @@ test('auditoría de chats (reto-1, reto-5, reto-9, reto-10 y reto-11): el scroll
   // reto-9: la tarea que toca hoy se marca sola, después del video, con su fila en el hilo.
   assert.ok(chat.includes('if (!t || !n || yaMarcada(claveToca) || !yaVisto(`video:${n}`)) return;'));
   assert.ok(chat.includes('if (n > 1 && !document.querySelector(`[data-tarea="${claveToca}"]`)) return;'));
-  assert.ok(chat.includes("useDalePlay(boton, { clave: delReto(`muestra-${m.pestana}`), titulo: m.nombre, activo: !!v });"), 'la muestra con su «dale play»');
+  assert.ok(chat.includes("useDalePlay(boton, { clave: delReto(`muestra-${m.pestana}`), titulo: m.nombre, activo: !!v && posterDibujado });"), 'la muestra con su «dale play»');
   // reto-5 (a): cerrar el «dale play» del día 1 con su X marca Offer Coach.
   assert.ok(chat.includes("if (!arranco.current && dalePlayCerrado(dia.video)) { anotarVisto(`video:${dia.n}`); onFin?.(); }"));
   // reto-11: los puntitos de la carga, sólo la primera vez.
