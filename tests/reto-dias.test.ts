@@ -247,6 +247,21 @@ test('los tres puntitos: cada mensaje del reto llega después de que MaKo escrib
   assert.ok(chat.includes('!empezo1 && ap.listo && !ap.escribiendo'), 'las opciones, recién cuando MaKo terminó de escribir');
 });
 
+test('el catálogo «Tutoriales de MaKo»: para empezar, el reto con los días cerrados y cada pestaña con video (20/11, V1 y D1-07)', async () => {
+  const { gruposDelCatalogo } = await import('../app/second-brain/reto/CatalogoTutoriales');
+  const videos = ['onboarding-bienvenida', 'recorrido', 'offer-coach', 'reto-dia-1', 'reto-dia-2', 'reto-dia-5', 'crm', 'plan'].map((key) => ({ key, duracion_s: 60 }));
+  const g = gruposDelCatalogo(videos, 2);
+  assert.deepEqual(g.map((x) => x.titulo), ['Para empezar', 'Tu reto de 7 días', 'Cómo funciona cada pestaña']);
+  assert.deepEqual(g[0].tarjetas.map((t) => t.key), ['onboarding-bienvenida', 'recorrido'], 'sin video, no hay tarjeta (nunca un hueco)');
+  assert.equal(g[1].tarjetas.find((t) => t.key === 'reto-dia-5')?.cerrado, 'Se abre el día 5', 'los días que no llegaron');
+  assert.equal(g[1].tarjetas.find((t) => t.key === 'reto-dia-2')?.cerrado, undefined);
+  assert.ok(g[2].tarjetas.some((t) => t.key === 'crm' && t.titulo.startsWith('Cómo funciona')), 'una por pestaña');
+  const g2 = gruposDelCatalogo(['avatar', 'calendar', 'classroom-calendar'].map((key) => ({ key })), 1);
+  assert.deepEqual(g2[0].tarjetas.map((t) => t.titulo), ['Cómo funciona Calendar', 'Cómo funciona Classroom › Calendar'], 'sin AI Avatar, y sin dos «Calendar»');
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.ok(chat.includes('<BotonTutoriales activo={catalogo}') && chat.includes('catalogo && d ? <CatalogoTutoriales'), 'el ícono en la cabecera cambia el hilo por el catálogo');
+});
+
 test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, sin clip de regalo, sin la tab AI Avatar', () => {
   const texto = JSON.stringify(DIAS_RETO);
   assert.doesNotMatch(texto, /integramos|lo hacemos por ti|nuestro equipo/i, 'nada que prometa un equipo: Martín no tiene');

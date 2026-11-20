@@ -14,6 +14,7 @@
 // =============================================================================
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { tutorialDe } from '@/lib/tutoriales';
+import { BotonTutoriales, CatalogoTutoriales, CSS_CATALOGO } from './CatalogoTutoriales';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { FilaDelChat } from '@/app/admin/operaciones/Hilo';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
@@ -117,6 +118,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   const { d, leer, hacer } = useReto();
   const hilo = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState(false);
+  // El catálogo «Tutoriales de MaKo» (V1, D1-07): el ícono de videos cambia los mensajes por todos los videos, con «Volver al chat».
+  const [catalogo, setCatalogo] = useState(false);
   const [manana, setManana] = useState<number | null>(null);
   const [hora, setHora] = useState<string | null>(null);
 
@@ -173,14 +176,14 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   return (
     <PanelDeChat hilo={hilo}
       cabecera={{ clave: 'reto-7-dias', titulo: RETO_TITULO, aspecto: ASPECTO_MAKO, animo: 'despierto', onVolver,
-        acciones: d && e ? <DesplegableReto d={d} abierto={menu} onAbrir={setMenu} /> : undefined }}
+        acciones: d && e ? <span className="rt-acciones"><BotonTutoriales activo={catalogo} onClick={() => setCatalogo((x) => !x)} /><DesplegableReto d={d} abierto={menu} onAbrir={setMenu} /></span> : undefined }}
       caja={d && e && !empezo1 && ap.listo && !ap.escribiendo
         ? <QueHacemos titulo={vistas.length ? '¿Seguimos?' : '¿Qué hacemos ahora?'} quedan={quedan} onDia1={empezarDia1} onMostrar={mostrar} />
         : <p className="rt-caja">Cada día te escribo aquí, con su video. Para preguntarle algo a MaKo, el Ops Center.</p>}
       estado="">
-      <style>{CSS_RETO}</style>
+      <style>{CSS_RETO + CSS_CATALOGO}</style>
       <div className="co-hilo__col" data-recorrido="sb-reto-hilo">
-        {!d ? <p className="co-vacio">Cargando tu reto…</p> : !e ? <p className="co-vacio">Empezando tu reto…</p> : (
+        {catalogo && d ? <CatalogoTutoriales diaAbierto={d.abierto} onVolver={() => setCatalogo(false)} /> : !d ? <p className="co-vacio">Cargando tu reto…</p> : !e ? <p className="co-vacio">Empezando tu reto…</p> : (
           <>
             {ap.ver('hola') && <Burbuja><p>{RETO_HOLA(nombre)}</p></Burbuja>}
             {muestras.length > 0 && ap.ver('interes') && <Burbuja><p>{RETO_INTERES_YA(muestras)}</p></Burbuja>}
