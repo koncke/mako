@@ -2428,6 +2428,12 @@ que esa corrida encontró en el código de la app está en docs/hallazgos-onboar
     bienvenida…» sigue con la regla del 18/11.
   - **Regla:** una medida que «da ok» se contrasta con un cuadro mirado de cerca en el momento que no mide (la entrada). Si la
     hoja muestra algo tapado y la medida dice ok, falla la medida, no la hoja.
+- **«El texto nunca se tapa» vale también para «Te doy la bienvenida…»** (el Cerebro, 20/11, en el día 2: el pelo tapaba «dos»). La
+  regla de nada tapado era sólo del gancho, y esa pantalla seguía con la del 18/11, que deja tapar el tercio de abajo. Por eso
+  `tapado.json` decía «ok». Ahora toda pantalla grande con letras por detrás va con nada tapado (`b.gancho` en hacer.mjs) y se mide en
+  cada cuadro. Se rehicieron los seis días del reto.
+- **El t_fin de cada frase cae en el silencio que la sigue:** la mitad del hueco hasta la palabra siguiente, con 0,35 s como máximo.
+  Antes caía justo en la última palabra, y la pausa del motor (t_fin - 0,05) le cortaba la última sílaba. Se mide contra voz.mp3.
 
 ## ApiMart sin saldo se leía como «no sé si arrancó» (20/11/2026)
 
