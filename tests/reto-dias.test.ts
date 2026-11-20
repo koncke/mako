@@ -595,7 +595,7 @@ test('f24-01 y R57-F5 (20/11): el reto abierto en el teléfono dice «Sigamos en
   const m = readFileSync(new URL('../app/m/second-brain/page.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const i = m.indexOf("if (uno(sp.reto) === '1') {");
   assert.ok(i > 0, 'mira el ?reto=1 del link del correo');
-  assert.ok(m.includes('if (yo && ws != null && veOnboardingV2({ email, ws })) return <SeguirEnPcReto nombre={primerNombre(yo.nombre ?? \'\')} email={email} />;'), 'la pantalla del reto, con el diseño de la del onboarding');
+  assert.ok(m.includes('if (yo && ws != null && veOnboardingV2({ email, ws })) return <PantallaM><SeguirEnPcReto nombre={primerNombre(yo.nombre ?? \'\')} email={email} /></PantallaM>;'), 'la pantalla del reto, adentro de PantallaM (tests/movil-refrescar.test.ts)');
   assert.ok(!m.includes('onboarding/ChatArranque'), 'sin el chat del onboarding: le sumaría sus rutas al Ops Center (tests/d6b-rutas.test.ts)');
   assert.ok(i < m.indexOf("if (ctx.sesion.rol === 'admin' && !ctx.impersonando) redirect(await rutaConWs(RUTA_CENTRO_M));"), 'antes del desvío al Centro (perdería el ?reto=)');
   const avisos = readFileSync(new URL('../lib/reto/avisos.ts', import.meta.url), 'utf8');

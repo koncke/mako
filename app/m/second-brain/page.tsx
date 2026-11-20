@@ -54,7 +54,7 @@ export default async function SecondBrainPagina({ searchParams }: {
   if (uno(sp.reto) === '1') {
     const [yo, ws] = await Promise.all([getUsuarioActual().catch(() => null), getWorkspaceActual().catch(() => null)]);
     const email = (yo?.email ?? '').trim().toLowerCase();
-    if (yo && ws != null && veOnboardingV2({ email, ws })) return <SeguirEnPcReto nombre={primerNombre(yo.nombre ?? '')} email={email} />;
+    if (yo && ws != null && veOnboardingV2({ email, ws })) return <PantallaM><SeguirEnPcReto nombre={primerNombre(yo.nombre ?? '')} email={email} /></PantallaM>;
   }
 
   // ⚠️ Y para el super admin el Second Brain vive dentro del Ops Center (17/10/2026): su entrada salió de More y un
