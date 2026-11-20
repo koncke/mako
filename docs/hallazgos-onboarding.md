@@ -3926,3 +3926,32 @@ todo…!» y el clip del día 6 entraban de golpe. Lo prueba tests/reto-dia-por-
   sus puntitos. Antes la tarjeta se reemplazaba por la confirmación.
 - **Sin hacer:** nada se abrió en un navegador (la PC sin RAM). La prueba por WhatsApp del día 7 (después del cierre) ya iba por la
   cola (`piloto`) y quedó como estaba.
+
+## La llamada con Leila del 20/11: cómo leerla sin equivocarse, el bucle de «Entrar a MaKo» y lo que quedó (Cerebro, claude5)
+
+Martín le mostró a Leila el onboarding V2, el reto, carruseles, la landing y partners (Fathom 205366178, 14:50–18:48 UTC). Diez
+agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código de main. La lista entera, con el encargo de cada chat:
+[relevo/llamada-leila-20-11.md](relevo/llamada-leila-20-11.md). Las decisiones de Martín, en la memoria (onboarding-16-11-decisiones).
+
+- **Trampas al sacar feedback de una llamada:**
+  - El resumen de Fathom se queda corto: 6 puntos de onboarding contra 53 de la llamada.
+  - Los hablantes vienen CRUZADOS («Martin Carballo» y «Team Leila Fittipaldi» se intercambian): se atribuye por el contenido.
+  - De 00:18:08 a 00:22:14 se mostró la MAQUETA (el artefacto), no la app: un «acá está mal» ahí es de la maqueta.
+  - Lo de la pantalla compartida no está en el texto: «esto», «acá» sin referente no se inventa.
+  - La demo corrió sobre 959450118 y hubo tres deploys después: «ya está» sólo con el código que lo hace.
+- **El bucle de «Entrar a MaKo» (20/11, 18:43–18:50 UTC, ws 3 mirando como administrador, después de «Reiniciar onboarding»):**
+  pantalla en blanco y más de 1000 pedidos alternando `/second-brain?_rsc` y `/onboarding?_rsc`. Se fue solo a los ~7 minutos y
+  no se pudo reproducir. La base decía `status: done` todo el tiempo. Hipótesis que encaja: `getEstadoOnboarding` lee TOLERANTE
+  (lib/onboarding-state.ts:24), un error de lectura vuelve «pending», la guarda manda a /onboarding y /onboarding (que lee bien)
+  devuelve: cada error del diluvio realimenta el ida y vuelta. Los logs de Vercel no se pudieron leer (el endpoint es un stream).
+  **Regla:** una redirección no puede depender de una lectura que, si falla, dice lo contrario; si no pudo leer, deja pasar. Y dos
+  pantallas que se mandan una a la otra necesitan un cortacircuito. (El arreglo, con su test, lo lleva el chat del onboarding.)
+- **Lo que se encontró en el código y quedó SIN hacer al 20/11, 19:30 UTC** (dueño entre paréntesis):
+  - «Reiniciar onboarding» no borra `perfil.recorridos` del dueño, y «Hola de nuevo» no vuelve a salir (onboarding-v2).
+  - «Sigamos en tu computadora» promete «el link que te mandamos a tu correo» y nadie lo manda (app/onboarding/SeguirEnPc.tsx:44-46; onboarding-v2).
+  - Guardar el nombre del negocio llama a `asegurarGrupoMaKo` y renombra el grupo (app/api/onboarding/arranque/route.ts:191; onboarding-v2).
+  - `/api/plan/prueba` lee el negocio propio, no el que se mira (app/api/plan/prueba/route.ts:17-18; onboarding-v2).
+  - El bloqueo «Instala MaKo para escribir» en ~20 cajas: Martín lo sacó en la llamada (lib/chat-mako-reglas.ts:334-337; wa-no-callarse).
+  - La guía CUBOS y su respuesta automática no existen (docs/series/serie-3-ventas.md:113; sin chat).
+  - Carruseles: ocho fallas con archivo y línea en la lista (sin chat; prioridad 3 de Martín).
+  - Partners: el panel todavía dice «27 %» (app/partners/ProgramaPartners.tsx:81).
