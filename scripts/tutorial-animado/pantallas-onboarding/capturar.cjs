@@ -11,6 +11,9 @@ const path = require('node:path');
     await p.evaluate(() => document.fonts.ready);
     await p.waitForFunction(() => document.body.dataset.listo === '1', null, { timeout: 15000 });
     await p.waitForTimeout(200);
+    // Una pieza de la pantalla cortada por el borde o por el título: no se captura (pantallas-whatsapp.html, «ningún renglón cortado»).
+    const partidos = await p.evaluate(() => document.body.dataset.partidos);
+    if (partidos) { console.log(`s${s}: CORTADO ${partidos}: encuadrar de nuevo`); process.exitCode = 1; continue; }
     await p.screenshot({ path: path.join(__dirname, `s${s}.png`) });
   }
   await b.close();

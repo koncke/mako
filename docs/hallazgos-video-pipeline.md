@@ -31,7 +31,7 @@ Los tres corolarios, cada uno pagado por un caso real de abajo:
 
 ---
 
-## El video de bienvenida del onboarding: dos videos juntos, el gancho sin tapar y las pantallas de cerca (19/11/2026)
+## El video de bienvenida del onboarding: dos videos juntos, el gancho sin tapar, las pantallas de cerca y el corte en dos (19/11/2026)
 
 **Vive en:** `scripts/tutorial-animado/guiones.json` (`onboarding-bienvenida`) · `scripts/tutorial-animado/pantallas-onboarding/`
 (las 5 pantallas de WhatsApp y `montar.mjs`) · `C:/dev/tutoriales-video/motor/hacer.mjs` y `engine3.js`.
@@ -55,6 +55,35 @@ Los tres corolarios, cada uno pagado por un caso real de abajo:
   sólo cambiaba `onboarding-bienvenida`.
 - **Para mirar los cuadros:** en el Chromium sin ventana de esta PC, las animaciones CSS quedan en `currentTime 0`. Se capturan con
   `screenshot({ animations: 'disabled' })` (ver docs/hallazgos-onboarding.md).
+- **El corte en dos (19/11, noche): la bienvenida se corta del aprobado, sin regenerarla.** Martín pidió «cortes como los pasos»: la
+  bienvenida al principio del chat y lo del WhatsApp en el mensaje de ese paso. El corte va en el CAMBIO DE ESCENA (`beats.js`:
+  19,54 s), no en el medio del silencio entre palabras: la última palabra de la bienvenida termina a 18,98 y la primera del WhatsApp
+  empieza a 19,62. Para la bienvenida: `hacer.mjs onboarding-bienvenida` (el unido de 38 s) → `montar.mjs` (las pantallas; escribe
+  `.unido.mp4`) → `cortar.mjs` (el pedazo, su 720p y su línea del manifiesto).
+- **Un pedazo cortado de un video no siempre se entiende suelto.** El del WhatsApp arrancaba «Una de ellas es tu WhatsApp» (una de las
+  preguntas de la bienvenida), y el Cerebro pidió «Tu WhatsApp es por donde MaKo te manda avances…». Para cambiar UNA frase sin
+  perder la voz aprobada, el del WhatsApp pasó a ser su propio guion (`onboarding-bienvenida-whatsapp`): `frase-nueva.mjs` genera
+  sólo esa frase, la pega delante de la voz aprobada (desde el final de la frase vieja, con el mismo silencio) y arma la alineación
+  (la nueva + la vieja corrida). Con `voz.mp3`, `guion.txt` y `alin.json` en `trabajo/<id>/`, `hacer.mjs` no regenera la voz y
+  renderiza el video entero: la música sigue corrida y cada escena cae en su lugar. Para ese video: `frase-nueva.mjs` →
+  `hacer.mjs <id> video` → renombrarlo a `.sin-pantallas.mp4` → `montar.mjs <id>` → `hacer.mjs <id> web`. El volumen de la frase
+  nueva quedó parejo con el resto (−19 y −20 dB de media), y el chequeo dio «dice exactamente el guion».
+- **Las pantallas de adentro del video son una foto de la app: cuando la app cambia, el video miente.** Al cortarlo, el pedazo del
+  WhatsApp mostraba «envía el mensaje de confirmación» y «Pega aquí el código», justo lo que Martín había pedido sacar esa misma
+  tarde. Se vio mirando los cuadros, no en ningún test. Cada vez que cambia un texto o un botón que sale en un video, se rehacen sus
+  pantallas (`pantallas-whatsapp.html` → `capturar.cjs` → `montar.mjs`).
+- **Una pantalla de cerca encima del video: corte seco, y nada cortado (el Cerebro, 19/11, mirando cuadro por cuadro).**
+  - *Un fundido mezcla dos textos.* Con 0,18 s de fundido, el texto de la escena de abajo («Para confirmarlo, toca…») se veía
+    a la vez que la pantalla, y quedaba ilegible. Las pantallas son opacas y de cuadro entero: `montar.mjs` corta seco (`FUNDE = 0`).
+    El corte seco destapa otra cosa: al entrar a la escena del cierre, la cabeza del personaje pasa ~0,1 s por delante del texto. La
+    última pantalla se queda 0,10 s más (`QUEDA`), hasta que el cierre se acomoda.
+  - *Acercar sobre un botón corta lo que está al lado.* El ×2 centrado en «Abrir WhatsApp» dejaba la tarjeta y el texto de arriba
+    cortados a la derecha («toca «Abrir Whats», «2505-26»), y otra pantalla asomaba medio renglón bajo el título. Ahora se acerca
+    la pieza entera (la tarjeta; el anillo marca el botón) hasta donde entra a lo ancho, y la regla se mide sola: en
+    `pantallas-whatsapp.html`, un texto que no entra entero se oculta, y una pieza cortada deja la pantalla anotada y `capturar.cjs`
+    no la captura.
+- **`onboarding-whatsapp` ya existía** (el video de la pantalla de octubre, `app/onboarding/ChatArranque.tsx`). El pedazo nuevo es
+  `onboarding-bienvenida-whatsapp`: antes de elegir el nombre de un video, se busca en el manifiesto y en el código.
 
 ## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
 

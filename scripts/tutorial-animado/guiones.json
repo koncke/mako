@@ -43,6 +43,33 @@
   ]
  },
  {
+  "id": "onboarding-bienvenida-whatsapp",
+  "pestana": "Onboarding · Bienvenida · WhatsApp",
+  "ruta": "/onboarding",
+  "icono": "lucide:sparkles",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Tu WhatsApp es por donde Máko te manda avances sobre tu negocio.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Máko te contesta con un código, y lo pegas en el chat.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y guarda el contacto de Máko en tu teléfono: así esos avances siempre te llegan.",
+    "rol": "cierre"
+   }
+  ]
+ },
+ {
   "id": "onboarding-whatsapp",
   "pestana": "Onboarding · Tu WhatsApp",
   "ruta": "/onboarding",

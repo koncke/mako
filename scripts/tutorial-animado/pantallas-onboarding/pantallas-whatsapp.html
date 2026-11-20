@@ -26,6 +26,7 @@ body { background: radial-gradient(120% 90% at 50% 20%, #FCFCFB 0%, #F1F1EF 70%,
 .onb { width: 1120px; display: flex; gap: 26px; align-items: flex-start; }
 .onb__foto { width: 70px; height: 70px; flex: none; margin-top: 6px; }
 .onb__globo { flex: 1; background: #FCFCFB; border-radius: 0 28px 28px 28px; padding: 30px 34px 26px; box-shadow: 0 2px 2px rgba(11, 20, 26, .1), 0 24px 60px rgba(18, 21, 27, .1); font-size: 34px; line-height: 1.45; }
+.onb__texto { margin: 0; }
 .onb__tarjeta { margin-top: 22px; background: #EFEFED; border: 2px solid #E2E2DF; border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 20px; }
 .wa-btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 16px; height: 92px; padding: 0 40px; border-radius: 999px; background: var(--wa); color: #fff; font-weight: 700; font-size: 38px; box-shadow: 0 4px 18px rgba(37, 211, 102, .35); }
 .wa-btn svg { width: 40px; height: 40px; }
@@ -64,12 +65,11 @@ body { background: radial-gradient(120% 90% at 50% 20%, #FCFCFB 0%, #F1F1EF 70%,
   <div class="onb" id="onb">
     <img class="onb__foto" data-estrella alt="">
     <div class="onb__globo">
-      Para confirmar tu WhatsApp, toca «Abrir WhatsApp» y envía el mensaje de confirmación. Te contesto con un código y lo pegas aquí abajo.
+      <p class="onb__texto">Para confirmar tu WhatsApp, toca «Abrir WhatsApp» y mándale el mensaje a MaKo (+54&nbsp;9&nbsp;11&nbsp;2505-&#8288;2605). Te contesto con un código y lo pegas aquí abajo.</p>
       <div class="onb__tarjeta">
         <span class="wa-btn" id="wa-btn"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M3.5 20.5l1.3-4A8.5 8.5 0 1 1 8 19.6z"/></svg>Abrir WhatsApp</span>
-        <span class="rot">Pega aquí el código</span>
         <div class="fila"><span class="campo" id="campo">000000</span><span class="btn-negro btn-gris" id="confirmar">Confirmar</span></div>
-        <div class="pie"><u>Cambiar número</u><u>Reenviar el código</u><b>Pegar</b></div>
+        <div class="pie"><u>Cambiar número</u><u>Reenviar el código</u></div>
       </div>
     </div>
   </div>
@@ -113,18 +113,36 @@ if (s === 1) {
     $('vcard').classList.add('anillo');
   }
 }
-// DE CERCA: [lo que nombra la frase, cuánto se agranda]. Su centro va al centro del lugar que queda debajo del título.
-const FOCO = { 1: ['#wa-btn', 2.0], 2: ['#compone', 2.3, 0.80], 3: ['.msg:not(.msg--yo)', 2.3], 4: ['.fila', 2.0], 5: ['#vcard', 2.3] }[s];
+// DE CERCA: [lo que nombra la frase, cuánto se agranda como mucho, a qué alto va su centro]. Su centro va al centro del lugar que
+// queda debajo del título, y se agranda hasta donde entra ENTERO a lo ancho (con 60 px de aire a cada lado). En 1 y 4 se acerca la
+// tarjeta entera (el anillo marca el botón o el campo): el ×2 sobre el botón cortaba la tarjeta y el texto a la derecha (19/11).
+const FOCO = { 1: ['.onb__tarjeta', 2.0], 2: ['#compone', 2.3, 0.80], 3: ['.msg:not(.msg--yo)', 2.3], 4: ['.onb__tarjeta', 2.0], 5: ['#vcard', 2.3] }[s];
 // De cerca, la estrellita del globo queda cortada por el título: en el panel del onboarding no va.
 if (s === 1 || s === 4) document.querySelector('.onb__foto').style.visibility = 'hidden';
 document.fonts.ready.then(() => {
-  const esc = document.querySelector('.escena'), foco = document.querySelector(FOCO[0]), k = FOCO[1];
+  const esc = document.querySelector('.escena'), foco = document.querySelector(FOCO[0]);
   const e = esc.getBoundingClientRect(), r = foco.getBoundingClientRect();
+  const k = Math.min(FOCO[1], (1920 - 120) / r.width);
   const cx = r.left + r.width / 2 - e.left, cy = r.top + r.height / 2 - e.top;
   const libre = $('cap').getBoundingClientRect().bottom - 20;
   const destX = 960, destY = FOCO[2] ? 1080 * FOCO[2] : libre + (1080 - libre) / 2;
   esc.style.transform = `translate(${destX - e.left - k * cx + e.left}px, ${destY - e.top - k * cy + e.top}px) scale(${k})`;
   esc.style.left = '0px'; esc.style.top = '0px'; esc.style.right = 'auto'; esc.style.bottom = 'auto'; esc.style.width = e.width + 'px'; esc.style.height = e.height + 'px';
+  // NINGÚN RENGLÓN CORTADO (el Cerebro, 19/11: «o entra entero o no entra»). Lo visible: debajo del título y dentro del cuadro. Un
+  // texto (el del globo, un mensaje, la cabecera o la barra de escribir del teléfono) que no entra entero se oculta; una pieza de la pantalla cortada (la
+  // tarjeta, el campo, la tarjeta de contacto) queda anotada y capturar.cjs no captura: hay que encuadrar de nuevo.
+  const arriba = $('cap').getBoundingClientRect().bottom;
+  const dentro = (q) => q.top >= arriba - 1 && q.bottom <= 1081 && q.left >= -1 && q.right <= 1921;
+  const fuera = (q) => q.bottom <= arriba || q.top >= 1080 || q.right <= 0 || q.left >= 1920;
+  const partidos = [];
+  document.querySelectorAll('.onb__texto, .msg, .tel__cab, .pie, .onb__tarjeta, .fila, .wa-btn, .tel__compone, .vcard').forEach((el) => {
+    if (el.closest('.oculto')) return;
+    const q = el.getBoundingClientRect();
+    if (dentro(q) || fuera(q)) return;
+    if (el.matches('.onb__texto, .msg, .tel__cab, .tel__compone')) el.style.visibility = 'hidden';
+    else partidos.push(el.className.split(' ')[0]);
+  });
+  document.body.dataset.partidos = partidos.join(',');
   document.body.dataset.listo = '1';
 });
 </script>

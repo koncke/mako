@@ -68,6 +68,11 @@ const MS_PRIMERO = 1400;
 const MS_SIN_VIDEO = 2500;
 /** La clave del video de bienvenida (public/tutoriales, el chat de los videos). */
 const VIDEO_BIENVENIDA = 'onboarding-bienvenida';
+/** El del WhatsApp: la segunda mitad del video de bienvenida, que se cortó en dos (19/11), con su primera frase nueva
+ *  («Tu WhatsApp es por donde MaKo…»; scripts/tutorial-animado/pantallas-onboarding/frase-nueva.mjs).
+ *  Va como mensaje de MaKo justo antes del paso del código, donde está «Abrir WhatsApp». No es `onboarding-whatsapp` (el de la pantalla vieja). */
+const VIDEO_WHATSAPP = 'onboarding-bienvenida-whatsapp';
+const MENSAJE_DEL_CODIGO = 'arr-codigo';
 
 const horaDe = (d: Date) => d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false });
 
@@ -87,6 +92,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
   }, [seguirEnPc]);
   // EL VIDEO DE BIENVENIDA, sólo si existe de verdad (public/tutoriales, su manifiesto). Nunca un «no está grabado» en su lugar.
   const videoBienvenida = useVideoTutorial(VIDEO_BIENVENIDA);
+  const videoWhatsapp = useVideoTutorial(VIDEO_WHATSAPP);
   // La entrada va UNA vez, al principio de todo; después, la pantalla oscura con MaKo escribiendo y su primer mensaje: el video.
   const empieza = !inicial.introVista && inicial.etapa === 'nombre';
   const [fase, setFase] = useState<'intro' | 'escribe' | 'chat'>(empieza ? 'intro' : 'chat');
@@ -289,7 +295,10 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
                   {primero === 'listo' && mensajes.map((m) => {
                     if (m.de === 'yo') return filaYo(m.id, m.texto);
                     const t = tarjeta(m);
-                    return filaMako(m.id, <><div className="ch-md"><p>{m.texto}</p></div>{t && <div className="arr-v2__en-mensaje">{t}</div>}</>);
+                    const fila = filaMako(m.id, <><div className="ch-md"><p>{m.texto}</p></div>{t && <div className="arr-v2__en-mensaje">{t}</div>}</>);
+                    // El video del WhatsApp, su propio mensaje, antes del paso del código (Martín, 19/11: «que tenga cortes como los pasos»).
+                    if (m.id === MENSAJE_DEL_CODIGO && videoWhatsapp) return [filaMako('arr-video-whatsapp', <VideoDelMomento clave={VIDEO_WHATSAPP} titulo="Tu WhatsApp con MaKo" revision={false} />), fila];
+                    return fila;
                   })}
                   {pendiente && filaYo('arr-pendiente', pendiente)}
                   {(ocupado || etapa === 'cierre') && escribiendo('arr-pensando')}

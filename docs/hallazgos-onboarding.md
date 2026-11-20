@@ -61,7 +61,8 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
     chat «Onboarding», y el video del recorrido como un MENSAJE del chat («dale play») que se va a la esquina al bajar. Hoy el recorrido
     arranca solo con su video en la esquina (`app/_ui/tutorial/MotorTutorial.tsx`, `VideoChico`). Para la maqueta, el motor tiene que
     poder manejar un video que vive en el hilo (`app/second-brain/…` + `lib/onboarding-v2/recorrido.ts`);
-  - cortar el video de bienvenida en dos (la bienvenida al principio; el WhatsApp, en el mensaje de ese paso): en curso en este chat.
+  - el video de bienvenida, cortado en dos (19/11): la bienvenida arriba y `onboarding-bienvenida-whatsapp` como mensaje de MaKo
+    justo antes del paso del código. Cómo se corta, en docs/hallazgos-video-pipeline.md.
 
 ## Offer Coach = el motor de Offer: no hacía falta montar OfferApp (19/11/2026)
 

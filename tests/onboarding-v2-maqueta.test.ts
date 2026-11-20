@@ -157,7 +157,7 @@ test('5. el webhook contesta el pedido del V2, y el código pegado NO arma ning�
   assert.match(ruta, /if \(h\.v2 && etapa === 'codigo' && texto && \/\\d\/\.test\(texto\)\) \{\n\s*const r = await verificarCodigoV2\(g\.ws, texto\);/);
 });
 
-test('6. la pantalla del V2: la estrella, la caja del Ops Center, UN video y la pantalla oscura', () => {
+test('6. la pantalla del V2: la estrella, la caja del Ops Center, los dos videos y la pantalla oscura', () => {
   const page = sinComentarios(leer('app/onboarding/page.tsx'));
   assert.match(page, /if \(vista\.v2 && !vista\.bloqueo\) \{\n\s*return <ChatArranqueV2 /);
   const v2 = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
@@ -172,10 +172,15 @@ test('6. la pantalla del V2: la estrella, la caja del Ops Center, UN video y la 
   assert.match(v2, /<CriaturaMako size=\{36\}/, 'la estrella en la cabecera');
   assert.match(v2, /<CriaturaMako size=\{26\}/, 'la estrella al lado de cada mensaje');
   assert.match(v2, /<div className=\{`co-caja\$\{etapa === 'listo' && enTelefono \? ' arr-v2__caja--dos' : ''\}`\} onFocusCapture=\{soltarPrimero\} onPointerDownCapture=\{soltarPrimero\}>\s*<CajaChat /, 'la caja de una línea del Ops Center');
-  assert.equal((v2.match(/<VideoDelMomento /g) ?? []).length, 1, 'un solo video');
+  assert.equal((v2.match(/<VideoDelMomento /g) ?? []).length, 2, 'dos videos: la bienvenida y el del WhatsApp (el de 38 s, cortado en dos el 19/11)');
   assert.match(v2, /const VIDEO_BIENVENIDA = 'onboarding-bienvenida';/);
   // Sólo si el video existe de verdad: nunca un «no está grabado» en producción (el Cerebro, 19/11).
   assert.match(v2, /\{videoBienvenida && filaMako\('arr-video', <VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="Bienvenida a MaKo" revision=\{false\} onTermina=\{soltarPrimero\} \/>\)\}/);
+  // El video, cortado en dos (Martín, 19/11: «que tenga cortes como los pasos»): la bienvenida arriba, y el del WhatsApp como su propio
+  // mensaje justo antes del paso del código. No es `onboarding-whatsapp`, el de la pantalla vieja.
+  assert.match(v2, /const VIDEO_WHATSAPP = 'onboarding-bienvenida-whatsapp';/);
+  assert.match(v2, /if \(m\.id === MENSAJE_DEL_CODIGO && videoWhatsapp\) return \[filaMako\('arr-video-whatsapp', <VideoDelMomento clave=\{VIDEO_WHATSAPP\} [^>]*\/>\), fila\];/);
+  assert.equal(mensajesDeArranque({ nombre: 'Vale', telefono: 'codigo', telefonoNumero: '+54 9 11 5555 0101', telefonoEntrante: true }, H).antes.at(-1)?.id, 'arr-codigo', 'el id del mensaje del código');
   // En el teléfono (o una pantalla angosta), el final es «Continuar el onboarding desde la PC», como la maqueta (18/11).
   assert.match(v2, /window\.matchMedia\('\(max-width: 640px\)'\)\.matches\) setEnTelefono\(true\)/);
   assert.match(v2, /\{enTelefono\s*\? <button type="button" onClick=\{\(\) => setEnPc\(true\)\} className="arr-link arr-link--principal">Continuar el onboarding desde la PC<\/button>/);
