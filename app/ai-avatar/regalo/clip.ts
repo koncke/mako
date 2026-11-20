@@ -7,6 +7,8 @@
 //     imagen y lanza el Omni de ApiMart (10 s, 9:16, 720p). Contesta enseguida: ApiMart tarda un par de minutos.
 //   · `avanzarClipRegalo` pregunta cómo va y, cuando terminó, lo BAJA (el link de ApiMart vence a las 24 h), lo guarda en
 //     el bucket de los clips, lo deja en el historial de videos como un video con avatar y anota lo que costó.
+//   · Si la persona se va y nadie pregunta, la MISMA vuelta (`terminarClipDe`) la hace el cron app/api/cron/clip-regalo cada
+//     15 min: un clip pagado no se pierde a las 24 h porque nadie volvió a abrir la tarjeta.
 //
 // ⚠️ SIN EL CANDADO DE PRO, A PROPÓSITO. AI Avatar es de Pro (`candadoDeAiAvatar`), pero el reto se lo regala también a una
 // prueba de Essential: es ESTA pieza, una vez. La puerta es la del reto (el interruptor de la revisión, `veOnboardingV2`) y
@@ -209,10 +211,25 @@ function entradaDelHistorial(g: Extract<EstadoGuardado, { e: 'generando' | 'guar
   return conAvatar(base, avatar);
 }
 
-/** Cómo va el clip de regalo. Si ya terminó en ApiMart, lo termina acá (bajarlo, guardarlo, anotarlo). Una vuelta por llamada. */
+/** Cómo va el clip de regalo, para la tarjeta del día 6: la puerta (la sesión) y la vuelta de `terminarClipDe`. */
 export async function avanzarClipRegalo(): Promise<SalidaClip> {
   const pu = await puerta();
   if (!pu.ok) return pu;
+  return terminarClipDe(pu.ws, pu.puedePedir);
+}
+
+/**
+ * Una vuelta del clip de UN negocio, SIN sesión: si ya terminó en ApiMart, lo termina acá (bajarlo, guardarlo en el historial,
+ * anotar lo que costó). La llaman la tarjeta (por `avanzarClipRegalo`) y el cron que termina los clips que nadie vuelve a
+ * mirar (app/api/cron/clip-regalo), los dos por el mismo compare-and-set: si caen a la vez, lo guarda uno.
+ *
+ * ⚠️ NUNCA LANZA UN CLIP: sólo termina el que ya está pago. Pedir uno nuevo es `pedirClipRegalo`, con su puerta.
+ * ⚠️ LOS SETTINGS SON LOS DEL CONTEXTO (lib/settings.ts lee y escribe en el negocio de `getWorkspaceActual`). Si el contexto no
+ * es `ws` (un cron que se olvidó el `runWithWorkspace`), no toca nada: escribiría el clip de un negocio en otro.
+ */
+export async function terminarClipDe(ws: number, puedePedir: boolean): Promise<SalidaClip> {
+  if ((await getWorkspaceActual()) !== ws) return { ok: false, error: 'No sé de qué negocio es este clip: no lo toco.' };
+  const pu = { ws, puedePedir };
   let leido: Awaited<ReturnType<typeof leer>>;
   try { leido = await leer(); } catch { return { ok: false, error: 'No pude leer tu clip de regalo. Vuelve a intentarlo en un momento.' }; }
   let { crudo, g } = leido;

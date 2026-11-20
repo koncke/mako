@@ -39,6 +39,18 @@ export const GUARDANDO_VENCE_MS = 5 * 60_000;
 /** El video de ApiMart vence a las 24 h (`expires_at`): pasado eso ya no se puede bajar. Se corta antes, con margen. */
 export const GENERANDO_VENCE_MS = 23 * 60 * 60_000;
 
+// ── El cron que termina los clips que nadie vuelve a mirar (app/api/cron/clip-regalo) ─────────────────────────────────
+/** Cada cuánto pasa (lo fija el test contra vercel.json): cada 15 min, en los minutos 4, 19, 34 y 49, fuera de los :00/:15 de los demás crons. */
+export const SCHEDULE_CRON_CLIP = '4,19,34,49 * * * *';
+/** Hasta dónde mira para atrás: lo que cambió en las últimas 25 h. El clip vence a las 23 h; las 2 h de más, para que el cron
+ *  alcance a pasarlo a «revisar» (y avisar) aunque se haya saltado alguna corrida. */
+export const VENTANA_CRON_MS = GENERANDO_VENCE_MS + 2 * 60 * 60_000;
+/** Cuántos clips mira por corrida, como mucho: cada uno puede bajar un video (hasta 60 s). Lo que sobra, en la corrida siguiente. */
+export const MAX_CLIPS_POR_CORRIDA = 20;
+/** ¿El cron tiene algo que hacer con este estado? Lo que sigue en curso. Lo colgado lo destraba la misma vuelta (`vencido`). */
+export const pendienteParaElCron = (g: EstadoGuardado | null): boolean =>
+  g != null && (g.e === 'generando' || g.e === 'guardando' || g.e === 'pidiendo');
+
 /** Lo que se guarda en `CLAVE_CLIP_REGALO`. `intentos` = los que ARRANCARON en el proveedor. */
 export type EstadoGuardado =
   | { e: 'pidiendo'; at: string; intentos: number; frase: string }
