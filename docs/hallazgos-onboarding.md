@@ -3370,3 +3370,17 @@ app/api/onboarding/arranque/route.ts, app/api/onboarding/plan-arranque/route.ts.
 - **Quedó SIN hacer** (la propuesta está en el chat del 15/11 y en la memoria `reto-7-dias-prueba`): el onboarding adentro del
   Ops Center, el paso «tu IA» en el chat «Onboarding», el chat «Oferta», pasarle al Funnel Coach el funnel elegido y las
   preguntas del CoPilot adentro del onboarding.
+
+## La auditoría completa del 20/11: el onboarding y el reto se arreglaban de a pedazos (20/11/2026, Cerebro, claude5)
+
+- **Síntoma:** Martín probó en producción y encontró cuatro rondas seguidas de cosas que no estaban como lo acordado («me tenés dando vueltas hace un montón de tiempo»). Cada ronda se arreglaba sólo lo que él había nombrado.
+- **Diagnóstico obvio y equivocado:** que faltaban detalles sueltos. La causa era de método: el chat comparó contra la maqueta sólo el tramo que tocó. Lo de después de «Entrar a MaKo» y los 7 días del reto nunca se compararon. Y el V2 «desplegado» no existía: el interruptor sólo le sumaba videos a la pantalla de octubre.
+- **Lo que se hizo:** un revisor por tramo (antes de entrar, después de entrar, día 1, días 2 a 4, días 5 a 7, WhatsApp, videos) contra la memoria de decisiones con sus rondas, la maqueta y los guiones, leyendo origin/main sin correrlo. Cada diferencia la intentó refutar otro revisor con las dos evidencias. Quedaron **147 diferencias confirmadas** (de 154); la lista vive en las notas del Cerebro (`auditoria-onboarding-reto-20-11.md`) y se repartió por dueño de archivos.
+- **Regla:** antes de dar por terminado un flujo que tiene maqueta aprobada, se compara EL FLUJO ENTERO contra la maqueta y la memoria de decisiones, no sólo lo que tocó el cambio. Lo que no se comparó no está «bien», está sin mirar.
+
+## Las pausas «en el momento incorrecto» de los tutoriales no eran los tiempos (20/11/2026, Cerebro, claude5)
+
+- **Síntoma (Martín):** «había muchos videos que se pausaban en el tiempo incorrecto… los tutoriales que tenemos por las tabs».
+- **Diagnóstico obvio y equivocado:** que los `t_fin` del manifiesto estaban corridos. Medido contra la voz sola de cada video (`trabajo/<key>/voz.mp3`, silencedetect −40 dB): las 58 pausas que esperan el clic caen TODAS en el silencio del final de su frase. Ojo, dos trampas al medir: el mp4 tiene música de fondo y con −38 dB no encuentra ningún silencio (hace falta la voz sola), y comparar el manifiesto contra `alin.json` es circular, porque salen del mismo pipeline.
+- **Causa real (app/_ui/tutorial/MotorTutorial.tsx):** cuando la marca de una frase no está en la página, el motor PAUSA en su `t_inicio`, a mitad de la primera sílaba, y espera hasta 4 s sin mostrar nada, contra su propio contrato («una marca que no está no frena nada»). Lo disparan: marcas con otro nombre o que no existen; las que están en otra pestaña, porque `seguirVideo` reanuda apenas tocan aunque el clic navegue y la frase siguiente arranca 0,4 s después; «Siguiente», que no aplica el `antes` del paso; y las tapas, que no respetan `libre` y cierran el menú de la foto. En cadena: el día 2 del reto llegaba a 6 congeladas seguidas. **60 marcas confirmadas** en casi todas las pestañas (`auditoria-pausas-tutoriales-20-11.md`).
+- **Regla:** un tutorial con video nunca pausa por una marca ausente. Pausa sólo en el silencio del `t_fin` de una frase que espera el clic, y después de un clic que navega, se queda en ese silencio hasta que aparece la marca siguiente.
