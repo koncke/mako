@@ -342,7 +342,8 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   }, [cierreFrase, ultimoPaso, pasos]);
   const paso = modoVideo ? (cierre ? pasoCierre : pasoFrase) : i >= 0 ? pasos[i] : null;
   const ultimo = modoVideo ? cierre : i === pasos.length - 1;
-  const esperaClic = senal.tipo === 'marca' ? !senal.listo : modoVideo ? (cierre ? !!pasoCierre?.clic : !!frase?.espera_clic) : !!(paso?.clic && ultimo);
+  // Sin video, espera el clic CUALQUIER paso con `clic` (20/11, OD-10: el Second Brain y la flecha del recorrido), no sólo el último.
+  const esperaClic = senal.tipo === 'marca' ? !senal.listo : modoVideo ? (cierre ? !!pasoCierre?.clic : !!frase?.espera_clic) : !!paso?.clic;
   // Entre una frase con marca y la siguiente, sólo el video: ni velo ni tarjeta (la página sigue usable).
   const soloVideo = modoVideo && !paso;
 
@@ -602,12 +603,13 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
       tocado = true;
       // Adónde lleva y desde dónde, ANTES de que navegue: con eso se retiene el video hasta que llega (regla 3, ./pausas.ts).
       const navega = navegaAlTocar(el), url = urlAhora();
-      window.setTimeout(() => (modoVideo && !cierre ? seguirVideo('persona', navega, url) : fin(senal.tipo === 'marca' ? 'hecho' : 'fin')), 0);
+      // Sin video, el clic en un paso del medio pasa al siguiente (`siguiente`); en el último, termina (OD-10).
+      window.setTimeout(() => (modoVideo && !cierre ? seguirVideo('persona', navega, url) : siguiente()), 0);
     };
     window.addEventListener('pointerdown', alTocar, true);
     window.addEventListener('click', alTocar, true);
     return () => { window.removeEventListener('pointerdown', alTocar, true); window.removeEventListener('click', alTocar, true); };
-  }, [el, esperaClic, fin, senal.tipo, modoVideo, cierre, seguirVideo]);
+  }, [el, esperaClic, siguiente, modoVideo, cierre, seguirVideo]);
 
   // 4. Escape: omitir el tutorial (una marca sólo si se puede dejar para después).
   useEffect(() => {

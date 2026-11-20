@@ -13,6 +13,9 @@
 //   · OA-11 / OD-F3: «Sigamos en tu computadora» con la estrellita, el correo y el nombre del chat.
 //   · OA-16: en el V2 no se siembra el origen (la pregunta se hace siempre); OD-13: «Entrar a MaKo» pausa los videos (no flotan).
 // Probado rompiéndolo (20/11/2026, una rotura por vez y restaurada): 9 roturas, y cada una tumba su test.
+// Y la tanda del cierre (19 a 21: OD-09, OD-10 y la marca de la foto de OD-11), con sus roturas: la marca al reto sin esperar el
+// mensaje cae el 19; el mensaje sin esperar a que empiece el reto, el 19; el motor esperando el clic sólo en el último paso, el 20; el
+// clic de un paso del medio que termina el tutorial, el 20; el Second Brain sin `clic`, el 20; el botón de la foto sin su marca, el 21.
 // =============================================================================
 
 import test from 'node:test';
@@ -193,7 +196,7 @@ test('16. OD-05 y V9: en el chat «Onboarding», MaKo escribe y manda el video d
   const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
   assert.match(m, /if \(t\.pestana === 'ops-center' && elChatPresentaElRecorrido\(\)\) \{ window\.setTimeout\(mirar, 500\); return; \}/);
   const c = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  assert.match(c, /\{enElOnboarding && <BienvenidaOpsCenter nombre=\{nombrePersona\} \/>\}/);
+  assert.match(c, /\{enElOnboarding && <BienvenidaOpsCenter nombre=\{nombrePersona\} retoEmpezo=\{!!datosReto\.d\?\.estado\} \/>\}/);
   assert.match(c, /\.\.\.\(enElOnboarding \? \{ acciones: <VideosDelChat videos=\{VIDEOS_DEL_ONBOARDING\} \/> \} : \{\}\),/, 'V9: los videos del onboarding en su chat');
   for (const k of ['onboarding-bienvenida', 'onboarding-bienvenida-whatsapp', 'recorrido']) assert.match(c, new RegExp(`clave: '${k}'`));
 });
@@ -223,4 +226,41 @@ test('18. OA-17: la bienvenida presenta el reto, y su portada lleva el play dond
   assert.equal(v?.play, 'abajo-derecha', 'el centro de todos sus cuadros es la cabeza o el texto');
   assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /className=\{`mk-vmom__pantalla\$\{v\.play === 'abajo-derecha' \? ' mk-vmom__pantalla--abajo-derecha' : ''\}`\}/);
   assert.match(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /\.mk-vmom__pantalla--abajo-derecha \{ place-items: end end;/);
+});
+
+test('19. OD-09: visto el recorrido, MaKo presenta el chat del reto en «Onboarding», y recién después se marca', async () => {
+  const { textoRetoEnSuChat, MS_ESCRIBE_RETO } = await import('../lib/onboarding-v2/llegada');
+  assert.equal(textoRetoEnSuChat('Valentina'), '¡Listo tu onboarding, Valentina! Tu reto de 7 días tiene su propio chat: ahí te escribo cada día, con su video.', 'la maqueta, RETO_EN_SU_CHAT');
+  assert.ok(MS_ESCRIBE_RETO > 0);
+  const { chatPresentaReto, elChatPresentaElReto } = await import('../app/_ui/tutorial/store');
+  chatPresentaReto(true); assert.equal(elChatPresentaElReto(), true); chatPresentaReto(false); assert.equal(elChatPresentaElReto(), false);
+  const b = sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx'));
+  assert.match(b, /const cierra = visto && !retoEmpezo;/, 'con el reto empezado, no hace falta');
+  assert.match(b, /chatPresentaReto\(true\);\s*const t = window\.setTimeout\(\(\) => \{ setCierre\('listo'\); chatPresentaReto\(false\); \}, MS_ESCRIBE_RETO\);/);
+  assert.match(b, /<p>\{textoRetoEnSuChat\(nombre\)\}<\/p>/);
+  const m = sinComentarios(leer('app/second-brain/reto/MarcaAlReto.tsx'));
+  assert.match(m, /if \(!listo \|\| empezo \|\| marcado\.current \|\| senal \|\| presenta \|\| opsVisto !== true\) return;/);
+  assert.match(m, /if \(senalAhora\(\) \|\| elChatPresentaElReto\(\) \|\| marcado\.current\) return;/);
+});
+
+test('20. OD-10: sin video, el Second Brain y la flecha del recorrido esperan el clic, y el clic pasa al paso siguiente', async () => {
+  const { TUTORIAL_RECORRIDO } = await import('../lib/onboarding-v2/recorrido');
+  const paso = (sel: string) => TUTORIAL_RECORRIDO.pasos.find((p) => p.sel.includes(sel));
+  assert.equal(paso('sb-second-brain')?.clic, true);
+  assert.equal(paso('sb-brain-volver')?.clic, true);
+  const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
+  assert.match(m, /: modoVideo \? \(cierre \? !!pasoCierre\?\.clic : !!frase\?\.espera_clic\) : !!paso\?\.clic;/, 'cualquier paso con `clic`, no sólo el último');
+  assert.match(m, /window\.setTimeout\(\(\) => \(modoVideo && !cierre \? seguirVideo\('persona', navega, url\) : siguiente\(\)\), 0\);/, 'un paso del medio no termina el tutorial');
+  // Ningún otro tutorial cambia: fuera del recorrido, `clic` sólo en el último paso.
+  const { TUTORIALES } = await import('../lib/tutoriales');
+  for (const t of TUTORIALES) {
+    const medio = t.pasos.slice(0, -1).filter((p) => p.clic);
+    assert.equal(medio.length, 0, `${t.pestana}: un paso del medio con clic cambia cómo se recorre sin video`);
+  }
+});
+
+test('21. OD-11 (la marca): el botón de la foto de Settings › Perfil lleva su lugar, para la última marca del perfil del día 2', async () => {
+  const { MARCA } = await import('../lib/tutoriales/marcas');
+  assert.equal(MARCA.settingsFoto, 'tour-settings-foto');
+  assert.match(sinComentarios(leer('app/perfil/InformacionPersonal.tsx')), /<button type="button" className="aj-foto aj-foto--grande"[^>]*\n\s*data-recorrido=\{MARCA\.settingsFoto\}/);
 });
