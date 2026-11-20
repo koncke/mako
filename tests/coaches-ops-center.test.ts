@@ -587,13 +587,14 @@ test('21. el Offer Coach tiene su conversación, fija en su fila, y su video la 
   // Su video y el del Funnel Coach (las claves acordadas con el chat de los videos), sólo con los dos coaches y con el chat vacío.
   const v = leer('app/second-brain/VideoDelCoach.tsx');
   // (20/11, V5: quietos, marcados con «dale play»: tests/tutorial-entrada.test.ts.)
-  assert.match(v, /<VideoDelMomento clave="offer-coach" titulo=\{ORIGEN_OFFER_COACH\} revision=\{revision\} dalePlay \/>/);
-  assert.match(v, /<VideoDelMomento clave="funnel-coach" titulo=\{ORIGEN_FUNNEL_COACH\} revision=\{revision\} dalePlay \/>/);
+  // (20/11, F4: arriba del texto; el «dale play» sólo mientras es la portada: tests/onboarding-v2-coaches-videos.test.ts.)
+  assert.match(v, /<VideoDelMomento clave="offer-coach" titulo=\{ORIGEN_OFFER_COACH\} revision=\{revision\} dalePlay=\{dalePlay\} \/>/);
+  assert.match(v, /<VideoDelMomento clave="funnel-coach" titulo=\{ORIGEN_FUNNEL_COACH\} revision=\{revision\} dalePlay=\{dalePlay\} \/>/);
   assert.match(v, /useVideoTutorial\(dosCoaches \? clave : null\)/);
   assert.match(v, /const conVideo = dosCoaches && \(video != null \|\| revision\);/);
   for (const f of ['app/second-brain/ChatDelCoach.tsx', 'app/m/second-brain/HojaDelCoach.tsx']) {
     const c = leer(f);
-    assert.match(c, /const portada = useVideoDelCoach\(cual, dosCoaches, saludo\);/, f);
+    assert.match(c, /const portada = useVideoDelCoach\(cual, dosCoaches, saludo(?:, enPortada)?\);/, f); // (20/11: el «dale play», sólo en la portada)
     assert.match(c, /<HiloMako items=\{portada\.items\} [^\n]*enMensaje=\{(?:dosCoaches \? conVoz\(true, portada\.enMensaje as never\) : )?portada\.enMensaje\}/, `${f}: en la portada (el chat vacío)`);
   }
   // El Funnel Coach del V2 no elige referente (su criatura); el Offer Coach sí.

@@ -5712,3 +5712,15 @@ titular), no se tiñe.
     marca no dejarían escribirlo;
   - el «?» del motor (`.mk-tuto-ayuda`, z-index 900) queda encendido sobre cualquier velo, también sobre los de antes;
   - los días del reto los cablea el chat del reto (app/second-brain/reto/ChatDelReto.tsx).
+- **Las marcas que ya no frenan pero tampoco salían (la auditoría de las pausas, lo que quedó).** Con el motor nuevo, una marca que
+  no está se saltea sin pausar. Eso esconde un caso: la voz dice «toca aquí» y no se marca nada.
+  - *Video e Image (video-3 a 5, image-3 a 5) no se marcaban NUNCA, tampoco a una cuenta nueva.* Sin `?ver=`, la pestaña abre
+    los outliers o el explorador de carruseles, y las marcas son de «Crear desde cero». El primer paso de cada tutorial lleva un
+    `antes` con el link que va ahí: `a[href="/video-editor?ver=crear"]` y `a[href="/image-editor?ver=crear"]`
+    (tests/tutorial-catalogo-auditoria.test.ts, el 4). El motor lo toca sólo si la marca falta, y la ruta nueva da el mismo tutorial.
+  - *Las demás sólo faltan en una cuenta con datos*: dashboard-3 a 5 (la galería, con hojas ya armadas), chats-5 (la bandeja con
+    chats), copilot-3/4 (el tablero ya armado). La auditoría las midió en una cuenta así. A la cuenta nueva del onboarding se le
+    marcan. Para que salgan siempre hay que tocar el componente de cada pestaña (un `antes` de dos clics en el Dashboard, una marca
+    en el botón de conectar de Chats). Queda anotado en side-session-notes/…/auditoria-estado-onboarding.md.
+  - **Regla:** antes de dar por «rota» una marca de un tutorial, mirarla con una cuenta NUEVA, que es para quien corre el
+    tutorial la primera vez. Y si falta también ahí, buscar a qué pantalla lleva el link de la entrada de la pestaña.

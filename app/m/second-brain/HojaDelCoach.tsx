@@ -15,7 +15,7 @@
 
 import '@/app/admin/operaciones/centro.css';
 import '@/app/m/operaciones/operaciones.css';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CUERPO_CHAT, PantallaChatM } from '@/app/m/_chat/PantallaChatM';
 import { AvisoDeIA } from '@/app/m/_chat/AvisoDeIA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
@@ -32,8 +32,7 @@ import { ASPECTO_MAKO, aspectoDeReferente } from '@/lib/centro-munecos';
 import type { CoachDelOps } from '@/lib/chat-mako-reglas';
 import { useVideoDelCoach } from '@/app/second-brain/VideoDelCoach';
 import { ASESORES, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
-import { ErrorDelOfferCoach, useHiloConPortada, useOfertaEnMensaje, vozDelCoach } from '@/app/second-brain/coach-compartido';
-import type { EnMensaje } from '@/app/_chat/HiloMako';
+import { ErrorDelOfferCoach, useHiloDelCoach, useOfertaEnMensaje, vozDelCoach } from '@/app/second-brain/coach-compartido';
 import type { OfertaDelCoach } from '@/lib/funnel-plan';
 
 export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCerrar, cual = 'funnel', dosCoaches = false }: {
@@ -51,16 +50,14 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
 }) {
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  const { k, r, aspecto, quien, vacio, saludo, plan, titulo: nombre, tab, motorOffer, sinEscribir, errorOffer, reintentarOffer } = useChatDelCoach({ referente, oferta, caja, cual, dosCoaches });
+  const { k, r, aspecto, quien, vacio, saludo, plan, titulo: nombre, tab, motorOffer, errorOffer, reintentarOffer } = useChatDelCoach({ referente, oferta, caja, cual, dosCoaches });
   const portada = useVideoDelCoach(cual, dosCoaches, saludo);
   // La voz (sólo con los dos coaches, como en la computadora) y, con el motor de Offer, la portada arriba de su conversación y la
   // oferta armada en su mensaje (en el teléfono, «Descargar PDF» baja directo: ver app/second-brain/OfertaEnElChat.tsx).
   const conVoz = vozDelCoach(k.items);
-  const hiloCoach = useHiloConPortada(k, motorOffer && sinEscribir ? portada.items : null);
+  // El mismo hilo que la computadora (20/11, V7, V12, F4; app/second-brain/coach-compartido.tsx → useHiloDelCoach).
   const deLaOferta = useOfertaEnMensaje(motorOffer ? k.sesionOffer : null, () => caja.current?.focus(), true);
-  const idsPortada = useMemo(() => new Set(portada.items.map((x) => x.id)), [portada.items]);
-  const enMensajeOffer = (x: { id: string; texto: string }): EnMensaje | null => (idsPortada.has(x.id)
-    ? conVoz(true, portada.enMensaje as never)(x) : conVoz(false, deLaOferta)(x));
+  const { hilo: hiloCoach, enMensaje: enMensajeDelHilo } = useHiloDelCoach({ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta });
   // El Funnel Coach del V2 no tiene referente al frente: su criatura no elige.
   const eligeReferente = puedeElegir && !(dosCoaches && cual === 'funnel');
   // Hablar con un referente es de MaKo Pro (14/11/2026, 'chat-referentes'): acá sólo decide qué se ve al elegir quién aconseja. El
@@ -150,7 +147,7 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
               : vacio ? (
                 <HiloMako items={portada.items} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null} enMensaje={dosCoaches ? conVoz(true, portada.enMensaje as never) : portada.enMensaje}
                   onTarjeta={() => {}} onReintentar={() => {}} onRecargar={k.recargar} onResponder={(t) => k.enviar(t)} />
-              ) : <HiloDelCliente k={hiloCoach} enMensaje={motorOffer ? enMensajeOffer : dosCoaches ? conVoz(false) : undefined} />}
+              ) : <HiloDelCliente k={hiloCoach} enMensaje={enMensajeDelHilo} />}
           </div>
         )}
       </PantallaChatM>

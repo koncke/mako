@@ -25,6 +25,9 @@ const ELEGIDAS = [
   // a la derecha no hay nada (el personaje termina antes).
   ['offer-coach', null, 'abajo-derecha'],
   ['funnel-coach', null, 'abajo-derecha'],
+  // Las clases (20/11, V7: la del funnel llega como mensaje): todas con el título en el centro y nada abajo a la derecha.
+  ...['anuncios', 'anuncios-a-whatsapp', 'anuncios-a-vsl', 'organico', 'youtube', 'prospeccion-en-frio'].map((f) => [`funnel-clase-${f}`, null, 'abajo-derecha']),
+  ['offer-coach-clase', null, 'abajo-derecha'],
 ];
 const man = JSON.parse(readFileSync(MANIFIESTO_PUB, 'utf8'));
 for (const [id, t, play] of ELEGIDAS) {

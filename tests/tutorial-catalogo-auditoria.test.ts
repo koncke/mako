@@ -13,6 +13,9 @@
 //   · report-problem-4/5 y offer-5: lo que marcaban no existe todavía en ese momento: sin marca, la voz lo narra.
 // Probado rompiéndolo (20/11/2026, una rotura por vez y restaurada): 3 roturas (el antes de Spy, el «^=» del manifiesto, el
 // espera_clic de calendar-4), y cada una tumba su test.
+// Y la tanda siguiente (4): video-3 a 5 e image-3 a 5 marcaban «Nuevo video» / «Crear desde cero», y la pestaña sin `?ver=` abre los
+// outliers o el explorador: el `antes` del primer paso toca «Crear desde cero» / «Nuevo carrusel». Probado rompiéndolo: sin el antes
+// de Video cae el 4; con el link de los outliers a otro lado, el 4.
 // =============================================================================
 
 import test from 'node:test';
@@ -60,4 +63,17 @@ test('3. lo que navega es «Mira aquí»; lo que abre un modal se cierra; lo que
   assert.equal(pg('report-problem', 5)?.sel, undefined);
   assert.equal(pg('automations', 3)?.sel, '[data-recorrido="au-lienzo"]');
   assert.equal(pg('ticketera', 5)?.sel, 'button[aria-label^="Tus tickets"]', 'la Ticketera (los «Tus tickets» de un guion v3 viejo no se suben)');
+});
+
+test('4. Video e Image: el primer paso lleva a la pantalla de sus marcas («Crear desde cero» / «Nuevo carrusel»)', () => {
+  assert.equal(paso('video', '[data-caja-pedido]')?.antes, 'a[href="/video-editor?ver=crear"]');
+  assert.equal(paso('image', 'span[aria-label="Lista o tips: portada"]')?.antes, 'a[href="/image-editor?ver=crear"]');
+  // El motor copia el `antes` sólo si la frase marca lo mismo que el paso (`mismoLugar`): la primera frase con marca de cada video.
+  assert.ok(frase('video', 3)?.sel && mismoLugar(frase('video', 3)!.sel!, '[data-caja-pedido]'));
+  assert.ok(frase('image', 3)?.sel && mismoLugar(frase('image', 3)!.sel!, 'span[aria-label="Lista o tips: portada"]'));
+  // Y los links existen con ESE href: el de los outliers de Video y el del explorador de carruseles.
+  assert.match(leer('app/video-editor/vista.ts'), /export const RUTA_CREAR_VIDEO = '\/video-editor\?ver=crear';/);
+  assert.match(leer('app/video-editor/OutliersVideo.tsx'), /rutaCrear = RUTA_CREAR_VIDEO,[\s\S]*<Link href=\{rutaCrear\} className=\{s\.crear\}>/);
+  assert.match(leer('app/image-editor/ruta.ts'), /export const RUTA_CREAR = '\/image-editor\?ver=crear';/);
+  assert.match(leer('app/image-editor/carruseles/ExplorarCarruseles.tsx'), /<Link href=\{rutaCrear\} className=\{s\.nuevo\}>/);
 });
