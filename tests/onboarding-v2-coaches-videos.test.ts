@@ -46,11 +46,11 @@ test('2. V7: la clase del funnel principal, como un mensaje de MaKo, justo despu
   assert.equal(textoClaseFunnel('anuncios-a-whatsapp'), 'Te dejo la clase de «Anuncios a WhatsApp», para cuando quieras: cómo funciona por dentro. No hace falta para seguir.');
   const clase = itemClaseFunnel({ funnel: 'organico', guardadoEn: '2026-11-20T10:00:05Z' });
   assert.deepEqual({ k: clase.k, role: clase.role, id: clase.id }, { k: 'msg', role: 'assistant', id: 'clase-organico' });
-  const m = (id: string, at: string | null) => ({ k: 'msg' as const, id, role: 'assistant' as const, texto: id, at });
+  const m = (id: string, at: string | null) => ({ k: 'msg' as const, id, role: 'assistant' as 'user' | 'assistant', texto: id, at });
   const hilo = [m('a', '2026-11-20T09:59:00Z'), m('confirma', '2026-11-20T10:00:04Z'), m('despues', '2026-11-20T10:01:00Z')];
   assert.deepEqual(conLaClase(hilo, clase).map((x) => x.id), ['a', 'confirma', 'clase-organico', 'despues']);
   assert.deepEqual(conLaClase(hilo, { ...clase, at: null }).map((x) => x.id), ['a', 'confirma', 'despues', 'clase-organico'], 'sin hora, al final');
-  assert.equal(conLaClase(hilo, null), hilo);
+  assert.deepEqual(conLaClase(hilo, null), hilo);
 });
 
 test('3. V12 y V7: la portada siempre arriba, la clase en el hilo (nunca clavada arriba), y el teléfono igual que la computadora', () => {

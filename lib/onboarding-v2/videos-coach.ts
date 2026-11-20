@@ -45,17 +45,26 @@ type MsgHilo = { k: 'msg'; id: string; role: 'user' | 'assistant'; texto: string
 export const itemClaseFunnel = (plan: Pick<PlanFunnel, 'funnel' | 'guardadoEn'>): MsgHilo =>
   ({ k: 'msg', id: `clase-${plan.funnel}`, role: 'assistant', texto: textoClaseFunnel(plan.funnel), at: plan.guardadoEn || null });
 
+/** La hora de un elemento del hilo, si tiene. Las tarjetas, los avisos y los bloques del hilo no tienen `at`. */
+const horaDe = (x: unknown): number => {
+  const a = (x as { at?: unknown } | null)?.at;
+  return typeof a === 'string' ? Date.parse(a) : NaN;
+};
+
 /**
  * El hilo con la clase en su lugar: después de todo lo que pasó hasta que se guardó el plan, antes de lo que vino después. Sin
- * hora (un plan viejo), al final. Lo que no tiene hora no corre a la clase.
+ * hora (un plan viejo), al final. Lo que no tiene hora no corre a la clase. Devuelve un arreglo nuevo (el hilo de un chat no es
+ * de sólo lectura).
+ * ⚠️ Sin restringir T a `{ at?: … }` (20/11, el rojo de 06c76ba31): las tarjetas, los avisos y los bloques del hilo no tienen `at`, y
+ *    TypeScript no deja pasar a un tipo de sólo opcionales uno que no comparte ninguna propiedad (la «weak type detection»).
  */
-export function conLaClase<T extends { at?: string | null }>(items: readonly T[], clase: T | null): readonly T[] {
-  if (!clase) return items;
-  const t = Date.parse(clase.at ?? '');
+export function conLaClase<T>(items: readonly T[], clase: T | null): T[] {
+  if (!clase) return [...items];
+  const t = horaDe(clase);
   if (!Number.isFinite(t)) return [...items, clase];
   let i = items.length;
   while (i > 0) {
-    const a = Date.parse(items[i - 1]?.at ?? '');
+    const a = horaDe(items[i - 1]);
     if (!Number.isFinite(a) || a <= t) break;
     i -= 1;
   }

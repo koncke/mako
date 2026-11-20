@@ -89,7 +89,7 @@ export function useHiloDelCoach(o: {
 }): { hilo: ChatCliente; enMensaje: EnMensajeDe | undefined } {
   const { k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta } = o;
   const clase = useMemo(() => (dosCoaches && cual === 'funnel' && plan ? itemClaseFunnel(plan) : null), [dosCoaches, cual, plan]);
-  const kConClase = useMemo(() => (clase ? { ...k, items: conLaClase(k.items, clase) } : k), [k, clase]);
+  const kConClase = useMemo(() => (clase ? { ...k, items: conLaClase<ItemHilo>(k.items, clase) } : k), [k, clase]);
   const hilo = useHiloConPortada(kConClase, dosCoaches ? portada.items : null);
   const idsPortada = useMemo(() => new Set(portada.items.map((x) => x.id)), [portada.items]);
   const enMensaje: EnMensajeDe = (x) => {
