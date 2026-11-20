@@ -34,7 +34,7 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { CLAVE_ENTRADA_MOVIL } from '@/app/m/_ui/entrada';
-import { rutaDelHilo, type EtapaArranque, type MensajeArranque } from '@/lib/onboarding-arranque';
+import { E_TELEFONO_INCOMPLETO, codigoDeLoEscrito, primerNombre, rutaDelHilo, type EtapaArranque, type MensajeArranque } from '@/lib/onboarding-arranque';
 import type { VistaArranque } from '@/lib/onboarding-arranque-server';
 import { EntradaMako } from './EntradaMako';
 import { CriaturaMako, type Reaccion } from './CriaturaMako';
@@ -66,6 +66,8 @@ const MS_ESCRIBE = 1800;
 /** MaKo escribiendo antes de su primera pregunta, y cuánto se espera al video antes de soltarla sin él. */
 const MS_PRIMERO = 1400;
 const MS_SIN_VIDEO = 2500;
+/** Con los 6 números en el campo del código, cuánto se espera para confirmarlo solo (la maqueta, `programarCodigo`). */
+const MS_CODIGO_SOLO = 900;
 /** La clave del video de bienvenida (public/tutoriales, el chat de los videos). */
 const VIDEO_BIENVENIDA = 'onboarding-bienvenida';
 /** El del WhatsApp: la segunda mitad del video de bienvenida, que se cortó en dos (19/11), con su primera frase nueva
@@ -205,6 +207,8 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'hilo' }), signal: AbortSignal.timeout(20_000),
     }).then((x) => x.json()).catch(() => null) as { ok?: boolean; chat?: number | null } | null;
     setSaliendo(true);
+    // Un video del onboarding que sigue corriendo NO pasa flotando al Ops Center (20/11, OD-13): flotaba, y el recorrido no arrancaba.
+    for (const v of Array.from(document.querySelectorAll<HTMLVideoElement>('.arr-v2 video'))) v.pause();
     // La barra lateral, escondida hasta que el recorrido la presente (Martín, 19/11: app/_ui/tutorial/barra-oculta.ts).
     esconderLaBarra();
     router.push(rutaDelHilo(r?.ok && typeof r.chat === 'number' ? r.chat : null));
@@ -243,13 +247,14 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
 
   const tarjeta = (m: MensajeArranque): ReactNode => {
     if (m.id !== ultimoMako?.id) return null;
-    if (m.tarjeta === 'telefono') return <TarjetaTelefono inicial={vista.telefonoDelPago} ocupado={ocupado} onSeguir={(tel) => void accion({ action: 'telefono', telefono: tel }, `+${tel}`)} />;
+    if (m.tarjeta === 'telefono') return <TarjetaTelefono inicial={vista.telefonoDelPago} ocupado={ocupado}
+      onSeguir={(tel, visible) => void accion({ action: 'telefono', telefono: tel }, visible)} onIncompleto={() => setError(E_TELEFONO_INCOMPLETO)} />;
     if (m.tarjeta === 'codigo') {
       return <TarjetaCodigo vista={vista} ocupado={ocupado}
         onConfirmar={(c) => responder({ texto: c }, null)}
         onCambiar={() => void accion({ action: 'cambiar-numero' })}
         onReenviar={() => void accion({ action: 'reenviar' })}
-        onPedirOtro={() => void accion({ action: 'telefono' })} />;
+        onReintentar={() => void accion({ action: 'telefono' })} />;
     }
     if (m.tarjeta === 'listo') {
       return (
@@ -265,12 +270,15 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
 
   const progreso = Math.max(0, PASOS.indexOf(etapa)) / (PASOS.length - 1);
   const enRecuadro = fase === 'chat' && !ocupado && ultimoMako?.opciones?.length && ultimoMako.recuadro ? ultimoMako : null;
-  const placeholder = etapa === 'listo' ? (enTelefono ? 'Toca «Continuar el onboarding desde la PC»' : 'Toca «Entrar a MaKo»') : PH[etapa] ?? 'Escribe a MaKo';
+  // La segunda pregunta del contacto («Guárdalo cuando puedas…») no se contesta con sí o no (20/11, OA-F2: la maqueta, «Ya lo guardé»).
+  const enAgendadoNo = etapa === 'agendado' && mensajes.some((m) => m.id === 'arr-agendado-no');
+  const placeholder = etapa === 'listo' ? (enTelefono ? 'Toca «Continuar el onboarding desde la PC»' : 'Toca «Entrar a MaKo»') : enAgendadoNo ? 'Ya lo guardé' : PH[etapa] ?? 'Escribe a MaKo';
 
   return (
     <div className={`arr-capa arr-v2${saliendo ? ' arr-capa--sale' : ''}`}>
       <style>{CSS_V2}</style>
-      {enPc && <SeguirEnPc nombre={persona?.nombre ?? ''} email={persona?.email ?? ''} />}
+      {/* El nombre que contestó en el chat, no el de la cuenta (20/11, OA-11). */}
+      {enPc && <SeguirEnPc nombre={primerNombre(vista.nombre || persona?.nombre || '')} email={persona?.email ?? ''} maqueta />}
       <main className="arr-cuerpo">
         <div className="arr-v2__bloque">
           <header className="arr-v2__cab">
@@ -340,15 +348,22 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
 }
 
 /** El WhatsApp, con su lada (la maqueta: el campo de la app y «Seguir» negro, de lado a lado). */
-function TarjetaTelefono({ inicial, ocupado, onSeguir }: { inicial: string; ocupado: boolean; onSeguir: (telefono: string) => void }) {
+function TarjetaTelefono({ inicial, ocupado, onSeguir, onIncompleto }: {
+  inicial: string; ocupado: boolean; onSeguir: (telefono: string, visible: string) => void; onIncompleto: () => void;
+}) {
   const [lada, setLada] = useState(() => tarjetaConNumero(inicial).lada);
   const [numero, setNumero] = useState(() => tarjetaConNumero(inicial).numero);
-  const listo = numero.replace(/\D/g, '').length >= 6;
-  const seguir = () => { if (listo && !ocupado) onSeguir(`${lada}${numero.replace(/\D/g, '')}`.replace(/\D/g, '')); };
+  // «Seguir» SIEMPRE activo (20/11, OA-15: la maqueta): con menos dígitos, el error rojo dice qué falta, en vez de un botón apagado.
+  const seguir = () => {
+    if (ocupado) return;
+    if (numero.replace(/\D/g, '').length < 6) { onIncompleto(); return; }
+    // Lo que se manda va en dígitos; la burbuja lo muestra como lo escribió, con la lada y sus espacios (OA-F1).
+    onSeguir(`${lada}${numero.replace(/\D/g, '')}`.replace(/\D/g, ''), `${lada} ${numero.trim()}`);
+  };
   return (
     <div className="arr-tarjeta">
       <TelefonoConPais lada={lada} numero={numero} onLada={setLada} onNumero={setNumero} onEnter={seguir} placeholder="9 11 5555 0101" inputStyle={CAMPO} />
-      <Button variant="primary" size="sm" full disabled={!listo || ocupado} loading={ocupado} onClick={seguir}>Seguir</Button>
+      <Button variant="primary" size="sm" full disabled={ocupado} loading={ocupado} onClick={seguir}>Seguir</Button>
     </div>
   );
 }
@@ -358,26 +373,37 @@ function TarjetaTelefono({ inicial, ocupado, onSeguir }: { inicial: string; ocup
  * MaKo le contesta con el código y lo pega acá. Debajo, cambiar el número o pedir que se lo reenvíe. Sin «Pega aquí el código» ni
  * «Pegar» (Martín, 19/11: «elimina también, pega aquí el código… elimina el botón que dice pegar»): el mensaje de arriba ya lo dice.
  */
-function TarjetaCodigo({ vista, ocupado, onConfirmar, onCambiar, onReenviar, onPedirOtro }: {
+function TarjetaCodigo({ vista, ocupado, onConfirmar, onCambiar, onReenviar, onReintentar }: {
   vista: VistaArranque; ocupado: boolean;
-  onConfirmar: (codigo: string) => Promise<boolean>; onCambiar: () => void; onReenviar: () => void; onPedirOtro: () => void;
+  onConfirmar: (codigo: string) => Promise<boolean>; onCambiar: () => void; onReenviar: () => void; onReintentar: () => void;
 }) {
   const [codigo, setCodigo] = useState('');
-  const confirmar = () => { if (codigo.length >= 6 && !ocupado) void onConfirmar(codigo).then((ok) => { if (ok) setCodigo(''); }); };
+  /** El código que ya se mandó solo: no se manda dos veces el mismo (se vuelve a mandar con «Confirmar»). */
+  const solo = useRef('');
+  // «Confirmar» SIEMPRE activo (20/11, OA-06): con menos de 6 números, el servidor dice «Faltan números» (antes, un botón apagado).
+  const confirmar = useCallback(() => { if (!ocupado) void onConfirmar(codigo).then((ok) => { if (ok) setCodigo(''); }); }, [codigo, ocupado, onConfirmar]);
+  // Con los 6 números, se confirma SOLO a los 0,9 s (20/11, OA-07: la maqueta, `programarCodigo`).
+  useEffect(() => {
+    if (codigo.length !== 6 || ocupado || solo.current === codigo) return;
+    const t = window.setTimeout(() => { solo.current = codigo; confirmar(); }, MS_CODIGO_SOLO);
+    return () => window.clearTimeout(t);
+  }, [codigo, ocupado, confirmar]);
   const w = vista.whatsapp;
-  const vencido = !w || !w.link || w.estado === 'vencido';
+  // Vencido NO esconde «Abrir WhatsApp» (20/11, OA-08): escribirle de nuevo a MaKo le trae un código nuevo, y el error de vencido
+  // manda a «Reenviar el código». Sólo sin el link (no se pudo armar el mensaje) va «Volver a intentarlo».
+  const sinLink = !w || !w.link;
   return (
     <div className="arr-tarjeta arr-v2__cod">
-      {vencido
-        ? <><span className="arr-tarjeta__nota">{w?.estado === 'vencido' ? 'Pasó mucho tiempo: pide otro mensaje.' : 'No pude armar el mensaje.'}</span>
-          <Button variant="primary" size="sm" loading={ocupado} disabled={ocupado} onClick={onPedirOtro}>Pedir otro</Button></>
-        : <a className="arr-v2__wa" href={w!.link!} target="_blank" rel="noopener noreferrer"><Icon name="whatsapp" size={18} />Abrir WhatsApp</a>}
+      {sinLink
+        ? <><span className="arr-tarjeta__nota">No pude armar el mensaje.</span>
+          <Button variant="primary" size="sm" loading={ocupado} disabled={ocupado} onClick={onReintentar}>Volver a intentarlo</Button></>
+        : <a className="arr-v2__wa" href={w.link!} target="_blank" rel="noopener noreferrer"><Icon name="whatsapp" size={18} />Abrir WhatsApp</a>}
       <div className="arr-v2__cod-fila">
-        {/* Sólo los 6 números: lo pegado con espacios o con el texto del mensaje queda en sus números. */}
+        {/* Lo pegado: el grupo de 6 números seguidos (el mensaje de MaKo entero trae la hora y otras cifras); si no hay, sus números. */}
         <input id="arr-v2-codigo" className="arr-v2__cod-campo" inputMode="numeric" autoComplete="one-time-code" placeholder="000000"
-          aria-label="El código de 6 números" value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          aria-label="El código de 6 números" value={codigo} onChange={(e) => setCodigo(codigoDeLoEscrito(e.target.value))}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmar(); } }} />
-        <Button variant="primary" size="sm" disabled={codigo.length < 6 || ocupado} loading={ocupado} onClick={confirmar}>Confirmar</Button>
+        <Button variant="primary" size="sm" disabled={ocupado} loading={ocupado} onClick={confirmar}>Confirmar</Button>
       </div>
       <div className="arr-v2__cod-pie">
         <button type="button" className="arr-v2__link" onClick={onCambiar} disabled={ocupado}>Cambiar número</button>
@@ -424,7 +450,7 @@ function Recuadro({ m, ocupado, onUna, onVarias, onOtra }: {
         <span className="arr-v2__tema">{q.tema}</span>
         <button type="button" className="co-preg__plegar" onClick={() => setPlegado(true)} aria-expanded aria-label="Ocultar las opciones" title="Ocultar"><span aria-hidden="true">▾</span></button>
       </div>
-      <p className="co-preg__texto">{m.texto}</p>
+      <p className="co-preg__texto">{q.pregunta ?? m.texto}</p>
       {q.ayuda && <p className="arr-v2__ayuda">{aviso ?? q.ayuda}</p>}
       <ol className="co-preg__ops arr-v2__lista" style={{ '--filas': filas } as CSSProperties}>
         {ops.map((o, i) => {

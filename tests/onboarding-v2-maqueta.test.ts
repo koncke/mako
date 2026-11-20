@@ -154,7 +154,9 @@ test('5. el webhook contesta el pedido del V2, y el código pegado NO arma ning�
   assert.doesNotMatch(responder, /sincronizarConfirmado|setNumeroDuenoYSync|asegurarGrupoMaKo|sumarAlGrupo|verificado: true/, 'contestar no confirma ni arma grupo');
   const ruta = sinComentarios(leer('app/api/onboarding/arranque/route.ts'));
   assert.match(ruta, /const r = h\.v2\n\s*\? await pedirConfirmacionV2\(g\.ws, digitos,/);
-  assert.match(ruta, /if \(h\.v2 && etapa === 'codigo' && texto && \/\\d\/\.test\(texto\)\) \{\n\s*const r = await verificarCodigoV2\(g\.ws, texto\);/);
+  // 20/11 (OA-06): lo escrito en la caja va a la verificación sólo si es un código (un grupo de 6 números, o menos de 6: «Faltan
+  // números»); un teléfono sin un grupo de 6 sigue como cualquier respuesta.
+  assert.match(ruta, /if \(h\.v2 && etapa === 'codigo' && texto && \(grupoDe6 \|\| \(digitosCodigo\.length > 0 && digitosCodigo\.length < 6\)\)\) \{\n\s*const r = await verificarCodigoV2\(g\.ws, grupoDe6 \?\? digitosCodigo\);/);
 });
 
 test('6. la pantalla del V2: la estrella, la caja del Ops Center, los dos videos y la pantalla oscura', () => {

@@ -142,7 +142,8 @@ test('la funcionalidad de la landing es lo que el onboarding pregunta primero', 
 });
 
 test('el onboarding siembra el origen antes de dibujar el chat, sin pisar lo contestado', () => {
-  assert.match(fuente('app/onboarding/page.tsx'), /if \(wsOrigen != null\) await sembrarArranqueDesdeOrigen\(wsOrigen\);\s*const vista = await vistaArranque\(\);/);
+  // Salvo en el onboarding V2 (20/11, la auditoría: OA-16): ahí «¿Cómo llegaste a MaKo?» se pregunta siempre y la contesta ella.
+  assert.match(fuente('app/onboarding/page.tsx'), /if \(wsOrigen != null && !v2\) await sembrarArranqueDesdeOrigen\(wsOrigen\);\s*const vista = await vistaArranque\(\);/);
   const o = fuente('lib/origen-negocio.ts');
   assert.match(o, /if \(interes && !e\.interes\) patch\.interes = interes;/);
   assert.match(o, /if \(llegada && !e\.origen\) patch\.origen = llegada;/);
