@@ -3635,6 +3635,34 @@ filas de los coaches tachaban el día 1 entero.
 - **Sin hacer** (nota del Cerebro, para la próxima vez que se toque Calendar): en el video de Calendar, «Toca aquí, en Publicaciones,
   Plan, Ventas o Entregas,» sale con la letra más chica que el resto (el dibujo del pipeline, C:/dev/tutoriales-video).
 
+## La segunda verificación: el arreglo cumplía en el caso feliz, no en el de al lado (20/11/2026, tarde, chat «onboarding-v2», claude5)
+
+- **«No me llegó, esperé 5 minutos» daba «Faltan números»** (OA-06). Sin grupo de código, `codigoEnLaCaja` devolvía TODOS los dígitos
+  del texto: el «5» era un código corto. Y «11 5555 0101» (un teléfono local sin «+») era un código equivocado que GASTABA un intento.
+  Ahora: con letras y sin grupo es una pregunta; si sólo hay números y son 8 o más, es un teléfono; los grupos (6 seguidos, o 3 y 3)
+  valen sólo SUELTOS, porque pegados a otra cifra son parte de un teléfono («011 555 123»). **Trampa:** el test cubría la pregunta
+  SIN números, que ya andaba.
+- **«Sigamos en tu computadora» se disparaba con la FALTA de un visto que ningún cliente de hoy tiene** (OA-10). `tutorial-ops-center`
+  lo anota sólo el motor del V2. Con el interruptor para todos, cada cliente de MaKo Mobile iba a quedar fuera de su teléfono. Decidido
+  por el Cerebro (en la memoria): sólo a quien EMPEZÓ el V2. Esa persona tiene la marca `perfil.onboardingV2` (la fecha de su primera
+  respuesta). La escribe `anotarQueEmpezoElV2` (lib/seguir-en-pc.ts) desde la ruta del arranque, con compare-and-set como
+  /api/recorridos. Va fuera de `recorridos` a propósito: el tope de lo visto olvida lo más viejo. La regla, en AGENTS.md.
+- **El riel de la barra se veía al recargar** (OD-03). El atributo lo ponía un `<script>` de /second-brain, que llega después de
+  loading.tsx, y la barra está en el layout. Ahora el layout raíz lo pone en el `<html>` del server, usando sólo el módulo chico. En
+  una página que no presenta el recorrido, el motor la devuelve a los 9 s (`ESPERA_BARRA_MS`): nunca queda sin salida.
+- **Volver de Second Brain redibujaba la llegada en medio del recorrido** (OD-05). Cambiar el panel por el mapa DESMONTA
+  BienvenidaOpsCenter, y al volver `fase` arrancaba otra vez en 'escribe' (el velo y los puntitos, 1,8 s). El «ya escrita» vive en el
+  módulo y dura lo que la página. El ensayo «desde cero» recarga, así que ahí vuelve a escribirse.
+- **Pausar `.arr-v2 video` no cortaba el video que ya flotaba** (OD-13): ése vive en un portal a `<body>`. Ahora `entrar()` suelta la
+  señal 'video'.
+- **`cierra_despues` esperaba a la próxima frase CON marca** (motor-7, offer-5). `fraseParaMarcar` saltea las que no tienen, y
+  offer-5 no tiene: la lista de offer-4 quedaba encima del chat toda su voz. Ahora `cierraYa` (lib/tutoriales/videos.ts) la cierra al
+  empezar la frase siguiente, tenga o no marca, y el motor no marca nada encima durante `MS_CIERRE`.
+- **La placa de la clase del funnel usaba `!PARA_TODOS`** (V10), que con el interruptor apagado es verdadero para todo el Cliente de
+  Prueba. Ahora `useEsRevision()`, como el resto.
+- **Sin ver en un navegador:** la barra oculta al recargar, la llegada al volver del mapa y el video de la esquina al entrar son
+  estados de una sesión real. Los cuidan tests (rotos a propósito, caen), no una captura.
+
 ## La verificación del 20/11: lo que el reto daba por hecho y no lo estaba (chat «reto-tutoriales», claude5)
 
 Lo que dejó a la vista la verificación independiente del Cerebro (verificacion-pendientes-20-11.md): en todos estos casos el commit

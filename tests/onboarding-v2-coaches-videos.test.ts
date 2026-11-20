@@ -72,7 +72,10 @@ test('4. F4: el video arriba del texto, y el «dale play» sólo mientras es la 
   assert.doesNotMatch(v, /abajo: cual === 'offer'/);
   assert.match(sinComentarios(leer('app/second-brain/ChatDelCoach.tsx')), /const portada = useVideoDelCoach\(cual, dosCoaches, saludo, enPortada\);/);
   const h = sinComentarios(leer('app/second-brain/coach-compartido.tsx'));
-  assert.match(h, /arriba: <VideoDelMomento clave=\{claveClaseFunnel\(plan\.funnel\)\} titulo=\{tituloClaseFunnel\(plan\.funnel\)\} revision=\{!PARA_TODOS\} \/>/);
+  // La placa, sólo en la revisión de Martín (20/11, tarde, V10): useEsRevision, como VideoDelDia y los coaches; nunca `!PARA_TODOS`.
+  assert.match(h, /const revision = useEsRevision\(\);/);
+  assert.match(h, /arriba: <VideoDelMomento clave=\{claveClaseFunnel\(plan\.funnel\)\} titulo=\{tituloClaseFunnel\(plan\.funnel\)\} revision=\{revision\} \/>/);
+  assert.doesNotMatch(h, /PARA_TODOS/);
   // Las portadas de las clases tienen el título en el centro: el play, abajo a la derecha (el Cerebro, 20/11: en cualquier portada).
   const man = JSON.parse(leer('public/tutoriales/manifiesto.json')) as { videos: { key: string; play?: string }[] };
   for (const k of ['anuncios', 'anuncios-a-whatsapp', 'anuncios-a-vsl', 'organico', 'youtube', 'prospeccion-en-frio'].map((f) => `funnel-clase-${f}`).concat('offer-coach-clase')) {

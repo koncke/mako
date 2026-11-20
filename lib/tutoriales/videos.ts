@@ -63,6 +63,18 @@ export function fraseParaMarcar(frases: readonly FraseVideo[], t: number, hechas
   return null;
 }
 
+/**
+ * ¿Ya toca cerrar lo que abrió la frase `idQueAbrio` (`cierra_despues`)? Al EMPEZAR la frase que le sigue, TENGA O NO MARCA (20/11,
+ * tarde, la segunda verificación de motor-7 y offer-5): el cierre esperaba a la próxima frase CON marca, y como offer-5 no tiene, la
+ * lista de proyectos que abrió offer-4 quedaba encima del chat toda su voz («toca aquí, en Analicemos mi oferta»). Sin frase que le
+ * siga, lo cierra el final del video (el cierre del motor).
+ */
+export function cierraYa(frases: readonly FraseVideo[], idQueAbrio: string, t: number): boolean {
+  const i = frases.findIndex((f) => f.id === idQueAbrio);
+  const sig = i >= 0 ? frases[i + 1] : undefined;
+  return !!sig && t >= sig.t_inicio;
+}
+
 /** ¿Este paso de lib/tutoriales marca lo mismo que la frase? (un `sel` del paso puede ser una lista «computadora, teléfono»). */
 export function mismoLugar(selPaso: string, selFrase: string): boolean {
   const norm = (s: string) => s.replace(/\s+/g, ' ').trim();

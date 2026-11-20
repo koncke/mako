@@ -6,7 +6,7 @@
 // «Entrar a MaKo» (app/onboarding/ChatArranqueV2.tsx) la esconde con un atributo en <html>, que sobrevive a la navegación de adentro
 // de la app; el CSS (app/_ui/ui.css) la saca. El motor del tutorial (./MotorTutorial.tsx) la vuelve a mostrar en el paso que marca
 // `aside[data-sidebar]`, al terminar el tutorial, o si en un rato no arrancó ninguno (nunca queda escondida sin salida). Al recargar,
-// el atributo no está: la barra, como siempre.
+// el atributo lo pone el layout raíz desde el server (app/layout.tsx, 20/11: OD-03) mientras el recorrido del Ops Center no se vio.
 // Puro y sin React: lo importan la pantalla del onboarding y el motor.
 // =============================================================================
 

@@ -313,6 +313,19 @@ export function vistosDePerfil(perfil: unknown): Record<string, string> {
 }
 
 /**
+ * La marca de quien EMPEZÓ el onboarding V2 (20/11/2026, tarde, OA-10), en el mismo jsonb `perfil` y también de la persona.
+ * Fuera de `recorridos` a propósito: el tope de lo visto olvida lo más viejo, y esta marca no se puede olvidar. La escribe y la
+ * lee lib/seguir-en-pc.ts («Sigamos en tu computadora»).
+ */
+export const CLAVE_EMPEZO_V2 = 'onboardingV2';
+
+/** ¿Empezó el onboarding V2? La marca es la fecha de su primera respuesta (`anotarQueEmpezoElV2`, lib/seguir-en-pc.ts). Cualquier otra cosa, no. */
+export function empezoElV2(perfil: unknown): boolean {
+  const v = perfil && typeof perfil === 'object' && !Array.isArray(perfil) ? (perfil as Record<string, unknown>)[CLAVE_EMPEZO_V2] : null;
+  return typeof v === 'string' && v.length > 0;
+}
+
+/**
  * El `perfil` con este recorrido marcado como visto.
  *
  * ⚠️ CONSERVA TODO LO DEMÁS. El jsonb se reescribe ENTERO, y adentro viven el teléfono, el

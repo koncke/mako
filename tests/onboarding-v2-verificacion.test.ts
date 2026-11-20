@@ -28,6 +28,12 @@ test('1. OA-06: la caja lee el código como lo manda MaKo («482 913») o su men
   assert.equal(codigoEnLaCaja('482'), '482', 'los menos: «Faltan números»');
   assert.equal(codigoEnLaCaja('+54 9 11 5555 0101'), null, 'un teléfono no es un código');
   assert.equal(codigoEnLaCaja('¿y ahora qué hago?'), null, 'un texto sin números tampoco');
+  // La segunda verificación (20/11, tarde): con letras y sin grupo de código es una pregunta, y un teléfono local sin «+» no es un
+  // código. Ninguno de los dos llega a decidirCodigoV2 con números: no da «Faltan números» ni gasta un intento.
+  assert.equal(codigoEnLaCaja('no me llegó, esperé 5 minutos'), null, 'una pregunta con un número no es un código');
+  assert.equal(codigoEnLaCaja('11 5555 0101'), null, 'un teléfono local sin «+» no es un código');
+  assert.equal(codigoEnLaCaja('011 555 123'), null, 'ni con un 3 y 3 adentro');
+  assert.equal(codigoEnLaCaja('4829133'), '4829133', 'sólo números, uno de más: un código equivocado');
   const v = { telefono: '5491155550101', codigo: '482913', expira: Date.now() + 60_000, verificado: false, v2: true, entrante: true } as const;
   assert.equal((decidirCodigoV2({ ...v, respondido: false }, '', Date.now()) as { error: string }).error, E_SIN_CODIGO_V2, 'sin respuesta de MaKo: todavía no lo tiene');
   assert.equal((decidirCodigoV2({ ...v, respondido: true }, '', Date.now()) as { error: string }).error, E_ESCRIBE_CODIGO_V2, 'con la respuesta de MaKo: que lo escriba (wa-12, del chat de WhatsApp)');
@@ -89,14 +95,40 @@ test('6. OA-10 y OD-12: el teléfono va a «Sigamos en tu computadora» desde cu
   assert.match(sinComentarios(leer('app/second-brain/page.tsx')), /if \(\(await esTelefono\(\)\.catch\(\(\) => false\)\) && \(await seguirEnPcPendiente\(\)\)\) redirect\(await rutaConWs\(RUTA_SEGUIR_EN_PC\)\);/);
 });
 
+test('6b. OA-10, segunda verificación (20/11, tarde): «Sigamos en tu computadora» sólo a quien EMPEZÓ el V2', async () => {
+  // Decidido por el Cerebro (en la memoria): hasta ver el recorrido en la PC, y sólo a quien empezó por el onboarding V2. Con el
+  // interruptor para todos, un cliente de MaKo Mobile que nunca pasó por el V2 no tiene la marca y no queda trabado en /onboarding.
+  const { empezoElV2, CLAVE_EMPEZO_V2, perfilConVisto } = await import('../lib/recorridos');
+  assert.equal(empezoElV2({ recorridos: { 'tutorial-ops-center': '2026-11-20' } }), false, 'un cliente de siempre, sin la marca');
+  assert.equal(empezoElV2(null), false);
+  assert.equal(empezoElV2({ [CLAVE_EMPEZO_V2]: true }), false, 'sólo la fecha');
+  assert.equal(empezoElV2({ [CLAVE_EMPEZO_V2]: '2026-11-20T15:00:00.000Z' }), true);
+  assert.equal(empezoElV2(perfilConVisto({ [CLAVE_EMPEZO_V2]: '2026-11-20T15:00:00.000Z' }, 'tutorial-ops-center', 'x')), true, 'marcar lo visto no la borra');
+  const sep = sinComentarios(leer('lib/seguir-en-pc.ts'));
+  const f = sep.slice(sep.indexOf('export async function seguirEnPcPendiente'), sep.indexOf('export async function anotarQueEmpezoElV2'));
+  assert.match(f, /const perfil = \(data as \{ perfil\?: unknown \} \| null\)\?\.perfil;\n\s*if \(!empezoElV2\(perfil\)\) return false;\n\s*return !Object\.prototype\.hasOwnProperty\.call\(vistosDePerfil\(perfil\), ID_RECORRIDO_PC\);/);
+  // La marca: la primera respuesta del V2, de la persona de la sesión (nunca mirando a un cliente), conservando el resto del jsonb.
+  const a = sep.slice(sep.indexOf('export async function anotarQueEmpezoElV2'));
+  assert.match(a, /if \(await estaImpersonando\(\)\.catch\(\(\) => true\)\) return;/);
+  assert.match(a, /if \(empezoElV2\(fila\.perfil\)\) return;/, 'sólo la primera vez');
+  assert.match(a, /update\(\{ perfil: \{ \.\.\.base, \[CLAVE_EMPEZO_V2\]: ahora \}, updated_at: ahora \}\)/);
+  assert.match(a, /q = fila\.updated_at == null \? q\.is\('updated_at', null\) : q\.eq\('updated_at', fila\.updated_at\);/, 'compare-and-set, como /api/recorridos');
+  const ruta = sinComentarios(leer('app/api/onboarding/arranque/route.ts'));
+  assert.match(ruta, /if \(h\.v2\) await anotarQueEmpezoElV2\(\);\n\s*const codigoEscrito = /, 'con cada respuesta del V2, antes del código');
+});
+
 test('7. OD-03: la barra sigue oculta con el «dale play», al recargar y al volver al Ops Center, hasta «Tu panel»', () => {
   const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
   assert.match(m, /const invita = senal\.tipo === 'marca' && !!senal\.invita;\n\s*const fin = useCallback\(\(como: 'fin' \| 'omitido' \| 'hecho'\) => \{ if \(!invita\) mostrarLaBarra\(\); terminar\(senal\.id, como\); \}, \[senal\.id, invita\]\);/);
   assert.match(m, /const t = window\.setTimeout\(\(\) => \{ if \(!elChatPresentaElRecorrido\(\)\) mostrarLaBarra\(\); \}, ESPERA_BARRA_MS\);/);
   assert.match(sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx')), /useLayoutEffect\(\(\) => \{ if \(toca && !senalAhora\(\)\) esconderLaBarra\(\); \}, \[toca\]\);/);
+  // Al recargar (la segunda verificación de OD-03, 20/11, tarde): en el <html> del layout raíz, del server, y no un <script> de la
+  // página, que llega después de loading.tsx con el riel ya pintado. Del módulo chico (tests/seguir-en-pc-liviano.test.ts).
+  const lay = sinComentarios(leer('app/layout.tsx'));
+  assert.match(lay, /import \{ seguirEnPcPendiente \} from '@\/lib\/seguir-en-pc';/);
+  assert.match(lay, /const barraOculta = veV2 && \(await seguirEnPcPendiente\(\)\);\n\s*return \(\n\s*<html [^>]*\{\.\.\.\(barraOculta \? \{ \[ATTR_BARRA_OCULTA\]: '' \} : \{\}\)\}>/);
   const page = sinComentarios(leer('app/second-brain/page.tsx'));
-  assert.match(page, /const barraOculta = retoV2 && \(await seguirEnPcPendiente\(\)\);/);
-  assert.match(page, /\{barraOculta && <script dangerouslySetInnerHTML=\{\{ __html: `document\.documentElement\.setAttribute\('\$\{ATTR_BARRA_OCULTA\}',''\)` \}\} \/>\}/);
+  assert.doesNotMatch(page, /ATTR_BARRA_OCULTA|<script/, 'una sola fuente: el layout');
 });
 
 test('8. OD-08: con el V2, nada arriba del Ops Center: el grupo de WhatsApp (y su esqueleto) va después de los coaches', () => {
@@ -236,4 +268,42 @@ test('20. wa-04: la tarjeta del código dice el aviso cuando su mensaje llegó y
   const t = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
   assert.match(t, /\{w\?\.aviso && <p className="arr-v2__aviso-wa" role="status" data-aviso-wa="">\{w\.aviso\}<\/p>\}/);
   assert.ok(t.indexOf('Abrir WhatsApp</a>}') < t.indexOf('data-aviso-wa') && t.indexOf('data-aviso-wa') < t.indexOf('<div className="arr-v2__cod-fila">'), 'entre «Abrir WhatsApp» y el campo');
+});
+
+test('21. OD-05, segunda verificación (20/11, tarde): al volver de Second Brain, la llegada no redibuja el velo en medio del recorrido', () => {
+  const b = sinComentarios(leer('app/second-brain/BienvenidaOpsCenter.tsx'));
+  assert.match(b, /^let llegadaEscrita = false;$/m, 'en el módulo: sobrevive al desmontaje del chat');
+  assert.match(b, /const \[fase, setFase\] = useState<'escribe' \| 'listo'>\(\(\) => \(llegadaEscrita \|\| senalAhora\(\) \? 'listo' : 'escribe'\)\);/);
+  assert.match(b, /useEffect\(\(\) => \{ if \(fase === 'listo'\) llegadaEscrita = true; \}, \[fase\]\);/);
+  // El velo y los puntitos salen sólo con `fase === 'escribe'`.
+  assert.match(b, /\{toca && fase === 'escribe' && typeof document !== 'undefined' && createPortal\(/);
+});
+
+test('22. OD-13, segunda verificación (20/11, tarde): «Entrar a MaKo» cierra también el video que ya flotaba en la esquina', async () => {
+  const c = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
+  const e = c.slice(c.indexOf('const entrar = useCallback('), c.indexOf('router.push(rutaDelHilo('));
+  assert.match(e, /v\.pause\(\);\n\s*const flotando = senalAhora\(\);\n\s*if \(flotando\?\.tipo === 'video'\) soltarSenal\(flotando\.id\);/);
+  // La señal del video de la esquina se suelta (y un tutorial no se toca: sólo la del video).
+  const { reproducirFlotante, senalAhora, soltarSenal } = await import('../app/_ui/tutorial/store');
+  reproducirFlotante('onboarding-bienvenida', 'x', 3);
+  const s = senalAhora();
+  assert.equal(s?.tipo, 'video');
+  soltarSenal(s!.id);
+  assert.equal(senalAhora(), null);
+});
+
+test('23. motor-7 y offer-5, segunda verificación (20/11, tarde): lo que abrió `cierra_despues` se cierra al empezar la frase siguiente, tenga o no marca', async () => {
+  const { cierraYa } = await import('../lib/tutoriales/videos');
+  const fr = (id: string, t_inicio: number, t_fin: number, sel: string | null) => ({ id, t_inicio, t_fin, sel, espera_clic: !!sel, cierra_despues: id === 'offer-4' });
+  // offer-5 SIN marca: la lista que abrió offer-4 se cierra al empezar su voz, no al final del video.
+  const frases = [fr('offer-4', 15, 21, 'button.lista'), fr('offer-5', 21.84, 27.98, null)] as never;
+  assert.equal(cierraYa(frases, 'offer-4', 21), false, 'durante el silencio de offer-4, todavía no');
+  assert.equal(cierraYa(frases, 'offer-4', 21.9), true, 'apenas empieza offer-5');
+  assert.equal(cierraYa(frases, 'offer-5', 30), false, 'sin frase que le siga: lo cierra el final del video');
+  const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
+  const av = m.slice(m.indexOf('const alAvanzar = () => {'), m.indexOf('const alTerminar = () =>'));
+  // Antes de buscar la próxima frase CON marca (fraseParaMarcar salta las que no tienen).
+  // Y la frase siguiente se marca con el panel ya cerrado (MS_CIERRE, lo mismo que espera el cierre del video).
+  assert.match(av, /if \(porCerrar\.current && cierraYa\(frases, porCerrar\.current, t\)\) \{ porCerrar\.current = null; cerrarLoAbierto\(\); cerrandoHasta\.current = Date\.now\(\) \+ MS_CIERRE; return; \}\n\s*if \(Date\.now\(\) < cerrandoHasta\.current\) return;\n\s*const f = fraseParaMarcar\(frases, t, hechas\.current\);/);
+  assert.match(m, /if \(f\.cierra_despues\) porCerrar\.current = f\.id;/);
 });

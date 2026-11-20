@@ -34,7 +34,7 @@ import { anotarRevision, elChatPresentaElRecorrido, motorPresente, mostrarTutori
 import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
 import { barrer, tocaIris } from './iris';
 import { VideoEnLaEsquina } from './VideoEnLaEsquina';
-import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigueLosPasos, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
+import { cierraYa, fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigueLosPasos, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
 import { barraEntera, mostrarLaBarra, presentaLaBarra } from './barra-oculta';
@@ -52,6 +52,8 @@ const ESPERA_PASO_MS = 3000;
 const ESPERA_VIDEO_MS = 1500;
 /** Cuánto queda escondida la barra sin que arranque un tutorial que la presente. */
 const ESPERA_BARRA_MS = 9000;
+/** Lo que tarda en cerrarse lo que abrió una frase (`cierra_despues`): hasta ahí no se marca nada encima. */
+const MS_CIERRE = 300;
 /** MaKo Mobile: por debajo de esto la pestaña es la del teléfono (los pasos `soloComputadora` no van). */
 const ANCHO_TELEFONO = 768;
 
@@ -339,7 +341,10 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   const trasSuClic = useRef<PasoTutorial | null>(null);
   /** El cuadro que espera el t_fin de la frase tocada durante su voz, para retener ahí (regla 3). */
   const alFinDeLaTocada = useRef(0);
-  const porCerrar = useRef(false);
+  /** La frase con `cierra_despues` que ya pasó: lo que abrió se cierra al empezar la que le sigue (`cierraYa`). */
+  const porCerrar = useRef<string | null>(null);
+  /** Hasta cuándo se está cerrando (`MS_CIERRE`): la frase siguiente se marca recién con el panel cerrado. */
+  const cerrandoHasta = useRef(0);
   /**
    * Los relojes del modo video (la retención, la espera en el t_fin) y el que mira si la página sigue cambiando. Se limpian al
    * desmontar: antes, cerrar el video durante una espera dejaba un play() sobre el <video> desmontado y la voz seguía sola.
@@ -409,7 +414,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
       if (u?.clic && !yaTocado && lugarDe(u.sel)) setCierre(true);
       else fin('fin');
     };
-    if (porCerrar.current) { porCerrar.current = false; cerrarLoAbierto(); window.setTimeout(decidir, 300); } else decidir();
+    if (porCerrar.current) { porCerrar.current = null; cerrarLoAbierto(); window.setTimeout(decidir, MS_CIERRE); } else decidir();
   }, [pasos, frases, fin, conVideoPedido]);
   /**
    * La frase marcada ya está (la tocaron, «Siguiente», o pasó su tiempo): el video sigue. Después de un clic (`'persona'`, o
@@ -422,7 +427,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
       hechas.current.add(f.id);
       if (clic) pulsadas.current.add(f.id);
       if (clic === 'persona') { tocadas.current.add(f.id); if (senal.tipo === 'tutorial' && f.sel) senal.alTocar?.(pasoFrase?.sel ?? f.sel); }
-      if (f.cierra_despues) porCerrar.current = true;
+      if (f.cierra_despues) porCerrar.current = f.id;
     }
     setFrase(null); setEl(null); setGeo({ hueco: null, tarjeta: null });
     const v = vidRef.current;
@@ -540,10 +545,13 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
         pendiente.current = null; hechas.current.add(p.f.id);
         return;
       }
+      // Lo que abrió la frase anterior (`cierra_despues`) se cierra al EMPEZAR la siguiente, tenga o no marca (20/11, tarde: motor-7 y
+      // offer-5); la próxima vuelta (≈250 ms) ya marca.
+      if (porCerrar.current && cierraYa(frases, porCerrar.current, t)) { porCerrar.current = null; cerrarLoAbierto(); cerrandoHasta.current = Date.now() + MS_CIERRE; return; }
+      // Mientras se cierra, nada se marca encima (lo mismo que espera el cierre del video).
+      if (Date.now() < cerrandoHasta.current) return;
       const f = fraseParaMarcar(frases, t, hechas.current);
       if (!f) return;
-      // Lo que abrió la frase anterior se cierra primero; la próxima vuelta (≈250 ms) ya marca.
-      if (porCerrar.current) { porCerrar.current = false; cerrarLoAbierto(); return; }
       // En el teléfono, la frase de un paso `soloComputadora` ni se busca: su control no existe en MaKo Mobile.
       if (soloEnComputadora(f.sel, todos, telefono, mismoLugar)) { hechas.current.add(f.id); return; }
       const paso = pasoDeFrase(f, pasos);

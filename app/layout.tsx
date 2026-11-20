@@ -37,6 +37,8 @@ import { WsProvider } from './_ui/Link';
 import { DesvioMovil } from './_components/DesvioMovil';
 import { TelefonoProvider } from './_components/VistaMovil';
 import { prefiereMovil, vistaEscritorioEnTelefono } from '@/lib/movil-guard';
+import { seguirEnPcPendiente } from '@/lib/seguir-en-pc';
+import { ATTR_BARRA_OCULTA } from './_ui/tutorial/barra-oculta';
 import { VueltaAlTelefono } from './_components/VueltaAlTelefono';
 import { MOVIL_ACTIVO, seDesvia } from '@/lib/movil-desvio';
 import { getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
@@ -154,8 +156,14 @@ export default async function RootLayout({
   const vista = sesion ? await vistaDeOtro() : null;
   // El onboarding V2 y los tutoriales nuevos (18/11/2026): sólo la revisión de Martín hasta que lo apruebe (lib/onboarding-v2/revision.ts).
   const veV2 = sesion ? veOnboardingV2({ email: sesion.email, ws: await getWorkspaceActual() }) : false;
+  // LA BARRA OCULTA DESDE EL HTML DEL SERVER (20/11, segunda verificación de OD-03): quien empezó el V2 y todavía no vio el recorrido
+  // del Ops Center la tiene escondida hasta «Tu panel». Con el atributo puesto por un <script> de la página, al recargar el riel se veía
+  // durante loading.tsx (la barra está en este layout y la página llega después). Aquí sale en el primer HTML, antes de cualquier carga.
+  // ⚠️ Sólo el módulo chico (lib/seguir-en-pc.ts): lo que importa el layout raíz no arrastra un servidor pesado (AGENTS.md). En otra
+  // página que no presenta el recorrido, el motor la vuelve a mostrar en un rato (ESPERA_BARRA_MS, MotorTutorial.tsx): nunca sin salida.
+  const barraOculta = veV2 && (await seguirEnPcPendiente());
   return (
-    <html lang="es" className="h-full antialiased" {...(vista ? { 'data-barra-agencia': '1' } : {})}>
+    <html lang="es" className="h-full antialiased" {...(vista ? { 'data-barra-agencia': '1' } : {})} {...(barraOculta ? { [ATTR_BARRA_OCULTA]: '' } : {})}>
       <body>
         {/* «Geist» es Urbanist desde el 31/10/2026 (el @font-face de app/globals.css), por eso de acá sólo sale la mono. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
