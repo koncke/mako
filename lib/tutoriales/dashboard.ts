@@ -10,6 +10,9 @@ export const TUTORIAL_DASHBOARD: TutorialPestana = {
   pasos: [
     {
       sel: '[data-caja-pedido]',
+      // Con hojas ya armadas, la galería está detrás de «Nueva hoja» del menú de las hojas (20/11): el motor abre el menú y la
+      // toca. Una cuenta nueva arranca en blanco, con la galería a la vista, y no toca nada.
+      antes: ['[data-recorrido="dash-hojas"]', '[data-recorrido="dash-nueva-hoja"] button'],
       titulo: 'Pídela con tus palabras',
       texto: 'MaKo arma la hoja con los datos de tu negocio. Por escrito o dictado.',
       sub: 'Mira aquí, la caja: pídele una hoja a MaKo, como «lo que tengo que hacer hoy y a quién cobrarle».',

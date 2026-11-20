@@ -30,6 +30,7 @@ import {
 import type { VerNombreChats } from '@/lib/chats-reglas';
 import { IconoCanal } from './iconos-canal';
 import { portalRio } from './portal';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 /** Lo que se conecta desde «Conectar un canal» (y el estado vacío). */
 export type CanalConectable = CanalChat | 'email';
@@ -142,7 +143,7 @@ export function FiltrosChats({
   // «Conectar un canal» va ARRIBA, después de «Todos los canales» (27/10/2026, Leandro: «¿cómo conecto otro número de
   // teléfono?»): al final de la lista quedaba debajo de cada línea, red y email, y no se veía.
   const opcionesCanal: DropdownOption[] = esAdmin
-    ? [canales[0], { value: 'conectar', label: 'Conectar un canal', crear: true }, ...canales.slice(1)]
+    ? [canales[0], { value: 'conectar', label: 'Conectar un canal', crear: true, marca: MARCA.chatsConectar }, ...canales.slice(1)]
     : [...canales];
   if (esAdmin) {
     for (const l of lineas) {

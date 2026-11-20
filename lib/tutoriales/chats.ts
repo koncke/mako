@@ -4,12 +4,16 @@
 // WhatsApp ya conectado, el motor saltea el paso). «El botón MaKo de la caja» vive adentro de una conversación de WhatsApp abierta: queda
 // sin paso hasta que el manifiesto le dé su `sel`. En el teléfono (/m/chats) todavía no está medido: sin `rutaMovil`.
 import type { TutorialPestana } from './tipos';
+import { TUTORIAL_CHATS_VACIO } from './chats-vacio';
 
 export const TUTORIAL_CHATS: TutorialPestana = {
   pestana: 'chats',
   nombre: 'Chats',
   ruta: '/chats',
   intro: 'WhatsApp, Instagram, Messenger y email, en una sola bandeja.',
+  // Sin ningún canal, la pantalla es sólo «Conecta un canal…»: ahí no hay bandeja ni «Canal», y este tutorial marcaba sólo el último
+  // paso (20/11). Ese estado tiene su propio tutorial, con su video.
+  variante: { si: '[data-recorrido="tour-chats-sin-canales"]', tutorial: TUTORIAL_CHATS_VACIO },
   pasos: [
     {
       sel: 'button[aria-label="Bandeja, mostrar y orden"]',
@@ -30,6 +34,9 @@ export const TUTORIAL_CHATS: TutorialPestana = {
       texto: 'Escaneas el QR desde tu celular y listo: tus chats entran aquí.',
       sub: 'Para empezar, toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.',
       lado: 'abajo',
+      // Con canales, WhatsApp vive en «Canal › Conectar un canal» (20/11): la frase de «Canal» deja el menú abierto, y el motor
+      // toca la opción; si está cerrado, abre «Canal» primero.
+      antes: ['button[aria-label="Canal"]', '[data-recorrido="tour-chats-conectar"]'],
     },
   ],
 };

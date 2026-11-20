@@ -3184,6 +3184,40 @@
   "v5": true
  },
  {
+  "id": "chats-vacio",
+  "pestana": "Chats",
+  "ruta": "/chats",
+  "icono": "lucide:messages-square",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "ojo": "Chats VACÍO, sin ningún canal (lo que ve toda cuenta nueva del onboarding): sólo «Conecta un canal…» y los botones WhatsApp, Instagram, Messenger y Email. La única marca que existe ahí es el botón WhatsApp. Lo elige el motor con la marca tour-chats-sin-canales (lib/tutoriales/chats-vacio.ts). Guion aprobado por el Cerebro el 20/11; «Máko te sugiere qué contestar» comprobado en el código: el botón MaKo de la caja de Chats sugiere en WhatsApp para todos los planes (el setter que contesta solo es otra cosa, de Pro).",
+  "pasos": [
+   {
+    "dice": "WhatsApp, Instagram, Messenger y email, en una sola bandeja.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida a Chats: aquí lees los mensajes de tus clientes, escriban por donde escriban.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Todavía no conectaste ninguno: por eso la ves vacía.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Empieza por WhatsApp: es por donde más te escriben, y ahí Máko te sugiere qué contestar.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.",
+    "rol": "cierre",
+    "tipo": "toca",
+    "sel": "[data-recorrido=\"tour-chats-whatsapp\"]"
+   }
+  ]
+ },
+ {
   "id": "classroom-community",
   "pestana": "Community",
   "ruta": "/classroom/community",

@@ -78,3 +78,17 @@ export function soloEnComputadora(sel: string | null, pasos: readonly { sel: str
   if (!telefono || !sel) return false;
   return pasos.some((p) => p.soloComputadora && mismoLugar(p.sel, sel));
 }
+
+// ── El `antes` en cadena (20/11: lo que está detrás de dos clics) ───────────────────────────────────────────────────────
+/** Un `antes` siempre como cadena (uno solo es una cadena de uno). */
+export const comoCadena = (antes: string | readonly string[]): string[] => (typeof antes === 'string' ? [antes] : [...antes]);
+/** Lo que espera cada eslabón a que aparezca el siguiente (un menú, un modal) antes de darse por vencido y cerrar lo abierto. */
+export const TOPE_CADENA_MS = 2000;
+/**
+ * Desde qué eslabón se toca: el ÚLTIMO que ya está a la vista. Si la frase anterior dejó el menú abierto, su opción ya está y
+ * tocar el primero lo cerraría. -1: ninguno está (no se toca nada).
+ */
+export function pasoDeLaCadena(presentes: readonly boolean[]): number {
+  for (let i = presentes.length - 1; i >= 0; i -= 1) if (presentes[i]) return i;
+  return -1;
+}

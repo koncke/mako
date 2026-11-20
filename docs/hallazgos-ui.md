@@ -5724,3 +5724,25 @@ titular), no se tiñe.
     en el botón de conectar de Chats). Queda anotado en side-session-notes/…/auditoria-estado-onboarding.md.
   - **Regla:** antes de dar por «rota» una marca de un tutorial, mirarla con una cuenta NUEVA, que es para quien corre el
     tutorial la primera vez. Y si falta también ahí, buscar a qué pantalla lleva el link de la entrada de la pestaña.
+- **El `antes` en cadena: lo que está detrás de dos clics** (20/11; Chats con canales, «Canal › Conectar un canal», y el Dashboard
+  con hojas, «las hojas › Nueva hoja»). `antes` acepta una lista (lib/tutoriales/tipos.ts). El motor (`tocarAntes`) arranca en el
+  ÚLTIMO eslabón que ya está a la vista (`pasoDeLaCadena`, ./pausas.ts), porque la frase anterior pudo dejar el menú abierto, y
+  espera cada uno hasta `TOPE_CADENA_MS`. Si el siguiente no aparece (un closer no tiene «Conectar un canal»), cierra lo abierto:
+  nunca deja un menú colgado. Tests: tests/tutorial-pausas.test.ts, el 11 y el 12.
+  - *Sin video, el motor tocaba el `antes` OTRA VEZ apenas encontraba la marca.* El efecto vuelve a correr cuando cambia
+    `siguiente`, que depende de `el`. Con un `antes` de uno, ese segundo clic cerraba el menú que acababa de abrir. Con la cadena se
+    vio en el navegador: «Canal» y «Conectar» se tocaban dos veces. Ahora, sin video también, sólo si la marca falta (como con
+    video). Lo midió una página de mentira con el motor de verdad: el menú cerrado, el menú ya abierto y sin la opción.
+  - Un renglón del `Dropdown` lleva su lugar sólo si lo pide (`marca` → `data-recorrido`). El componente lo usan decenas de
+    pantallas, y las demás no cambian de marcado.
+- **El tutorial de Chats no podía mostrar nunca sus tres marcas** (leído en el código, 20/11; tests/tutorial-chats-vacio.test.ts).
+  Sin canales, que es lo que ve toda cuenta nueva del onboarding, la pantalla es sólo «Conecta un canal…»: no hay bandeja ni
+  «Canal», y la voz decía «toca aquí, en Todos» sin marcar nada. Con canales, WhatsApp vive dentro del modal de conectar.
+  - Ahora un tutorial puede traer una `variante`: un selector que existe sólo en otro estado de la pantalla, y el tutorial de ese
+    estado. El motor la mira con la pantalla ya pintada (`useVariante`, con un MutationObserver: los datos de Chats llegan después
+    del primer pintado).
+  - Cada uno anota su «visto» aparte. Quien conecta su primer canal ve después el de siempre, una vez.
+  - Chats vacío lleva su video (`chats-vacio`), con la única marca que existe ahí, el botón WhatsApp.
+  - **Regla:** nunca prometer en un tutorial lo que la app no hace. Antes de grabar «MaKo te sugiere qué contestar» se miró en el
+    código que el botón MaKo de la caja de Chats sugiere en WhatsApp para todos los planes. Lo de Pro es otra cosa, el setter que
+    contesta solo.
