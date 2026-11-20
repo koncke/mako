@@ -8,7 +8,7 @@
 // desde donde iba (`reproducirFlotante`, ./store.ts; lo dibuja <MotorTutorial>).
 // =============================================================================
 import { useEffect, type RefObject } from 'react';
-import { reproducirFlotante } from './store';
+import { reproducirFlotante, volverAlChat } from './store';
 
 export function useVideoQueFlota(ref: RefObject<HTMLVideoElement | null>, clave: string | null, titulo: string): void {
   useEffect(() => {
@@ -21,7 +21,14 @@ export function useVideoQueFlota(ref: RefObject<HTMLVideoElement | null>, clave:
       reproducirFlotante(clave, titulo, t);
     };
     const io = typeof IntersectionObserver !== 'undefined'
-      ? new IntersectionObserver((es) => { for (const e of es) if (!e.isIntersecting) flotar(); }, { threshold: 0.25 })
+      // Al volver a verse, si estaba flotando, vuelve al chat desde el segundo en que iba (20/11, F2).
+      ? new IntersectionObserver((es) => {
+        for (const e of es) {
+          if (!e.isIntersecting) { flotar(); continue; }
+          const t = volverAlChat(clave);
+          if (t != null) { try { v.currentTime = t; } catch { /* sin metadata todavía */ } void v.play().catch(() => {}); }
+        }
+      }, { threshold: 0.25 })
       : null;
     io?.observe(v);
     return () => { io?.disconnect(); flotar(); };

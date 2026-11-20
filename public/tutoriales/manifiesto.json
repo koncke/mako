@@ -2099,7 +2099,6 @@
      "texto": "Para ir a fondo, toca aquí, en Analicemos mi oferta: te marca qué falta y la mejora, en PDF.",
      "t_inicio": 21.84,
      "t_fin": 27.98,
-     "sel": "[aria-label=\"Respuestas rápidas\"] button",
      "espera_clic": false
     }
    ],
@@ -2417,7 +2416,7 @@
      "texto": "Pruébalo ya: toca aquí, en Tus tickets, para seguir su estado y la respuesta.",
      "t_inicio": 21.06,
      "t_fin": 25.52,
-     "sel": "button[aria-label=\"Tus tickets\"]",
+     "sel": "button[aria-label^=\"Tus tickets\"]",
      "espera_clic": false
     }
    ],
@@ -2468,7 +2467,7 @@
      "t_inicio": 21.14,
      "t_fin": 25.44,
      "sel": "a[href=\"/calendario?vista=llamadas\"]",
-     "espera_clic": true,
+     "espera_clic": false,
      "cierra_despues": true
     },
     {
@@ -2518,7 +2517,7 @@
      "texto": "Mira aquí, el lienzo: ahí se arma cada una, y nada sale hasta que la publicas y la activas.",
      "t_inicio": 13.3,
      "t_fin": 19.28,
-     "sel": "[data-lienzo-vacio=\"true\"]",
+     "sel": "[data-recorrido=\"au-lienzo\"]",
      "espera_clic": false
     },
     {
@@ -2885,7 +2884,7 @@
      "t_inicio": 15.46,
      "t_fin": 19.52,
      "sel": "[data-recorrido=\"vista-alumno\"]",
-     "espera_clic": true,
+     "espera_clic": false,
      "cierra_despues": true
     },
     {
@@ -3064,7 +3063,7 @@
      "t_inicio": 13.34,
      "t_fin": 17.68,
      "sel": "span[aria-label=\"Lista o tips: portada\"]",
-     "espera_clic": true,
+     "espera_clic": false,
      "cierra_despues": true
     },
     {
@@ -3184,7 +3183,8 @@
      "t_inicio": 11.14,
      "t_fin": 14.82,
      "sel": "[data-recorrido=\"tour-classroom-community-categorias\"]",
-     "espera_clic": true
+     "espera_clic": true,
+     "cierra_despues": true
     },
     {
      "id": "classroom-community-4",
@@ -4023,7 +4023,6 @@
      "texto": "Mira aquí, el ticket que arma MaKo: revisa que diga lo que pasó antes de mandarlo.",
      "t_inicio": 15.38,
      "t_fin": 20.32,
-     "sel": "[data-tarjeta=\"ticket\"]",
      "espera_clic": false
     },
     {
@@ -4032,7 +4031,6 @@
      "texto": "Cuando esté claro, toca aquí, en Mandárselo al equipo: si te preguntan algo, verás Espera tu respuesta.",
      "t_inicio": 20.74,
      "t_fin": 26.94,
-     "sel": "[data-tarjeta=\"ticket\"] button.co-chip--primario",
      "espera_clic": false
     }
    ],

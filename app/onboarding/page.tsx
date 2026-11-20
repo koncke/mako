@@ -22,11 +22,12 @@ import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { veOnboardingV2, esRevision } from '@/lib/onboarding-v2/revision';
 import { prefiereMovil } from '@/lib/movil-guard';
-import { ChatArranque } from './ChatArranque';
+import { ChatArranque, SeguirEnPc } from './ChatArranque';
 import { ChatArranqueV2 } from './ChatArranqueV2';
 import { requireRolWs } from '@/lib/tab-access';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
-import { vistaArranque } from '@/lib/onboarding-arranque-server';
+import { seguirEnPcPendiente, vistaArranque } from '@/lib/onboarding-arranque-server';
+import { primerNombre } from '@/lib/onboarding-arranque';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import { ARBOL_VACIO } from '../offer/arbol';
 import { sembrarArranqueDesdeOrigen } from '@/lib/origen-negocio';
@@ -73,6 +74,13 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} seguirEnPc={seguirEnPc} persona={persona} videos={v2 ? { revision: esRevision(v2) } : null} />;
   }
 
+  // EL TELÉFONO, ya terminado el primer paso: «Sigamos en tu computadora» cada vez que entra, hasta que vea el recorrido en la PC
+  // (20/11, OA-10 y OD-12: antes era un estado de la pantalla, y al volver entraba a MaKo como siempre).
+  if ((await prefiereMovil().catch(() => false)) && (await seguirEnPcPendiente())) {
+    const sesionPc = await getUsuarioActual().catch(() => null);
+    const vistaPc = await vistaArranque().catch(() => null);
+    return <SeguirEnPc nombre={primerNombre(vistaPc?.nombre || sesionPc?.nombre || '')} email={sesionPc?.email ?? ''} maqueta />;
+  }
   // Ya onboardeado → Second Brain, a la sección que pedía el link (`?tab=`), o a su portada.
   // `rutaConWs` y no el path pelado: sin el `?ws=` el super admin que mira a un cliente
   // terminaría en SU propio Second Brain (AGENTS.md, «Hay CINCO formas de navegar»).

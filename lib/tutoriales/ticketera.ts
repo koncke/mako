@@ -22,7 +22,8 @@ export const TUTORIAL_TICKETERA: TutorialPestana = {
       lado: 'arriba',
     },
     {
-      sel: 'button[aria-label="Tus tickets"]',
+      // Con tickets, el aria-label es «Tus tickets (3)»: «empieza con» (20/11, ticketera-5).
+      sel: 'button[aria-label^="Tus tickets"]',
       titulo: 'Tus tickets',
       texto: 'Todo lo que reportaste, con su estado y lo que te contestaron.',
       sub: 'Pruébalo ya: toca aquí, en Tus tickets, para seguir su estado y la respuesta.',

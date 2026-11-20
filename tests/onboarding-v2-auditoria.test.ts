@@ -106,3 +106,74 @@ test('9. OD-13: «Entrar a MaKo» pausa los videos del onboarding (no pasan flot
   assert.match(m, /const ocupadoElMotor = !!useSenal\(\);/);
   assert.match(m, /\}, \[abierto, onCerrar, t, ocupadoElMotor\]\);/);
 });
+
+test('10. OD-08: con el V2, la lista del Ops Center va Ops Center, Onboarding, Reto, los coaches, el resto y «Nuevo chat» al final', () => {
+  const c = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  assert.match(c, /const filaOnboarding = retoV2 && hiloOnboarding != null \? filasDeLaLista\.find\(\(f\) => 'id' in f\.elegido && f\.elegido\.id === hiloOnboarding\) \?\? null : null;/);
+  assert.match(c, /f\.origen !== 'offer' && !f\.guru && f !== filaOnboarding/, 'sale de la lista por actividad');
+  const orden = ['{fila(cerebroFila)}', '{!retoV2 && coaches}', '{filaOnboarding && <div className="co-cuenta">{fila(filaOnboarding)}</div>}', 'marca="sb-reto-chat"', '{retoV2 && coaches}', '<GruposPorJefe', "{retoV2 && <NuevoChatCentro"];
+  const pos = orden.map((x) => c.indexOf(x));
+  assert.ok(pos.every((p) => p > 0), `están todos: ${pos.join(', ')}`);
+  assert.deepEqual([...pos].sort((a, b) => a - b), pos, 'en ese orden');
+  assert.match(c, /\{!retoV2 && <NuevoChatCentro onNuevo=\{\(\) => elegir\(\{ virtual: 'nuevo' \}\)\}/, 'sin el V2, «Nuevo chat» arriba como siempre');
+  // El id del chat se LEE (sin armarlo): la página no crea nada al cargar.
+  const srv = leer('lib/onboarding-arranque-server.ts');
+  const lee = srv.slice(srv.indexOf('export async function hiloOnboardingGuardado'), srv.indexOf('export async function hiloDelOnboarding'));
+  assert.doesNotMatch(lee, /guardarEstadoArranque|insert|crear/i, 'sólo lee');
+  assert.match(leer('app/second-brain/page.tsx'), /const hiloOnboarding = retoV2 \? await hiloOnboardingGuardado\(\) : null;/);
+});
+
+test('11. OD-03: «Tu panel» abre la barra ENTERA mientras dura el paso, y al pasar se vuelve a plegar', () => {
+  const b = sinComentarios(leer('app/_ui/tutorial/barra-oculta.ts'));
+  assert.match(b, /export const EVENTO_BARRA_ENTERA = 'mk-barra-entera';/);
+  assert.match(b, /window\.dispatchEvent\(new CustomEvent<boolean>\(EVENTO_BARRA_ENTERA, \{ detail: si \}\)\)/);
+  const s = sinComentarios(leer('app/_components/Sidebar.tsx'));
+  assert.match(s, /const alPedir = \(e: Event\) => setAbiertaAca\(\(e as CustomEvent<boolean>\)\.detail === true\);\n\s*window\.addEventListener\(EVENTO_BARRA_ENTERA, alPedir\);/);
+  const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
+  assert.match(m, /const abreLaBarra = presentaLaBarra\(paso\.sel\);\n\s*if \(abreLaBarra\) barraEntera\(true\);/);
+  assert.match(m, /if \(abreLaBarra\) barraEntera\(false\); \};\n\s*\}, \[paso, senal\.tipo, siguiente, modoVideo\]\);/, 'al pasar, plegada');
+});
+
+test('12. OA-10 / OD-12: en el teléfono, «Sigamos en tu computadora» se queda hasta ver el recorrido en la PC', () => {
+  const srv = leer('lib/onboarding-arranque-server.ts');
+  const f = srv.slice(srv.indexOf('export async function seguirEnPcPendiente'), srv.indexOf('export async function hiloOnboardingGuardado'));
+  assert.match(f, /if \(!veOnboardingV2\(/, 'sólo con el V2');
+  assert.match(f, /if \(await estaImpersonando\(\)\.catch\(\(\) => true\)\) return false;/, 'mirando a un cliente, nunca');
+  assert.match(f, /return !Object\.prototype\.hasOwnProperty\.call\(vistosDePerfil\([^)]*\)\?\.perfil\), ID_RECORRIDO_PC\);/);
+  assert.match(srv, /const ID_RECORRIDO_PC = 'tutorial-ops-center';/, 'el id con que lo anota el motor');
+  assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /const id = `tutorial-\$\{t\.pestana\}`;/, 'el motor anota `tutorial-<pestaña>`');
+  const onb = sinComentarios(leer('app/onboarding/page.tsx'));
+  assert.match(onb, /if \(\(await prefiereMovil\(\)\.catch\(\(\) => false\)\) && \(await seguirEnPcPendiente\(\)\)\) \{[\s\S]{0,300}return <SeguirEnPc [^>]*maqueta \/>;/);
+  assert.ok(onb.indexOf('seguirEnPcPendiente()') < onb.indexOf('redirect(await rutaConWs(destinoDeTabVieja(tab)))'), 'antes de mandarlo a la app');
+  const ini = sinComentarios(leer('app/inicio/page.tsx'));
+  assert.match(ini, /if \(telefono && \(await seguirEnPcPendiente\(\)\)\) redirect\(await rutaConWs\('\/onboarding'\)\);\n\s*if \(telefono\) redirect\(await rutaConWs\(ENTRADA_MOVIL\)\);/);
+});
+
+test('13. OA-12: el sol y la luna también en la entrada («Hola, soy MaKo»), y su clic no la empieza', () => {
+  const e = sinComentarios(leer('app/onboarding/EntradaMako.tsx'));
+  assert.match(e, /<span className="en-modo" role="presentation" onClick=\{\(e\) => e\.stopPropagation\(\)\}><InterruptorModo variante="sitio" \/><\/span>/);
+  assert.match(e, /\.en-modo \{ position: absolute; top: 27px; right: max\(16px, calc\(\(100% - 960px\) \/ 2\)\); z-index: 1; \}/, 'alineado al bloque de 960, como la cabecera del chat');
+});
+
+test('14. V10 y F1: el manifiesto de los videos, fresco en cada visita; y «Todavía no está grabado» sólo con el manifiesto ya leído', () => {
+  const h = sinComentarios(leer('app/_ui/tutorial/useVideoTutorial.ts'));
+  assert.doesNotMatch(h, /force-cache/, 'un navegador que ya lo tenía no veía los videos nuevos');
+  assert.match(h, /fetch\(RUTA_MANIFIESTO, \{ cache: 'no-cache' \}\)/);
+  assert.match(h, /export function useManifiestoListo\(\): boolean \{/);
+  assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /if \(!v\) \{\n\s*return revision && listo\n/);
+  assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /if \(cerrado \|\| \(!video && !\(revision && manifiestoListo\)\)\) return null;/);
+});
+
+test('15. F2: el video que pasó a la esquina vuelve al chat cuando su mensaje se ve otra vez, desde el segundo en que iba', async () => {
+  const { reproducirFlotante, volverAlChat, anotarTiempoFlotante, senalAhora } = await import('../app/_ui/tutorial/store');
+  reproducirFlotante('onboarding-bienvenida', 'Bienvenida', 3);
+  anotarTiempoFlotante(7.5);
+  assert.equal(volverAlChat('otro-video'), null, 'otro video no lo cierra');
+  assert.equal(volverAlChat('onboarding-bienvenida'), 7.5, 'el segundo en que iba');
+  assert.equal(senalAhora(), null, 'el flotante se cerró');
+  assert.equal(volverAlChat('onboarding-bienvenida'), null, 'ya no flota');
+  const h = sinComentarios(leer('app/_ui/tutorial/useVideoQueFlota.ts'));
+  assert.match(h, /if \(!e\.isIntersecting\) \{ flotar\(\); continue; \}\n\s*const t = volverAlChat\(clave\);/);
+  assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /onTimeUpdate=\{\(e\) => anotarTiempoFlotante\(e\.currentTarget\.currentTime\)\}/);
+  assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /\{flotando && <span className="mk-vmom__esquina" role="status">Se está viendo en la esquina ↘<\/span>\}/);
+});

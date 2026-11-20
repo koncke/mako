@@ -178,6 +178,8 @@ type Props = {
   dosCoaches?: boolean;
   /** `?reto=1`: abre el chat del reto. */
   retoInicial?: boolean;
+  /** El id del chat «Onboarding» (onboarding V2): en la lista va enseguida del Ops Center (20/11, OD-08). */
+  hiloOnboarding?: number | null;
   /** El primer nombre de la persona, para el saludo del reto. */
   nombrePersona?: string;
 };
@@ -208,7 +210,7 @@ const urlPelada = (e: Elegido | null): boolean => !!e && ('id' in e || 'offer' i
 /** El chat de Claude Code de entrada: el Cerebro (va primero) o el primero que puede recibir. */
 const centroDeEntrada = (k: Centro): string | null => (k.chats.find((c) => c.sesion) ?? k.chats[0])?.clave ?? null;
 
-function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, coachInicial = null, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', retoV2 = false, dosCoaches = false, retoInicial = false, nombrePersona = '' }: Omit<Props, 'centro'> & { centro: Centro | null }) {
+function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, coachInicial = null, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', retoV2 = false, dosCoaches = false, retoInicial = false, nombrePersona = '', hiloOnboarding = null }: Omit<Props, 'centro'> & { centro: Centro | null }) {
   // `?coach=offer` sin los dos coaches es el coach único: un link de la revisión no abre un chat que esta persona no tiene.
   const coachDeEntrada: CoachDelOps | null = coachInicial === 'offer' && !dosCoaches ? 'funnel' : coachInicial;
   const router = useRouter();
@@ -400,7 +402,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // Las de Offer van debajo del Funnel Coach (el coach único: trabaja la oferta), no en el resto.
   const filasOffer = filasDeLaLista.filter((f) => f.origen === 'offer');
   // Los gurús van debajo de los coaches (`coaches`), con el mismo lugar para el cliente y el super admin.
-  const todasLasFilas = filasDeLaLista.filter((f) => f.origen !== 'offer' && !f.guru);
+  // EL ORDEN DEL ONBOARDING V2 (20/11, OD-08: la maqueta; Martín, 16/11: «nunca nada arriba de Ops Center»): Ops Center, Onboarding y
+  // el Reto, después los coaches, el resto, y «Nuevo chat» al final. El chat «Onboarding» sale de la lista por actividad y va arriba.
+  const filaOnboarding = retoV2 && hiloOnboarding != null ? filasDeLaLista.find((f) => 'id' in f.elegido && f.elegido.id === hiloOnboarding) ?? null : null;
+  const todasLasFilas = filasDeLaLista.filter((f) => f.origen !== 'offer' && !f.guru && f !== filaOnboarding);
   // El filtro va sobre lo que ya dejó la búsqueda; el Cerebro queda siempre arriba.
   const restoFilas = filtros.length ? todasLasFilas.filter((f) => pasaFiltroChats({ titulo: f.titulo }, filtros)) : todasLasFilas;
   const corte = todas || busca.trim() || filtros.length ? restoFilas : restoFilas.filter((f, i) => i < FILAS_VISIBLES || esFilaDe(f, elegido));
@@ -609,8 +614,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             </>
           )}
           {listaSB && (<>
-          {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude (y el del Ops Center del super admin). */}
-          <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!verMapa && !enOtroChat && enChatNuevo} />
+          {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude (y el del Ops Center del super admin). Con el V2, al final. */}
+          {!retoV2 && <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!verMapa && !enOtroChat && enChatNuevo} />}
           <FilasDelGrupo g={grupos} abierto={!verMapa && !ticketera ? grupo : null} onElegir={abrirGrupo} />
           {k.errorLista && <p className="co-lista__vacio">{k.errorLista}</p>}
           {/* UNA lista (21/10/2026): el Cerebro arriba y todos los demás por actividad, sin plegables; desde el 22/10, agrupados por
@@ -618,7 +623,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           {k.sesiones != null && (
             <>
               <div className="co-cuenta co-cuenta--cerebro">{fila(cerebroFila)}</div>
-              {coaches}
+              {!retoV2 && coaches}
+              {filaOnboarding && <div className="co-cuenta">{fila(filaOnboarding)}</div>}
               {retoV2 && (
                 <div className="co-cuenta">
                   <FilaDeChat titulo="Reto de 7 días" marca="sb-reto-chat" aspecto={ASPECTO_MAKO} animo="despierto" actual={reto && !verMapa && !ticketera} hace=""
@@ -626,6 +632,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
                     onElegir={abrirReto} />
                 </div>
               )}
+              {retoV2 && coaches}
               <div className="co-cuenta">
                 {/* Sin títulos de sección (22/10/2026, Martín): el grupo sin chat propio lleva su fila JEFE, con su criatura. */}
                 <GruposPorJefe chats={corte} fila={fila} jefe={(g) => { const j = jefeDelGrupo(g); return j ? { ...j, aspecto: aspectoDeChat(j.clave) } : null; }} />
@@ -637,6 +644,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
                 )}
                 {busca.trim() && !restoFilas.length && <p className="co-lista__vacio">Ningún chat con ese nombre.</p>}
               </div>
+              {retoV2 && <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!verMapa && !enOtroChat && enChatNuevo} />}
             </>
           )}
           </>)}

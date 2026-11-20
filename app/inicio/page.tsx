@@ -7,6 +7,7 @@ import { MOVIL_ACTIVO } from '@/lib/movil-desvio';
 import { ENTRADA_MOVIL } from '@/lib/movil-rutas';
 import { quienOpera } from '@/lib/second-brain-opera';
 import { casaEnLaComputadora } from '@/lib/ops-center-ruta';
+import { seguirEnPcPendiente } from '@/lib/onboarding-arranque-server';
 
 /** Si un teléfono que entra por /inicio va solo a MaKo Mobile (/m). Ver la nota de abajo. */
 const MOBILE_AL_ENTRAR = MOVIL_ACTIVO;
@@ -44,6 +45,9 @@ export default async function Inicio() {
     // En la computadora, su grilla de negocios: Customers desde el 25/10/2026 (antes era /clients, que la dibujaba).
     if (ws == null) redirect(telefono ? ENTRADA_MOVIL : '/admin');
   }
+  // Con el onboarding V2, el teléfono que ya pasó el primer paso va a «Sigamos en tu computadora» (/onboarding) hasta que vea el
+  // recorrido en la PC (20/11, OA-10 y OD-12: lib/onboarding-arranque-server.ts → seguirEnPcPendiente).
+  if (telefono && (await seguirEnPcPendiente())) redirect(await rutaConWs('/onboarding'));
   if (telefono) redirect(await rutaConWs(ENTRADA_MOVIL));
   // ⚠️ TODOS los destinos de acá van con `rutaConWs`. Este archivo es EL repartidor:
   // si pierde la pestaña, el admin que abre un cliente termina mirando otra cuenta con
