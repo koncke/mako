@@ -91,6 +91,32 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## El WhatsApp del V2 contra la maqueta: un pedido que no salía sin error, y un camino que no se alcanzaba (20/11/2026, claude5)
+
+**Vive en:** `lib/verificacion-entrante.ts` («EL WHATSAPP DEL ONBOARDING V2») · `lib/mako-grupo.ts` (`responderPedidoV2`,
+`mandarCodigoV2`, `reenviarCodigoV2`, `setNumeroDuenoYSync`) · `lib/notif-destinatarios.ts`. Test: `tests/whatsapp-v2-auditoria.test.ts`.
+
+- **«Guárdame en tus contactos…» dejaba de salir desde la sexta persona en una hora, sin error a la vista.** Era el mismo texto
+  para todos, y `enviarTextoVozMaKo` no deja salir un texto idéntico a más de 5 chats por hora (`cupoMismoTexto`); el `.catch(() =>
+  null)` se tragaba el motivo. Con el V2 en revisión no se notaba: con el V2 para todos, sí. **Regla:** un texto fijo que va a
+  cada persona viaja DENTRO de un mensaje personal (acá, pegado al código), o no sale.
+- **La rama `'ya-verificado'` de `responderPedidoV2` no se alcanza:** la búsqueda trae sólo las verificaciones con
+  `"verificado":false`, así que quien ya confirmó nunca llega ahí. Importa porque ahora el pedido que no es de nadie recibe
+  «escribiste desde otro número»: antes de decirlo se mira aparte si ese número ya confirmó (`yaConfirmoV2`), y ante un error de
+  la base, silencio.
+- **El otro número sólo se anota cuando hay UNA verificación esperando en esa línea** (`unicaEsperandoV2`). Con dos onboardings a
+  la vez no se sabe de quién es: MaKo le contesta qué hacer igual, sin anotar nada. Contesta sólo la línea que recibe
+  (`instanciaVoz`), porque con dos líneas de la misma cuenta el mensaje llega dos veces.
+- **Un `@lid` sin número no se puede contestar:** no se sabe de quién es, y mandarle el código a un `@lid` sería darle el código a
+  cualquiera. Queda en el log como `pedido del V2 por @lid sin número`; contarlo antes de decidir más.
+- **El mensaje desde el otro número ya prueba ese número** («Usar el +54…», `escribioDesdeElOtro`): se anota CUÁNDO llegó
+  (`otroNumeroAt`) y, dentro de las 24 horas, el pedido nuevo nace contestado y MaKo manda el código ahí, sin que lo escriba otra
+  vez. **Trampa:** rehacer el pedido (`pedirConfirmacionV2`) pisa la verificación entera, con `otroNumero` y su hora: la ruta lo
+  lee ANTES (`otroNumeroQueEscribioV2`). Si el código no sale, la verificación vuelve a «esperando» y que escriba ella.
+- **Lo que quedó para la tarjeta (es del chat del onboarding, app/onboarding/ChatArranqueV2.tsx):** la vista ya trae
+  `estado: 'otro-numero'` con `otroNumero`, y falta dibujarlo. Pasadas 24 horas, «Reenviar» devuelve `E_REESCRIBIR_V2`, y la
+  tarjeta debería abrir WhatsApp con el pedido escrito.
+
 ## «Hola, quiero confirmar mi WhatsApp» y MaKo no mandó el código: la regla 1 no veía a quien escribió bajo un `@lid` (19/11/2026, claude5)
 
 **El síntoma:** con el onboarding nuevo (desplegado a las 21:28 UTC), Martín le escribió a MaKo desde el cliente de prueba (ws 3) y MaKo

@@ -26,10 +26,12 @@ import 'server-only';
 import { esEsencialDe, esEsencialDeLaSesion } from './plan-esencial';
 import { RUTA_CAMBIAR_PLAN, textoSoloPro } from './topes-plan';
 import { rutaConWs } from './workspace';
+// El reto le abre el carrusel con IA en la prueba (20/11, lib/reto/pro-del-reto.ts): la primera vez, sin candado.
+import { abreElReto } from './reto/pro-del-reto-server';
 
 /** Para las rutas de los editores (con sesión). `null` = pasa; si no, el 403 tal cual, para devolverlo. */
 export async function candadoIaDeEditores(): Promise<Response | null> {
-  if (!(await esEsencialDeLaSesion())) return null;
+  if (!(await esEsencialDeLaSesion()) || (await abreElReto('ia-editores', { usar: true }))) return null;
   return Response.json(
     { ok: false, error: textoSoloPro('ia-editores'), pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) },
     { status: 403, headers: { 'cache-control': 'no-store' } },
@@ -38,5 +40,5 @@ export async function candadoIaDeEditores(): Promise<Response | null> {
 
 /** Para la API de MaKo (sin sesión: el negocio es `ctx.ws`). `null` = pasa; si no, el texto del candado. */
 export async function candadoIaDeEditoresDe(ws: number): Promise<string | null> {
-  return (await esEsencialDe(ws)) ? textoSoloPro('ia-editores') : null;
+  return (await esEsencialDe(ws)) && !(await abreElReto('ia-editores', { ws, usar: true })) ? textoSoloPro('ia-editores') : null;
 }

@@ -221,6 +221,10 @@ export const RETO_MUESTRA = (m: MuestraReto) => `Te muestro dónde ${m.hacer}, e
 // La maqueta dice «Cuando quieras lo armamos juntos»: «juntos» marca género (la regla de los textos neutros).
 export const RETO_MUESTRA_FIN = (m: MuestraReto) => `Listo: ya sabes dónde ${m.hacer}. Cuando quieras, lo armamos; tu reto te espera.`;
 
+// ── Los videos del catálogo «Tutoriales de MaKo» que son del onboarding y del reto (20/11, V1): [key del manifiesto, título] ──
+export const VIDEOS_PARA_EMPEZAR: ReadonlyArray<[string, string]> = [['onboarding-bienvenida', 'Bienvenida a MaKo'], ['onboarding-whatsapp', 'Tu WhatsApp con MaKo'], ['recorrido', 'Tu recorrido por MaKo']];
+export const VIDEOS_DEL_RETO: ReadonlyArray<[string, string]> = [['offer-coach', 'Día 1 · Offer Coach'], ['funnel-coach', 'Día 1 · Funnel Coach'], ...[1, 2, 3, 4, 5, 6, 7].map((n): [string, string] => [`reto-dia-${n}`, `Día ${n} del reto`])];
+
 // ── Los días 4 a 6, según el funnel (20/11/2026, auditoría d24-14 y R57-01) ─────────────────────────────────────────────────
 // Martín, 15/11: «el reto tiene que servir a CADA funnel». La tabla es la de la maqueta (C:/dev/artefactos-onboarding/cuerpo.html,
 // POR_FUNNEL): qué mira en Competitor Spy, qué página arma, qué carrusel y qué guion, y para qué es el clip. Los funnels de la app
@@ -270,7 +274,14 @@ export type EstadoReto = { v: 1; inicio: string; adelantado: number; hechas: Rec
   dia1Desde?: string;
   /** Las pestañas que ya le mostró por «Muéstrame…» (`MuestraReto.pestana`). */
   muestras?: string[];
-  /** El último día del que salió el correo «Día N del reto de MaKo» (lib/reto/correos.ts): uno por día, una vez. */
+  /** Las tareas que dejó con «Lo hago después» (claves «3:calendar»; 20/11, R57-F1): el día termina igual, y quedan marcadas. */
+  despues?: string[];
+  /** Eligió «Mañana» al terminar el día N-1: guarda N (20/11, D1-06): la respuesta queda en el chat. */
+  manana?: number;
+  /** Lo de Pro que el reto le abrió una vez en la prueba (lib/reto/pro-del-reto.ts): cuándo, para sumar su gasto. */
+  pro?: Partial<Record<string, { desde: string; hasta: string }>>;
+  /** El último día del que salió el correo «Día N del reto de MaKo», de antes del 20/11. Ya no se escribe: lo que sale va en
+   *  `reto.avisos` (lib/reto/avisos.ts), que arranca desde éste. */
   avisado?: number };
 
 export const CLAVE_RETO = 'reto.estado';
@@ -295,7 +306,15 @@ export function leerEstado(crudo: unknown): EstadoReto | null {
   const confiables = e.leidas && typeof e.leidas === 'object' ? Object.fromEntries(Object.entries(hechas).filter(([k]) => leidas[k])) : {};
   const dia1Desde = typeof e.dia1Desde === 'string' && !Number.isNaN(Date.parse(e.dia1Desde)) ? e.dia1Desde : undefined;
   const muestras = Array.isArray(e.muestras) ? [...new Set(e.muestras.filter((x): x is string => typeof x === 'string' && /^[a-z-]{2,30}$/.test(x)))].slice(0, 11) : [];
-  return { v: 1, inicio: e.inicio, adelantado, hechas: confiables, leidas, ...(dia1Desde ? { dia1Desde } : {}), ...(muestras.length ? { muestras } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}) };
+  const despues = Array.isArray(e.despues) ? [...new Set(e.despues.filter((x): x is string => typeof x === 'string' && /^\d:[a-z-]+$/.test(x)))] : [];
+  const manana = Number.isInteger(e.manana) ? Math.max(2, Math.min(7, Number(e.manana))) : undefined;
+  const pro: Record<string, { desde: string; hasta: string }> = {};
+  for (const [k, v] of Object.entries(e.pro && typeof e.pro === 'object' ? e.pro : {})) {
+    const u = v as { desde?: unknown; hasta?: unknown } | undefined;
+    if (/^[a-z-]{2,30}$/.test(k) && typeof u?.desde === 'string' && typeof u?.hasta === 'string' && !Number.isNaN(Date.parse(u.desde)) && !Number.isNaN(Date.parse(u.hasta))) pro[k] = { desde: u.desde, hasta: u.hasta };
+  }
+  return { v: 1, inicio: e.inicio, adelantado, hechas: confiables, leidas, ...(dia1Desde ? { dia1Desde } : {}), ...(muestras.length ? { muestras } : {}),
+    ...(despues.length ? { despues } : {}), ...(manana ? { manana } : {}), ...(Object.keys(pro).length ? { pro } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}) };
 }
 
 /** La hora de Argentina (la de MaKo), UTC−3. */
@@ -324,6 +343,29 @@ export function diaAbierto(e: EstadoReto, ahora: number): number {
 }
 
 export const claveTarea = (dia: number, id: string) => `${dia}:${id}`;
+/** La marca de una tarea lleva la TAREA, no la pestaña (20/11, f24-04 y R57-F2: «Carga tus clientes en el CRM / Con un CSV…»): la
+ *  última marca (el lugar donde se hace) toma su título y su detalle; las del camino (la foto, Settings) quedan como están. */
+export const marcasDeLaTarea = (t: TareaReto): MarcaReto[] => t.marcas.map((m, i) => (i === t.marcas.length - 1 ? { ...m, titulo: t.titulo, texto: t.detalle } : m));
+/** ¿La dejó para después? (R57-F1) */
+export const tareaDespues = (e: EstadoReto, dia: number, id: string) => !!e.despues?.includes(claveTarea(dia, id));
+/** ¿Terminó el día? Todas sus tareas hechas o dejadas para después (20/11, D1-06, d24-13, R57-07): recién ahí, «¿Adelantas…?». */
+export const diaTerminado = (e: EstadoReto, d: DiaReto) => d.tareas.every((t) => tareaHecha(e, d.n, t.id) || tareaDespues(e, d.n, t.id));
+
+/** El cierre de cada día (la maqueta, FIN_DIA y FIN_DIA1). `falta`: lo que dejó para después. Sin «te escribo»: el aviso por WhatsApp
+ *  de cada mañana todavía no existe (auditoría D1-04, es del chat de WhatsApp); lo cierto es que el día se abre a esa hora, aquí. */
+/** Lo que falta, dicho para «te falta…» (la maqueta, `falta` de cada tarea): el título es una orden («Conecta tu calendario»). */
+const FALTA_TAREA: Readonly<Record<string, string>> = {
+  app: 'instalar la app de MaKo en tu teléfono', extension: 'la extensión para Chrome', integraciones: 'conectar tus integraciones',
+  perfil: 'tu perfil y tu foto', contactos: 'cargar tus clientes en el CRM', automatizacion: 'tu primera automatización',
+  calendar: 'conectar tu calendario', spy: 'agregar a tus competidores', web: 'tu página', carrusel: 'tu carrusel', guion: 'tu guion',
+  personaje: 'tu personaje con IA', clip: 'tu primer clip', copilot: 'abrir tu Marketing CoPilot', semana: 'tu semana en el Plan',
+};
+/** `falta`: los ids de las tareas que dejó para después. */
+export function finDelDia(d: DiaReto, siguiente: DiaReto | undefined, hora: string, nombre: string, falta: string[]): string {
+  if (d.n === 1) return `¡Terminaste tu día 1${nombre ? `, ${nombre}` : ''}! Tu oferta y tu sistema de adquisición ya están. El día 2 es conectar todo: si quieres, lo adelantas ahora.`;
+  const sigue = siguiente ? ` Mañana a las ${hora} sigue el día ${siguiente.n}: ${siguiente.titulo.charAt(0).toLowerCase()}${siguiente.titulo.slice(1)}.` : '';
+  return falta.length ? `Tu día ${d.n} quedó casi listo: te falta ${falta.map((id) => FALTA_TAREA[id] ?? id).join(' y ')}.${sigue}` : `¡Listo tu día ${d.n}!${sigue}`;
+}
 export const tareaHecha = (e: EstadoReto, dia: number, id: string) => !!e.hechas[claveTarea(dia, id)];
 
 // ── El paso de Offer Coach a Funnel Coach (18/11/2026) ────────────────────────────────────────────────────────────────────────
@@ -386,10 +428,11 @@ export const mensajeEscrito = (p: PruebaWhatsApp, hora = '9:00') => (p.escrito ?
 
 /**
  * EL CORREO «DÍA N DEL RETO DE MaKo» (Martín, 18/11: «el asunto "Martín MaKo · Día 3 tu video de hoy" no tiene sentido. Va "Día 3 del
- * reto de MaKo", y lo mismo en todos los días»). Corto: qué toca hoy y el link al chat del reto. Lo manda lib/reto/correos.ts.
+ * reto de MaKo", y lo mismo en todos los días»). Corto: qué toca hoy y el link al chat del reto. Lo manda lib/reto/avisos-salida.ts.
  */
-export function correoDelDia(n: number, link: string): { asunto: string; preheader: string; cuerpo: string } {
-  const d = DIAS_RETO.find((x) => x.n === n) ?? DIAS_RETO[0];
+export function correoDelDia(n: number, link: string, dias: readonly DiaReto[] = DIAS_RETO): { asunto: string; preheader: string; cuerpo: string } {
+  // `dias`: los del negocio (`diasDelReto(funnel)`), así lo que toca los días 4 a 6 es lo de SU funnel (20/11/2026).
+  const d = dias.find((x) => x.n === n) ?? dias[0];
   return {
     asunto: `Día ${d.n} del reto de MaKo`,
     preheader: d.titulo,

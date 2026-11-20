@@ -586,8 +586,9 @@ test('21. el Offer Coach tiene su conversación, fija en su fila, y su video la 
   assert.deepEqual(lista.map((f) => f.clave), ['jefe', 'a8'], 'las dos conversaciones de los coaches van en su fila fija, no en el resto');
   // Su video y el del Funnel Coach (las claves acordadas con el chat de los videos), sólo con los dos coaches y con el chat vacío.
   const v = leer('app/second-brain/VideoDelCoach.tsx');
-  assert.match(v, /<VideoDelMomento clave="offer-coach" titulo=\{ORIGEN_OFFER_COACH\} revision=\{revision\} \/>/);
-  assert.match(v, /<VideoDelMomento clave="funnel-coach" titulo=\{ORIGEN_FUNNEL_COACH\} revision=\{revision\} \/>/);
+  // (20/11, V5: quietos, marcados con «dale play»: tests/tutorial-entrada.test.ts.)
+  assert.match(v, /<VideoDelMomento clave="offer-coach" titulo=\{ORIGEN_OFFER_COACH\} revision=\{revision\} dalePlay \/>/);
+  assert.match(v, /<VideoDelMomento clave="funnel-coach" titulo=\{ORIGEN_FUNNEL_COACH\} revision=\{revision\} dalePlay \/>/);
   assert.match(v, /useVideoTutorial\(dosCoaches \? clave : null\)/);
   assert.match(v, /const conVideo = dosCoaches && \(video != null \|\| revision\);/);
   for (const f of ['app/second-brain/ChatDelCoach.tsx', 'app/m/second-brain/HojaDelCoach.tsx']) {

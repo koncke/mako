@@ -31,7 +31,9 @@ export type Senal =
       alTocar?: (sel: string) => void }
   /** Un video que se estaba viendo en su lugar y salió de la vista (o se navegó): sigue flotando abajo a la derecha, desde `desde`. */
   | { tipo: 'video'; id: number; clave: string; titulo: string; desde: number }
-  | { tipo: 'marca'; id: number; paso: PasoTutorial & { haz: string }; alHacer: () => void; alOmitir?: () => void; listo?: string; libre?: boolean };
+  | { tipo: 'marca'; id: number; paso: PasoTutorial & { haz: string }; alHacer: () => void; alOmitir?: () => void; listo?: string; libre?: boolean;
+      /** «{título}: dale play» sobre un video quieto (V5, ./useDalePlay.ts): la tarjeta lleva sólo el título y la X. */
+      invita?: boolean };
 
 let actual: Senal | null = null;
 let n = 0;
@@ -61,8 +63,16 @@ export function reproducirFlotante(clave: string, titulo: string, desde: number)
  * («Entendido») y lo marcado no hace falta tocarlo. `libre`: sin las tapas alrededor del hueco (el mouse tiene que poder pasar por
  * otro lado: el menú de la foto se cierra si el mouse sale de la foto y no llega al menú).
  */
-export function senalarDondeTocar(paso: PasoTutorial & { haz: string }, alHacer: () => void, o?: { alOmitir?: () => void; listo?: string; libre?: boolean }): void {
-  actual = { tipo: 'marca', id: ++n, paso, alHacer, alOmitir: o?.alOmitir, listo: o?.listo, libre: o?.libre };
+export function senalarDondeTocar(paso: PasoTutorial & { haz: string }, alHacer: () => void, o?: { alOmitir?: () => void; listo?: string; libre?: boolean; invita?: boolean }): number {
+  actual = { tipo: 'marca', id: ++n, paso, alHacer, alOmitir: o?.alOmitir, listo: o?.listo, libre: o?.libre, ...(o?.invita ? { invita: true } : {}) };
+  avisar();
+  return n;
+}
+
+/** Saca lo de ahora SÓLO si es `id` (lo que pidió quien llama), sin avisarle a nadie: el video del «dale play» salió de la vista. */
+export function soltarSenal(id: number): void {
+  if (!actual || actual.id !== id) return;
+  actual = null;
   avisar();
 }
 
@@ -80,6 +90,14 @@ export function volverAlChat(clave: string): number | null {
   avisar();
   return t;
 }
+
+/**
+ * EL CHAT «ONBOARDING» PRESENTA EL RECORRIDO (20/11, OD-05): con su mensaje «Dale play…» (app/second-brain/BienvenidaOpsCenter.tsx),
+ * el recorrido lo arranca ese play, no el motor solo (`PrimeraVez`). Lo prende el chat mientras se ve.
+ */
+let presentaElChat = false;
+export function chatPresentaRecorrido(si: boolean): void { presentaElChat = si; }
+export const elChatPresentaElRecorrido = (): boolean => presentaElChat;
 
 /** Lo que se esté mostrando, fuera. No llama a `alTerminar` (lo cierra quien lo pidió). */
 export function cerrarTutorial(): void {

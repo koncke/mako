@@ -71,7 +71,8 @@ test('EL QUE PAGA PASA: sólo el Essential de la pasarela lleva candado (Pro, Ac
   // Y ANTE LA DUDA, PASA: si no se puede leer el plan, el candado es null (nunca tira).
   const src = fuente(CANDADO);
   assert.match(src, /\} catch \{\n\s*return null;\n\s*\}/, 'si no se puede leer el plan, no hay candado');
-  assert.match(src, /return w != null && \(await esEsencialDe\(w\)\) \? textoSoloPro\('replicar-guion'\) : null;/);
+  // 20/11: la prueba del reto lo abre UNA vez (lib/reto/pro-del-reto.ts, R57-03); después, el candado de siempre.
+  assert.ok(src.includes("return w != null && (await esEsencialDe(w)) && !(await abreElReto('replicar-guion', { ws: w, usar: true })) ? textoSoloPro('replicar-guion') : null;"));
 });
 
 test('1. LA PUERTA PRINCIPAL: /api/copywriter/ia frena una página que replica, antes de leer los archivos', () => {

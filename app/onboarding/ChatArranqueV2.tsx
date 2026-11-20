@@ -23,7 +23,7 @@
 
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
@@ -34,7 +34,7 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { CLAVE_ENTRADA_MOVIL } from '@/app/m/_ui/entrada';
-import { E_TELEFONO_INCOMPLETO, codigoDeLoEscrito, primerNombre, rutaDelHilo, type EtapaArranque, type MensajeArranque } from '@/lib/onboarding-arranque';
+import { AVISO_WHATSAPP_ABIERTO, E_TELEFONO_INCOMPLETO, avisoOtroNumero, codigoDeLoEscrito, primerNombre, reenviarAbreWhatsapp, rutaDelHilo, type EtapaArranque, type MensajeArranque } from '@/lib/onboarding-arranque';
 import type { VistaArranque } from '@/lib/onboarding-arranque-server';
 import { EntradaMako } from './EntradaMako';
 import { CriaturaMako, type Reaccion } from './CriaturaMako';
@@ -43,7 +43,7 @@ import { tarjetaConNumero } from './arranque-ui';
 import { iniciales } from '@/lib/unicode-seguro';
 import { esconderLaBarra } from '@/app/_ui/tutorial/barra-oculta';
 
-type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean };
+type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean; whatsapp?: VistaArranque['whatsapp'] };
 
 async function llamar(cuerpo: Record<string, unknown>): Promise<Respuesta> {
   try {
@@ -149,6 +149,34 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
   };
   const responder = (cuerpo: Record<string, unknown>, mostrar: string | null) => accion({ action: 'responder', ...cuerpo, ...(pregunta ? { pregunta } : {}) }, mostrar);
 
+  // «REENVIAR EL CÓDIGO» FUERA DE LAS 24 H (20/11, wa-f3): MaKo ya no puede escribirle, así que abre WhatsApp con el mensaje ya escrito
+  // (la maqueta, `abrirWhatsapp()`). Se sabe recién con la respuesta: desde ahí, «Reenviar» es el link mismo (`reescribir`). Si el
+  // navegador frena la ventana (se abre después del pedido), «Abrir WhatsApp» se marca y el error dice qué tocar.
+  const [reescribir, setReescribir] = useState(false);
+  const [resaltarWa, setResaltarWa] = useState(false);
+  const reenviar = async () => {
+    if (ocupado) return;
+    const link = vista.whatsapp?.link ?? null;
+    setOcupado(true);
+    setError(null);
+    setAviso(null);
+    setResaltarWa(false);
+    try {
+      const r = await llamar({ action: 'reenviar' });
+      if (r.ok === false && reenviarAbreWhatsapp(r.error) && link) {
+        if (r.vista) setVista(r.vista);
+        setReescribir(true);
+        const ventana = window.open(link, '_blank');
+        if (ventana) { try { ventana.opener = null; } catch { /* otra ventana */ } setAviso(AVISO_WHATSAPP_ABIERTO); }
+        else { setResaltarWa(true); setError(r.error ?? null); }
+        return;
+      }
+      reaccionar(aplicar(r) ? 'contenta' : 'duda', 1400);
+    } finally {
+      setOcupado(false);
+    }
+  };
+
   const mandarTexto = () => {
     const t = texto.trim();
     if (!t || ocupado || etapa === 'listo' || etapa === 'cierre') return;
@@ -164,6 +192,33 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
     if (fase !== 'escribe') return;
     const t = window.setTimeout(() => setFase('chat'), MS_ESCRIBE);
     return () => window.clearTimeout(t);
+  }, [fase]);
+  // ¿LLEGÓ DE OTRO NÚMERO? (20/11, wa-04): como el V1 (ChatArranque.tsx), mientras espera se pregunta cada 4 s, con la pestaña a la
+  // vista. El código lo confirma ella; esto sólo trae el estado del WhatsApp (el 'otro-numero' que anota el servidor).
+  const esperandoWhatsapp = etapa === 'codigo' && (vista.whatsapp?.estado === 'esperando' || vista.whatsapp?.estado === 'otro-numero');
+  useEffect(() => {
+    if (!esperandoWhatsapp) return;
+    let vivo = true;
+    const t = window.setInterval(() => {
+      if (document.hidden) return;
+      void llamar({ action: 'whatsapp' }).then((r) => {
+        if (!vivo) return;
+        if (r.vista) setVista(r.vista);
+        else if (r.whatsapp !== undefined) setVista((v) => ({ ...v, whatsapp: r.whatsapp ?? null }));
+      });
+    }, 4000);
+    return () => { vivo = false; window.clearInterval(t); };
+  }, [esperandoWhatsapp]);
+  // El centro del barrido: la fila de MaKo escribiendo (OA-13).
+  const velo = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (fase !== 'escribe') return;
+    const fila = document.querySelector<HTMLElement>('.arr-v2 .arr-v2__resalte');
+    const v = velo.current;
+    if (!fila || !v) return;
+    const r = fila.getBoundingClientRect();
+    v.style.setProperty('--iris-x', `${Math.round(r.left + 22)}px`);
+    v.style.setProperty('--iris-y', `${Math.round(r.top + r.height / 2)}px`);
   }, [fase]);
   // EL PRIMER MENSAJE, A SU TIEMPO (Martín, 19/11: «no está bueno de que apenas se me manda el video y automáticamente se me manda el
   // mensaje de abajo… que salga cuando corresponda, con los tres puntitos»). Al empezar, el video va solo; la primera pregunta sale
@@ -253,7 +308,9 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
       return <TarjetaCodigo vista={vista} ocupado={ocupado}
         onConfirmar={(c) => responder({ texto: c }, null)}
         onCambiar={() => void accion({ action: 'cambiar-numero' })}
-        onReenviar={() => void accion({ action: 'reenviar' })}
+        onReenviar={() => void reenviar()} reescribir={reescribir} resaltarWa={resaltarWa}
+        onAbrioWhatsapp={() => { setError(null); setResaltarWa(false); setAviso(AVISO_WHATSAPP_ABIERTO); }}
+        onUsarOtro={() => void accion({ action: 'usar-otro-numero' })}
         onReintentar={() => void accion({ action: 'telefono' })} />;
     }
     if (m.tarjeta === 'listo') {
@@ -298,7 +355,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
               {fase === 'chat' && (
                 <>
                   {/* UN solo video, el de la bienvenida, como primer mensaje (Martín, 19/11). Al bajar, sigue chiquito abajo a la derecha. */}
-                  {videoBienvenida && filaMako('arr-video', <VideoDelMomento clave={VIDEO_BIENVENIDA} titulo="Bienvenida a MaKo" revision={false} onTermina={soltarPrimero} />)}
+                  {videoBienvenida && filaMako('arr-video', <VideoDelMomento clave={VIDEO_BIENVENIDA} titulo="Bienvenida a MaKo" revision={false} onTermina={soltarPrimero} dalePlay />)}
                   {primero === 'escribe' && escribiendo('arr-primero')}
                   {primero === 'listo' && mensajes.map((m) => {
                     if (m.de === 'yo') return filaYo(m.id, m.texto);
@@ -337,7 +394,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
         </div>
       </main>
       {/* La pantalla oscura del tutorial, salvo MaKo escribiendo (Martín, 19/11: «se pone opaco y MaKo con los 3 puntitos»). */}
-      {fase === 'escribe' && <div className="arr-v2__velo" aria-hidden="true" />}
+      {fase === 'escribe' && <div ref={velo} className="arr-v2__velo" aria-hidden="true" />}
       {fase === 'intro' && <EntradaMako onFin={() => {
         setFase('escribe');
         try { sessionStorage.setItem(CLAVE_ENTRADA_MOVIL, '1'); } catch { /* sin storage */ }
@@ -373,9 +430,12 @@ function TarjetaTelefono({ inicial, ocupado, onSeguir, onIncompleto }: {
  * MaKo le contesta con el código y lo pega acá. Debajo, cambiar el número o pedir que se lo reenvíe. Sin «Pega aquí el código» ni
  * «Pegar» (Martín, 19/11: «elimina también, pega aquí el código… elimina el botón que dice pegar»): el mensaje de arriba ya lo dice.
  */
-function TarjetaCodigo({ vista, ocupado, onConfirmar, onCambiar, onReenviar, onReintentar }: {
+function TarjetaCodigo({ vista, ocupado, reescribir, resaltarWa, onConfirmar, onCambiar, onReenviar, onAbrioWhatsapp, onUsarOtro, onReintentar }: {
   vista: VistaArranque; ocupado: boolean;
-  onConfirmar: (codigo: string) => Promise<boolean>; onCambiar: () => void; onReenviar: () => void; onReintentar: () => void;
+  /** MaKo ya no puede escribirle (pasaron 24 h): «Reenviar» abre WhatsApp. `resaltarWa`: el navegador frenó la ventana. */
+  reescribir: boolean; resaltarWa: boolean;
+  onConfirmar: (codigo: string) => Promise<boolean>; onCambiar: () => void; onReenviar: () => void; onAbrioWhatsapp: () => void;
+  onUsarOtro: () => void; onReintentar: () => void;
 }) {
   const [codigo, setCodigo] = useState('');
   /** El código que ya se mandó solo: no se manda dos veces el mismo (se vuelve a mandar con «Confirmar»). */
@@ -392,12 +452,24 @@ function TarjetaCodigo({ vista, ocupado, onConfirmar, onCambiar, onReenviar, onR
   // Vencido NO esconde «Abrir WhatsApp» (20/11, OA-08): escribirle de nuevo a MaKo le trae un código nuevo, y el error de vencido
   // manda a «Reenviar el código». Sólo sin el link (no se pudo armar el mensaje) va «Volver a intentarlo».
   const sinLink = !w || !w.link;
+  // Le escribió desde otro WhatsApp (wa-04): lo dice arriba, con las dos salidas. Mandarlo desde el suyo sigue abajo.
+  const otro = w?.estado === 'otro-numero' && w.otroNumero ? avisoOtroNumero(w.otroNumero, w.telefono) : null;
   return (
     <div className="arr-tarjeta arr-v2__cod">
+      {otro && (
+        <div className="arr-v2__otro" role="status" data-otro-numero="">
+          <b>{otro.titulo}</b>
+          <span>{otro.texto}</span>
+          <div className="arr-v2__otro-botones">
+            <Button variant="primary" size="sm" disabled={ocupado} loading={ocupado} onClick={onUsarOtro}>{otro.usar}</Button>
+            <Button variant="secondary" size="sm" disabled={ocupado} onClick={onCambiar}>Cambiar número</Button>
+          </div>
+        </div>
+      )}
       {sinLink
         ? <><span className="arr-tarjeta__nota">No pude armar el mensaje.</span>
           <Button variant="primary" size="sm" loading={ocupado} disabled={ocupado} onClick={onReintentar}>Volver a intentarlo</Button></>
-        : <a className="arr-v2__wa" href={w.link!} target="_blank" rel="noopener noreferrer"><Icon name="whatsapp" size={18} />Abrir WhatsApp</a>}
+        : <a className={`arr-v2__wa${resaltarWa ? ' arr-v2__wa--resalta' : ''}`} href={w.link!} target="_blank" rel="noopener noreferrer"><Icon name="whatsapp" size={18} />Abrir WhatsApp</a>}
       <div className="arr-v2__cod-fila">
         {/* Lo pegado: el grupo de 6 números seguidos (el mensaje de MaKo entero trae la hora y otras cifras); si no hay, sus números. */}
         <input id="arr-v2-codigo" className="arr-v2__cod-campo" inputMode="numeric" autoComplete="one-time-code" placeholder="000000"
@@ -406,8 +478,11 @@ function TarjetaCodigo({ vista, ocupado, onConfirmar, onCambiar, onReenviar, onR
         <Button variant="primary" size="sm" disabled={ocupado} loading={ocupado} onClick={confirmar}>Confirmar</Button>
       </div>
       <div className="arr-v2__cod-pie">
-        <button type="button" className="arr-v2__link" onClick={onCambiar} disabled={ocupado}>Cambiar número</button>
-        <button type="button" className="arr-v2__link" onClick={onReenviar} disabled={ocupado}>Reenviar el código</button>
+        {!otro && <button type="button" className="arr-v2__link" onClick={onCambiar} disabled={ocupado}>Cambiar número</button>}
+        {/* Pasadas las 24 h, «Reenviar» es el link de WhatsApp con el mensaje escrito: lo abre el mismo toque (wa-f3). */}
+        {reescribir && w?.link
+          ? <a className="arr-v2__link" href={w.link} target="_blank" rel="noopener noreferrer" onClick={onAbrioWhatsapp}>Reenviar el código</a>
+          : <button type="button" className="arr-v2__link" onClick={onReenviar} disabled={ocupado}>Reenviar el código</button>}
       </div>
     </div>
   );
@@ -552,6 +627,12 @@ const CSS_V2 = `
 .arr-v2__cod-pie { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
 .arr-v2__link { border: 0; background: none; padding: 2px 0; color: var(--dim); font: inherit; font-size: var(--fs-sm); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .arr-v2__link:hover { color: var(--ink); }
+.arr-v2__otro { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); background: var(--warn-bg); }
+.arr-v2__otro b { font-size: var(--fs-sm); color: var(--ink); }
+.arr-v2__otro span { font-size: 13px; color: var(--dim); line-height: 1.4; }
+.arr-v2__otro-botones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+/* «Abrir WhatsApp» marcado: el navegador frenó la ventana de «Reenviar» y hay que tocarlo. */
+.arr-v2__wa--resalta { box-shadow: 0 0 0 3px color-mix(in srgb, #25D366 35%, transparent); }
 /* El recuadro de opciones: el del Ops Center, con el tema a la izquierda; una lista larga en dos columnas, numerada hacia abajo. */
 .arr-v2__preg .co-preg__cab { justify-content: space-between; }
 .arr-v2__tema { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--surface-2); color: var(--ink); font-size: var(--fs-meta); font-weight: 600; white-space: nowrap; }
@@ -569,8 +650,14 @@ const CSS_V2 = `
 .arr-v2 .of-escribiendo i:nth-child(3) { animation-delay: .3s; }
 @keyframes arr-v2-escribe { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
 /* LA PANTALLA OSCURA DEL TUTORIAL, salvo MaKo escribiendo. */
-.arr-v2__velo { position: fixed; inset: 0; z-index: 5; background: rgba(18, 21, 27, .62); animation: arr-v2-velo .45s ease both; pointer-events: none; }
-@keyframes arr-v2-velo { from { opacity: 0; } to { opacity: 1; } }
+/* EL BARRIDO DEL SOL Y LA LUNA (20/11, OA-13: la maqueta, «iris»): el velo entra como un círculo de luz que se cierra hacia MaKo
+   escribiendo (--iris-x/--iris-y, medidos sobre su fila), en .72 s. Con menos movimiento, sin animación: el velo entero de una. */
+@property --arr-iris { syntax: '<length>'; inherits: false; initial-value: 0px; }
+.arr-v2__velo { position: fixed; inset: 0; z-index: 5; background: rgba(18, 21, 27, .62); pointer-events: none;
+  -webkit-mask: radial-gradient(circle at var(--iris-x, 50%) var(--iris-y, 50%), transparent var(--arr-iris), #000 calc(var(--arr-iris) + 1px));
+  mask: radial-gradient(circle at var(--iris-x, 50%) var(--iris-y, 50%), transparent var(--arr-iris), #000 calc(var(--arr-iris) + 1px));
+  animation: arr-v2-iris .72s cubic-bezier(.65, 0, .35, 1) both; }
+@keyframes arr-v2-iris { from { --arr-iris: 150vmax; } to { --arr-iris: 0px; } }
 .arr-v2__resalte { position: relative; z-index: 6; }
 .arr-v2__resalte .co-el { padding: 6px 12px 6px 8px; border-radius: 999px; background: var(--bg); box-shadow: 0 0 0 2px var(--ink), 0 10px 30px rgba(0, 0, 0, .25); width: max-content; }
 @media (prefers-reduced-motion: reduce) { .arr-v2__velo, .arr-v2 .of-escribiendo i, .arr-capa--sale { animation: none; transition: none; } }

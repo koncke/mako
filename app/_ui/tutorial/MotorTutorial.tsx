@@ -30,8 +30,9 @@ import { Button } from '../Button';
 import { cssRecorrido, useRecorrido } from '../Recorrido';
 import { Z_PISO_RECORRIDO, necesitaScroll, posicionTarjeta, recorteDe, type Caja, type Medida, type PosicionTarjeta } from '@/lib/recorridos';
 import { pasosPara, tutorialDeRuta, type PasoTutorial, type TutorialPestana } from '@/lib/tutoriales';
-import { anotarTiempoFlotante, motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
+import { anotarTiempoFlotante, elChatPresentaElRecorrido, motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
 import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
+import { barrer, tocaIris } from './iris';
 import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigueLosPasos, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
@@ -213,6 +214,8 @@ function PrimeraVez({ t }: { t: TutorialPestana }) {
     const desde = Date.now();
     const mirar = () => {
       if (!vivo || pedido.current || senalAhora()) return;
+      // El recorrido del Ops Center lo arranca el «Dale play» del chat «Onboarding» cuando ese chat lo presenta (20/11, OD-05).
+      if (t.pestana === 'ops-center' && elChatPresentaElRecorrido()) { window.setTimeout(mirar, 500); return; }
       // La PRIMERA vez en el Ops Center (recién salida del onboarding), el video del recorrido en lugar del de la pestaña: presenta
       // a los coaches, Uso, la Ticketera y termina mandando al chat del reto (acordado con el chat de los videos, 18/11).
       // La PRIMERA vez en el Ops Center, el RECORRIDO APROBADO (lib/onboarding-v2/recorrido.ts) en lugar del tutorial de la pestaña:
@@ -554,6 +557,27 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
     return () => { window.removeEventListener('resize', pedir); document.removeEventListener('scroll', pedir, { capture: true }); ro?.disconnect(); mo.disconnect(); if (cuadro) cancelAnimationFrame(cuadro); };
   }, [medir, el]);
 
+  // 2c. El velo entra con el barrido del sol y la luna (OD-F2, 20/11; las cuentas en ./iris.ts): al APARECER el hueco de una marca
+  //     nueva, un círculo claro que se cierra hacia lo marcado en 720 ms. La tarjeta aparece al terminar. Sin barrido con menos
+  //     movimiento, ni cuando el mismo lugar se vuelve a medir o parpadea un cuadro.
+  const capaRef = useRef<HTMLDivElement>(null);
+  const huecoRef = useRef<HTMLDivElement>(null);
+  const habiaHueco = useRef(false);
+  const barrida = useRef<string | null>(null);
+  const claveMarca = paso ? `${modoVideo ? `v${cierre ? 'cierre' : frase?.t_inicio ?? ''}` : i}|${paso.sel}` : null;
+  const hayHueco = !!geo.hueco;
+  useLayoutEffect(() => {
+    const toca = tocaIris({ habia: habiaHueco.current, hay: hayHueco, clave: claveMarca, barrida: barrida.current, menosMovimiento: !!menosMovimiento() });
+    habiaHueco.current = hayHueco;
+    if (!toca) return;
+    barrida.current = claveMarca;
+    const nodo = huecoRef.current, capa = capaRef.current;
+    if (!nodo || !capa) return;
+    capa.setAttribute('data-iris', '');
+    // Cortado a mitad (el hueco se fue), nada queda recortado ni la tarjeta escondida.
+    return barrer(nodo, () => capa.removeAttribute('data-iris'));
+  }, [hayHueco, claveMarca]);
+
   // 2b. El video chico nunca tapa la tarjeta (en el teléfono se cruzan): si abajo a la derecha la tocaría, va arriba.
   useEffect(() => {
     const t = tarjetaRef.current?.getBoundingClientRect();
@@ -609,7 +633,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   const total = senal.tipo === 'tutorial' ? pasos.length : 1;
 
   return createPortal(
-    <div className="mk-rec mk-tuto" data-tutorial={senal.tipo === 'tutorial' ? senal.tutorial.pestana : 'marca'} style={{ zIndex: z }}>
+    <div ref={capaRef} className="mk-rec mk-tuto" data-tutorial={senal.tipo === 'tutorial' ? senal.tutorial.pestana : 'marca'} style={{ zIndex: z }}>
       <style>{cssRecorrido() + CSS_TUTORIAL}</style>
       {senal.tipo === 'tutorial' && (
         <VideoChico tutorial={senal.tutorial} video={video} vidRef={vidRef} autoplay={!conFrases} manda={soloVideo}
@@ -618,7 +642,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
       )}
       {geo.hueco
         ? <>
-            <div className="mk-rec__hueco" style={{ left: geo.hueco.x, top: geo.hueco.y, width: geo.hueco.ancho, height: geo.hueco.alto }} aria-hidden />
+            <div ref={huecoRef} className="mk-rec__hueco" style={{ left: geo.hueco.x, top: geo.hueco.y, width: geo.hueco.ancho, height: geo.hueco.alto }} aria-hidden />
             {/* Sin tapas en una marca o un paso `libre` (el menú de la foto se cierra si el mouse no llega a él: reto día 2, 20/11). */}
             {!(senal.tipo === 'marca' && senal.libre) && !paso?.libre && <Tapas h={geo.hueco} />}
           </>
@@ -630,7 +654,16 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
         {estiloFlecha && t && <span className="mk-rec__flecha" data-lado={t.lado} style={estiloFlecha} aria-hidden />}
         <div key={modoVideo ? (frase?.id ?? (cierre ? 'cierre' : 'video')) : i} className="mk-rec__cuerpo">
           {paso && total > 1 && !modoVideo && <div className="mk-rec__cont">{i + 1} de {total}</div>}
-          <h2 className="mk-rec__tit">{titulo}</h2>
+          {senal.tipo === 'marca' && senal.invita
+            ? (
+              <div className="mk-tuto__invita">
+                <h2 className="mk-rec__tit">{titulo}</h2>
+                <button type="button" className="mk-tuto__vx" aria-label="Cerrar" onClick={() => fin('omitido')}>
+                  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
+                </button>
+              </div>
+            )
+            : <h2 className="mk-rec__tit">{titulo}</h2>}
           {texto && <p className="mk-rec__txt">{texto}</p>}
           {haz && <p className="mk-tuto__haz"><span aria-hidden className="mk-tuto__punto" />{haz}</p>}
         </div>
@@ -663,7 +696,7 @@ function Pie({ senal, paso, ultimo, esperaClic, hayAnterior, conVideo, siguiente
   siguiente: () => void; atras: () => void; fin: (c: 'fin' | 'omitido' | 'hecho') => void;
 }) {
   if (senal.tipo === 'marca') {
-    if (!senal.listo && !senal.alOmitir) return null;
+    if (senal.invita || (!senal.listo && !senal.alOmitir)) return null;
     return (
       <div className="mk-rec__pie">
         {senal.alOmitir && <Button variant="tertiary" size="sm" onClick={() => fin('omitido')}>Lo hago después</Button>}
@@ -730,7 +763,10 @@ const CSS_TUTORIAL = `
 .mk-tuto { pointer-events: none; }
 .mk-tuto .mk-rec__velo, .mk-tuto .mk-rec__tarjeta, .mk-tuto__video, .mk-tuto__tapa { pointer-events: auto; }
 .mk-tuto__tapa { position: fixed; }
-.mk-tuto .mk-rec__tarjeta { z-index: 3; }
+.mk-tuto .mk-rec__tarjeta { z-index: 3; transition: opacity .2s ease; }
+.mk-tuto[data-iris] .mk-rec__tarjeta { opacity: 0; }
+.mk-tuto__invita { display: flex; align-items: center; gap: 14px; }
+.mk-tuto__invita .mk-rec__tit { margin: 0; }
 .mk-tuto__haz { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: var(--fs-sm); font-weight: 650; color: var(--ink); }
 .mk-tuto__punto { width: 9px; height: 9px; border-radius: 999px; background: var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 18%, transparent); flex: none; }
 .mk-tuto__video { position: fixed; z-index: 2; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100vw - 32px)); background: #0E1219; color: #fff; border-radius: var(--r-lg); box-shadow: 0 18px 44px rgba(0,0,0,.35); overflow: hidden; }

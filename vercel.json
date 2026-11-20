@@ -105,6 +105,10 @@
       "schedule": "0 14 * * *"
     },
     {
+      "path": "/api/cron/reto-avisos",
+      "schedule": "2 * * * *"
+    },
+    {
       "path": "/api/cron/nutricion",
       "schedule": "0 * * * *"
     },

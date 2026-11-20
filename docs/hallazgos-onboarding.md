@@ -3,6 +3,32 @@
 El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-state.ts`) y
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
+## Los avisos del reto: un correo diario no podía cumplir el «te escribo a las {hora}» (20/11/2026, claude5)
+
+**Vive en:** `lib/reto/avisos.ts` (qué sale) · `lib/reto/avisos-salida.ts` (la vuelta) · `app/api/cron/reto-avisos` (cada hora, a los
+:02) · `lib/reto/respuestas.ts` (la hora y BAJA que llegan por WhatsApp, desde el webhook). Test: `tests/reto-avisos.test.ts`.
+
+- **Síntoma:** el chat del reto promete «mañana a las 18:00 te escribo» y lo único que salía era un correo a las 10:00 de Argentina.
+  **Causa:** el correo colgaba del cron diario de aviso-fin-de-prueba, «para no sumar otro cron». Con una hora de las 12:00 en
+  adelante, a las 10:00 el día todavía no estaba abierto (`diaAbierto` resta un día antes de la hora elegida) y el correo llegaba al
+  día siguiente. **Regla:** un aviso que depende de la hora de cada persona va en una vuelta de cada hora, nunca en un cron diario.
+- **Trampa:** ese cron escribía `{ ...e, avisado }` sobre el `reto.estado` que había leído al empezar: una tarea marcada mientras
+  tanto se perdía, sin error. **Regla:** un cron nunca reescribe un estado que edita la persona. Lo suyo va en otra clave
+  (`reto.avisos`), con compare-and-set ANTES de mandar: de dos vueltas a la vez, manda una.
+- **Ventana de 3 horas:** un día que se abrió hace más no se avisa, porque llegaría tarde; se da por avisado. Por eso, al desplegar, no
+  sale nada atrasado.
+- **`!adelantado` sobra hoy:** el adelanto vale desde el inicio del reto, así que un día adelantado nunca «se acaba de abrir» y la
+  ventana ya lo deja afuera (la rotura R1 no da rojo). Queda para cuando `diaAbierto` cuente desde el último día abierto (d24-01).
+- **WhatsApp:** sale sólo con la hora elegida (así la manda la maqueta), sólo a quien verificó su número por el V2 (`v2 && verificado`),
+  por `enviarAPersonaMaKo` (regla 1) y sólo a `WS_REVISION_V2` hasta que el V2 esté para todos (`retoPorWhatsApp`).
+- **Lo que quedó sin hacer:** las respuestas de los días 3, 4, 5 y 7 (el lead del audio en el CRM, la competencia, el guion, el audio
+  a Martín) son del bot y del doer en el chat privado. `manejarEntranteBot` sólo corre en `mako.bot.instancia`, que apunta a la línea
+  vieja, no a la que recibe; y `lib/mako-salida.ts` saca los mensajes privados por esa misma instancia, con la ventana de 24 horas.
+  Hasta que el bot pase a la línea que recibe (pide la frase de Martín), MaKo se calla en esos días. La hora (día 2) y BAJA las contesta
+  el código y no dependen del bot.
+- **Distinto de la maqueta, a propósito:** el saludo cambia con la hora (a las 18:00, «¡Buenas tardes»); la noche dice «Mañana te lo
+  dejo primero.» porque ninguna tarea sabe cuántos minutos lleva.
+
 
 ## El onboarding V2 en la app = la maqueta: no estaba construido, y el WhatsApp armaba un grupo (19/11/2026)
 
@@ -66,6 +92,34 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
     teléfono, /onboarding mandaba a la app. Ahora se decide en el servidor (`seguirEnPcPendiente`: V2 y sin `tutorial-ops-center`
     en `usuarios.perfil`, el mismo dato que guarda /api/recorridos): /inicio manda el teléfono a /onboarding, y /onboarding muestra
     esa pantalla en vez de la app (OA-10, OD-12).
+  - *El barrido del sol y la luna (OA-13)*: un `clip-path: circle()` deja ver el adentro, no un agujero (con `path(evenodd, …)` sí
+    se puede, en px: así barre el motor, OD-F2 en docs/hallazgos-ui.md), así que este velo usa una MÁSCARA radial cuyo
+    radio es una `@property` animable (de 150vmax a 0), centrada en la fila de MaKo escribiendo. Para mirarlo a mitad de camino
+    en el Chromium sin ventana (que congela las animaciones en 0), la animación pausada con un `animation-delay` negativo.
+  - *La llegada al Ops Center (OD-05, la maqueta m-12/m-13)*: en el chat «Onboarding», la pantalla oscura con MaKo escribiendo y el
+    mensaje «Dale play…» con la portada del recorrido; su play arranca el recorrido (`BienvenidaOpsCenter`). Dos trampas: el velo de
+    un componente del panel no tapa la lista de chats (el panel vive en los contextos de apilado del layout), así que va en un
+    portal con una copia de la fila escribiendo, medida sobre la real; y el motor arrancaba el recorrido solo a los 600 ms: mientras
+    el chat lo presenta, `PrimeraVez` espera (`chatPresentaRecorrido`). En el ensayo «desde cero», lo visto es el del navegador.
+    Para MIRARLO sin `next dev`: un bundle de esbuild del componente de verdad con stubs (el recorrido sin ver, el video), en
+    Chromium con `animations: 'disabled'`.
+  - *La tarjeta del código y el WhatsApp de otro número (wa-04), y «Reenviar» pasadas las 24 h (wa-f3)*. El servidor es del chat
+    de WhatsApp (1a7f519ad); la tarjeta, de este (tests/onboarding-v2-tarjeta-codigo.test.ts). Cuatro trampas:
+    - *El V2 nunca se enteraba de que había llegado de otro número.* Sólo el V1 preguntaba cada 4 s. El servidor anotaba
+      `'otro-numero'`, pero la pantalla no lo leía. Ahora el V2 pregunta igual mientras espera.
+    - *«Usar ese número» no puede llamar a `pedirCodigo` desde el paso del código.* `pedirCodigo` anota la respuesta de la pregunta
+      del momento, y el número habría quedado como respuesta del código. La acción `usar-otro-numero` hace lo mismo que «Cambiar
+      número» más escribirlo: vuelve a la pregunta del WhatsApp y pide el código. El número sale del servidor, nunca de la pantalla.
+    - *`window.open(url, '_blank', 'noopener')` devuelve null SIEMPRE.* Con eso no se sabe si el navegador frenó la ventana. Va sin
+      la opción, y después `opener = null`.
+    - *Una ventana que se abre después de un pedido la puede frenar el navegador* (Safari: ya no es el toque de la persona). Si la
+      frena, «Abrir WhatsApp» se marca y el error dice qué tocar. Desde que se sabe que MaKo no puede escribirle, «Reenviar» es el
+      link mismo, y lo abre el toque.
+    - Para probarlo en el navegador, el bundle de esbuild necesita las server actions (`'use server'`) como stubs. Next las cambia
+      por referencias, y esbuild las metía enteras con `node:crypto` y la base adentro. Se resuelve con un plugin que cambia cada
+      módulo `'use server'` por funciones vacías con los mismos nombres.
+    - Sin hacer: con «Usar el …», ella vuelve a mandar el mensaje desde ese WhatsApp. El mensaje que ya llegó de ahí no se reusa
+      para confirmar, porque eso es del servidor (lib/verificacion-entrante.ts, del chat de WhatsApp).
   - *El número se guarda en dígitos y se formatea al dibujarlo* (`telefonoVisible`: «+54 911 5555 0101», en grupos de 4 desde el
     final). La burbuja que espera muestra lo que escribió, con la lada.
 - **Lo que quedó sin hacer:**
@@ -3424,4 +3478,13 @@ filas de los coaches tachaban el día 1 entero.
   lo que usa: sólo lee.
 - **Adelantar no corría los días:** el calendario se contaba desde `inicio`, así que adelantar el 2 y el 3 el lunes dejaba el martes
   en el 3. Ahora se guarda `adelantadoEn`.
+- **Abrir una función de Pro en la prueba (Essential, la A del Cerebro) es tocar CINCO tests que fijan el texto exacto de su candado:**
+  replicar-solo-pro, copywriter-replicar-solo-pro, editores-ia-solo-pro, ai-avatar y planes-tres-bloques. El filtro de la punta los
+  frenó de a uno. Antes de tocar un candado, buscar su texto en tests/ (`grep -lF "textoSoloPro('ai-avatar')" tests/*.ts`).
+- **«Una vez» es un uso, no una llamada:** una réplica pasa por el candado varias veces (analizar, generar, guardar). El uso dura una
+  ventana (2 h, lib/reto/pro-del-reto.ts). Anotarlo en la primera llamada habría cortado la réplica a la mitad.
+- **Un «Cómo funciona ${pestaña}» en cualquier pantalla da rojo** (tests/tutorial-sin-presentacion.test.ts: Martín, 20/11, nunca más).
+  El catálogo del reto lo tenía en sus tarjetas.
+- **Cada push a la punta cancela la corrida del anterior en GitHub.** Hoy cinco pushes seguidos dejaron todo «cancelled» y nada llegaba
+  a main. Se juntan los commits, se sube una vez y se espera la corrida.
 - **Lo que quedó sin hacer**, en orden, está en `docs/relevo/reto-tutoriales.md`.

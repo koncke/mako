@@ -23,7 +23,8 @@ import { borrarSettingSi, cambiarSettingSi, getSettingEstricto } from '@/lib/set
 import { getContactoReportes, getPerfil, setContactoReportes } from '@/lib/perfil';
 import { setDiagnosticoFase } from '@/lib/fase-store';
 import { asegurarGrupoMaKo, estadoVerificacionEntrante, getGrupoJidMaKo, pedirMensajeDeVerificacion, verificarCodigoContacto } from '@/lib/mako-grupo';
-import { pedirConfirmacionV2, reenviarCodigoV2, verificarCodigoV2 } from '@/lib/mako-grupo';
+import { otroNumeroQueEscribioV2, pedirConfirmacionV2, reenviarCodigoV2, verificarCodigoV2 } from '@/lib/mako-grupo';
+import { errorDelTelefono } from '@/lib/verificacion-entrante';
 import { leerSesion } from '@/lib/offer-sesiones';
 import { idDelFunnelDefault } from '@/lib/funnels';
 import { estaImpersonando } from '@/lib/workspace';
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
   // reportes es el del negocio, ver 'telefono').
   const usuarioGuardia = (await getUsuarioActual().catch(() => null))?.email ?? null;
   // Prepara el pedido para el WhatsApp que dio (desde su tarjeta o escrito en la caja del chat): la persona le escribe a MaKo, MaKo no le escribe.
-  const pedirCodigo = async (e: EstadoArranque, h: Awaited<ReturnType<typeof hechosDelArranque>>, confirmado: Awaited<ReturnType<typeof hechosConfirmados>>, digitos: string) => {
+  const pedirCodigo = async (e: EstadoArranque, h: Awaited<ReturnType<typeof hechosDelArranque>>, confirmado: Awaited<ReturnType<typeof hechosConfirmados>>, digitos: string, escribioAt?: number) => {
     // El contacto de los reportes es el del NEGOCIO: lo que ya tenía guardado, o el email del admin
     // del negocio (el perfil que se está mirando). Nunca el de quien está logueado: el super admin o
     // una agencia que hacen el arranque mirando al cliente se quedaban con sus reportes.
@@ -93,14 +94,15 @@ export async function POST(req: NextRequest) {
     // Sin el negocio todavía (el WhatsApp va primero): vacío, y el grupo nace con el nombre del workspace (`verificarCodigoContacto`).
     // En el V2 (19/11/2026) MaKo le CONTESTA con el código en el chat privado y no hay grupo: el nombre es el de la persona, para el saludo.
     const r = h.v2
-      ? await pedirConfirmacionV2(g.ws, digitos, e.nombre ? primerNombre(e.nombre) : '')
+      ? await pedirConfirmacionV2(g.ws, digitos, e.nombre ? primerNombre(e.nombre) : '', { escribioAt })
       : await pedirMensajeDeVerificacion(g.ws, digitos, e.negocio || '');
     if (!r.ok) return no(422, r.error);
+    const contestado = 'contestado' in r && r.contestado === true;
     await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}`, telefonoEntrante: r.yaVerificado ? undefined : true });
     await anotarRespuesta(e, h, `+${digitos}`, confirmado);
     // Ya verificado: la conversación dibuja el código como cargado sin pedirlo, y ésa es su respuesta (segunda revisión).
     if (r.yaVerificado) await anotarRespuesta({ ...e, telefono: 'verificado', telefonoNumero: `+${digitos}` }, h, CODIGO_CARGADO, confirmado);
-    return listo();
+    return listo(contestado ? { aviso: 'Te mandé el código a ese WhatsApp.' } : {});
   };
 
   try {
@@ -231,7 +233,35 @@ export async function POST(req: NextRequest) {
         const crudo = typeof body.telefono === 'string' ? body.telefono : '';
         const digitos = crudo.replace(/\D/g, '');
         if (digitos.length < 8) return no(422, h.v2 ? E_TELEFONO_INCOMPLETO : 'Escribe tu número completo, con el código de país.');
+        // Y el número largo de más (20/11/2026, wa-14): los errores de la maqueta dicen qué hacer.
+        const malo = errorDelTelefono(digitos);
+        if (malo) return no(422, malo);
         return await pedirCodigo(e, h, confirmado, digitos);
+      }
+
+      // V2 (20/11/2026, wa-04): le escribió a MaKo desde otro WhatsApp que el que dio, y elige ése. Es «Cambiar número» y escribirlo:
+      // vuelve a la pregunta del WhatsApp y pide el código para ese número (su respuesta queda anotada como la de la pregunta).
+      // Si ese mensaje llegó hace menos de 24 horas, MaKo le contesta el código ahí mismo; si no, vuelve a mandarlo desde ahí (MaKo no le
+      // escribe primero). El número sale del servidor, nunca de la pantalla.
+      case 'usar-otro-numero': {
+        const freno = await frenoDeArranque({ req, ws: g.ws, usuario: usuarioGuardia });
+        if (freno) return NextResponse.json({ ok: false, error: freno.error, ...(freno.bloqueado ? { bloqueado: true } : {}), vista: await vistaArranque() }, { status: freno.status });
+        const e = await estadoEstricto();
+        const h = await hechosDelArranque(e);
+        if (!h.v2 || etapaDeArranque(e, h) !== 'codigo') return no(409, 'Ahora no estoy esperando tu código.');
+        const v = await estadoVerificacionEntrante(g.ws);
+        const otro = v?.estado === 'otro-numero' ? (v.otroNumero ?? '').replace(/\D/g, '') : '';
+        // El mensaje que YA llegó de ese número (20/11/2026): se lee ANTES de rehacer el pedido, que lo pisa. Dentro de las 24 horas, MaKo le
+        // contesta el código ahí mismo (lib/verificacion-entrante.ts, `escribioDesdeElOtro`).
+        const llego = await otroNumeroQueEscribioV2(g.ws);
+        if (!otro) return no(409, 'Ya no veo otro número. Toca «Abrir WhatsApp» y mándame el mensaje desde tu WhatsApp.');
+        const malo = errorDelTelefono(otro);
+        if (malo) return no(422, malo);
+        await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoEntrante: undefined });
+        const e2 = await estadoEstricto();
+        const h2 = await hechosDelArranque(e2);
+        if (etapaDeArranque(e2, h2) !== 'telefono') return no(409, 'Ahora no estoy esperando tu teléfono.');
+        return await pedirCodigo(e2, h2, await hechosConfirmados(h2), otro, llego?.telefono === otro ? llego.escribioAt : undefined);
       }
 
       // V2 (19/11/2026), la tarjeta del código: «Reenviar el código» (MaKo se lo vuelve a mandar al chat donde ella le escribió) y

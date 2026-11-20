@@ -71,6 +71,6 @@ test('«Reenviar» con el código vencido: arma uno nuevo, lo guarda y recién a
   const manda = r.indexOf('await mandarCodigoV2(aMandar,');
   assert.ok(renueva > 0 && guarda > renueva && manda > guarda, 'se renueva, se guarda y DESPUÉS se manda');
   assert.doesNotMatch(r, /mandarCodigoV2\(v,/, 'volvió a mandar el vencido');
-  assert.match(r, /error: r\.error === NO_LE_ESCRIBE_PRIMERO \? E_REESCRIBIR_V2 : MAKO_SIN_LINEA/, 'si no puede, dice qué hacer');
+  assert.match(r, /error: r\.error === NO_LE_ESCRIBE_PRIMERO \? E_REESCRIBIR_V2 : MAKO_SIN_LINEA_V2 \}/, 'si no puede, dice qué hacer');
   assert.match(E_REESCRIBIR_V2, /Abrir WhatsApp/);
 });

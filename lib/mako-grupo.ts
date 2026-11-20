@@ -32,8 +32,8 @@ import { agenciasAprobadasDe } from './agencia';
 import { KEY_VOZ_INSTANCIA } from './linea-plataforma';
 import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
 import { MINUTOS_ENTRANTE, codigoDelTexto, codigoNuevo, decidirCodigoTipeado, decidirLlegada, linkWaMe, textoParaMandar, vistaDeEntrante, type EstadoVerificacion, type VistaEntrante } from './verificacion-entrante';
-import { AGENDAR_V2, E_REESCRIBIR_V2, E_SIN_CODIGO_V2, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoV2, renovarCodigoV2 } from './verificacion-entrante';
-import { chatDelMensaje } from './mako-bot-reglas';
+import { E_REESCRIBIR_V2, E_SIN_CODIGO_V2, MAKO_SIN_LINEA_V2, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, errorDelTelefono, escribioDesdeElOtro, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoYAgendarV2, reenviarDirecto, renovarCodigoV2, respuestaOtroNumeroV2, unicaEsperandoV2 } from './verificacion-entrante';
+import { chatDelMensaje, esSuTelefono } from './mako-bot-reglas';
 import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, leEscribioEnLasFilas, pausaDeEscritura, puedeEscribirleAPersona, type FilaQuienEscribio } from './mako-salida-reglas';
 import { respondiendoA } from './respuesta-en-curso';
 import { antesDeEscribir, trasEscribir } from './linea-freno';
@@ -805,6 +805,9 @@ export async function setNumeroDuenoYSync(
   await import('./compra-plan-llamada').then((m) => m.anotarTelefonoDelComprador(ws, c.num)).catch(() => {});
 
   if (!jid) {
+    // Un negocio del onboarding V2 no tiene grupo (20/11/2026, wa-15): el código, los avisos y el reto van por el chat privado. Guardar
+    // sus números en Notificaciones lo armaba igual. Sólo se guarda el número del dueño.
+    if (await esNegocioDelV2(ws)) return { ok: true, accion: 'sin_cambios' };
     const r = await asegurarGrupoMaKo(ws, { nombre: nombreCliente, participantes: [c.num] });
     return r.ok ? { ok: true, accion: 'grupo_creado', jid: r.jid } : { ok: false, error: r.error };
   }
@@ -827,6 +830,10 @@ const MAKO_SIN_LINEA = 'MaKo no puede recibir mensajes de WhatsApp en este momen
 async function getVerificacion(ws: number): Promise<EstadoVerificacion | null> {
   const raw = await runWithWorkspace(ws, () => getSetting(KEY_VERIFICACION));
   return parseVerificacion(raw);
+}
+/** ¿Este negocio hizo el onboarding V2? (su verificación lo dice): no tiene grupo de WhatsApp. */
+export async function esNegocioDelV2(ws: number): Promise<boolean> {
+  return (await getVerificacion(ws).catch(() => null))?.v2 === true;
 }
 function parseVerificacion(raw: string | null | undefined): EstadoVerificacion | null {
   if (!raw) return null;
@@ -964,29 +971,47 @@ export async function confirmarPorMensajeEntrante(instancia: string, m: Record<s
 
 /** Prepara el pedido: un código de 6 números que MaKo le va a CONTESTAR, y el link `wa.me` con «Hola, quiero confirmar mi WhatsApp.». */
 export async function pedirConfirmacionV2(
-  ws: number, telefono: string, nombrePersona: string,
-): Promise<{ ok: true; yaVerificado: true } | { ok: true; yaVerificado: false; link: string; numeroLinea: string } | { ok: false; error: string }> {
+  ws: number, telefono: string, nombrePersona: string, opts: { escribioAt?: number } = {},
+): Promise<{ ok: true; yaVerificado: true } | { ok: true; yaVerificado: false; link: string; numeroLinea: string; contestado?: boolean } | { ok: false; error: string }> {
   const num = soloDigitos(telefono);
-  if (num.length < 8) return { ok: false, error: 'El número no es válido.' };
+  const malo = errorDelTelefono(num);
+  if (malo) return { ok: false, error: malo };
   const actual = await getVerificacion(ws);
   if (actual?.verificado && soloDigitos(actual.telefono) === num) return { ok: true, yaVerificado: true };
-  if (!grupoConfigurado()) return { ok: false, error: MAKO_SIN_LINEA };
+  if (!grupoConfigurado()) return { ok: false, error: MAKO_SIN_LINEA_V2 };
   const linea = await lineaQueRecibe();
-  if (!linea) return { ok: false, error: MAKO_SIN_LINEA };
+  if (!linea) return { ok: false, error: MAKO_SIN_LINEA_V2 };
   const link = linkWaMe(linea.numero, TEXTO_CONFIRMAR_V2);
-  if (!link) return { ok: false, error: MAKO_SIN_LINEA };
-  await guardarVerificacion(ws, {
+  if (!link) return { ok: false, error: MAKO_SIN_LINEA_V2 };
+  const nueva: EstadoVerificacion = {
     telefono: num, destino: num, nombre: nombrePersona, codigo: codigoNumerico(),
     expira: Date.now() + MINUTOS_ENTRANTE * 60_000, verificado: false,
     entrante: true, v2: true, respondido: false, intentos: 0, linea: linea.instancia, numeroLinea: linea.numero,
-  });
-  return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero };
+  };
+  // Con el mensaje que YA llegó de este número (`escribioAt`, «Usar el +…»: `escribioDesdeElOtro`), MaKo le contesta ahora, sin que lo
+  // mande otra vez. Se guarda contestada ANTES de mandar (el código que llega es el que la app espera); si no sale, vuelve a «esperando».
+  if (opts.escribioAt == null || !reenviarDirecto({ escribioAt: opts.escribioAt }, Date.now())) {
+    await guardarVerificacion(ws, nueva);
+    return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero };
+  }
+  const contestada: EstadoVerificacion = { ...nueva, respondido: true, escribioAt: opts.escribioAt };
+  await guardarVerificacion(ws, contestada);
+  const r = await mandarCodigoV2(contestada, num);
+  if (r.ok) return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero, contestado: true };
+  console.error(`[mako-grupo] ws${ws}: no salió el código al otro número: ${r.error}`);
+  await guardarVerificacion(ws, nueva);
+  return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero, contestado: false };
+}
+
+/** El otro WhatsApp desde el que escribió, si se puede usar con el mensaje que ya llegó (`escribioDesdeElOtro`). Para «Usar el +…». */
+export async function otroNumeroQueEscribioV2(ws: number): Promise<{ telefono: string; escribioAt: number } | null> {
+  return escribioDesdeElOtro(await getVerificacion(ws).catch(() => null), Date.now());
 }
 
 /** Le manda el código por el chat privado (ella escribió primero: la regla 1 lo mira igual), su tarjeta de contacto y el pedido de agendarlo.
  *  Es un DM a una persona: va por `enviarAPersonaMaKo`, la puerta de los DM (tests/grupos-ops-guarda.test.ts). `destino`: su número. */
 async function mandarCodigoV2(v: EstadoVerificacion, destino: string): Promise<{ ok: boolean; error?: string }> {
-  const r = await enviarAPersonaMaKo(destino, mensajeDelCodigoV2(v.nombre ?? '', v.codigo));
+  const r = await enviarAPersonaMaKo(destino, mensajeDelCodigoYAgendarV2(v.nombre ?? '', v.codigo));
   if (!r.ok) return { ok: false, error: r.error };
   // La tarjeta de MaKo, para que la guarde con un toque (la maqueta: «Guardar contacto»). Best-effort: el código ya salió.
   const numeroMaKo = soloDigitos(v.numeroLinea ?? '');
@@ -995,7 +1020,6 @@ async function mandarCodigoV2(v: EstadoVerificacion, destino: string): Promise<{
       method: 'POST', body: JSON.stringify({ number: destino, contact: [{ fullName: 'MaKo', wuid: numeroMaKo, phoneNumber: `+${numeroMaKo}` }] }),
     }).catch(() => null);
   }
-  await enviarAPersonaMaKo(destino, AGENDAR_V2).catch(() => null);
   return { ok: true };
 }
 
@@ -1026,7 +1050,7 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
     // uno nuevo», y MaKo se callaba (vencido) o mandaba el mismo (tope). `hayQueRenovarV2`, lib/verificacion-entrante.ts.
     const base = d === 'renovar' ? renovarCodigoV2(v!, Date.now(), codigoNumerico()) : v!;
     // `destino`: el chat por donde escribió (así le llega aunque el número se haya tipeado de otra forma).
-    const anotado: EstadoVerificacion = { ...base, destino: chat.telefono ?? v!.destino, respondido: true };
+    const anotado: EstadoVerificacion = { ...base, destino: chat.telefono ?? v!.destino, respondido: true, escribioAt: Date.now(), otroNumero: undefined };
     // De dos llegadas del mismo mensaje (dos líneas de la misma cuenta), contesta una.
     const gane = await runWithWorkspace(ws, () => cambiarSettingSi(KEY_VERIFICACION, fila.value, JSON.stringify(anotado))).catch(() => false);
     if (!gane) return { resultado: `ws${ws}: ya contestado por otra llegada` };
@@ -1042,7 +1066,43 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
       },
     };
   }
-  return null;
+  // NADIE ESPERABA ESTE NÚMERO (20/11/2026, wa-04): MaKo se callaba y la pantalla no decía nada. Le contesta en ese chat qué hacer y, si
+  // UNA sola verificación espera en esta línea, se le anota `otroNumero` (la pantalla pasa a `'otro-numero'`). Contesta sólo la línea que
+  // recibe: con dos líneas de la misma cuenta, el mensaje llega dos veces. Un @lid sin número no se puede contestar: queda en el log.
+  if (!chat.telefono) {
+    console.warn(`[mako-grupo] pedido del V2 por @lid sin número (${chat.jid}): no sé de quién es`);
+    return null;
+  }
+  if (instancia !== (await instanciaVoz())) return null;
+  const tel = chat.telefono;
+  // Quien ya confirmó y vuelve a escribir no escribe «desde otro número»: la búsqueda de arriba trae sólo las pendientes.
+  const ya = await yaConfirmoV2(tel);
+  if (ya === null) return null;
+  if (ya) {
+    return { resultado: 'ya confirmado', responder: async () => { await enviarAPersonaMaKo(tel, YA_CONFIRMADO_V2); } };
+  }
+  const filas = ((data ?? []) as Array<{ workspace_id: number; value: string }>).map((f) => ({ ...f, v: parseVerificacion(f.value) }));
+  const suya = unicaEsperandoV2(filas, instancia, Date.now());
+  if (suya && suya.v!.otroNumero !== tel) {
+    await runWithWorkspace(Number(suya.workspace_id), () => cambiarSettingSi(KEY_VERIFICACION, suya.value, JSON.stringify({ ...suya.v!, otroNumero: tel, otroNumeroAt: Date.now() }))).catch(() => false);
+  }
+  return {
+    resultado: `otro número (${suya ? `ws${suya.workspace_id}` : 'sin una sola verificación esperando'}): le contesto qué hacer`,
+    responder: async () => {
+      const r = await enviarAPersonaMaKo(tel, respuestaOtroNumeroV2(tel));
+      if (!r.ok) console.error(`[mako-grupo] no salió la respuesta al pedido desde otro número: ${r.error}`);
+    },
+  };
+}
+
+export const YA_CONFIRMADO_V2 = 'Tu WhatsApp ya está confirmado en MaKo ✓ Vuelve a MaKo y sigue desde ahí.';
+
+/** ¿Este número ya confirmó su WhatsApp por el V2 (en algún negocio)? null si la base no contesta: entonces no se le dice nada. */
+async function yaConfirmoV2(telefono: string): Promise<boolean | null> {
+  const { data, error } = await getSupabaseServer().from('app_settings').select('value')
+    .eq('key', KEY_VERIFICACION).ilike('value', '%"v2":true%').ilike('value', '%"verificado":true%').limit(500);
+  if (error) { console.error(`[mako-grupo] no pude ver si ${telefono} ya confirmó: ${error.message}`); return null; }
+  return ((data ?? []) as Array<{ value: string }>).some((f) => { const v = parseVerificacion(f.value); return !!v && [v.telefono, v.destino].some((t) => !!t && esSuTelefono(t, telefono)); });
 }
 
 /** «Reenviar el código» (V2): sólo si MaKo ya le contestó (si no, todavía no le escribió: que toque «Abrir WhatsApp»). Manda uno
@@ -1051,6 +1111,8 @@ export async function reenviarCodigoV2(ws: number): Promise<{ ok: true } | { ok:
   const v = await getVerificacion(ws);
   if (!v?.v2 || !v.respondido || !v.destino) return { ok: false, error: E_SIN_CODIGO_V2 };
   if (v.verificado) return { ok: true };
+  // Ellos escriben primero (wa-f3): pasadas 24 horas de su último mensaje, que vuelva a escribir ella; MaKo le contesta con uno nuevo.
+  if (!reenviarDirecto(v, Date.now())) return { ok: false, error: E_REESCRIBIR_V2 };
   // Nunca el vencido (19/11/2026): con el código vencido o el tope lleno se arma uno NUEVO, se guarda y recién ahí se manda. Si se guardara
   // después, el que llega no sería el que la app espera.
   const aMandar = hayQueRenovarV2(v, Date.now()) ? renovarCodigoV2(v, Date.now(), codigoNumerico()) : v;
@@ -1058,7 +1120,7 @@ export async function reenviarCodigoV2(ws: number): Promise<{ ok: true } | { ok:
   const r = await mandarCodigoV2(aMandar, soloDigitos(v.destino));
   if (r.ok) return { ok: true };
   // Si MaKo no le puede escribir (no encuentra que le haya escrito), que lo pida desde su WhatsApp; si es la línea, que es de nuestro lado.
-  return { ok: false, error: r.error === NO_LE_ESCRIBE_PRIMERO ? E_REESCRIBIR_V2 : MAKO_SIN_LINEA };
+  return { ok: false, error: r.error === NO_LE_ESCRIBE_PRIMERO ? E_REESCRIBIR_V2 : MAKO_SIN_LINEA_V2 };
 }
 
 /** El código PEGADO en la app (V2). Bien: el número queda probado y guardado como el del dueño, SIN grupo. */
