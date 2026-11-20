@@ -219,7 +219,7 @@ export const E_CODIGO_LARGO_V2 = 'El código tiene 6 números. Revisa que esté 
 export const E_CODIGO_VENCIDO_V2 = 'Ese código venció. Toca «Abrir WhatsApp» y vuelve a mandarme el mensaje: te mando uno nuevo.';
 export const E_CODIGO_TOPE_V2 = 'Probaste muchos códigos. Toca «Abrir WhatsApp» y vuelve a mandarme el mensaje: te mando uno nuevo.';
 /** «Reenviar el código» cuando MaKo no le puede escribir (no encuentra que le haya escrito): que lo pida desde su WhatsApp. */
-export const E_REESCRIBIR_V2 = 'No pude mandártelo desde acá. Toca «Abrir WhatsApp» y mándame el mensaje otra vez: te contesto con un código nuevo.';
+export const E_REESCRIBIR_V2 = 'No pude mandártelo desde aquí. Toca «Abrir WhatsApp» y mándame el mensaje otra vez: te contesto con un código nuevo.';
 
 /** El código pegado en la app (V2). `intentos`: cuántos equivocados lleva con éste. */
 export function decidirCodigoV2(v: EstadoVerificacion | null | undefined, escrito: string, ahora: number):
