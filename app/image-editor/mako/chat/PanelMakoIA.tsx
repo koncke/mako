@@ -23,7 +23,9 @@
 // =============================================================================
 
 import '@/app/admin/operaciones/centro.css';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
+import { useColaDelHilo } from '@/app/_chat/useColaDelHilo';
 import { Check, Sparkles } from 'lucide-react';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
@@ -212,11 +214,6 @@ export function PanelMakoIA() {
     if (disenoId) void cargarHilo(disenoId, titulo);
   }, [disenoId, titulo]);
 
-  // El chat baja solo con cada mensaje nuevo.
-  useEffect(() => {
-    const el = hiloRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [hilo.mensajes.length, hilo.corriendo]);
 
   /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
   // Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): la ruta los lee y van aparte de la instrucción. Sólo los de la caja.
@@ -283,6 +280,10 @@ export function PanelMakoIA() {
     k: 'msg', id: m.id, role: m.de === 'yo' ? 'user' : 'assistant', at: iso(m.c),
     texto: m.de === 'mako' && m.error ? '' : m.texto,
   })), [hilo.mensajes]);
+  // EL HILO SIGUE AL ÚLTIMO (auditoría de chats del 20/11, pestanas-3 y 4 y 13; el gancho común app/_chat/useBajarAlUltimo.ts), por la
+  // clave de la ÚLTIMA fila que se dibuja: la de `nota.conNotas(items)`, con la nota de voz (antes quedaba al pie, fuera de la vista,
+  // porque el scroll miraba la lista propia). Lo que crece (la caja con varias líneas, una foto, un error), mientras está abajo.
+  const seguirHilo = useCallback(() => hiloRef.current, []);
   const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
     const m = hilo.mensajes.find((y) => y.id === x.id);
     if (!m || m.de !== 'mako') return null;
@@ -308,6 +309,13 @@ export function PanelMakoIA() {
       </>,
     };
   };
+  // LA COLA DE SALIDA (auditoría de chats del 20/11, pestanas-7 y 8; app/_chat/useColaDelHilo.ts, sobre la cola compartida): los mensajes
+  // nuevos de MaKo salen de a uno, con sus puntitos, y su tarjeta o sus botones (`enMensaje.abajo`) después del texto, con su pausa.
+  // Antes un solo setState los dibujaba juntos. Lo que ya estaba al abrir sale de una.
+  const cola = useColaDelHilo(nota.conNotas(items), { ocupado: hilo.corriendo });
+  const filasDelHilo = cola.items;
+  const enMensajeConCola = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => { const e = enMensaje(x); return e && !cola.conPieza(x.id) ? { ...e, abajo: null } : e; };
+  useBajarAlUltimo(seguirHilo, `${filasDelHilo[filasDelHilo.length - 1]?.id ?? ''}|${cola.escribiendo ? 'escribe' : ''}|${hilo.corriendo ? 'trabaja' : ''}`);
 
   // Un Essential: la apertura sin IA (la medida de la publicación, el mismo resize del panel de tamaño) y, después, el candado en
   // vez del chat. El recorte de la persona sigue montado (no es la IA del chat: corre en el navegador).
@@ -345,8 +353,8 @@ export function PanelMakoIA() {
               {/* Sin marca, la pide la APERTURA (18/11/2026, lib/aperturas/image.ts → `image:marca`): el link de acá se fue. */}
             </div>
           )}
-          <HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} onCitar={cita.citar} enMensaje={enMensaje} />
+          <HiloMako items={filasDelHilo} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo || cola.escribiendo ? { segs: 0 } : null}
+            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} onCitar={cita.citar} enMensaje={enMensajeConCola} />
           {hilo.corriendo && (
             <button type="button" className={styles.secundario} onClick={() => detener(disenoId)}>Detener</button>
           )}

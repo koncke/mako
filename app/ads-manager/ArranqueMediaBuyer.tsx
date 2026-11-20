@@ -15,7 +15,9 @@
 // Lo que se escribe en la caja y no es la respuesta del paso (una pregunta suelta) va al Cerebro, como todo chat de la app.
 // =============================================================================
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
+import { useColaDelHilo, usePrimeraVisita } from '@/app/_chat/useColaDelHilo';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
@@ -68,10 +70,18 @@ export function ArranqueMediaBuyer({ nombre, conectada, cuenta, productos, costo
   const paso = pasoDeArranque(x);
   const mensajes = useMemo(() => mensajesDeArranque({ nombre, conectada, r, productos, costoMedido, pilotoPermitido }), [nombre, conectada, r, productos, costoMedido, pilotoPermitido]);
   const items = useMemo(() => itemsDeOffer(mensajes).filter((m) => m.k !== 'bloque'), [mensajes]);
+  // LA COLA DE SALIDA (auditoría de chats del 20/11, pestanas-6; app/_chat/useColaDelHilo.ts, sobre la cola compartida): el hilo es una
+  // función del perfil, y cada respuesta dibujaba en el mismo cuadro lo que contestó, la pregunta que sigue y sus pastillas, sin
+  // puntitos. Ahora lo suyo sale ya; la pregunta, con sus puntitos; las pastillas y la tarjeta del plan, después, con su pausa. Lo que
+  // ya estaba al volver sale de una; la primera visita, con su primera pregunta escrita.
+  const primeraVez = usePrimeraVisita('media-buyer');
+  const cola = useColaDelHilo(items, { ocupado: terminando, deUnaAlAbrir: !primeraVez });
   const ultimo = mensajes[mensajes.length - 1];
-  const opciones = ultimo?.de === 'mako' ? ultimo.opciones ?? [] : [];
-  // Lo último a la vista, como en Offer: cada respuesta trae la pregunta que sigue.
-  useLayoutEffect(() => { const h = hilo.current; if (h) h.scrollTop = h.scrollHeight; }, [items.length, terminando]);
+  const opciones = ultimo?.de === 'mako' && cola.conPieza(`of-${ultimo.id}`) ? ultimo.opciones ?? [] : [];
+  // Lo último a la vista (el gancho común, app/_chat/useBajarAlUltimo.ts; auditoría de chats, pestanas-4): por la última fila, y lo que
+  // crece (la caja con varias líneas) mientras está abajo.
+  const seguirHilo = useCallback(() => hilo.current, []);
+  useBajarAlUltimo(seguirHilo, `${cola.items[cola.items.length - 1]?.id ?? ''}|${terminando || cola.escribiendo ? 'escribe' : ''}|${opciones.length ? 'pastillas' : ''}`);
   const tramo = tramoDe(paso);
 
   const entrada = entradaDelArranque(r, costoMedido, cierreMedido, avatares, funcionalidades);
@@ -102,13 +112,15 @@ export function ArranqueMediaBuyer({ nombre, conectada, cuenta, productos, costo
     return true;
   };
 
-  const enMensaje = (m: { id: string }): EnMensaje | null => {
+  const enMensajeDelPaso = (m: { id: string }): EnMensaje | null => {
     if (m.id === 'of-mb-cuenta' && !conectada) {
       return { abajo: <div style={{ marginTop: 10 }}><ConectarViaZernio red="metaads" volver="/ads-manager" adAccountId={cuenta} onConectado={onConectado}>Conectar con Facebook</ConectarViaZernio></div> };
     }
     if (m.id === 'of-mb-plan' && plan && entrada) return { abajo: <TarjetaPlan plan={plan} costo={entrada.costoPorResultado} supuesto={!!r.costo?.supuesto} kpi={r.kpi ?? 'lead'} /> };
     return null;
   };
+  // La tarjeta (conectar, el plan), después de su texto (la pieza del mensaje en la cola).
+  const enMensaje = (m: { id: string }): EnMensaje | null => (cola.conPieza(m.id) ? enMensajeDelPaso(m) : null);
 
   return (
     <div className="aa-arranque">
@@ -134,7 +146,7 @@ export function ArranqueMediaBuyer({ nombre, conectada, cuenta, productos, costo
                 }} />
             </div>
           }>
-          <HiloMako items={items} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={ahora} escribiendo={terminando ? { segs: 1 } : null}
+          <HiloMako items={cola.items} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={ahora} escribiendo={terminando ? { segs: 1 } : cola.escribiendo ? { segs: 0 } : null}
             tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
           {opciones.length > 0 && (
             <div role="group" aria-label="Respuestas rápidas" className="aa-rapidas">

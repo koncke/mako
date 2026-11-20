@@ -31,7 +31,9 @@
 // el de siempre (la ruta de los pedidos y /api/graficos/editar): la estrella de la tab, en «analizar», no edita la hoja.
 // Y va a la IZQUIERDA, como todo MaKo en una tab (el marco `.an`, ./PanelAnalista.tsx).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
+import { useColaDelHilo } from '@/app/_chat/useColaDelHilo';
 import { sanearHoja, type Hoja } from '@/lib/graficos-catalogo';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { TURNOS_IA, type TurnoEdicion } from '@/lib/graficos-ia-edicion';
@@ -152,7 +154,6 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   }, [pensando]);
   // Cerrar el panel corta el pedido: la ruta no escribió nada, así que no queda nada a medias.
   useEffect(() => () => ctrl.current?.abort(), []);
-  useEffect(() => { fin.current?.scrollIntoView({ block: 'end' }); }, [hilo.length, pensando]);
   // Abrir el panel es para escribir: el foco va a la caja.
   useEffect(() => { campo.current?.focus(); }, []);
   // Una hoja sin hilo en el editor trae el suyo de la base (recién recargada, u otra computadora). Lo que se haya
@@ -286,6 +287,10 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   // `enviar`, como lo escrito.
   const nota = useNotaEnElActo({ clave: `editar-hoja:${informe}:${hoja.id}`, puede: !pensando && !adj.preparando && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
 
+  // EL HILO SIGUE AL ÚLTIMO (auditoría de chats del 20/11, pestanas-3 y 4; el gancho común app/_chat/useBajarAlUltimo.ts), por la
+  // clave de la ÚLTIMA fila que se dibuja: la de `nota.conNotas(items)`, con la nota de voz (antes quedaba al pie, fuera de la vista,
+  // porque el scroll miraba la lista propia). Lo que crece (la caja con varias líneas, una foto, un error), mientras está abajo.
+  const seguirHilo = useCallback(() => hiloPanel.current, []);
   /** Lo que sólo tiene este chat, adentro del mensaje de MaKo que lo dijo (./items-edicion.ts). */
   const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
     const n = indiceDe(x.id);
@@ -327,6 +332,13 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
       </div>,
     };
   };
+  // LA COLA DE SALIDA (auditoría de chats del 20/11, pestanas-7 y 8; app/_chat/useColaDelHilo.ts, sobre la cola compartida): los mensajes
+  // nuevos de MaKo salen de a uno, con sus puntitos, y su tarjeta o sus botones (`enMensaje.abajo`) después del texto, con su pausa.
+  // Antes un solo setState los dibujaba juntos. Lo que ya estaba al abrir sale de una.
+  const cola = useColaDelHilo(nota.conNotas(items), { ocupado: pensando });
+  const filasDelHilo = cola.items;
+  const enMensajeConCola = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => { const e = enMensaje(x); return e && !cola.conPieza(x.id) ? { ...e, abajo: null } : e; };
+  useBajarAlUltimo(seguirHilo, `${filasDelHilo[filasDelHilo.length - 1]?.id ?? ''}|${cola.escribiendo ? 'escribe' : ''}|${pensando ? 'trabaja' : ''}`);
 
   return (
     // Un <section> y no un <aside>: la barra de la agencia (app/globals.css, `[data-barra-agencia] aside`) le fuerza a todo
@@ -365,8 +377,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
             </div>
           )}
           {/* Las filas del Ops Center, con la estrella de MaKo; mientras piensa, su «Trabajando…» con los segundos. */}
-          <HiloMako items={nota.conNotas(items)} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={ahora} escribiendo={pensando ? { segs: segundos } : null}
-            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} onCitar={cita.citar} />
+          <HiloMako items={filasDelHilo} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={ahora} escribiendo={pensando || cola.escribiendo ? { segs: segundos } : null}
+            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensajeConCola} onCitar={cita.citar} />
           {pensando && <button type="button" className="em-cancelar" onClick={cancelar}>Cancelar</button>}
           <div ref={fin} />
       </PanelDeChat>

@@ -24,6 +24,9 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode, type RefObject } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
+import { useColaDelHilo } from '@/app/_chat/useColaDelHilo';
+import { useColaDeSalida, type FilaDeCola } from '@/app/_chat/useColaDeSalida';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import type { EnMensaje } from '@/app/_chat/HiloMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
@@ -184,6 +187,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
    * paso y los pone en la página todos juntos; lo que nadie sabe queda marcado (lib/copywriter/datos-que-faltan.ts).
    */
   const [datosRep, setDatosRep] = useState<{ lista: string[]; resp: Record<string, string> } | null>(null);
+  /** Las preguntas guionadas ya contestadas que pasan al hilo: ya se vieron, salen sin puntitos (la cola, pestanas-7). */
+  const guionYaVisto = useRef(new Set<string>());
   const [datosRestantes, setDatosRestantes] = useState<number | null>(null);
   const fallosAlGuardar = useRef<string[]>([]);
   const aceptarAlTerminar = useRef(false);
@@ -244,11 +249,6 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     return () => ac.abort();
   }, [id, ws]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // El chat baja solo con cada mensaje nuevo.
-  useEffect(() => {
-    const el = hiloRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [mensajes.length, corriendo]);
 
   const cambiarMensaje = useCallback((mid: number, c: Partial<Extract<Mensaje, { de: 'mako' }>>) => {
     setMensajes((ms) => ms.map((m) => (m.id === mid && m.de === 'mako' ? { ...m, ...c } : m)));
@@ -552,6 +552,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
       return;
     }
     const qa: Mensaje[] = [{ id: nuevoId(), de: 'mako', texto: paso.pregunta }, { id: nuevoId(), de: 'yo', texto: textoDeRespuesta(paso, valor) }];
+    guionYaVisto.current.add(String(qa[0].id));
     setMensajes((xs) => [...xs, ...qa]);
     sinGuardar.current.push(...qa.map((m) => ({ de: m.de, texto: m.texto })));
     const nuevas = responderReplica(paso, valor, respRep);
@@ -604,7 +605,9 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     const ed = vivo.current.editor;
     if (!paso || !datosRep || !id || !ed) return;
     const qa: { de: 'yo' | 'mako'; texto: string }[] = [{ de: 'mako', texto: paso.pregunta }, { de: 'yo', texto: textoDeRespuesta(paso, valor) }];
-    setMensajes((xs) => [...xs, ...qa.map((m): Mensaje => ({ id: nuevoId(), ...m }))]);
+    const qaConId = qa.map((m): Mensaje => ({ id: nuevoId(), ...m }));
+    guionYaVisto.current.add(String(qaConId[0].id));
+    setMensajes((xs) => [...xs, ...qaConId]);
     void guardarEnHiloDeTab(claveDeGuion(id), tituloCharla(), filasDeAgente(qa));
     const resp = { ...datosRep.resp, [datoDelPaso(paso)]: valor };
     setDatosRep({ ...datosRep, resp });
@@ -715,6 +718,10 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     ? { k: 'msg', id: String(m.id), role: 'user', texto: m.texto, at: null, ...(m.adjuntos?.length ? { archivos: m.adjuntos.map(archivoDe) } : {}) }
     : { k: 'msg', id: String(m.id), role: 'assistant', texto: m.error ? '' : m.texto, at: null })), [mensajes]);
 
+  // EL HILO SIGUE AL ÚLTIMO (auditoría de chats del 20/11, pestanas-3 y 4 y 5; el gancho común app/_chat/useBajarAlUltimo.ts), por la
+  // clave de la ÚLTIMA fila que se dibuja: la de `nota.conNotas(items)`, con la nota de voz (antes quedaba al pie, fuera de la vista,
+  // porque el scroll miraba la lista propia). Lo que crece (la caja con varias líneas, una foto, un error), mientras está abajo.
+  const seguirHilo = useCallback(() => hiloRef.current, []);
   const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
     const m = mensajes.find((y) => String(y.id) === x.id);
     if (!m || m.de !== 'mako') return null;
@@ -787,6 +794,21 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
       ),
     };
   };
+  // LA COLA DE SALIDA (auditoría de chats del 20/11, pestanas-7 y 8; app/_chat/useColaDelHilo.ts, sobre la cola compartida): los mensajes
+  // nuevos de MaKo salen de a uno, con sus puntitos, y su tarjeta o sus botones (`enMensaje.abajo`) después del texto, con su pausa.
+  // Antes un solo setState los dibujaba juntos. Lo que ya estaba al abrir sale de una.
+  const cola = useColaDelHilo(nota.conNotas(items), { ocupado: corriendo, deUna: (x) => guionYaVisto.current.has(x) });
+  // LAS PREGUNTAS GUIONADAS, POR LA COLA (auditoría de chats del 20/11, pestanas-7): la de la plantilla (`pasoIni`) y la de la réplica
+  // (`pasoActual`) salían con sus pastillas en el mismo instante y sin puntitos. Ahora la pregunta llega con sus puntitos y las
+  // pastillas, después, con su pausa. La que ya estaba al abrir, de una.
+  const preguntaGuion = pasoIni ? { id: `ini:${pasoIni.id}`, texto: pasoIni.pregunta } : pasoActual ? { id: `rep:${pasoActual.id}`, texto: pasoActual.pregunta } : null;
+  const filasGuion = useMemo<FilaDeCola[]>(() => (preguntaGuion ? [{ id: preguntaGuion.id, de: 'mako', texto: preguntaGuion.texto, pieza: true }] : []), [preguntaGuion?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const colaGuion = useColaDeSalida(filasGuion, { historial: () => filasGuion.map((x) => x.id) });
+  const verGuion = !!preguntaGuion && colaGuion.visibles.some((x) => x.id === preguntaGuion.id);
+  const pildorasGuion = !!preguntaGuion && colaGuion.conPieza(preguntaGuion.id);
+  const filasDelHilo = cola.items;
+  const enMensajeConCola = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => { const e = enMensaje(x); return e && !cola.conPieza(x.id) ? { ...e, abajo: null } : e; };
+  useBajarAlUltimo(seguirHilo, `${filasDelHilo[filasDelHilo.length - 1]?.id ?? ''}|${verGuion ? preguntaGuion!.id : ''}|${pildorasGuion ? 'pildoras' : ''}|${cola.escribiendo ? 'escribe' : ''}|${corriendo ? 'corre' : ''}|${pasoActual?.id ?? ''}|${replicaHecha?.mensaje ?? ''}|${guardandoDato ? 'guarda' : ''}|${datosRep ? datosRep.lista.join(',') : ''}`);
 
   const vacia = !!editor && !textoDelDoc(editor.leer() as JsonNodo).trim();
   const sugerencias = intencion === 'editar' && vacia ? SUGERENCIAS_VACIA : SUGERENCIAS[intencion];
@@ -827,13 +849,13 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
           // La página nació de una plantilla: MaKo pregunta, de a una y con botones, sin llamar a la IA (se ve aunque no esté
           // la app de escritorio). El botón que cierra las preguntas y pide a la IA espera a que se pueda.
           <>
-            <div className="nt-mako-bienvenida">{pasoIni.pregunta}{pasoIni.libre ? ' Toca una opción o escríbelo.' : ''}</div>
-            <div className="nt-mako-pildoras">
+            {verGuion && <div className="nt-mako-bienvenida">{pasoIni.pregunta}{pasoIni.libre ? ' Toca una opción o escríbelo.' : ''}</div>}
+            {pildorasGuion && <div className="nt-mako-pildoras">
               {pasoIni.opciones.map((o, i) => (
                 <button key={o.valor} type="button" className="nt-mako-pildora" {...(i === 0 ? { 'data-principal': '' } : {})}
                   disabled={llamaALaIA(o.valor) && !puede} onClick={() => responderIni(o.valor)}>{o.texto}</button>
               ))}
-            </div>
+            </div>}
             {/* Los botones grises dicen por qué (13/11/2026, en producción, un negocio sin la app: las ofertas apagadas y nada al lado). */}
             {appEscritorio.bloqueada && pasoIni.opciones.some((o) => llamaALaIA(o.valor)) && (
               <div className="nt-mako-estado">Para que MaKo lo escriba, instala su app: el botón está abajo.</div>
@@ -850,19 +872,19 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
             ))}
           </div>
         )}
-        <HiloAgente items={nota.conNotas(items)} corriendo={corriendo} enMensaje={enMensaje} onCitar={citar}
+        <HiloAgente items={filasDelHilo} corriendo={corriendo || cola.escribiendo || colaGuion.escribiendo} enMensaje={enMensajeConCola} onCitar={citar}
           onReintentar={nota.reintentar(() => {})} onDescartar={nota.descartar} />
         {pasoActual && (
           // La réplica: MaKo pregunta antes de escribir, de a una y con botones (lib/copywriter/iniciativa.ts, `pasoDeReplica`), y
           // después los datos que quedaron (lib/copywriter/datos-que-faltan.ts).
           <>
-            <div className="nt-mako-bienvenida">{pasoActual.pregunta}{pasoActual.libre ? ' Escríbelo abajo.' : ''}</div>
-            <div className="nt-mako-pildoras">
+            {verGuion && <div className="nt-mako-bienvenida">{pasoActual.pregunta}{pasoActual.libre ? ' Escríbelo abajo.' : ''}</div>}
+            {pildorasGuion && <div className="nt-mako-pildoras">
               {pasoActual.opciones.map((o, i) => (
                 <button key={o.valor} type="button" className="nt-mako-pildora" {...(i === 0 && !pasoActual.libre ? { 'data-principal': '' } : {})}
                   disabled={guardandoDato || corriendo} onClick={() => void (pasoRep ? responderRep : responderDato)(o.valor)}>{o.texto}</button>
               ))}
-            </div>
+            </div>}
           </>
         )}
         {guardandoDato && <div className="nt-mako-estado" aria-live="polite">Guardando en tu oferta…</div>}

@@ -2675,6 +2675,8 @@ van dos marcas en el mismo render).
   lib/puntitos.ts): nunca un número fijo en una pantalla. Cada fila dice qué es: `'mako'` (puntitos), `'pieza'` (la tarjeta, después
   del texto) o ya; lo que no llegó en el turno, ya (app/_chat/fila-del-hilo.ts). Lo ya dicho en la página no vuelve a escribirse al
   volver a montar (`useDichoConPuntitos`).
+  Un hilo de ítems (HiloMako, HiloAgente) pasa por `useColaDelHilo` (app/_chat/useColaDelHilo.ts), y un chat que lee su historial
+  DESPUÉS de montarse le pasa `cargado`.
 - **Lo que aparece porque cambió algo en el servidor (una tarea hecha, un paso que se abre) también es una fila de la cola**, no estado
   derivado que se dibuja de golpe. Qué sale lo dice UNA función que usan la cola y el dibujo (como lib/reto/en-el-dia.ts).
 - **Un chat con PERSONAS usa app/_chat/grupo/useSeguirElHilo.ts** (como WhatsApp: no arrastra a quien lee arriba, cuenta lo nuevo).

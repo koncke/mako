@@ -25,7 +25,9 @@ test('el hilo: lo de la persona con su sección y sus archivos; lo del agente en
   const hueco = panel.slice(panel.indexOf('const enMensaje = ('), panel.indexOf('  useEffect(() => {', panel.indexOf('const enMensaje = (')));
   assert.match(hueco, /if \(m\.de === 'pedido'\) return \{ arriba: <BurbujaDePedido burbuja=\{m\.burbuja\} onBoton=\{\(b\) => alBoton\(m\.id, b\)\} \/> \};/);
   assert.match(hueco, /abajo: m\.propuesta && m\.estado \? \(\s*<RevisionPropuesta[\s\S]*onAceptar=\{\(\) => void aceptar\(m\)\}/);
-  assert.match(panel, /<HiloAgente items=\{nota\.conNotas\(items\)\} corriendo=\{hilo\.corriendo\} enMensaje=\{enMensaje\} onCitar=\{citar\}\s+onReintentar=\{nota\.reintentar\(\(\) => \{\}\)\} onDescartar=\{nota\.descartar\} \/>/);
+  // Desde el 20/11 (auditoría de chats, pestanas-7 y 8) el hilo sale por la cola de salida, sobre las notas.
+  assert.match(panel, /const cola = useColaDelHilo\(nota\.conNotas\(items\), \{ ocupado: hilo\.corriendo \}\);\n  const filasDelHilo = cola\.items;/);
+  assert.match(panel, /<HiloAgente items=\{filasDelHilo\} corriendo=\{hilo\.corriendo \|\| cola\.escribiendo\} enMensaje=\{enMensajeConCola\} onCitar=\{citar\}\s+onReintentar=\{nota\.reintentar\(\(\) => \{\}\)\} onDescartar=\{nota\.descartar\} \/>/);
   assert.match(chat, /const QUIEN = \{ nombre: 'MaKo', aspecto: ASPECTO_MAKO \};/, 'la estrella de MaKo (23/10/2026)');
 });
 

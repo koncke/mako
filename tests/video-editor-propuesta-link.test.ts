@@ -24,6 +24,9 @@
 //   R9  el foco corre antes del «baja solo», que lo pisa       → 6 / 1
 //   R10 la API cambia el nombre del parámetro (`?p=`)          → 6 / 1
 // La primera pasada de R9 (borrar el «baja solo») pasaba: la comparación de posiciones daba verdadero con -1.
+// 20/11/2026 (auditoría de chats, pestanas-3, 4 y 9): el «baja solo» es el gancho común (useBajarAlUltimo) y el hilo sale por la
+// cola. Rotos a mano (base 17 / 0): el foco escrito antes del gancho → 16 / 1; el foco que no vuelve a buscar cuando la cola
+// suelta lo guardado (`[foco, hilo.mensajes.length]`) → 16 / 1.
 //
 // Y lo que encontró la revisión adversarial del 20/10 (noche; base 13 / 0):
 //   M1  enfoca con cualquier proyecto activo (uno vacío: «ya no está abierta»)   → 12 / 1
@@ -131,9 +134,16 @@ test('el panel baja hasta la propuesta, la resalta y la suelta', () => {
   assert.match(src, /querySelector<HTMLElement>\(`\[data-mensaje="\$\{CSS\.escape\(foco\)\}"\]`\)/);
   assert.match(src, /scrollIntoView\(\{ block: "center" \}\)/);
   assert.match(src, /foco === m\.id \?/);
-  // DESPUÉS del «baja solo»: si no, el scroll al final pisa al de la propuesta.
-  const baja = src.indexOf('el.scrollTop = el.scrollHeight');
+  // DESPUÉS del «baja solo»: si no, el scroll al final pisa al de la propuesta. Desde el 20/11 (auditoría de chats, pestanas-3 y 4)
+  // el «baja solo» es el gancho común: baja en un useLayoutEffect, y el foco (un useEffect, escrito después) corre detrás.
+  const baja = src.indexOf('useBajarAlUltimo(seguirHilo,');
   assert.ok(baja > 0 && baja < src.indexOf('scrollIntoView'), 'el foco corre antes del «baja solo», que lo pisa');
+  assert.match(sinComentarios(leer('app', '_chat', 'useBajarAlUltimo.ts')), /useLayoutEffect\(\(\) => \{\n    if \(quieto\.current\) return;\n    const s = seguidor\.current;\n    if \(s\) \{ s\.mirarHijos\(\); s\.bajar\(suave\); return; \}/);
+  // Y ya centrada, el «baja solo» se queda quieto: ni los puntitos, ni un mensaje nuevo, ni lo que crece la pisan.
+  assert.match(src, /useBajarAlUltimo\(seguirHilo, `[^`]+`, \{ quieto: !!foco && centrada === foco \}\);/, 'el «baja solo» pisa la propuesta ya centrada');
+  assert.match(src, /el\.scrollIntoView\(\{ block: "center" \}\);\n\t\tsetCentrada\(foco\);/);
+  // Lo guardado llega del servidor y sale por la cola en el cuadro siguiente: el foco vuelve a buscar con las filas que salieron.
+  assert.match(src, /\}, \[foco, filasDelHilo\.length\]\);/, 'el foco busca antes de que la cola suelte la propuesta, y no vuelve');
 });
 
 // ── Lo que encontró la revisión adversarial (20/10, noche) ─────────────────────────────────────────────

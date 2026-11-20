@@ -71,10 +71,11 @@ export function bajarAlCrecer(el: HiloQueEscrolea, debe: () => boolean, Observad
   return { mirarHijos, soltar: () => ro?.disconnect() };
 }
 
-export function seguirAlUltimo(el: HiloQueEscrolea, o: { arriba?: () => boolean; Observador?: ClaseObservador | null } = {}): SeguidorDelHilo {
+export function seguirAlUltimo(el: HiloQueEscrolea, o: { arriba?: () => boolean; quieto?: () => boolean; Observador?: ClaseObservador | null } = {}): SeguidorDelHilo {
   let pegado = true;
   let ultimo = el.scrollTop;
   const arriba = o.arriba ?? (() => false);
+  const quieto = o.quieto ?? (() => false);
   const alFondo = () => { el.scrollTop = el.scrollHeight; ultimo = el.scrollTop; };
   // La persona mueve el hilo: cerca del final queda pegada; si SUBIÓ (el scroll bajó de donde estaba), deja de estarlo. Lo que baja
   // el chat solo nunca la despega (sólo sube el scrollTop), y el navegador que recorta el scroll cuando el hilo se achica la deja
@@ -87,7 +88,8 @@ export function seguirAlUltimo(el: HiloQueEscrolea, o: { arriba?: () => boolean;
   };
   el.addEventListener('scroll', alMover, { passive: true });
   // Algo del hilo cambió de alto (un video que cargó, una imagen lenta, la caja que creció): si estaba abajo, sigue abajo.
-  const crece = bajarAlCrecer(el, () => pegado && !arriba(), o.Observador, () => { ultimo = el.scrollTop; });
+  // Quieto (lo enfocado gana): lo que crece tampoco la baja.
+  const crece = bajarAlCrecer(el, () => pegado && !arriba() && !quieto(), o.Observador, () => { ultimo = el.scrollTop; });
   return {
     bajar(suave = false) {
       if (arriba()) { el.scrollTop = 0; ultimo = 0; return; }
@@ -105,23 +107,27 @@ export function seguirAlUltimo(el: HiloQueEscrolea, o: { arriba?: () => boolean;
  * El hilo de un chat con MaKo que sigue al último mensaje. `contenedor`: lo que escrolea (estable: un useCallback). `nuevo`: la clave
  * de la ÚLTIMA fila dibujada (cambia con cada mensaje nuevo, sus puntitos o su pieza). `arriba`: el chat abre arriba (el chat nuevo
  * del Ops Center, con su portada) y mientras tanto no baja. `suave`: con animación (ningún chat la usa: la auditoría pide `auto`).
+ * `quieto`: algo pidió ir a otro lugar del hilo (la propuesta de un link en el Video Editor) y mientras tanto no baja, ni con un
+ * mensaje nuevo; al soltarse no salta: baja con el próximo (20/11, el rojo de la punta de las pestañas).
  */
-export function useBajarAlUltimo(contenedor: () => HTMLElement | null, nuevo: unknown, o: { arriba?: boolean; suave?: boolean } = {}): void {
+export function useBajarAlUltimo(contenedor: () => HTMLElement | null, nuevo: unknown, o: { arriba?: boolean; suave?: boolean; quieto?: boolean } = {}): void {
   const seguidor = useRef<SeguidorDelHilo | null>(null);
   const arriba = useRef(!!o.arriba);
   arriba.current = !!o.arriba;
+  const quieto = useRef(!!o.quieto);
+  quieto.current = !!o.quieto;
   useEffect(() => {
     let s: SeguidorDelHilo | null = null;
     const enganchar = () => {
       if (s) return;
       const el = contenedor();
       if (!el) return;
-      s = seguirAlUltimo(el, { arriba: () => arriba.current });
+      s = seguirAlUltimo(el, { arriba: () => arriba.current, quieto: () => quieto.current });
       seguidor.current = s;
     };
     enganchar();
     const t = s ? 0 : window.setTimeout(enganchar, MS_HOJA_MEDIDA);
-    const alNuevo = () => seguidor.current?.bajar();
+    const alNuevo = () => { if (!quieto.current) seguidor.current?.bajar(); };
     window.addEventListener(EVENTO_MENSAJE_NUEVO, alNuevo);
     return () => {
       window.clearTimeout(t);
@@ -131,7 +137,9 @@ export function useBajarAlUltimo(contenedor: () => HTMLElement | null, nuevo: un
     };
   }, [contenedor]);
   const suave = !!o.suave;
+  // Quieto: no baja. `quieto` no está en las dependencias a propósito: al soltarse no salta al final.
   useLayoutEffect(() => {
+    if (quieto.current) return;
     const s = seguidor.current;
     if (s) { s.mirarHijos(); s.bajar(suave); return; }
     // Antes de engancharse (el primer pintado): baja igual; el seguidor la mantiene abajo apenas se engancha.

@@ -274,6 +274,8 @@ test('el catálogo «Tutoriales de MaKo»: para empezar, el reto con los días c
   assert.deepEqual(g2[0].tarjetas.map((t) => t.titulo), ['Calendar', 'Classroom › Calendar'], 'sin AI Avatar, y sin dos «Calendar»');
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(chat.includes('<BotonTutoriales activo={catalogo}') && chat.includes('catalogo && d ? <CatalogoTutoriales'), 'el ícono en la cabecera cambia el hilo por el catálogo');
+  // El ícono de videos, LO ÚLTIMO a la derecha de la cabecera (20/11, la llamada con Leila, 00:31:46).
+  assert.match(chat, /<span className="rt-acciones">(?:(?!<\/span>).)*<BotonTutoriales activo=\{catalogo\} onClick=\{\(\) => setCatalogo\(\(x\) => !x\)\} \/><\/span>/, 'el ícono de videos no es lo último de la cabecera');
 });
 
 test('el fin de cada día: «¿Adelantas…?» recién al terminarlo, «Lo hago después» y «Mañana» guardados (20/11, D1-06, d24-13, R57-07, R57-F1, R57-F4)', async () => {
@@ -716,9 +718,9 @@ test('verificación 20/11: «Muéstrame…» y el catálogo llevan a la pestaña
   assert.deepEqual(VIDEOS_PARA_EMPEZAR.map(([k]) => k), ['onboarding-bienvenida', 'onboarding-bienvenida-whatsapp', 'recorrido'], 'el WhatsApp del V2');
 });
 
-test('verificación 20/11: el día de hoy, uno a la vez y con «Tu siguiente paso» (d24-08, R57-15)', () => {
+test('verificación 20/11: el día de hoy, uno a la vez (d24-08, R57-15); sin «Tu siguiente paso» abajo (la llamada con Leila)', () => {
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
-  assert.ok(chat.includes('<span>Tu siguiente paso: <b>{sigue.txt}</b></span>'), 'arriba de la caja');
+  assert.ok(!chat.includes('Tu siguiente paso: <b>'), 'lo que sigue lo marca la barra, no una tarjeta arriba de la caja');
   assert.ok(chat.includes('{esLaQueToca && onDespuesDe && <button type="button" className="rt-tarea__luego" onClick={() => onDespuesDe(n, t.id)}>Lo hago después</button>}'), '«Lo hago después» en la que toca');
   assert.ok(chat.includes('{ico && <span className="rt-tarea__ico" aria-hidden><Icon name={ico} size={16} /></span>}'), 'el ícono de su pestaña');
   assert.ok(fuente('../lib/reto/en-el-dia.ts').includes("if (perfil && llega2(3) && (!pasos2 || !!e.horaWa || tareaDespues(e, 2, 'hora'))) poner('perfil', RETO_D2_PERFIL, true);"), 'el perfil, después de la hora');

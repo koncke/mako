@@ -145,6 +145,26 @@ test('6. UN solo mecanismo para lo que crece: el chat de los grupos lo usa con s
   assert.match(g, /import \{ bajarAlCrecer \} from '@\/app\/_chat\/useBajarAlUltimo';/);
   assert.match(g, /if \(el\) \{ crece = bajarAlCrecer\(el, \(\) => estabaAbajo\.current\); mirarHijos\.current = crece\.mirarHijos; \}/);
   const n = sinComentarios(leer('app/_chat/useBajarAlUltimo.ts'));
-  assert.match(n, /const crece = bajarAlCrecer\(el, \(\) => pegado && !arriba\(\), o\.Observador, /, 'el de los demás chats, el mismo');
+  assert.match(n, /const crece = bajarAlCrecer\(el, \(\) => pegado && !arriba\(\) && !quieto\(\), o\.Observador, /, 'el de los demás chats, el mismo');
   assert.equal((n.match(/new Clase\(/g) ?? []).length, 1, 'un solo ResizeObserver en el código');
+});
+
+// 20/11/2026, el rojo de la punta de las pestañas (tests/video-editor-propuesta-link.test.ts): con la propuesta de un link centrada,
+// el «baja solo» la pisaba. `quieto`: lo enfocado gana; al soltarse no salta, baja con el próximo mensaje.
+test('7. QUIETO (la propuesta de un link, centrada): lo que crece no la baja; el gancho no baja ni salta al soltarse', () => {
+  const h = hiloFalso(1000);
+  let quieto = false;
+  const s = seguirAlUltimo(h, { quieto: () => quieto, Observador: RO });
+  s.bajar();
+  quieto = true; // se centró la propuesta: queda donde está, aunque estuviera pegada abajo
+  h.crecer(1400);
+  assert.equal(h.scrollTop, 400, 'lo que crece no la arrastra con la propuesta enfocada');
+  quieto = false;
+  h.crecer(1600);
+  assert.equal(h.scrollTop, h.abajo(), 'suelto el foco y pegada, lo que crece la vuelve a seguir');
+  s.soltar();
+  const n = sinComentarios(leer('app/_chat/useBajarAlUltimo.ts'));
+  assert.match(n, /useLayoutEffect\(\(\) => \{\n    if \(quieto\.current\) return;\n    const s = seguidor\.current;/, 'quieto: un mensaje nuevo tampoco la baja');
+  assert.match(n, /\}, \[nuevo, o\.arriba, suave, contenedor\]\);/, '`quieto` fuera de las dependencias: al soltarse no salta');
+  assert.match(n, /const alNuevo = \(\) => \{ if \(!quieto\.current\) seguidor\.current\?\.bajar\(\); \};/);
 });

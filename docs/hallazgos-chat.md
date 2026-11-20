@@ -573,3 +573,58 @@ auditoría). Las pruebas: tests/chats-de-a-uno.test.ts y, con el hook de verdad,
 - **La regla:** un chat cuyas filas llegan después del montaje retiene la cola (`retenido: () => !historiaLista`). Apenas llegan los
   datos, marca lo ya visto con `mostrarYa(ids)` y suelta. Lo mostrado se anota en `alMostrar`. Así lo hace
   app/second-brain/reto/ChatDelReto.tsx, que además retiene hasta que la llegada (`LlegadaAlReto`) se mostró y el recorrido se vio.
+
+## Las pestañas por las piezas comunes: un hilo que es función del estado no tiene cola (20/11, chat «reto-tutoriales», claude5)
+
+La auditoría de las pestañas (pestanas-1 a 13) se arregló sin piezas propias: el gancho `useBajarAlUltimo`, la cola compartida y un
+adaptador fino para los hilos de ítems, app/_chat/useColaDelHilo.ts. Lo prueba tests/chats-pestanas-cola.test.ts.
+- **El adaptador no es otra cola.** Pasa los ítems de HiloMako y HiloAgente a filas de `useColaDeSalida`: lo de MaKo con su texto
+  (los puntitos) y su pieza; lo de la persona y las tarjetas sueltas, ya; lo ya visto (`deUna`), sin puntitos. La tarjeta de un
+  mensaje (`enMensaje.abajo`) y las pastillas se sueltan con `conPieza(id)`, después del texto.
+- **Trampa: una lista nueva en cada dibujo.** `nota.conNotas(items)` arma un array nuevo por render. El adaptador memoriza las filas
+  por contenido (id, rol y largo del texto); por identidad, la cola volvería a arrancar en cada dibujo.
+- **Trampa: el chat que carga después, otra vez.** Automations lee su chat guardado con un GET al montarse: sin `cargado`, lo
+  guardado salía de a uno con puntitos (la trampa de la entrada de abajo). ChatMako pasa `cargado={chatLeido}`; con un pedido de
+  afuera no lee nada y arranca leído.
+- **Y una tercera vez, en el Video Editor; el diagnóstico obvio era el equivocado.** La punta dio rojo en
+  tests/video-editor-propuesta-link.test.ts: buscaba `el.scrollTop = el.scrollHeight`, que ya no existe. Parecía bastar con poner
+  el test al día. Pero el test cuidaba que el foco de la propuesta del link corra después del «baja solo», y mirando eso apareció
+  el hueco real: el hilo (`cargarHilo`, chat/hilo.ts) llega del servidor después de abrir el panel, y la cola no lo sabía. Lo
+  guardado salía de a uno con puntitos, y el foco buscaba la propuesta antes de que la cola la dibujara, sin volver a buscarla.
+  Ahora:
+  - `hiloLeido` marca el hilo leído también con un error de red; si no, lo nuevo quedaría retenido para siempre;
+  - el panel le pasa `cargado: leido` a la cola;
+  - el foco va después del gancho y vuelve a buscar con `filasDelHilo.length`;
+  - ya centrada la propuesta, el gancho se queda quieto (`useBajarAlUltimo(…, { quieto })`), porque los puntitos o un mensaje
+    nuevo la bajaban igual. `quieto` no está en las dependencias, así que al soltarse el foco no salta al final: baja con el
+    próximo mensaje. Sirve a cualquier chat que lleve a un mensaje de más arriba.
+  **Regla:** antes de poner al día un test que se rompió con un cambio tuyo, lee qué cuidaba. **Sin hacer:** con el panel abierto y
+  otro proyecto elegido sin desmontarlo, lo guardado del segundo proyecto sale con puntitos (la cola lee `cargado` una vez).
+- **Un hilo guionado (función pura del perfil) no se anima desde adentro.** Media Buyer, CoPilot y Newsletter recalculan el hilo entero
+  en un set. La cola va POR FUERA, sobre lo que se dibuja, y las pastillas dependen de `conPieza` del último mensaje. Las preguntas
+  guionadas del Copywriter ni siquiera están en el hilo (son estado derivado, `pasoIni` y `pasoActual`): tienen una cola de una fila
+  (`colaGuion`), y al contestarse entran al hilo marcadas como ya vistas. Sin esa marca salían dos veces con puntitos.
+- **La primera visita se marca en el navegador** (`mako.chat-visto.<chat>`), no junto a las respuestas como pedía la auditoría. Es por
+  navegador, no por negocio: un segundo negocio en el mismo navegador ve su primera pregunta sin puntitos. Falla hacia lo seguro (se
+  ve de una).
+- **`CajaChat seguir` sobra con el gancho.** El ResizeObserver de `useBajarAlUltimo` observa el hilo: cuando la caja crece, el hilo se
+  achica y lo sigue si estaba abajo. Pasarlo además rompía los tests que miran las props de la caja en orden. Sólo lo lleva el CoPilot,
+  que tiene su scroll propio por la grilla de referentes.
+- **Diagnóstico obvio y equivocado (pestanas-10):** los puntitos al abrir un gráfico con charla parecían MaKo generando. Era la LECTURA
+  del historial, con `setPensando(true)`. Leer va con el cargador de la casa (CargandoMako).
+- **Newsletter perdía su propuesta al recargar** (vivía sólo en el estado, y llegaba otra distinta). Va en la config (`propuestas`, las
+  últimas 6). `leerConfig` la agrega sólo si hay: tests/newsletter.test.ts compara la config sin propuestas con `deepEqual`.
+- **Una sola traducción de ítem a fila.** Mientras las pestañas esperaban en un parche, el chat del onboarding subió
+  `filaDeItem` (app/_chat/fila-del-hilo.ts), con una pieza suelta (`'pieza'`) que la cola suelta en la pausa. El adaptador traducía por
+  su cuenta, y una tarjeta que llegaba en el mismo set salía junto con el texto. Ahora `filasDeItems` usa `filaDeItem` y sólo le suma
+  la pieza de adentro del mensaje. Al traer main, busca si ya hay una pieza para lo que hace la tuya.
+- **Trampa: un nombre nuevo que tapa una prop.** La pregunta guionada del Copywriter se llamaba `guion`, igual que la prop
+  `guion: GuionAbierto` del panel. Los tests de texto pasaban (leen el fuente, no lo compilan); sólo el tsc acotado la vio (TS2339), y
+  el build la habría rechazado («ya declarada»). Ahora se llama `preguntaGuion`. Antes de nombrar algo en un componente grande, busca
+  ese nombre en sus props.
+- **Offer (pestanas-2 y pestanas-12) no está acá.** Lo hizo el chat del onboarding (coaches-7 y coaches-8, 23af0da99), entero por la
+  cola: el primer mensaje con puntitos y las rápidas en la pausa (`conPildoras`). Dos chats lo arreglaron a la vez sobre el mismo
+  archivo. El mío se descartó y no se le sumó nada, porque lo suyo cubre todo lo que tenía. Antes de tocar un chat, mira la auditoría
+  del otro (las notas del Cerebro).
+- **Sin hacer:** nada se abrió en un navegador (RAM de la PC). La apertura del Image Editor (pestanas-13, dudoso) queda a cargo del
+  ResizeObserver del gancho.

@@ -14,7 +14,10 @@
 //     Calendario) y salen desde el dominio del negocio.
 // =============================================================================
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
+import { useColaDelHilo, usePrimeraVisita } from '@/app/_chat/useColaDelHilo';
+import type { MensajeApertura, PropuestaEdicion } from '@/lib/newsletter-reglas';
 import { Banner, Button, Checkbox, Field, Modal, PageHeader, Section, Select, Status, Switch, TextField, Textarea, Toast, useToast } from '@/app/_ui';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
@@ -175,28 +178,49 @@ function Apertura({ estado, onEstado, onError, onEscribir, onListo }: {
   // las respuestas rápidas siguen andando, como en el arranque del Media Buyer.
   const appEscritorio = useAppDeEscritorio();
   const [ocupado, start] = useTransition();
-  const [propuesta, setPropuesta] = useState<{ asunto: string; idea: string } | { error: string } | null>(null);
+  // LAS PROPUESTAS, GUARDADAS (auditoría de chats del 20/11, pestanas-11): al recargar volvía «Dame un segundo…» y llegaba otra distinta;
+  // «Otra idea» reescribía la propuesta en el mismo globo. Ahora viven en la config (`propuestas`): se redibujan sin pedirlas, y «Otra
+  // idea» queda como mensaje de la persona y la nueva propuesta como un mensaje nuevo.
+  const [propuestas, setPropuestas] = useState<PropuestaEdicion[]>(() => estado.config.propuestas ?? []);
+  const [pidiendo, setPidiendo] = useState(false);
+  const [errorPropuesta, setErrorPropuesta] = useState<string | null>(null);
+  // Lo que contestó la persona, YA (pestanas-6: mientras corría la acción se veían los puntitos debajo de la pregunta, antes de su
+  // respuesta). Con el id que va a tener en el hilo: al volver del servidor, el mismo mensaje.
+  const [dicho, setDicho] = useState<{ id: string; texto: string } | null>(null);
   const [ahora] = useState(() => Date.now());
   const hilo = useRef<HTMLDivElement>(null);
   const pregunta = preguntaDeApertura(estado.config);
 
-  const cierre = useMemo(() => {
-    if (pregunta) return null;
-    if (!propuesta) return { texto: 'Dame un segundo: pienso la primera edición…' };
-    if ('error' in propuesta) return { texto: `Escríbela en el Copywriter: ahí está la plantilla. (${propuesta.error})`, opciones: [ESCRIBIR, AHORA_NO] };
-    return { texto: `Para la primera te propongo «${propuesta.asunto}». ${propuesta.idea}`, opciones: [ESCRIBIR, OTRA, AHORA_NO] };
-  }, [pregunta, propuesta]);
-  const mensajes = useMemo(() => mensajesDeApertura(estado.config, cierre), [estado.config, cierre]);
+  const mensajes = useMemo((): MensajeApertura[] => {
+    const base = mensajesDeApertura(estado.config, null);
+    if (pregunta) return dicho ? [...base.map((m) => (m.opciones ? { ...m, opciones: undefined } : m)), { id: dicho.id, de: 'yo', texto: dicho.texto, at: '' }] : base;
+    const cierres: MensajeApertura[] = [];
+    propuestas.forEach((pp, i) => {
+      const ultima = i === propuestas.length - 1 && !pidiendo && !errorPropuesta;
+      cierres.push({ id: `nl-cierre-${i}`, de: 'mako', texto: `${i ? 'Te propongo' : 'Para la primera te propongo'} «${pp.asunto}». ${pp.idea}`, at: '', ...(ultima ? { opciones: [ESCRIBIR, OTRA, AHORA_NO] } : {}) });
+      if (!ultima && (i < propuestas.length - 1 || pidiendo)) cierres.push({ id: `nl-otra-${i}`, de: 'yo', texto: OTRA, at: '' });
+    });
+    if (errorPropuesta) cierres.push({ id: `nl-error-${propuestas.length}`, de: 'mako', texto: `Escríbela en el Copywriter: ahí está la plantilla. (${errorPropuesta})`, at: '', opciones: [ESCRIBIR, AHORA_NO] });
+    else if (!propuestas.length || pidiendo) cierres.push({ id: `nl-pienso-${propuestas.length}`, de: 'mako', texto: propuestas.length ? 'Dame un segundo: pienso otra…' : 'Dame un segundo: pienso la primera edición…', at: '' });
+    return [...base, ...cierres];
+  }, [estado.config, pregunta, propuestas, pidiendo, errorPropuesta, dicho]);
   const items = useMemo(() => itemsDeOffer(mensajes).filter((m) => m.k !== 'bloque'), [mensajes]);
+  // LA COLA DE SALIDA (auditoría de chats del 20/11, pestanas-6; app/_chat/useColaDelHilo.ts, sobre la cola compartida): la respuesta,
+  // la pregunta que sigue y sus pastillas salían juntas. Ahora la pregunta llega con sus puntitos y las pastillas, después.
+  const primeraVez = usePrimeraVisita('newsletter');
+  const cola = useColaDelHilo(items, { ocupado, deUnaAlAbrir: !primeraVez });
   const ultimo = mensajes[mensajes.length - 1];
-  const opciones = ultimo?.de === 'mako' ? ultimo.opciones ?? [] : [];
-  // Lo último de la charla a la vista (el molde de ArranqueMediaBuyer): la propuesta y sus pastillas, no tapadas por la caja.
-  useLayoutEffect(() => { const h = hilo.current; if (h) h.scrollTop = h.scrollHeight; }, [items.length, ocupado, opciones.length]);
+  const opciones = ultimo?.de === 'mako' && cola.conPieza(`of-${ultimo.id}`) ? ultimo.opciones ?? [] : [];
+  // Lo último a la vista (el gancho común; pestanas-4): por la última fila, y lo que crece mientras está abajo.
+  const seguirHilo = useCallback(() => hilo.current, []);
+  useBajarAlUltimo(seguirHilo, `${cola.items[cola.items.length - 1]?.id ?? ''}|${ocupado || cola.escribiendo ? 'escribe' : ''}|${opciones.length ? 'pastillas' : ''}`);
 
   const proponer = () => start(async () => {
-    setPropuesta(null);
+    setPidiendo(true);
+    setErrorPropuesta(null);
     const p = await proponerEdicionAction();
-    setPropuesta(p.ok ? { asunto: p.asunto, idea: p.idea } : { error: p.error });
+    if (p.ok) setPropuestas((xs) => [...xs, { asunto: p.asunto, idea: p.idea }]); else setErrorPropuesta(p.error);
+    setPidiendo(false);
   });
 
   const responder = (t: string) => {
@@ -204,15 +228,17 @@ function Apertura({ estado, onEstado, onError, onEscribir, onListo }: {
     if (!pregunta && t === OTRA) { proponer(); return; }
     start(async () => {
       if (pregunta) {
-        const r = await responderAperturaAction(pregunta.id, t);
-        if (!r.ok) { onError(r.error); return; }
-        onEstado(r.estado);
+        setDicho({ id: `nl-${pregunta.id}-r`, texto: t });
         setTexto('');
+        const r = await responderAperturaAction(pregunta.id, t);
+        if (!r.ok) { setDicho(null); onError(r.error); return; }
+        onEstado(r.estado);
+        setDicho(null);
         return;
       }
       // Lo que escribe con sus palabras (no una pastilla) es SU idea: la edición nace con eso de asunto.
       if (!opciones.includes(t)) await onEscribir({ asunto: t.slice(0, 200) });
-      else if (propuesta && !('error' in propuesta)) await onEscribir({ asunto: propuesta.asunto, idea: propuesta.idea });
+      else if (propuestas.length && !errorPropuesta) await onEscribir({ asunto: propuestas[propuestas.length - 1].asunto, idea: propuestas[propuestas.length - 1].idea });
       else await onEscribir({});
     });
   };
@@ -220,7 +246,7 @@ function Apertura({ estado, onEstado, onError, onEscribir, onListo }: {
   // Con las dos respuestas (recién dadas, o de antes y la persona volvió), la IA del negocio piensa la primera edición.
   const pedida = useRef(false);
   useEffect(() => {
-    if (pregunta || pedida.current) return;
+    if (pregunta || pedida.current || propuestas.length) return;
     pedida.current = true;
     proponer();
   }, [pregunta]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -236,7 +262,7 @@ function Apertura({ estado, onEstado, onError, onEscribir, onListo }: {
               onMandar={() => { const t = texto.trim(); if (t) responder(t); }} />
           </div>
         }>
-        <HiloMako items={items} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={ahora} escribiendo={ocupado ? { segs: 1 } : null}
+        <HiloMako items={cola.items} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={ahora} escribiendo={ocupado || cola.escribiendo ? { segs: 1 } : null}
           tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} />
         {opciones.length > 0 && (
           <div role="group" aria-label="Respuestas rápidas" className="nl-rapidas">

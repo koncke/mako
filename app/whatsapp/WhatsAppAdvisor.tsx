@@ -14,7 +14,8 @@
 // WhatsApp de ESTE lead, y eso el Cerebro no lo puede hacer. «Usar →» y «Copiar» van en el hueco de cada respuesta de MaKo.
 
 import '@/app/admin/operaciones/centro.css';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { MakoLoader } from '../_components/MakoLoader';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
@@ -126,7 +127,6 @@ export function WhatsAppAdvisor({
     return () => { alive = false; };
   }, [grupo.id]);
 
-  useEffect(() => { if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight; }, [chat, pensando, tab]);
 
   const analizar = async () => {
     if (analizando) return;
@@ -185,6 +185,12 @@ export function WhatsAppAdvisor({
 
   // El hilo del Ops Center: los mensajes por su posición (no traen id), y en cada respuesta de MaKo, «Usar →» y «Copiar».
   const items = useMemo((): ItemHilo[] => chat.map((m, i) => ({ k: 'msg', id: `a${i}`, role: m.role, texto: m.content, at: null })), [chat]);
+  // EL HILO SIGUE AL ÚLTIMO (auditoría de chats del 20/11, pestanas-3 y 4; el gancho común app/_chat/useBajarAlUltimo.ts), por la
+  // clave de la ÚLTIMA fila que se dibuja: la de `nota.conNotas(items)`, con la nota de voz (antes quedaba al pie, fuera de la vista,
+  // porque el scroll miraba la lista propia). Lo que crece (la caja con varias líneas, una foto, un error), mientras está abajo.
+  const seguirHilo = useCallback(() => chatScrollRef.current, []);
+  const filasDelHilo = nota.conNotas(items);
+  useBajarAlUltimo(seguirHilo, `${filasDelHilo[filasDelHilo.length - 1]?.id ?? ''}|${pensando ? 'piensa' : ''}|${tab}`);
   const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
     const i = Number(x.id.slice(1));
     const m = chat[i];

@@ -89,7 +89,10 @@ export async function proponerEdicionAction(): Promise<Ok<{ asunto: string; idea
   try {
     const cfg = await leerConfigNewsletter();
     const anteriores = cfg.funnelId ? (await listarEdiciones(cfg.funnelId).catch(() => [])).map((e) => e.asunto) : [];
-    return await proponerEdicion(cfg, anteriores);
+    const p = await proponerEdicion(cfg, anteriores);
+    // Guardada (auditoría de chats del 20/11, pestanas-11): al recargar, la misma propuesta, sin pedirle otra a la IA.
+    if (p.ok) await guardarConfigNewsletter({ propuestas: [...(cfg.propuestas ?? []), { asunto: p.asunto, idea: p.idea }] }).catch(() => null);
+    return p;
   } catch (e) {
     return mal(e, 'MaKo no pudo proponer la edición.');
   }

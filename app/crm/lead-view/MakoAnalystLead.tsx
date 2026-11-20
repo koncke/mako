@@ -61,7 +61,7 @@ import {
 import { achicarImagen, postConProgreso } from '@/app/m/mako/subir';
 import { useRefrescarFicha } from './ficha-cambio';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
-import { estaAbajo } from '@/lib/centro-caja';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { conWs } from '@/lib/ws-tab';
 // Las clases del hilo y de la caja (`co-…`, `ch-…`) viven en las hojas de las piezas únicas.
 import '@/app/admin/operaciones/centro.css';
@@ -125,8 +125,6 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
   /** Para la píldora del día («Hoy», «Ayer») del hilo. */
   const [ahora] = useState(() => Date.now());
   const hiloRef = useRef<HTMLDivElement>(null);
-  /** ¿Se estaba mirando lo último? Entonces lo nuevo lo sigue (si se subió a leer algo de antes, no se lo mueve). */
-  const abajo = useRef(true);
   const sesionRef = useRef<SesionChat | null>(null);
   /** Los archivos juntados, para decidir afuera de un updater (un updater no avisa errores). */
   const adjuntosRef = useRef<Adjunto[]>([]);
@@ -367,22 +365,12 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
 
   const hayTrabajo = trabajo != null;
 
-  // ¿Se está mirando lo último? Se escucha el scroll del hilo del panel (PanelDeChat no recibe `onScroll`).
-  useEffect(() => {
-    const h = hiloRef.current;
-    if (!h) return;
-    const alMover = () => { abajo.current = estaAbajo(h); };
-    h.addEventListener('scroll', alMover, { passive: true });
-    return () => h.removeEventListener('scroll', alMover);
-  }, []);
-  // Lo nuevo se ve sin buscarlo: el hilo sigue abajo si se estaba mirando lo último, y al abrir la ficha de otro lead.
-  const deLead = useRef(leadId);
-  useLayoutEffect(() => {
-    const h = hiloRef.current;
-    if (!h) return;
-    if (deLead.current !== leadId) { deLead.current = leadId; abajo.current = true; }
-    if (abajo.current) h.scrollTop = h.scrollHeight;
-  }, [items, hayTrabajo, listo, leadId]);
+  // EL HILO SIGUE AL ÚLTIMO (auditoría de chats del 20/11, pestanas-2 y 4; el gancho común app/_chat/useBajarAlUltimo.ts), por la clave
+  // de la ÚLTIMA fila: un mensaje nuevo baja siempre, también el propio con la persona arriba (antes `abajo` frenaba todo); lo que crece
+  // (el error arriba de la caja, una tarjeta), mientras está abajo. Y al abrir la ficha de otro lead.
+  const seguirHilo = useCallback(() => hiloRef.current, []);
+  const ultimaFila = items[items.length - 1];
+  useBajarAlUltimo(seguirHilo, `${leadId}|${ultimaFila ? ultimaFila.id : ''}|${hayTrabajo ? 'trabaja' : ''}|${listo ? 'listo' : ''}`);
 
   // ── Arriba de la caja: las preguntas de arranque (sólo con el hilo vacío) ──
   const vacio = listo && !errorCarga && items.length === 0;
