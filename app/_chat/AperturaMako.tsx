@@ -53,7 +53,8 @@ const nada = () => {};
  * memoria (lib/aperturas/reglas.ts → puedeHablar) y anota lo que decide. `null` mientras no se sabe.
  *   · `libre`: nada encima (MaKo trabajando, algo en el bloque de preguntas, la guía hablando o señalando). Ocupado, calla.
  *   · `escritos`: cuántos mensajes escribió la persona en el chat; uno nuevo con la apertura a la vista la cierra.
- *   · `app` / `iaConectada`: para un `pedir` (sin ellos, el paso que falta: plan.md §2.6). `onPedir` manda el texto al chat.
+ *   · `onPedir` manda el texto de un `pedir` al chat. `app` / `iaConectada` ya no lo frenan (20/11/2026: MaKo contesta con los
+ *     MaKo Tokens; la app de escritorio y su IA son opcionales).
  */
 export function useApertura<H, A extends string>(p: {
   superficie: Superficie<H, A>;
@@ -71,7 +72,7 @@ export function useApertura<H, A extends string>(p: {
   const [cerrada, setCerrada] = useState(false);
   /** Lo que ya habló en esta visita: una vez a la vista, sigue (aunque su «vista» de hoy la callaría en la próxima). */
   const [hablaron, setHablaron] = useState<readonly string[]>([]);
-  /** El pedido que no pudo salir (sin la app o sin su IA), con la clave de la apertura que lo pidió. */
+  /** El pedido que no pudo salir (la pantalla no tiene `onPedir`, o el chat no lo tomó), con la clave de la apertura que lo pidió. */
   const [pendiente, setPendiente] = useState<{ clave: string; texto: string } | null>(null);
   const [saludo, setSaludo] = useState<string | null>(null);
   const [ahora] = useState(() => Date.now());
@@ -91,7 +92,7 @@ export function useApertura<H, A extends string>(p: {
 
   let actual: Apertura<A> | null = null;
   if (memoria && hechos != null && !cerrada) {
-    const sinIA = pend ? pasoSinIA({ superficie: superficie.id, iaConectada: p.iaConectada ?? null, pendiente: { texto: pend.texto } }) as Apertura<A> | null : null;
+    const sinIA = pend ? pasoSinIA({ superficie: superficie.id, pendiente: { texto: pend.texto } }) as Apertura<A> | null : null;
     const a = sinIA ?? superficie.apertura(hechos, r);
     if (a) {
       const clave = claveApertura(a.id, a.entidad ?? p.entidad);
@@ -134,7 +135,8 @@ export function useApertura<H, A extends string>(p: {
         setCerrada(true);
         return;
       case 'pedir': {
-        const puede = p.iaConectada !== false && !!p.onPedir;
+        // Sale aunque falte su IA: MaKo contesta con los MaKo Tokens (20/11/2026; conectar la suya es opcional).
+        const puede = !!p.onPedir;
         if (puede && p.onPedir!(b.pedido)) {
           // Salió: el turno lo toma (su burbuja es la del chat). Un pendiente que salió se borra de la memoria.
           anotarApertura(pend && visible.id.endsWith(':pendiente') ? pend.clave : claveVisible, 'respondida');
@@ -142,7 +144,7 @@ export function useApertura<H, A extends string>(p: {
           setCerrada(true);
           return;
         }
-        // No hay con qué: queda pendiente, y el paso que falta (instalar o conectar) toma su lugar.
+        // No salió: queda pendiente, y «Escríbelo» (`pasoSinIA`) toma su lugar.
         anotarApertura(claveVisible, 'respondida', { pendiente: b.pedido });
         setPendiente({ clave: claveVisible, texto: b.pedido });
         setCharla((xs) => [...xs, dijo]);

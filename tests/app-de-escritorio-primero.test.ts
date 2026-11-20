@@ -79,8 +79,7 @@ test('4. las aperturas y la guía: ningún paso «Instalar MaKo»', () => {
   }
   assert.equal(aperturaOps({ app: 'tiene', iaConectada: false }, { [OPS.ID_IA]: OPS.IA_CLAUDE })?.id, 'ops:ia-conectar');
   const pasoSinIA = suelto(COMUNES, 'pasoSinIA') as (o: object) => { id: string } | null;
-  assert.equal(pasoSinIA({ superficie: 'x', iaConectada: false })?.id, 'x:sin-ia');
-  assert.equal(pasoSinIA({ superficie: 'x', iaConectada: true }), null);
+  assert.equal(pasoSinIA({ superficie: 'x' }), null, 'nada que instalar ni conectar antes de pedir (tests/chat-su-ia-opcional.test.ts)');
   assert.doesNotMatch(sinComentarios(leer('app/_chat/AperturaMako.tsx')), /InstalarMaKo|'instalar'|'bloquea'/);
   const anclas = GUIA_OPS_CENTER.anclas as readonly { id: string; antes?: string }[];
   assert.ok(!anclas.some((a) => a.id === 'mk-instalar' || a.antes === 'mk-instalar'), 'la guía no señala «Instalar MaKo»');

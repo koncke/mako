@@ -13,7 +13,9 @@
 import { ancla } from '@/app/_ui/guia/ancla';
 import { avisoDeIA } from './pantalla-chat';
 
-export const FALTA_IA = 'Conecta tu IA para que MaKo conteste';
+/** Opcional (20/11/2026): MaKo contesta con los MaKo Tokens; su IA usa su suscripción y gasta menos. Hasta ese día decía «Conecta
+ *  tu IA para que MaKo conteste», como si hiciera falta. */
+export const FALTA_IA = 'Opcional: conecta tu IA y gastas menos MaKo Tokens.';
 
 export function AvisoDeIA({ iaConectada, onConectar }: {
   iaConectada: boolean | null | undefined;

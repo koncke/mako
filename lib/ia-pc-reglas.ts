@@ -942,7 +942,9 @@ export function resumenDeCuentas(
   if (!estado) return { linea: leido ? 'No pude leer tus cuentas: ábrelas para volver a intentar.' : 'Leyendo tus cuentas…', tono: 'apagado' };
   const cuentas = estado.grupos?.cuentas.length ?? 0;
   const sinCuenta = estado.grupos?.sinCuenta.length ?? 0;
-  if (!cuentas && !sinCuenta) return { linea: 'Conecta tu Claude o tu GPT: con eso contesta tu Ops Center.', tono: 'ojo' };
+  // Opcional (20/11/2026): el Ops Center contesta con los MaKo Tokens; su Claude o su GPT usan su suscripción y gastan menos.
+  // Hasta ese día decía «con eso contesta tu Ops Center», como si hiciera falta, y en color de alerta.
+  if (!cuentas && !sinCuenta) return { linea: 'Opcional: conecta tu Claude o tu GPT y gastas menos MaKo Tokens.', tono: 'apagado' };
   if (!cuentas) return { linea: 'Tu computadora está conectada, pero su Claude no tiene la sesión iniciada.', tono: 'ojo' };
   const enLinea = estado.pcs.filter((p) => p.enLinea && p.cuentas.length > 0).length;
   const deCuentas = `${cuentas} ${cuentas === 1 ? 'cuenta' : 'cuentas'}`;
