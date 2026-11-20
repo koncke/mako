@@ -21,8 +21,8 @@
 // ⚠️ SIN HOOKS y sin ids de SVG (nada de gradientes con `id`): lo dibujan el server (loading.tsx), la computadora y el
 // teléfono, y dos muñecos en la misma pantalla no pueden pisarse un `id`.
 
-import type { CSSProperties } from 'react';
-import { aspectoDe, type Aspecto, type CaraMuneco, type Forma } from '@/lib/centro-munecos';
+import type { CSSProperties, ReactElement } from 'react';
+import { aspectoDe, type Aspecto, type CaraMuneco, type Forma, type IconoDeChat } from '@/lib/centro-munecos';
 import { Retrato } from './Retratos';
 
 export { aspectoDe, COLORES, FORMAS } from '@/lib/centro-munecos';
@@ -167,26 +167,59 @@ function desfaseDe({ forma, color, cara, retrato }: Aspecto): string {
   return `-${(h % 37) / 10}s`;
 }
 
-/** EL ÍCONO DE LA APP DE MAKO (20/11, la llamada con Leila: la criatura queda sólo para el Ops Center): la baldosa oscura con la
- *  chispa dorada de MakoLogo (app/_components/MakoBrand.tsx, la foto de la línea), en el viewBox del muñeco. Sin la animación de
- *  entrada ni los gradientes con `id` de MakoLogo: esta pieza no lleva hooks ni ids (ver arriba). */
-const CHISPA = 'M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z';
-function IconoAppMako({ size, style }: { size: number; style?: CSSProperties }) {
+/** LOS AVATARES QUE NO SON CRIATURAS (20/11/2026, el Cerebro; la llamada con Leila, 00:39:14: «la criatura de Mako está reservada
+ *  únicamente para Ops Center»). Los pide `aspecto.icono` (ASPECTO_RETO / ASPECTO_GRUPO, lib/centro-munecos.ts), en el viewBox del
+ *  muñeco. Sin hooks ni ids (ver arriba): el degradé del reto es el FONDO CSS del propio SVG, no un <linearGradient> con `id`.
+ *  Dibujados primero en un artefacto (https://claude.ai/artifact/6ixE1LC5s1Pe8bAYrfpCH4): lista 38, cabecera 34, burbuja 26. */
+/** El degradé cálido de MaKo, de amarillo a naranja. Fijo: la hoja es blanca en los dos temas. */
+const FONDO_RETO = 'linear-gradient(150deg, #F8CB63 0%, #F2B01E 52%, #EC8A1F 100%)';
+function AvatarDelReto({ size, style }: { size: number; style?: CSSProperties }) {
   return (
-    <svg className="mun mun--app" width={size} height={size} viewBox="0 0 40 40" aria-hidden style={{ flex: 'none', display: 'block', ...style }}>
-      <rect x="1.25" y="1.25" width="37.5" height="37.5" rx="10.8" fill="#211D16" stroke="var(--mako)" strokeOpacity="0.35" strokeWidth="0.85" />
-      <g transform="translate(20 20) scale(1.29)"><path d={CHISPA} fill="var(--mako)" /></g>
+    <svg className="mun mun--reto" width={size} height={size} viewBox="0 0 40 40" aria-hidden
+      style={{ flex: 'none', display: 'block', borderRadius: '50%', background: FONDO_RETO, ...style }}>
+      {/* La hoja de calendario: su sombra (la misma hoja corrida, sin un filtro que pediría un id), la hoja, su franja y sus dos anillos. */}
+      <rect x="10.5" y="9.9" width="19" height="22.6" rx="3.6" fill="#7A3E00" opacity="0.2" />
+      <rect x="10.5" y="8.9" width="19" height="22.6" rx="3.6" fill="#fff" />
+      <path d="M10.5 12.5a3.6 3.6 0 0 1 3.6-3.6h11.8a3.6 3.6 0 0 1 3.6 3.6v1.5h-19z" fill="#E9781C" />
+      <rect x="14.5" y="7.2" width="1.9" height="3.8" rx="0.95" fill="#5A3305" />
+      <rect x="23.6" y="7.2" width="1.9" height="3.8" rx="0.95" fill="#5A3305" />
+      <text x="20" y="25.2" textAnchor="middle" fontSize="12.5" fontWeight="800" fill="#2E2312">7</text>
+      <text x="20" y="29.6" textAnchor="middle" fontSize="3.9" fontWeight="700" fill="#8F6709">días</text>
     </svg>
   );
 }
+/** El de un grupo de WhatsApp sin foto: tres siluetas blancas en un círculo gris claro. El gris cambia con el tema
+ *  (--avatar-grupo-fondo / --avatar-grupo-figura, app/globals.css). La del frente lleva un borde del color del fondo: así se separa de
+ *  las de atrás, que son del mismo blanco. También es la foto del grupo en el teléfono (FotoDelGrupo, app/m/second-brain/FilasDelGrupoM.tsx). */
+export function AvatarDelGrupo({ size, style }: { size: number; style?: CSSProperties }) {
+  const fondo = 'var(--avatar-grupo-fondo, #DFE5E7)';
+  return (
+    <svg className="mun mun--grupo" width={size} height={size} viewBox="0 0 40 40" aria-hidden style={{ flex: 'none', display: 'block', ...style }}>
+      <circle cx="20" cy="20" r="20" fill={fondo} />
+      <g fill="var(--avatar-grupo-figura, #FFFFFF)">
+        <g opacity="0.8">
+          <circle cx="11.6" cy="17.6" r="3.3" />
+          <path d="M5.4 30.5v-2a6.2 5.8 0 0 1 12.4 0v2z" />
+          <circle cx="28.4" cy="17.6" r="3.3" />
+          <path d="M22.2 30.5v-2a6.2 5.8 0 0 1 12.4 0v2z" />
+        </g>
+        <g stroke={fondo} strokeWidth="1.6">
+          <circle cx="20" cy="15.4" r="4.6" />
+          <path d="M12.4 30.5v-2.2a7.6 7 0 0 1 15.2 0v2.2z" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+const ICONOS: Record<IconoDeChat, (p: { size: number; style?: CSSProperties }) => ReactElement> = { reto: AvatarDelReto, grupo: AvatarDelGrupo };
 
 /** El muñeco de un empleado. `titulo` decide cómo es (o `aspecto`, si Martín eligió otro); el estado, los ojos;
  *  `espera`, el globito de las tarjetas de la Ticketera que esperan una respuesta de Martín. */
 export function Muneco({ titulo, animo, size = 40, espera = 0, style, aspecto }: {
   titulo: string; animo: Animo; size?: number; espera?: number; style?: CSSProperties; aspecto?: Aspecto | null;
 }) {
-  // El ícono de la app de MaKo (ASPECTO_APP_MAKO: el chat del reto), antes del título: «MaKo» sería la criatura.
-  if (aspecto?.app) return <IconoAppMako size={size} style={style} />;
+  // El avatar del reto o del grupo (`aspecto.icono`), antes del título: «MaKo» sería la criatura.
+  if (aspecto?.icono) { const Icono = ICONOS[aspecto.icono]; return <Icono size={size} style={style} />; }
   const { forma, color, cara, retrato } = aspectoDe(titulo, aspecto);
   const [bx, by] = GEO[forma].brillo;
   return (

@@ -20,12 +20,19 @@ Lo pedido por Martín (Fathom 205366178, 00:29:00): al terminar el video del dí
   el video de hoy, marca lo que falta como al terminarlo. No lo anota como visto, porque un manifiesto que no llegó también viene vacío.
   **Regla:** antes de sacar una pieza de la pantalla, busca qué decisión cumplía.
 - **El ícono de videos, lo último a la derecha de la cabecera** (00:31:46). Gana sobre el orden de la maqueta, que tenía un test.
-- **El reto sin la criatura** (00:39:14). Lleva el ícono de la app, `ASPECTO_APP_MAKO` (lib/centro-munecos.ts), que se aplica con
-  el patrón de `retrato`: un campo del aspecto que no se elige ni se guarda. Aparece en la fila, la cabecera, las burbujas (y los
-  puntitos, que son burbujas), la entrada de cada día y la llegada. Hubo dos trampas:
-  - `aspectoDe` fuerza la criatura para el título «MaKo». Pasar otro aspecto no alcanzaba: `Muneco` mira `app` antes que el título.
-  - `Muneco` no lleva hooks ni ids de SVG, porque lo dibujan el server y varios a la vez. Por eso no importa `MakoLogo` (useId y
-    gradientes con id): dibuja la misma baldosa y la misma chispa en su viewBox, con colores lisos.
+- **El reto y el grupo sin la criatura** (00:39:14). Primero el reto llevó la baldosa de la app; esa noche el Cerebro decidió un
+  avatar propio para cada uno: `ASPECTO_RETO` (degradé amarillo a naranja con la hoja «7 días») y `ASPECTO_GRUPO` (el de un grupo
+  de WhatsApp: siluetas blancas en un círculo gris). Los dos van en `aspecto.icono` (lib/centro-munecos.ts), con el patrón de
+  `retrato`: un campo del aspecto que no se elige ni se guarda. El reto lo lleva en la fila, la cabecera, las burbujas (y los
+  puntitos, que son burbujas), la entrada de cada día y la llegada. El grupo, en la fila (y su espera), la cabecera, la portada y
+  la foto del teléfono, que antes era otro ícono (personas en verde). Hubo tres trampas:
+  - `aspectoDe` fuerza la criatura para el título «MaKo». Pasar otro aspecto no alcanzaba: `Muneco` mira `icono` antes que el título.
+  - `Muneco` no lleva hooks ni ids de SVG, porque lo dibujan el server y varios a la vez. Un degradé pide un `<linearGradient id>`;
+    el del reto va como FONDO CSS del propio `<svg>` (`border-radius: 50%` + `background: linear-gradient(…)`), sin ningún id.
+  - El teléfono tenía SU foto del grupo (`FotoDelGrupo`) aparte de la de la computadora: cambiar sólo `FilasDelGrupo` dejaba dos
+    avatares distintos para el mismo grupo. Ahora `FotoDelGrupo` dibuja `AvatarDelGrupo`.
+  Lo que quedó sin hacer: las burbujas de MaKo DENTRO del grupo (`QUIEN`, app/_chat/grupo/HiloDelGrupo.tsx) siguen con la
+  criatura, porque ahí MaKo habla como un miembro más. Si el Cerebro decide que también cambian, es esa línea.
   - El test lo prueba sobre lo dibujado (renderToStaticMarkup), no sobre el texto: tests/reto-icono-app.test.ts.
 - **«Toca aquí» siempre marca** (00:32:37). Las reglas de las pausas del 20/11 dejaban pasar, sin pausar, una frase cuya marca no
   estaba. La voz decía «toca aquí» sin recuadro en dos casos:

@@ -40,18 +40,23 @@ export const CARAS = ['sonrisa', 'risa', 'dientes', 'tranquila', 'asombro', 'len
 const DE_SIEMPRE = { formas: FORMAS.slice(0, 7), caras: CARAS.slice(0, 6) } as const;
 export type CaraMuneco = (typeof CARAS)[number];
 /** `retrato`: un referente (lib/asesores/catalogo.ts): se dibuja su retrato (app/admin/operaciones/Retratos.tsx) en vez del cuerpo y
- *  la cara. No se elige con las piezas ni se guarda acá: `sanearAspecto` no lo deja pasar. `app`: el ícono de la app de MaKo (abajo),
- *  con la misma regla. */
-export type Aspecto = { forma: Forma; color: Color; cara: CaraMuneco; retrato?: IdAsesor; app?: true };
+ *  la cara. No se elige con las piezas ni se guarda acá: `sanearAspecto` no lo deja pasar. `icono`: un avatar que NO es una criatura
+ *  (el del reto o el del grupo, abajo), con la misma regla. */
+export type Aspecto = { forma: Forma; color: Color; cara: CaraMuneco; retrato?: IdAsesor; icono?: IconoDeChat };
+/** Los avatares que no son criaturas: los dibuja `Muneco` (app/admin/operaciones/Muneco.tsx) en vez del cuerpo y la cara. */
+export type IconoDeChat = 'reto' | 'grupo';
 export type MunecosElegidos = Record<string, Aspecto>;
 /** La criatura de MaKo: la estrella dorada, sonriendo. Desde el 20/11 (la llamada con Leila, 00:39:14: «la criatura de Mako está
  *  reservada únicamente para Ops Center»), sólo para el Ops Center. */
 export const ASPECTO_MAKO: Aspecto = { forma: FORMA_MAKO, color: COLOR_MAKO, cara: 'sonrisa' };
-/** EL ÍCONO DE LA APP DE MAKO (20/11, la llamada con Leila; el ícono lo eligió el Cerebro): la baldosa oscura con la chispa dorada, el
- *  mismo de la foto de la línea de WhatsApp (MakoLogo, app/_components/MakoBrand.tsx). Lo lleva el chat del reto, que para Martín es
- *  «el nuevo grupo de WhatsApp»: la fila, la cabecera, las burbujas, los puntitos, la entrada de cada día y la llegada. Lo dibuja
- *  `Muneco` en vez del cuerpo y la cara, antes de mirar el título (un «MaKo» sería la criatura). */
-export const ASPECTO_APP_MAKO: Aspecto = { ...ASPECTO_MAKO, app: true };
+/** EL AVATAR DEL RETO (20/11/2026, el Cerebro; antes, el mismo día, la baldosa de la app de MaKo): un círculo con el degradé cálido
+ *  de MaKo y una hoja de calendario blanca con un «7» grande y «días» chico. Lo lleva TODO el chat del reto: la fila de la lista, la
+ *  cabecera, las burbujas, los puntitos, la entrada de cada día y la llegada. `Muneco` lo dibuja antes de mirar el título (un «MaKo»
+ *  sería la criatura, que desde la llamada con Leila es sólo del Ops Center). */
+export const ASPECTO_RETO: Aspecto = { ...ASPECTO_MAKO, icono: 'reto' };
+/** EL AVATAR DEL GRUPO «MaKo <> negocio» (20/11/2026, el Cerebro): el de un grupo de WhatsApp sin foto, un círculo gris claro con
+ *  siluetas blancas. En la fila de la lista y en la cabecera de ese chat, sin la criatura. */
+export const ASPECTO_GRUPO: Aspecto = { ...ASPECTO_MAKO, icono: 'grupo' };
 /** La criatura de un chat con un referente al frente: su caricatura. */
 export const aspectoDeReferente = (retrato: IdAsesor): Aspecto => ({ forma: 'circulo', color: '--grafo-voz', cara: 'sonrisa', retrato });
 

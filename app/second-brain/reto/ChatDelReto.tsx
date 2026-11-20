@@ -26,7 +26,7 @@ import type { Desde } from '@/lib/chat-desde';
 import { tutorialDe } from '@/lib/tutoriales';
 import { BotonTutoriales, CatalogoTutoriales, CSS_CATALOGO } from './CatalogoTutoriales';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
-import { ASPECTO_APP_MAKO } from '@/lib/centro-munecos';
+import { ASPECTO_RETO } from '@/lib/centro-munecos';
 import { linkWaMe } from '@/lib/verificacion-entrante';
 import { PARA_TODOS } from '@/lib/onboarding-v2/revision';
 import {
@@ -229,7 +229,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     return () => { vivo = false; };
   }, []);
   // «Escribe a Reto de 7 días» (d24-17), como todo chat: la caja lleva el nombre del chat.
-  const quienMako = useMemo(() => ({ nombre: RETO_TITULO, aspecto: ASPECTO_APP_MAKO }), []);
+  const quienMako = useMemo(() => ({ nombre: RETO_TITULO, aspecto: ASPECTO_RETO }), []);
   const k = useChatCliente({ elegido, setElegido, activo: false, entrarAlCerebro: false, chatInicial: null, opcionArmar: '', busca: '', caja: campo, desde: DESDE_RETO, tab: TAB_RETO, quien: quienMako, offerDirecto: false });
   // El catálogo «Tutoriales de MaKo» (V1, D1-07): el ícono de videos cambia los mensajes por todos los videos, con «Volver al chat».
   const [catalogo, setCatalogo] = useState(false);
@@ -536,7 +536,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
   if (telefono) return <RetoEnElTelefono nombre={nombre} />;
   return (
     <PanelDeChat hilo={hilo}
-      cabecera={{ clave: 'reto-7-dias', titulo: RETO_TITULO, aspecto: ASPECTO_APP_MAKO, animo: 'despierto', onVolver,
+      cabecera={{ clave: 'reto-7-dias', titulo: RETO_TITULO, aspecto: ASPECTO_RETO, animo: 'despierto', onVolver,
         // Al lado del desplegable, lo fijado del chat y los tutoriales (D1-17 y d24-17; la maqueta, pinsHtml): sus mensajes y sus videos,
         // a la DERECHA (margin-left: auto). EL ÍCONO DE VIDEOS, LO ÚLTIMO (20/11, la llamada con Leila, 00:31:46: «el icono de video
         // siempre a la derecha»): gana sobre el orden de la maqueta, que lo ponía antes del pin.
@@ -710,7 +710,7 @@ export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy =
     return (
       <>
         <p className="co-dia">Día {dia.n} de 7{fecha ? ` · ${fecha}` : ''}</p>
-        <EntradaEscribiendo foto={<Muneco titulo="MaKo" aspecto={ASPECTO_APP_MAKO} animo="despierto" size={26} />} quien="MaKo" />
+        <EntradaEscribiendo foto={<Muneco titulo="MaKo" aspecto={ASPECTO_RETO} animo="despierto" size={26} />} quien="MaKo" />
       </>
     );
   }

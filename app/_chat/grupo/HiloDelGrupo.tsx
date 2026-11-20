@@ -20,7 +20,7 @@ import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 import { Icon } from '@/app/_components/icons';
 // Directo y no desde el índice de app/_ui (ver app/_ui/CargandoMako.tsx).
 import { CargandoMako } from '@/app/_ui/CargandoMako';
-import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { ASPECTO_GRUPO, ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { SIN_MARCAS } from '@/lib/centro-mensajes';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { FRASES_DEL_GRUPO, itemsDelGrupo, mensajePorIdDeFila, quePuede } from './pantalla';
@@ -51,11 +51,11 @@ function enMensajeDeMako(x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null {
   };
 }
 
-/** Una portada: la criatura y una frase, con su botón si lo hay. */
+/** Una portada: la foto del grupo (sin la criatura, 20/11/2026) y una frase, con su botón si lo hay. */
 function Portada({ titulo, detalle, children }: { titulo: string; detalle?: string; children?: ReactNode }) {
   return (
     <div className="co-portada" role="status">
-      <Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo="despierto" size={76} />
+      <Muneco titulo="MaKo" aspecto={ASPECTO_GRUPO} animo="despierto" size={76} />
       <p className="co-portada__nombre">{titulo}</p>
       {detalle && <p className="co-portada__dato">{detalle}</p>}
       {children}

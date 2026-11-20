@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
-import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { ASPECTO_GRUPO } from '@/lib/centro-munecos';
 import { CajaDelGrupo } from '@/app/_chat/grupo/CajaDelGrupo';
 import { HiloDelGrupo } from '@/app/_chat/grupo/HiloDelGrupo';
 import { Participantes, useMiembrosDelGrupo } from '@/app/_chat/grupo/Participantes';
@@ -53,7 +53,7 @@ export function ChatDelGrupo({ ws, grupo, visible = true, onVolver, onLeido, onC
     <>
       <PanelDeChat hilo={hilo}
         cabecera={{
-          clave: `grupo-${ws}`, titulo, criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: k.pensando ? 'trabajando' : 'despierto', onVolver,
+          clave: `grupo-${ws}`, titulo, criatura: 'MaKo', aspecto: ASPECTO_GRUPO, animo: k.pensando ? 'trabajando' : 'despierto', onVolver,
           // Como WhatsApp: debajo del nombre, quiénes están; a la derecha del todo, Invitar y Participantes (como «Second Brain de …» en los otros chats).
           subtitulo: miembros.datos && k.estado !== 'fuera' ? quienesEstan(miembros.datos.participantes) : undefined,
           acciones: k.estado === 'fuera' ? undefined : (
