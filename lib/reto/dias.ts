@@ -265,6 +265,8 @@ const COLUMNA_DEL_FUNNEL: Readonly<Record<string, keyof typeof POR_FUNNEL>> = {
 // Lo acordado el 16/11: «sólo las de lo que eligió». Hasta 3, sin repetir, con su «para». Con las claves de lib/integraciones-catalogo.ts
 // (la tarjeta de cada una en Settings › Integraciones lleva `marcaIntegracion(clave)`). Google Calendar no va: es la tarea del día 3.
 export type IntegracionReto = { key: string; nombre: string; para: string };
+/** El mensaje de MaKo antes de la extensión, en el día 2 en pasos (la maqueta, D2_EXT; d24-08). */
+export const RETO_D2_EXT = 'Ahora la extensión de MaKo para Chrome: te acompaña mientras navegas.';
 /** El mensaje de MaKo antes de la tarjeta «Te falta integrar esto» (la maqueta, D2_INT). */
 export const RETO_D2_INT = 'Por lo que elegiste con Offer Coach y Funnel Coach, te falta integrar esto. Se conecta en Settings, en Integraciones: te muestro dónde.';
 const NOMBRE_INTEGRACION: Readonly<Record<string, string>> = {
@@ -307,14 +309,12 @@ export function diasDelReto(funnel?: string | null, integraciones: readonly Inte
   const col = funnel ? COLUMNA_DEL_FUNNEL[funnel] : undefined;
   const F = col ? POR_FUNNEL[col] : null;
   const t2 = DIAS_RETO[1].tareas.find((t) => t.id === 'integraciones')!;
-  const cambia: Record<number, Record<string, Partial<TareaReto>>> = {
-    2: { integraciones: tareaDeIntegraciones(t2, integraciones) },
-    ...(F ? {
-      4: { spy: { detalle: F.spy }, web: { titulo: F.web } },
-      5: { carrusel: { titulo: F.carrusel }, guion: { titulo: F.guion } },
-      6: { clip: { detalle: F.clip } },
-    } : {}),
-  };
+  const cambia: Record<number, Record<string, Partial<TareaReto>>> = { 2: { integraciones: tareaDeIntegraciones(t2, integraciones) } };
+  if (F) {
+    cambia[4] = { spy: { detalle: F.spy }, web: { titulo: F.web } };
+    cambia[5] = { carrusel: { titulo: F.carrusel }, guion: { titulo: F.guion } };
+    cambia[6] = { clip: { detalle: F.clip } };
+  }
   return DIAS_RETO.map((d) => (cambia[d.n] ? { ...d, tareas: d.tareas.map((t) => ({ ...t, ...(cambia[d.n][t.id] ?? {}) })) } : d));
 }
 
@@ -345,7 +345,15 @@ export type EstadoReto = { v: 1; inicio: string; adelantado: number; hechas: Rec
   pro?: Partial<Record<string, { desde: string; hasta: string }>>;
   /** El último día del que salió el correo «Día N del reto de MaKo», de antes del 20/11. Ya no se escribe: lo que sale va en
    *  `reto.avisos` (lib/reto/avisos.ts), que arranca desde éste. */
-  avisado?: number };
+  avisado?: number;
+  /**
+   * La zona horaria de la persona (la del navegador al empezar, IANA: «America/Mexico_City»; 20/11, auditoría R57-20). Cada día se
+   * abre a SU hora en SU zona. Sin zona (un reto de antes), la de Argentina. Se guarda sólo al empezar: cambiarla a mitad del reto
+   * podría cerrar un día ya abierto.
+   */
+  zona?: string;
+  /** Cuándo se vio abierto cada día por primera vez («3» → ISO; 20/11, R57-F3): la fecha que lo separa en el hilo. */
+  abiertoEl?: Record<string, string> };
 
 export const CLAVE_RETO = 'reto.estado';
 export const HORAS_WA = ['8:00', '9:00', '10:00', '12:00', '15:00', '18:00', '20:00'] as const;
@@ -363,6 +371,9 @@ export function leerEstado(crudo: unknown): EstadoReto | null {
   const horaWa = typeof e.horaWa === 'string' && (HORAS_WA as readonly string[]).includes(e.horaWa) ? e.horaWa : undefined;
   const avisado = Number.isInteger(e.avisado) ? Math.max(1, Math.min(7, Number(e.avisado))) : undefined;
   const adelantadoEn = typeof e.adelantadoEn === 'string' && !Number.isNaN(Date.parse(e.adelantadoEn)) ? e.adelantadoEn : undefined;
+  const zona = typeof e.zona === 'string' && zonaValida(e.zona) ? e.zona : undefined;
+  const abiertoEl: Record<string, string> = {};
+  for (const [k, v] of Object.entries(e.abiertoEl && typeof e.abiertoEl === 'object' ? e.abiertoEl : {})) if (/^[1-7]$/.test(k) && typeof v === 'string' && !Number.isNaN(Date.parse(v))) abiertoEl[k] = v;
   const leidas: Record<string, string> = {};
   for (const [k, v] of Object.entries(e.leidas && typeof e.leidas === 'object' ? e.leidas : {})) if (/^\d:[a-z-]+$/.test(k) && typeof v === 'string' && v) leidas[k] = v.slice(0, 200);
   // Sin `leidas` es un reto de antes del 20/11: sus «hechas» salían de tocar la pestaña y no prueban nada. Se vuelven a leer.
@@ -377,21 +388,58 @@ export function leerEstado(crudo: unknown): EstadoReto | null {
     if (/^[a-z-]{2,30}$/.test(k) && typeof u?.desde === 'string' && typeof u?.hasta === 'string' && !Number.isNaN(Date.parse(u.desde)) && !Number.isNaN(Date.parse(u.hasta))) pro[k] = { desde: u.desde, hasta: u.hasta };
   }
   return { v: 1, inicio: e.inicio, adelantado, hechas: confiables, leidas, ...(dia1Desde ? { dia1Desde } : {}), ...(muestras.length ? { muestras } : {}),
-    ...(despues.length ? { despues } : {}), ...(manana ? { manana } : {}), ...(Object.keys(pro).length ? { pro } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}) };
+    ...(despues.length ? { despues } : {}), ...(manana ? { manana } : {}), ...(Object.keys(pro).length ? { pro } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}), ...(zona ? { zona } : {}), ...(Object.keys(abiertoEl).length ? { abiertoEl } : {}) };
 }
 
-/** La hora de Argentina (la de MaKo), UTC−3. */
+/** La hora de Argentina (la de MaKo), UTC−3: la de un reto sin zona. */
 const HORA_AR = -3;
-/** El día de calendario de Argentina de un instante (días desde 1970). */
-const diaAr = (ms: number) => Math.floor((ms + HORA_AR * 3_600_000) / 86_400_000);
-/** La hora (con minutos, en horas) de Argentina de un instante. */
-const horaAr = (ms: number) => (((ms + HORA_AR * 3_600_000) % 86_400_000) + 86_400_000) % 86_400_000 / 3_600_000;
+const FORMATOS = new Map<string, Intl.DateTimeFormat>();
+function formatoDe(zona: string): Intl.DateTimeFormat {
+  let x = FORMATOS.get(zona);
+  if (!x) { x = new Intl.DateTimeFormat('en-US', { timeZone: zona, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }); FORMATOS.set(zona, x); }
+  return x;
+}
+/** ¿Es una zona horaria que el navegador y el server entienden? (IANA: «America/Bogota»). */
+export function zonaValida(z: string): boolean {
+  if (!/^[A-Za-z][A-Za-z0-9_+\-]*(\/[A-Za-z0-9_+\-]+){0,2}$/.test(z) || z.length > 60) return false;
+  try { formatoDe(z); return true; } catch { return false; }
+}
+/** Cuántas horas está la zona respecto de UTC en ese instante (con su horario de verano). Sin zona, Argentina. */
+export function desfaseHoras(ms: number, zona?: string): number {
+  if (!zona) return HORA_AR;
+  try {
+    const p = Object.fromEntries(formatoDe(zona).formatToParts(ms).map((x) => [x.type, x.value]));
+    const local = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour), Number(p.minute));
+    return (local - Math.floor(ms / 60_000) * 60_000) / 3_600_000;
+  } catch { return HORA_AR; }
+}
+/** El día de calendario de un instante en esa zona (días desde 1970). */
+const diaEn = (ms: number, zona?: string) => Math.floor((ms + desfaseHoras(ms, zona) * 3_600_000) / 86_400_000);
+/** La hora (con minutos, en horas) de un instante en esa zona. */
+const horaEn = (ms: number, zona?: string) => (((ms + desfaseHoras(ms, zona) * 3_600_000) % 86_400_000) + 86_400_000) % 86_400_000 / 3_600_000;
+
+/** La fecha de un día del hilo (la maqueta, R57-F3): «Hoy», «Ayer» o «Jueves 19 de noviembre», en SU zona. */
+export function rotuloDelDia(t: number, ahora: number, zona?: string): string {
+  const d = diaEn(ahora, zona) - diaEn(t, zona);
+  if (d <= 0) return 'Hoy';
+  if (d === 1) return 'Ayer';
+  const x = new Date(t).toLocaleDateString('es', { timeZone: zona ?? 'America/Argentina/Buenos_Aires', weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '');
+  return x.charAt(0).toUpperCase() + x.slice(1);
+}
+
+/** El día 1 del reto es el primero de la prueba (20/11, auditoría R57-19): la prueba cobra el día 8, así el día 7 y su audio caen
+ *  justo antes del cobro, aunque el chat del reto se abra días después. `cobro`: el del primer cobro (`estadoDePrueba().hasta`). */
+export const DIAS_DE_PRUEBA = 7;
+export function inicioConLaPrueba(ahora: number, cobro: string | null | undefined): number {
+  const c = cobro ? Date.parse(cobro) : NaN;
+  return Number.isFinite(c) ? Math.min(ahora, c - DIAS_DE_PRUEBA * 86_400_000) : ahora;
+}
 const horaDe = (h: string | undefined) => { const m = /^(\d{1,2}):(\d{2})$/.exec(h ?? '9:00'); return m ? Number(m[1]) + Number(m[2]) / 60 : 9; };
 
 /** Cuántos días se abrieron por calendario desde un momento: uno por cada día de calendario siguiente, a la hora del aviso. */
-function abiertosDesde(desde: number, horaWa: string | undefined, ahora: number): number {
-  const pasados = diaAr(ahora) - diaAr(desde);
-  return pasados <= 0 ? 0 : pasados - (horaAr(ahora) < horaDe(horaWa) ? 1 : 0);
+function abiertosDesde(desde: number, horaWa: string | undefined, ahora: number, zona?: string): number {
+  const pasados = diaEn(ahora, zona) - diaEn(desde, zona);
+  return pasados <= 0 ? 0 : pasados - (horaEn(ahora, zona) < horaDe(horaWa) ? 1 : 0);
 }
 
 /**
@@ -400,8 +448,8 @@ function abiertosDesde(desde: number, horaWa: string | undefined, ahora: number)
  * adelantado (`adelantadoEn`): adelantar el 2 y el 3 el lunes abre el 4 el martes.
  */
 export function diaAbierto(e: EstadoReto, ahora: number): number {
-  const porCalendario = 1 + abiertosDesde(Date.parse(e.inicio), e.horaWa, ahora);
-  const desdeAdelanto = e.adelantado + (e.adelantadoEn ? abiertosDesde(Date.parse(e.adelantadoEn), e.horaWa, ahora) : 0);
+  const porCalendario = 1 + abiertosDesde(Date.parse(e.inicio), e.horaWa, ahora, e.zona);
+  const desdeAdelanto = e.adelantado + (e.adelantadoEn ? abiertosDesde(Date.parse(e.adelantadoEn), e.horaWa, ahora, e.zona) : 0);
   return Math.max(1, Math.min(7, Math.max(porCalendario, desdeAdelanto)));
 }
 
@@ -417,14 +465,24 @@ export const diaTerminado = (e: EstadoReto, d: DiaReto) => d.tareas.every((t) =>
 /** El cierre de cada día (la maqueta, FIN_DIA y FIN_DIA1). `falta`: lo que dejó para después. Sin «te escribo»: el aviso por WhatsApp
  *  de cada mañana todavía no existe (auditoría D1-04, es del chat de WhatsApp); lo cierto es que el día se abre a esa hora, aquí. */
 /** Lo que falta, dicho para «te falta…» (la maqueta, `falta` de cada tarea): el título es una orden («Conecta tu calendario»). */
+/** Lo que sigue al cierre del reto (la maqueta, PILOTO): según su funnel, cuándo se prende el piloto automático. */
+const FUNNELS_CON_ANUNCIOS: ReadonlySet<string> = new Set(['anuncios', 'anuncios-a-vsl', 'anuncios-a-whatsapp']);
+export const RETO_PILOTO = (funnel?: string | null): string => (FUNNELS_CON_ANUNCIOS.has(funnel ?? '')
+  ? 'El piloto automático lo prendemos cuando tus anuncios estén corriendo: te aviso.'
+  : 'El piloto automático lo prendemos cuando publiques tu primera semana: te aviso.');
 const FALTA_TAREA: Readonly<Record<string, string>> = {
   app: 'instalar la app de MaKo en tu teléfono', extension: 'la extensión de MaKo para Chrome', onboarding: 'tu onboarding', offer: 'tu oferta', funnel: 'tu sistema de adquisición', integraciones: 'conectar tus integraciones',
   perfil: 'tu perfil y tu foto', contactos: 'cargar tus clientes en el CRM', automatizacion: 'tu primera automatización',
   calendar: 'conectar tu calendario', spy: 'agregar a tus competidores', web: 'tu página', carrusel: 'tu carrusel', guion: 'tu guion',
   personaje: 'tu personaje con IA', clip: 'tu clip de regalo', copilot: 'abrir tu Marketing CoPilot', semana: 'tu semana en el Plan',
 };
-/** `falta`: los ids de las tareas que dejó para después. */
+/** `falta`: los ids de las tareas que dejó para después (el día 7: todo lo que quedó sin hacer del reto, para nombrarlo). */
 export function finDelDia(d: DiaReto, siguiente: DiaReto | undefined, hora: string, nombre: string, falta: string[]): string {
+  // El cierre del reto (20/11, auditoría R57-08; la maqueta, FIN_RETO): al terminar el día 7, aunque quede algo, y lo nombra.
+  if (d.n === 7) {
+    const queda = falta.length ? ` Te queda pendiente ${enLista(falta.map((id) => FALTA_TAREA[id] ?? id))}: lo retomas cuando quieras.` : '';
+    return `¡Terminaste tu reto de 7 días${nombre ? `, ${nombre}` : ''}! Tu negocio ya está armado en MaKo.${queda}`;
+  }
   if (d.n === 1) return `¡Terminaste tu día 1${nombre ? `, ${nombre}` : ''}! Tu oferta y tu sistema de adquisición ya están. El día 2 es conectar todo: si quieres, lo adelantas ahora.`;
   const sigue = siguiente ? ` Mañana a las ${hora} sigue el día ${siguiente.n}: ${siguiente.titulo.charAt(0).toLowerCase()}${siguiente.titulo.slice(1)}.` : '';
   return falta.length ? `Tu día ${d.n} quedó casi listo: te falta ${falta.map((id) => FALTA_TAREA[id] ?? id).join(' y ')}.${sigue}` : `¡Listo tu día ${d.n}!${sigue}`;

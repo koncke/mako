@@ -3540,3 +3540,21 @@ filas de los coaches tachaban el día 1 entero.
   (d24-21), el cierre del reto con el piloto (R57-08), el inicio con la prueba (R57-19), la zona horaria (R57-20), la fecha y la hora
   del hilo (R57-F3, f24-07), el teléfono (f24-01, R57-F5), el Plan (d24-22) y el video con marcas en el mensaje (d24-10, R57-21, V4: el
   motor, MotorTutorial.tsx, no es de este chat). La tabla de cada ID: la carpeta de notas del Cerebro, `auditoria-estado-reto.md`.
+
+## El reto contra la maqueta, tandas 8 y 9: los tipos que la PC no ve y las rutas que arrastra un import (20/11/2026, chat «reto-tutoriales», claude5)
+
+- **Un spread condicional dentro de un `Record` tipado da TS2322** (`{ 2: …, ...(F ? { 4: …, 5: … } : {}) }` deja claves opcionales con
+  `undefined`). Los tests pasaban y en la PC el tsc no entra: lo vio «Tipos» en GitHub (corrida 44685831731). Se arma con asignaciones.
+- **Importar un componente del chat del onboarding en el Ops Center del teléfono le suma las rutas del onboarding** (las que llegan a una
+  IA): tests/d6b-rutas.test.ts sigue los imports del navegador del Ops Center. `SeguirEnPc` vive en app/onboarding/ChatArranque.tsx; el
+  reto tiene su pantalla aparte (app/second-brain/reto/SeguirEnPcReto.tsx), con el mismo diseño y su texto.
+- **Una aserción de orden con `indexOf` no prueba que exista** (`indexOf(a) < indexOf(b)` da verde si `a` no está: -1). Lo encontró
+  romper el código; la aserción ahora exige `> 0`.
+- **La zona horaria del reto se guarda sólo al empezar** (`reto.estado.zona`, la del navegador): cambiarla a mitad del reto puede
+  cerrar un día ya abierto (de Argentina a México, a las 10:00 de Argentina el día vuelve atrás). Sin zona, Argentina. El aviso de la
+  mañana la sigue solo (usa `diaAbierto`); el de la noche y el de Martín siguen con `horaAr` (lib/reto/avisos.ts, del chat de WhatsApp).
+- **El día 1 es el primero de la prueba** (`inicioConLaPrueba`: el primer cobro menos 7 días). Quien abre el reto tarde ve abiertos los
+  días que ya corrieron, y el aviso de la mañana no los reenvía: sólo avisa un día que se abrió hace poco (`recien`, avisos.ts).
+- **Sin hacer**: el reto como proyecto del Plan (d24-22: toca el Plan, otra área), el video con marcas dentro del mensaje (d24-10,
+  R57-21, V4: el motor, MotorTutorial.tsx, es del chat del onboarding), los días 3 y 4 de a una tarea (d24-08 hizo el 2), y el video
+  del día 1 (D1-15: decisión de Martín, reto-dia-1 o el recorrido).

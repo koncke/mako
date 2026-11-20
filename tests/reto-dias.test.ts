@@ -282,7 +282,8 @@ test('el fin de cada día: «¿Adelantas…?» recién al terminarlo, «Lo hago 
   assert.ok(chat.includes('<AdelantarDia n={siguiente.n}'), 'en el recuadro de opciones, no en la burbuja');
   assert.ok(chat.includes("{ void hacer({ accion: 'despues', dia: dia.n, id: t.id }); }"), '«Lo hago después» se guarda');
   assert.ok(chat.includes('{todas && dia.n === 2 && <Burbuja>'), '«¡Hiciste todo…!» sólo en el día 2');
-  assert.ok(chat.includes("{p && (dia.n === 2 || diaTerminado(e, dia)) && ("), 'la prueba por WhatsApp, al final del día');
+  // El día 7 la saca del día: va después del cierre del reto (R57-08).
+  assert.ok(chat.includes("{p && ((dia.n === 2 && llega2(3)) || (dia.n !== 2 && dia.n !== 7 && diaTerminado(e, dia))) && ("), 'la prueba por WhatsApp, al final del día (la hora del día 2, en su paso)');
   const ruta = readFileSync(new URL('../app/api/reto/route.ts', import.meta.url), 'utf8');
   assert.ok(ruta.includes("body.accion === 'despues'") && ruta.includes("body.accion === 'manana'"), 'la API guarda los dos');
 });
@@ -511,7 +512,7 @@ test('d24-05 y d24-06 (20/11): las integraciones de lo que eligió, con la marca
   const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
   assert.ok(chat.includes("{dia.n === 2 && qrApp && !tareaHecha(e, 2, 'app') && !tareaDespues(e, 2, 'app') && <TarjetaQrApp"), 'el QR, junto al video del día 2');
   assert.ok(chat.indexOf('<TarjetaQrApp') < chat.indexOf('<div className="rt-tarjeta" data-recorrido={`sb-reto-dia-${dia.n}`}>'), 'el QR va antes de la tarjeta del día (con el video)');
-  assert.ok(chat.includes('{dia.n === 2 && integraciones.length > 0 && <TarjetaIntegraciones'), 'la tarjeta de las integraciones en el día 2');
+  assert.ok(chat.includes('{dia.n === 2 && llega2(2) && (integraciones.length > 0\n        ? <TarjetaIntegraciones'), 'la tarjeta de las integraciones en el día 2, en su paso');
   assert.ok(chat.includes("const esperaLaApp = !!d?.qrApp && !!e && !tareaHecha(e, 2, 'app') && !tareaDespues(e, 2, 'app');"), 'relee mientras espera la app');
   const tarjetas = readFileSync(new URL('../app/second-brain/reto/TarjetasDia2.tsx', import.meta.url), 'utf8');
   for (const x of ['La app de MaKo en tu teléfono', 'Los avisos de tu negocio, al instante. Aparte de MaKo por WhatsApp.', 'Escanéalo con tu teléfono. Instala MaKo y activa los avisos. Sigo solo cuando estén.', 'Lo hago después', 'Te falta integrar esto', 'Falta integrar']) assert.ok(tarjetas.includes(x), `falta «${x}»`);
@@ -525,4 +526,76 @@ test('D1-05 (20/11): terminado el día 1 en Funnel Coach, «Vuelve a tu reto» s
   assert.ok(h.includes('if (!activo || completo !== false) return;'), 'relee sólo mientras falta');
   const sb = readFileSync(new URL('../app/second-brain/ChatSecondBrain.tsx', import.meta.url), 'utf8');
   assert.ok(sb.includes('useVueltaAlReto(retoV2 && dosCoaches && verFunnel && !reto);'), 'con Funnel Coach a la vista y el reto cerrado');
+});
+
+test('tanda 8 (20/11): el cierre del reto con el piloto y lo pendiente (R57-08), lo de ayer en la tarjeta de hoy (d24-21) y el video arriba con su hora (f24-07)', async () => {
+  const { DIAS_RETO: D, finDelDia: fin, RETO_PILOTO } = await import('../lib/reto/dias');
+  assert.equal(fin(D[6], undefined, '9:00', 'Ana', []), '¡Terminaste tu reto de 7 días, Ana! Tu negocio ya está armado en MaKo.');
+  assert.equal(fin(D[6], undefined, '9:00', '', ['calendar', 'clip']), '¡Terminaste tu reto de 7 días! Tu negocio ya está armado en MaKo. Te queda pendiente conectar tu calendario y tu clip de regalo: lo retomas cuando quieras.', 'cierra aunque quede algo, y lo nombra');
+  assert.equal(RETO_PILOTO('anuncios-a-vsl'), 'El piloto automático lo prendemos cuando tus anuncios estén corriendo: te aviso.');
+  assert.equal(RETO_PILOTO('organico'), 'El piloto automático lo prendemos cuando publiques tu primera semana: te aviso.');
+  assert.equal(RETO_PILOTO(null), RETO_PILOTO('youtube'), 'sin funnel, el de publicar');
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.ok(!/genial/.test(chat), 'sin «genial»');
+  const iFin = chat.indexOf('{finDelDia(actual, siguiente, horaWa, nombre, falta)}'), iPil = chat.indexOf('{RETO_PILOTO(d.funnel)}'), iAudio = chat.indexOf('<TarjetaPrueba p={actual.whatsapp}');
+  assert.ok(iFin > 0 && iFin < iPil && iPil < iAudio, 'el cierre, el piloto y recién después la tarjeta del audio');
+  assert.ok(chat.includes('? abiertos.flatMap((x) => x.tareas.filter((t) => !tareaHecha(e, x.n, t.id)).map((t) => t.id))'), 'el día 7 nombra lo pendiente de todo el reto');
+  // d24-21
+  assert.ok(chat.includes('deAntes={dia.n === d.abierto ? abiertos.filter((x) => x.n < dia.n).flatMap((x) => x.tareas.filter((t) => !tareaHecha(e, x.n, t.id))'), 'sólo el día de hoy, con lo sin hacer de antes');
+  const iAntes = chat.indexOf('{deAntes.map((x) => fila(x.t, x.n))}');
+  assert.ok(iAntes > 0 && iAntes < chat.indexOf('{enLaTarjeta.map((t) => fila(t))}'), 'lo de antes se dibuja, y primero');
+  assert.ok(chat.includes('<span className="rt-tarea__de">Del día {n} · </span>'), 'con «Del día N»');
+  assert.ok(chat.includes("void hacer({ accion: 'despues', dia: n, id: t.id })"), '«Lo hago después» se guarda en SU día');
+  // f24-07
+  const iVideo = chat.indexOf('<VideoDelDia dia={dia} onTocado={onTocadoEnVideo}'), iMsj = chat.indexOf('<p className="rt-dia__msj">{dia.mensaje}</p>');
+  assert.ok(iVideo > 0 && iVideo < iMsj, 'el video arriba y el texto abajo');
+  assert.ok(chat.includes('<Burbuja ancho hora={dia.n > 1 ? hora : null}>'), 'con la hora del mensaje desde el día 2');
+});
+
+test('d24-08 (20/11): el día 2 de hoy va en pasos, de a uno y con su mensaje; uno que ya pasó se ve entero', () => {
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.ok(chat.includes("const paso2 = pasos2 ? ['app', 'extension', 'integraciones'].findIndex((id) => !tareaHecha(e, 2, id) && !tareaDespues(e, 2, id)) : -1;"), 'el paso: el primero sin hacer ni dejar para después');
+  assert.ok(chat.includes('const pasos2 = dia.n === 2 && hoy;'), 'sólo el día 2 de HOY');
+  assert.ok(chat.includes("const enLaTarjeta = pasos2 ? primeras.filter((t) => t.id === 'app') : primeras;"), 'la tarjeta del día empieza sólo con la app');
+  assert.ok(chat.includes('{pasos2 && llega2(1) && tarea2(\'extension\') && ('), 'la extensión, en su paso');
+  assert.ok(chat.includes('<Burbuja><p>{RETO_D2_EXT}</p></Burbuja>'), 'con su mensaje');
+  assert.ok(chat.includes('{ultimo && llega2(3) && ('), 'el perfil, recién con los tres primeros listos');
+});
+
+test('R57-19 y R57-20 (20/11): el reto empieza con la prueba, y cada día se abre a su hora en SU zona', async () => {
+  const { inicioConLaPrueba, diaAbierto: abierto, leerEstado: leer, desfaseHoras, zonaValida } = await import('../lib/reto/dias');
+  const ahora = Date.parse('2026-11-20T15:00:00Z');
+  assert.equal(new Date(inicioConLaPrueba(ahora, '2026-11-25T15:00:00Z')).toISOString(), '2026-11-18T15:00:00.000Z', 'el día 1 es el primero de la prueba (cobra en 5 días: empezó hace 2)');
+  assert.equal(inicioConLaPrueba(ahora, null), ahora, 'sin prueba (la revisión de Martín), ahora');
+  assert.equal(inicioConLaPrueba(ahora, '2026-12-20T15:00:00Z'), ahora, 'nunca en el futuro');
+  assert.equal(desfaseHoras(ahora, 'America/Mexico_City'), -6);
+  assert.equal(desfaseHoras(ahora, 'America/Argentina/Buenos_Aires'), -3);
+  assert.equal(desfaseHoras(ahora, 'Europe/Madrid'), 1);
+  assert.equal(desfaseHoras(ahora), -3, 'sin zona, Argentina (los retos de antes)');
+  assert.ok(zonaValida('America/Bogota') && !zonaValida('Marte/Base') && !zonaValida('a b'), 'sólo zonas que existen');
+  // Empezó el 18 a las 9:00 de México. El 19 a las 13:00 UTC son las 10:00 en Argentina y las 7:00 en México.
+  const base = { v: 1, inicio: '2026-11-18T15:00:00Z', adelantado: 1, hechas: {}, leidas: {} };
+  const mx = leer(JSON.stringify({ ...base, zona: 'America/Mexico_City' }))!;
+  const sin = leer(JSON.stringify(base))!;
+  assert.equal(mx.zona, 'America/Mexico_City', 'la zona se guarda');
+  assert.equal(leer(JSON.stringify({ ...base, zona: 'Marte/Base' }))!.zona, undefined, 'una zona inválida no');
+  assert.equal(abierto(sin, Date.parse('2026-11-19T13:00:00Z')), 2, 'con la hora de Argentina, el 2 ya está abierto');
+  assert.equal(abierto(mx, Date.parse('2026-11-19T13:00:00Z')), 1, 'en México son las 7:00: todavía no');
+  assert.equal(abierto(mx, Date.parse('2026-11-19T15:00:00Z')), 2, 'a las 9:00 de México, sí');
+  const ruta = readFileSync(new URL('../app/api/reto/route.ts', import.meta.url), 'utf8');
+  assert.ok(ruta.includes("inicio: new Date(inicioConLaPrueba(ahora, await cobroDeLaPrueba())).toISOString()"), 'al empezar, el inicio de la prueba');
+  assert.ok(ruta.includes("const zona = typeof body.zona === 'string' && zonaValida(body.zona) ? body.zona : undefined;"), 'y la zona del navegador, validada');
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.ok(chat.includes("accion: 'empezar', zona: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone;"), 'el chat manda su zona al empezar');
+});
+
+test('f24-01 y R57-F5 (20/11): el reto abierto en el teléfono dice «Sigamos en tu computadora», antes de cualquier desvío', () => {
+  const m = readFileSync(new URL('../app/m/second-brain/page.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const i = m.indexOf("if (uno(sp.reto) === '1') {");
+  assert.ok(i > 0, 'mira el ?reto=1 del link del correo');
+  assert.ok(m.includes('if (yo && ws != null && veOnboardingV2({ email, ws })) return <SeguirEnPcReto nombre={primerNombre(yo.nombre ?? \'\')} email={email} />;'), 'la pantalla del reto, con el diseño de la del onboarding');
+  assert.ok(!m.includes('onboarding/ChatArranque'), 'sin el chat del onboarding: le sumaría sus rutas al Ops Center (tests/d6b-rutas.test.ts)');
+  assert.ok(i < m.indexOf("if (ctx.sesion.rol === 'admin' && !ctx.impersonando) redirect(await rutaConWs(RUTA_CENTRO_M));"), 'antes del desvío al Centro (perdería el ?reto=)');
+  const avisos = readFileSync(new URL('../lib/reto/avisos.ts', import.meta.url), 'utf8');
+  assert.match(avisos, /RUTA_RETO = '\/second-brain\?reto=1'/, 'el link del correo es ése');
 });
