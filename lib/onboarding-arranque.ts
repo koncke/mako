@@ -1819,18 +1819,21 @@ export function codigoDeLoEscrito(texto: string): string {
 }
 /**
  * El código en lo escrito en la CAJA del chat (20/11, la verificación de OA-06): MaKo lo manda en dos grupos («482 913»), y la
- * persona lo escribe así o pega su mensaje entero. Es el grupo de 6 seguidos, o el de 3 y 3, o sus números si son 6 o menos (los
- * menos, para «Faltan números»); con más números y sin grupo, todos (un código equivocado). `null` = no es un código: un teléfono
- * (lo lee `telefonoEscrito`) o un texto sin números, que siguen como cualquier respuesta.
+ * persona lo escribe así o pega su mensaje entero. Es el grupo de 6 seguidos, o el de 3 y 3, sueltos (pegados a otra cifra son
+ * parte de un teléfono: «011 555 123»). Sin grupo, SÓLO si escribió números y nada más: 6 o menos (los menos, «Faltan números»)
+ * o 7 (uno de más: equivocado). `null` = no es un código y no gasta un intento (segunda verificación, 20/11, tarde): un teléfono,
+ * con «+» (`telefonoEscrito`) o local con 8 números o más («11 5555 0101»), o un texto con letras y sin grupo, que es una
+ * pregunta («no me llegó, esperé 5 minutos» daba «Faltan números»).
  */
 export function codigoEnLaCaja(texto: string): string | null {
   if (telefonoEscrito(texto)) return null;
-  const seis = /(?<!\d)\d{6}(?!\d)/.exec(texto);
+  const seis = /(?<!\d[  .-]?)\d{6}(?![  .-]?\d)/.exec(texto);
   if (seis) return seis[0];
-  const tresYTres = /(?<!\d)(\d{3})[  .-](\d{3})(?!\d)/.exec(texto);
+  const tresYTres = /(?<!\d[  .-]?)(\d{3})[  .-](\d{3})(?![  .-]?\d)/.exec(texto);
   if (tresYTres) return tresYTres[1] + tresYTres[2];
+  if (/\p{L}/u.test(texto)) return null;
   const d = texto.replace(/\D/g, '');
-  return d ? d : null;
+  return d && d.length <= 7 ? d : null;
 }
 export const V2_TELEFONO = (n: string): string => `Un gusto, ${n}. ¿A qué WhatsApp te escribo con los avisos y los reportes?`;
 // A QUÉ NÚMERO va el mensaje (Martín, 19/11: «debería decir a qué número se le está por enviar»): el de MaKo, el del sitio.

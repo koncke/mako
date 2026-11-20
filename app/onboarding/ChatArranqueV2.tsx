@@ -42,6 +42,7 @@ import { SeguirEnPc } from './ChatArranque';
 import { tarjetaConNumero } from './arranque-ui';
 import { iniciales } from '@/lib/unicode-seguro';
 import { esconderLaBarra } from '@/app/_ui/tutorial/barra-oculta';
+import { senalAhora, soltarSenal } from '@/app/_ui/tutorial/store';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean; whatsapp?: VistaArranque['whatsapp'] };
 
@@ -272,6 +273,10 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
     setSaliendo(true);
     // Un video del onboarding que sigue corriendo NO pasa flotando al Ops Center (20/11, OD-13): flotaba, y el recorrido no arrancaba.
     for (const v of Array.from(document.querySelectorAll<HTMLVideoElement>('.arr-v2 video'))) v.pause();
+    // Y el que YA flotaba en la esquina (20/11, tarde, la segunda verificación de OD-13): vive en un portal a <body>, fuera de `.arr-v2`,
+    // y la pausa de arriba no lo toca. Se cierra su señal: si no, seguía flotando en el Ops Center.
+    const flotando = senalAhora();
+    if (flotando?.tipo === 'video') soltarSenal(flotando.id);
     // La barra lateral, escondida hasta que el recorrido la presente (Martín, 19/11: app/_ui/tutorial/barra-oculta.ts).
     esconderLaBarra();
     router.push(rutaDelHilo(r?.ok && typeof r.chat === 'number' ? r.chat : null));

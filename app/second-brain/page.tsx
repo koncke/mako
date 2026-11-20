@@ -35,7 +35,6 @@ import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
 import { PantallaSecondBrain, mapaDelSecondBrain, pideElMapa, quienOpera, type QuerySecondBrain } from './pagina';
 import { hiloOnboardingGuardado, hiloParaQuienYaTermino } from '@/lib/onboarding-arranque-server';
 import { RUTA_SEGUIR_EN_PC, seguirEnPcPendiente } from '@/lib/seguir-en-pc';
-import { ATTR_BARRA_OCULTA } from '@/app/_ui/tutorial/barra-oculta';
 import { esTelefono } from '@/lib/movil-guard';
 import { rutaDelHilo } from '@/lib/onboarding-arranque';
 
@@ -77,9 +76,7 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   const nombrePersona = (sesion?.nombre ?? '').trim().split(/\s+/)[0] ?? '';
   // El chat «Onboarding» (sólo con el V2), para ponerlo enseguida del Ops Center en la lista (20/11, OD-08).
   const hiloOnboarding = retoV2 ? await hiloOnboardingGuardado() : null;
-  // LA BARRA OCULTA AL RECARGAR (20/11, la verificación de OD-03: «oculta en el Ops Center mientras el recorrido no se vio»). El
-  // atributo que pone «Entrar a MaKo» vive sólo en la página; al recargar, la barra volvía. Con el V2 y sin el recorrido visto (la
-  // misma lectura que la del teléfono), el HTML la esconde antes de pintar. La vuelve a mostrar el recorrido en «Tu panel».
-  const barraOculta = retoV2 && (await seguirEnPcPendiente());
-  return <>{barraOculta && <script dangerouslySetInnerHTML={{ __html: `document.documentElement.setAttribute('${ATTR_BARRA_OCULTA}','')` }} />}<PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} /></>;
+  // LA BARRA OCULTA AL RECARGAR (20/11, OD-03): la pone el layout raíz en el <html> del server (app/layout.tsx), no un <script> de
+  // esta página: detrás de loading.tsx, el riel se veía hasta que llegaba la página.
+  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} />;
 }

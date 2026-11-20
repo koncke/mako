@@ -147,7 +147,8 @@ test('12. OA-10 / OD-12: en el teléfono, «Sigamos en tu computadora» se queda
   const f = srv.slice(srv.indexOf('export async function seguirEnPcPendiente'));
   assert.match(f, /if \(!veOnboardingV2\(/, 'sólo con el V2');
   assert.match(f, /if \(await estaImpersonando\(\)\.catch\(\(\) => true\)\) return false;/, 'mirando a un cliente, nunca');
-  assert.match(f, /return !Object\.prototype\.hasOwnProperty\.call\(vistosDePerfil\([^)]*\)\?\.perfil\), ID_RECORRIDO_PC\);/);
+  // Y sólo a quien EMPEZÓ el V2 (la segunda verificación, 20/11, tarde: tests/onboarding-v2-verificacion.test.ts, 6b).
+  assert.match(f, /if \(!empezoElV2\(perfil\)\) return false;\n\s*return !Object\.prototype\.hasOwnProperty\.call\(vistosDePerfil\(perfil\), ID_RECORRIDO_PC\);/);
   assert.match(srv, /const ID_RECORRIDO_PC = 'tutorial-ops-center';/, 'el id con que lo anota el motor');
   assert.match(sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx')), /const id = `tutorial-\$\{t\.pestana\}`;/, 'el motor anota `tutorial-<pestaña>`');
   const onb = sinComentarios(leer('app/onboarding/page.tsx'));

@@ -12924,4 +12924,5 @@ se come las barras invertidas: un script con rutas de Windows va a un archivo, n
 - **Qué quedó:** lib/seguir-en-pc.ts, un módulo chico (52 módulos del repo; el guard, 62). El layout volvió a 2328 módulos y 8 ciclos,
   contra 2322 y 8 en 1c22ea030. El ciclo grande de 436 módulos pasa por lib/mako-grupo.ts y ya estaba antes. La regla está en
   AGENTS.md, y la cuida tests/seguir-en-pc-liviano.test.ts.
-- **Sin confirmar hasta el próximo build:** que ésta fuera la única causa. En el mismo rango entraron commits de otros chats.
+- **Confirmado:** era la única causa. 5993355b5 (con el arreglo, 44e318f41) compiló en 1 min 54 s y quedó READY en producción el
+  20/11 a las 11:05 (lo midió el Cerebro). En el mismo rango había commits de otros chats.

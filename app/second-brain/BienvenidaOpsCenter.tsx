@@ -29,6 +29,14 @@ import { ID_RECORRIDO, MS_ESCRIBE_LLEGADA, MS_ESCRIBE_RETO, textoLlegada, textoR
 /** `retoEmpezo`: el reto ya empezó (su chat ya se abrió): el mensaje que lo presenta ya no hace falta. */
 const menosMovimiento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
+/**
+ * LA LLEGADA SE ESCRIBE UNA VEZ (20/11, tarde, la segunda verificación de OD-05). Al tocar Second Brain el panel del chat se cambia
+ * por el mapa y esto se desmonta; al volver con la flecha se montaba de nuevo con `fase='escribe'`, y el velo oscuro con los tres
+ * puntitos se redibujaba 1,8 s EN MEDIO del recorrido, encima de su marca. Vive en el módulo: dura lo que la página (al recargar,
+ * la llegada vuelve a escribirse, como al entrar).
+ */
+let llegadaEscrita = false;
+
 export function BienvenidaOpsCenter({ nombre, retoEmpezo = false }: { nombre: string; retoEmpezo?: boolean }) {
   const r = useRecorrido(ID_RECORRIDO, { autoabrir: false });
   // En el ensayo «desde cero» (como lo revisa Martín), lo visto vive en el navegador (app/_ui/tutorial/desde-cero.ts).
@@ -46,7 +54,9 @@ export function BienvenidaOpsCenter({ nombre, retoEmpezo = false }: { nombre: st
     return () => { window.clearTimeout(t); chatPresentaReto(false); };
   }, [cierra]);
   const alTerminar = ensayo.activo ? () => marcarVistoEnEnsayo(ID_RECORRIDO) : r.onCerrar;
-  const [fase, setFase] = useState<'escribe' | 'listo'>('escribe');
+  // Ya escrita, o con un tutorial andando (el recorrido que arrancó su play), entra con el mensaje: sin velo ni puntitos.
+  const [fase, setFase] = useState<'escribe' | 'listo'>(() => (llegadaEscrita || senalAhora() ? 'listo' : 'escribe'));
+  useEffect(() => { if (fase === 'listo') llegadaEscrita = true; }, [fase]);
   const video = useVideoTutorial('recorrido');
   // LA BARRA, OCULTA MIENTRAS EL RECORRIDO NO SE VIO (20/11, la verificación de OD-03): también al volver al Ops Center por dentro de la
   // app (al recargar la esconde el servidor: app/second-brain/page.tsx). Nunca con un tutorial andando: el recorrido ya la mostró en

@@ -31,6 +31,7 @@ import { estaImpersonando } from '@/lib/workspace';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
 import { AVISOS_SIN_SOPORTE } from '@/lib/avisos-telefono-reglas';
+import { anotarQueEmpezoElV2 } from '@/lib/seguir-en-pc';
 import { CODIGO_CARGADO, E_TELEFONO_INCOMPLETO, MENSAJE_MANDADO, codigoEnLaCaja, etapaDeArranque, funnelDelArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, primerNombre, telefonoComoLoEscribio, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
 import { loQueContesto } from '@/lib/onboarding-historial';
 import {
@@ -129,6 +130,10 @@ export async function POST(req: NextRequest) {
         // se mira (la escribió MaKo); lo escrito, sí.
         const freno = await frenoDeArranque({ req, ws: g.ws, usuario: usuarioGuardia, texto: opcion === undefined ? texto : undefined });
         if (freno) return NextResponse.json({ ok: false, error: freno.error, ...(freno.bloqueado ? { bloqueado: true } : {}), vista: await vistaArranque() }, { status: freno.status });
+
+        // Quien contesta el V2 lo EMPEZÓ (20/11, tarde, OA-10): desde aquí, en el teléfono le toca «Sigamos en tu computadora» hasta que vea
+        // el recorrido en la PC. Sólo esa persona: un cliente que ya usa MaKo Mobile y nunca pasó por el V2 no queda trabado (lib/seguir-en-pc.ts).
+        if (h.v2) await anotarQueEmpezoElV2();
 
         // EL CÓDIGO DEL V2 (19/11/2026): el que MaKo le contestó por WhatsApp, pegado aquí. Sin grupo (lib/mako-grupo.ts → verificarCodigoV2).
         // Lo escrito en la caja (20/11, OA-06 y su verificación): codigoEnLaCaja lee «482 913» como lo manda MaKo, o su mensaje pegado

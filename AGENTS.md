@@ -2661,6 +2661,18 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
 - **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
   desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 
+# Una pantalla que TRABA se dispara con la marca de quien entró al flujo, no con la falta de un «visto» nuevo
+
+El 20/11/2026, «Sigamos en tu computadora» (lib/seguir-en-pc.ts) salía a quien NO tuviera `tutorial-ops-center` en su perfil. Ese visto
+lo anota sólo el motor del onboarding V2, así que ningún cliente de hoy lo tiene: con el interruptor para todos, cada cliente de MaKo
+Mobile iba a quedar fuera de su teléfono. Lo encontró la segunda verificación, no un test.
+
+- **La falta de una marca NUEVA es verdad para TODOS los que ya existen.** Algo que bloquea, redirige o esconde pide una marca
+  positiva de quien entró al flujo nuevo (el caso: `perfil.onboardingV2`, la fecha de su primera respuesta), y recién ahí mira lo
+  que le falta.
+- **Un atributo de `<html>` que tiene que estar al RECARGAR sale del layout, en el server**, no de un `<script>` de la página: la
+  página llega después de su loading.tsx, y el layout ya pintó. Y lo que importa el layout raíz, del módulo chico (la regla de abajo).
+
 # Lo que importa el layout raíz no arrastra un servidor pesado (tampoco con un `import()`)
 
 El 20/11/2026 el build de producción de Vercel se quedó colgado en «Creating an optimized production build» más de 25 minutos
