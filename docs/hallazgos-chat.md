@@ -19,8 +19,9 @@ app/m/_chat/AvisoDeIA.tsx · tests/app-de-escritorio-primero.test.ts y tests/app
   aperturas, los pasos «Instala MaKo» de la escalera y del paso «sin IA», y la marca `mk-instalar` de la guía.
 - **Trampa: la guía probaba su mecanismo `antes` con esto.** «Conectar» aparecía detrás de «Instalar MaKo» (`antes: 'mk-instalar'`),
   y tests/guia-reglas.test.ts lo usaba como ejemplo. Al sacar el ancla, ese test lo prueba con una guía de ejemplo.
-- **Trampa: tests/d6b-rutas.test.ts fija lo que usa el GET de la ruta.** Sacar `laApp` cambia la lista (`appDeEscritorio`,
-  `tipoDeDispositivo`): se actualiza la lista, no se afloja el test.
+- **Trampa: otros dos tests fijan la ruta, aparte de los de la app.** tests/d6b-rutas.test.ts fija lo que usa el GET (sacar `laApp`
+  cambia la lista: `appDeEscritorio`, `tipoDeDispositivo`), y tests/chat-ia.test.ts fija la línea de `?suIA=1`. El de chat-ia sólo
+  cayó en GitHub, porque el filtro de la PC no llegó a correrlo. Se actualizan las líneas, no se aflojan los tests.
 - **Un cambio que se ve en el teléfono:** antes la escalera del Cerebro («¿Qué IA usas?») callaba ahí (`en-la-computadora`). Ahora
   sale igual que en la computadora, si falta su IA.
 - **⚠️ SIN HACER, a propósito:** las ~20 cajas con motor propio siguen llamando a `useAppDeEscritorio` (ahora inerte: nunca
