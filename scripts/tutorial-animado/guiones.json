@@ -1625,8 +1625,7 @@
    },
    {
     "dice": "Para ir a fondo, toca aquí, en Analicemos mi oferta: te marca qué falta y la mejora, en PDF.",
-    "rol": "cierre",
-    "sel": "[aria-label=\"Respuestas rápidas\"] button"
+    "rol": "cierre"
    }
   ],
   "ajustes": "Paso 1: «en el onboarding» → «de tu oferta» (desde el 16/11 el onboarding no pregunta la oferta).",
@@ -2081,7 +2080,7 @@
    {
     "dice": "Pruébalo ya: toca aquí, en Tus tickets, para seguir su estado y la respuesta.",
     "rol": "cierre",
-    "sel": "button[aria-label=\"Tus tickets\"]"
+    "sel": "button[aria-label^=\"Tus tickets\"]"
    }
   ],
   "soloTexto": true,
@@ -2163,7 +2162,7 @@
     "rol": "accion",
     "sel": "a[href=\"/calendario?vista=llamadas\"]",
     "cierra": true,
-    "tipo": "toca"
+    "tipo": "mira"
    },
    {
     "dice": "Si tuviste una llamada fuera de la agenda, toca aquí, en el botón más de Ventas, y anótala.",
@@ -2244,7 +2243,7 @@
    {
     "dice": "Mira aquí, el lienzo: ahí se arma cada una, y nada sale hasta que la publicas y la activas.",
     "rol": "accion",
-    "sel": "[data-lienzo-vacio=\"true\"]",
+    "sel": "[data-recorrido=\"au-lienzo\"]",
     "tipo": "mira"
    },
    {
@@ -2767,7 +2766,7 @@
     "rol": "accion",
     "sel": "[data-recorrido=\"vista-alumno\"]",
     "cierra": true,
-    "tipo": "toca"
+    "tipo": "mira"
    },
    {
     "dice": "Tu turno: completa tu curso y toca aquí, en Invitar alumnos.",
@@ -3040,7 +3039,7 @@
     "rol": "accion",
     "sel": "span[aria-label=\"Lista o tips: portada\"]",
     "cierra": true,
-    "tipo": "toca"
+    "tipo": "mira"
    },
    {
     "dice": "Toca aquí, en Ver ejemplo, y mira cómo queda la pieza terminada.",
@@ -3215,7 +3214,8 @@
     "dice": "Toca aquí, en Categorías, para ordenar los temas de tu comunidad.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-classroom-community-categorias\"]",
-    "tipo": "toca"
+    "tipo": "toca",
+    "cierra": true
    },
    {
     "dice": "Toca aquí, en el menú de un post, y elige Fijar arriba para lo que nadie se puede perder.",
@@ -4436,13 +4436,11 @@
    {
     "dice": "Mira aquí, el ticket que arma Máko: revisa que diga lo que pasó antes de mandarlo.",
     "rol": "accion",
-    "sel": "[data-tarjeta=\"ticket\"]",
     "tipo": "mira"
    },
    {
     "dice": "Cuando esté claro, toca aquí, en Mandárselo al equipo: si te preguntan algo, verás Espera tu respuesta.",
-    "rol": "cierre",
-    "sel": "[data-tarjeta=\"ticket\"] button.co-chip--primario"
+    "rol": "cierre"
    }
   ],
   "ojo": "Es EL MISMO chat de Soporte que el tutorial aprobado de la Ticketera (#2): se puede reusar ese guion en vez de éste. La pantalla se titula «Reportar problema» aunque en el menú diga «Report a problem». La ven todos los roles y no la frena el onboarding.",

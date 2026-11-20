@@ -5655,5 +5655,14 @@ titular), no se tiñe.
     CTA de compra en un «toca aquí» del tutorial. Con el motor nuevo esas frases se saltean sin congelar;
   - el «+» de Llamadas (calendar-5): el alta de una llamada (la agenda, Calendly, la anotación) vive en `CalendarioApp`, y la
     lista de llamadas es otra página;
-  - lo que se arregla en el guion o en el catálogo (`lib/tutoriales/*.ts`, el `sel` o el `espera_clic` del manifiesto): spy,
-    dashboard, copilot, automations-3, offer-5, report-problem, image y video. Queda para quien lleve el catálogo.
+- **El catálogo (la tanda siguiente, tests/tutorial-catalogo-auditoria.test.ts):** los `antes` de Spy (abrir el competidor, tocar
+  Contenido) y de API (tocar Tokens); «Tus tickets» con «empieza con»; el lienzo de Automations con una marca fija (`au-lienzo`);
+  «Mira aquí» en lo que navega al tocarlo (calendar-4, classroom-4, image-3); `cierra_despues` en el modal de Categorías; sin marca
+  lo que todavía no existe (la tarjeta del ticket, las respuestas rápidas de Offer). Dos trampas:
+  - *El `antes` del paso llega a la frase sólo si los dos marcan lo mismo* (`mismoLugar`): cambiar el `sel` de un lado sin el
+    otro deja la frase sin su `antes`, sin ningún error. El test lo mira para cada frase con `antes`.
+  - *La fuente del manifiesto es `guiones.json`* (C:/dev/tutoriales-video, con la copia en scripts/tutorial-animado). Cambiar sólo el
+    manifiesto dura hasta la próxima subida, que lo vuelve a armar desde el guion. Se cambian los dos. Todos estos videos son
+    `soloTexto`: el `sel` no sale en el video, así que no hay que renderizar nada.
+  - Quedaron para el motor (se saltean sin pausar): dashboard («Nueva hoja» está dentro de un desplegable: dos clics, y el `antes`
+    es uno), chats-5 (no hay un selector fijo para «conectar»), copilot-3/4 (la Entrada ya hecha) y video/image sin consulta.
