@@ -45,15 +45,35 @@ async function leer(): Promise<EstadoReto | null> {
 async function conLoLeido(e: EstadoReto | null): Promise<EstadoReto | null> {
   if (!e) return e;
   const nuevas = await leerTareasHechas(e).catch(() => ({} as Record<string, string>));
+  // El reto en el Plan (d24-22): la primera vez, el proyecto y sus 7 tareas; después, cada vez que MaKo lee algo nuevo, cierra los días
+  // hechos (y crea el que falte). Por las funciones del Plan (lib/reto/plan.ts). Si falla, el reto sigue: no es lo que se ve acá.
+  // ⚠️ LA PRIMERA VEZ SE RESERVA con compare-and-set: al cargar, varias partes de la pantalla piden /api/reto a la vez, y dos pedidos
+  // que ven «todavía no está» crearían el proyecto dos veces. Crea sólo el que gana la reserva.
+  const conLoNuevo = { ...e, hechas: { ...e.hechas, ...Object.fromEntries(Object.keys(nuevas).map((k) => [k, e.hechas[k] ?? new Date().toISOString()])) } };
+  // Sólo se pregunta si hace falta (la primera vez, o con algo nuevo leído): es una lectura más por pedido.
+  const delPlan = e.enElPlan !== true || Object.keys(nuevas).length ? await (async () => {
+    const ws = await getWorkspaceActual().catch(() => null);
+    const m = ws == null ? null : await import('@/lib/reto/plan');
+    return ws != null && m && (await m.elRetoVaAlPlan(ws).catch(() => false)) ? { ws, m } : null;
+  })() : null;
+  const alPlan = async () => { if (delPlan) await delPlan.m.sincronizarRetoConElPlan(delPlan.ws, conLoNuevo).catch(() => false); };
+  let reservo = false;
+  if (delPlan && e.enElPlan !== true) {
+    const crudo = await IO.leer().catch(() => null);
+    const x = leerEstado(crudo);
+    reservo = !!x && x.enElPlan !== true && (await IO.cas(crudo, JSON.stringify({ ...x, enElPlan: true })).catch(() => false));
+    if (reservo) await alPlan();
+  } else if (delPlan && Object.keys(nuevas).length) await alPlan();
+  const conPlan = (x: EstadoReto): EstadoReto => (reservo || x.enElPlan ? { ...x, enElPlan: true } : x);
   // La primera vez que se ve abierto un día, su fecha (R57-F3: la que lo separa en el hilo). El día 1, la del inicio.
   const abierto = String(diaAbierto(e, Date.now()));
   const sinFecha = !e.abiertoEl?.[abierto];
-  if (!Object.keys(nuevas).length && !sinFecha) return e;
+  if (!Object.keys(nuevas).length && !sinFecha) return conPlan(e);
   const cuando = new Date().toISOString();
   // Con compare-and-set (lib/reto/cambiar.ts): sólo suma lo leído, sobre lo último guardado, y no pisa la hora del WhatsApp.
   const r = await cambiarReto(IO, (x) => ({ ...x, hechas: { ...x.hechas, ...Object.fromEntries(Object.keys(nuevas).filter((k) => !x.hechas[k]).map((k) => [k, cuando])) }, leidas: { ...(x.leidas ?? {}), ...nuevas },
     ...(x.abiertoEl?.[abierto] ? {} : { abiertoEl: { ...(x.abiertoEl ?? {}), [abierto]: abierto === '1' ? x.inicio : cuando } }) })).catch(() => null);
-  return r ?? e;
+  return conPlan(r ?? e);
 }
 
 /**

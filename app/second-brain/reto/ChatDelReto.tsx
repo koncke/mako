@@ -41,6 +41,7 @@ import { RETO_D2_EXT, RETO_D2_PERFIL, RETO_PILOTO, diaTerminado, finDelDia, marc
 import { NOTA_PRO_UNA_VEZ, TAREA_PRO } from '@/lib/reto/pro-del-reto';
 import { Burbuja } from './Burbuja';
 import { ClipDelReto } from './ClipDelReto';
+import { RETO_EN_TU_PLAN } from '@/lib/reto/plan-reglas';
 import { TarjetaIntegraciones, TarjetaQrApp, type IntegracionConEstado } from './TarjetasDia2';
 
 
@@ -132,6 +133,8 @@ export function useAparicion(claves: readonly string[]): { ver: (k: string) => b
 
 
 const YA_MARCADA = 'mako.reto.marcada.';
+/** La marca de Plan del final del día 3 (d24-22): sin clic, con «Entendido». */
+const MARCA_PLAN: MarcaReto = { sel: 'aside[data-sidebar] a[href^="/plan"]', titulo: 'Tu Plan', texto: 'Tu reto está acá, como proyecto: cada día se cierra solo.', haz: 'Entendido', lado: 'derecha', listo: 'Entendido' };
 /** Cada cuánto relee el chat mientras espera la app del QR del día 2. */
 const CADA_MS_QR = 10_000;
 // Exportadas para el paso de Offer Coach a Funnel Coach (./usePasoAlFunnel.ts): la misma tarea se marca una vez por visita, la
@@ -218,6 +221,9 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     ? abiertos.flatMap((x) => x.tareas.filter((t) => !tareaHecha(e, x.n, t.id)).map((t) => t.id))
     : actual.tareas.filter((t) => !tareaHecha(e, actual.n, t.id) && tareaDespues(e, actual.n, t.id)).map((t) => t.id);
   const cierre = termino && actual?.n === 7;
+  // El día 3 termina contando que el reto está en el Plan, y marca Plan en la barra (d24-22; la maqueta, EN_TU_PLAN). Sólo con el
+  // proyecto creado (`enElPlan`): si no, sería mentira.
+  const enElPlan3 = termino && actual?.n === 3 && !!e?.enElPlan;
   const eligioManana = !!e && !!siguiente && e.manana === siguiente.n;
   const pregunta = termino && !!siguiente && !eligioManana;
   // El orden en que llegan los mensajes (las claves de useAparicion).
@@ -226,9 +232,17 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     ...(empezo1 ? abiertos.map((x) => `dia:${x.n}`) : []),
     ...(termino && actual ? [`fin:${actual.n}`] : []),
     ...(cierre ? ['piloto'] : []),
+    ...(enElPlan3 ? ['plan'] : []),
     ...(termino && eligioManana && siguiente ? [`manana:${siguiente.n}`] : []),
   ];
   const ap = useAparicion(claves);
+  const vePlan = enElPlan3 && ap.ver('plan');
+  useEffect(() => {
+    if (!vePlan || yaMarcada('plan-dia-3') || senalAhora()) return;
+    anotarMarcada('plan-dia-3');
+    const t = window.setTimeout(() => marcarTarea([MARCA_PLAN], () => {}), 600);
+    return () => window.clearTimeout(t);
+  }, [vePlan]);
   useEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [d?.abierto, d?.hechos, ap.escribiendo]);
   const empezarDia1 = () => {
     const d1 = diasDelReto(d?.funnel, d?.integraciones)[0];
@@ -276,6 +290,7 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
                 onFinVideo={() => marcarLoQueFalta(dia)} />
             ))}
             {termino && actual && ap.ver(`fin:${actual.n}`) && <Burbuja><p>{finDelDia(actual, siguiente, horaWa, nombre, falta)}</p></Burbuja>}
+            {enElPlan3 && ap.ver('plan') && <Burbuja><p>{RETO_EN_TU_PLAN}</p></Burbuja>}
             {/* El cierre del reto (R57-08): el piloto según su funnel y, recién después, la tarjeta del audio para Martín. */}
             {cierre && ap.ver('piloto') && <Burbuja><p>{RETO_PILOTO(d.funnel)}</p></Burbuja>}
             {cierre && ap.ver('piloto') && actual?.whatsapp && <TarjetaPrueba p={actual.whatsapp} linea={d.linea} hora={horaWa} />}

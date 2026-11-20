@@ -601,3 +601,40 @@ test('f24-01 y R57-F5 (20/11): el reto abierto en el teléfono dice «Sigamos en
   const avisos = readFileSync(new URL('../lib/reto/avisos.ts', import.meta.url), 'utf8');
   assert.match(avisos, /RUTA_RETO = '\/second-brain\?reto=1'/, 'el link del correo es ése');
 });
+
+test('d24-22 (20/11): el reto es un proyecto del Plan, con una tarea por día que se cierra cuando MaKo leyó todo lo del día', async () => {
+  const { planDelReto, tareasDelRetoParaElPlan, diaDeLaUrl, urlDelDiaEnElPlan, RETO_EN_TU_PLAN } = await import('../lib/reto/plan-reglas');
+  const { DIAS_RETO: D, leerEstado: leer } = await import('../lib/reto/dias');
+  const t = tareasDelRetoParaElPlan(D);
+  assert.equal(t.length, 7);
+  assert.equal(t[2].titulo, 'Día 3: Tus contactos y tu primera automatización');
+  assert.match(t[2].detalle, /^· Carga tus clientes en el CRM\n· Tu primera automatización de mensajes\n· Conecta Google Calendar$/);
+  assert.equal(diaDeLaUrl(urlDelDiaEnElPlan(5)), 5);
+  assert.equal(diaDeLaUrl('/second-brain?reto=1&dia=12'), null, 'sólo del 1 al 7');
+  const iso = '2026-11-20T12:00:00Z';
+  const e = leer(JSON.stringify({ v: 1, inicio: iso, adelantado: 3, hechas: { '1:offer': iso, '1:funnel': iso, '2:app': iso }, leidas: { '1:offer': 'x', '1:funnel': 'x', '2:app': 'x' }, despues: ['2:extension', '2:integraciones', '2:perfil'] }))!;
+  // Nada en el Plan: crea los 7.
+  assert.deepEqual(planDelReto(D, e, []), { crear: [1, 2, 3, 4, 5, 6, 7], cerrar: [] });
+  // Con los 7: cierra el día 1 (hecho: «Tu onboarding» va siempre hecha) y no el 2 (lo dejado para después no es hacerlo).
+  const enPlan = D.map((d) => ({ dia: d.n, id: String(100 + d.n), hecha: false }));
+  assert.deepEqual(planDelReto(D, e, enPlan), { crear: [], cerrar: ['101'] });
+  // Nunca reabre: una tarea cerrada a mano de un día sin hacer queda cerrada.
+  assert.deepEqual(planDelReto(D, e, enPlan.map((x) => (x.dia === 4 ? { ...x, hecha: true } : x))).cerrar, ['101']);
+  assert.deepEqual(planDelReto(D, e, enPlan.map((x) => (x.dia === 1 ? { ...x, hecha: true } : x))).cerrar, [], 'lo ya cerrado no se vuelve a mover');
+  assert.equal(leer(JSON.stringify({ v: 1, inicio: iso, adelantado: 1, hechas: {}, enElPlan: true }))!.enElPlan, true, 'se guarda que ya está en el Plan');
+  // Por las funciones del Plan, nunca por fuera (el Cerebro, 20/11): ningún archivo del Plan cambia.
+  const plan = readFileSync(new URL('../lib/reto/plan.ts', import.meta.url), 'utf8');
+  assert.ok(plan.includes("import { crearCategoria, crearTarea, listCategorias, listTareas, moverTarea } from '@/lib/todo';"), 'las del Plan de los clientes');
+  assert.ok(!/from\(|\.insert\(|\.update\(/.test(plan), 'sin escribir la base por su cuenta');
+  assert.ok(plan.includes("return tableroDeCapa((await getWorkspace(ws))?.capa) !== 'dueno';"), 'sólo el tablero de los clientes');
+  // La primera vez se reserva con compare-and-set: dos pedidos a la vez no crean el proyecto dos veces.
+  const ruta = readFileSync(new URL('../app/api/reto/route.ts', import.meta.url), 'utf8');
+  assert.ok(ruta.includes('reservo = !!x && x.enElPlan !== true && (await IO.cas(crudo, JSON.stringify({ ...x, enElPlan: true })).catch(() => false));'), 'la reserva');
+  assert.ok(ruta.includes('if (reservo) await alPlan();'), 'crea sólo quien la ganó');
+  // El final del día 3 lo cuenta y marca Plan, sólo con el proyecto creado.
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.ok(chat.includes('const enElPlan3 = termino && actual?.n === 3 && !!e?.enElPlan;'), 'sólo con el proyecto creado');
+  assert.ok(chat.includes("{enElPlan3 && ap.ver('plan') && <Burbuja><p>{RETO_EN_TU_PLAN}</p></Burbuja>}"));
+  assert.equal(RETO_EN_TU_PLAN, 'Tu reto también está en tu Plan: cada día se cierra solo cuando leo que lo hiciste.');
+  assert.ok(chat.includes("const MARCA_PLAN: MarcaReto = { sel: 'aside[data-sidebar] a[href^=\"/plan\"]'"), 'marca Plan en la barra');
+});

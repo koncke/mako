@@ -116,6 +116,12 @@ A este chat le tocan los tramos reto-dia-1 (D1-*), reto-dias-2-4 (d24-*, f24-*),
 - **El teléfono (f24-01, R57-F5):** `/second-brain?reto=1` en el teléfono muestra «Sigamos en tu computadora»
   (app/second-brain/reto/SeguirEnPcReto.tsx, desde app/m/second-brain/page.tsx).
 
+## Hecho (d24-22, el Plan)
+
+- **El reto es un proyecto del Plan** («Reto de 7 días», una tarea por día), creado la primera vez que /api/reto lo lee, con reserva
+  (compare-and-set). Cada día se cierra cuando MaKo leyó todo lo del día. Reglas: lib/reto/plan-reglas.ts; escrituras: lib/reto/plan.ts.
+- Al final del día 3, «Tu reto también está en tu Plan…» y la marca de Plan en la barra.
+
 ## Lo que decidió el Cerebro (20/11)
 
 - **R57-02, el clip de 10 s del día 6: SÍ, por ApiMart.** Martín decidió el 17/11 que el video de los CLIENTES va por ApiMart (Flow es

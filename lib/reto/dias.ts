@@ -356,7 +356,9 @@ export type EstadoReto = { v: 1; inicio: string; adelantado: number; hechas: Rec
    */
   zona?: string;
   /** Cuándo se vio abierto cada día por primera vez («3» → ISO; 20/11, R57-F3): la fecha que lo separa en el hilo. */
-  abiertoEl?: Record<string, string> };
+  abiertoEl?: Record<string, string>;
+  /** El reto ya está en el Plan, como proyecto con una tarea por día (20/11, d24-22: lib/reto/plan.ts). */
+  enElPlan?: true };
 
 export const CLAVE_RETO = 'reto.estado';
 export const HORAS_WA = ['8:00', '9:00', '10:00', '12:00', '15:00', '18:00', '20:00'] as const;
@@ -391,7 +393,7 @@ export function leerEstado(crudo: unknown): EstadoReto | null {
     if (/^[a-z-]{2,30}$/.test(k) && typeof u?.desde === 'string' && typeof u?.hasta === 'string' && !Number.isNaN(Date.parse(u.desde)) && !Number.isNaN(Date.parse(u.hasta))) pro[k] = { desde: u.desde, hasta: u.hasta };
   }
   return { v: 1, inicio: e.inicio, adelantado, hechas: confiables, leidas, ...(dia1Desde ? { dia1Desde } : {}), ...(muestras.length ? { muestras } : {}),
-    ...(despues.length ? { despues } : {}), ...(manana ? { manana } : {}), ...(Object.keys(pro).length ? { pro } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}), ...(zona ? { zona } : {}), ...(Object.keys(abiertoEl).length ? { abiertoEl } : {}) };
+    ...(despues.length ? { despues } : {}), ...(manana ? { manana } : {}), ...(Object.keys(pro).length ? { pro } : {}), ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}), ...(adelantadoEn ? { adelantadoEn } : {}), ...(zona ? { zona } : {}), ...(Object.keys(abiertoEl).length ? { abiertoEl } : {}), ...(e.enElPlan === true ? { enElPlan: true as const } : {}) };
 }
 
 /** La hora de Argentina (la de MaKo), UTC−3: la de un reto sin zona. */

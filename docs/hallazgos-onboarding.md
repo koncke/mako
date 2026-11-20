@@ -3560,3 +3560,16 @@ filas de los coaches tachaban el día 1 entero.
 - **Sin hacer**: el reto como proyecto del Plan (d24-22: toca el Plan, otra área), el video con marcas dentro del mensaje (d24-10,
   R57-21, V4: el motor, MotorTutorial.tsx, es del chat del onboarding), los días 3 y 4 de a una tarea (d24-08 hizo el 2), y el video
   del día 1 (D1-15: decisión de Martín, reto-dia-1 o el recorrido).
+
+## El reto en el Plan: crear «una vez» desde un GET que se pide varias veces a la vez (20/11/2026, chat «reto-tutoriales», claude5)
+
+- **Al cargar, varias partes de la pantalla piden /api/reto al mismo tiempo** (el chat del reto, el paso a Funnel Coach, la vuelta al
+  reto, el desplegable). Algo que el GET hace «la primera vez» lo harían todos: dos proyectos «Reto de 7 días» con 14 tareas. La
+  primera vez se RESERVA con compare-and-set sobre `reto.estado` (`enElPlan`) y crea sólo el pedido que gana (app/api/reto/route.ts).
+  Si la creación falla después de reservar, se completa sola la próxima vez que MaKo lee algo nuevo (`planDelReto` crea los días que falten).
+- **Por las funciones del Plan, nunca por fuera** (como el CoPilot, lib/copiloto/tareas-plan.ts): `crearCategoria`, `crearTarea` con
+  `fuente` (tipo `reto-7-dias`, el día en el link) y `moverTarea(id, 'hecho')`. Sólo el tablero de los clientes (`tableroDeCapa`): en
+  el del dueño no se reserva, y el mensaje del día 3 («Tu reto también está en tu Plan…») sale sólo con el proyecto creado.
+- **Un día se cierra en el Plan cuando MaKo leyó todas sus tareas**, no cuando las dejó para después; y nunca se reabre una tarea que
+  alguien movió a mano.
+- **Sin mirar en la app**: el Plan con las 7 tareas no se puede dibujar sin la base; lo cubren el test de las reglas y el de la ruta.
