@@ -178,7 +178,8 @@ test('6. la pantalla del V2: la estrella, la caja del Ops Center, los dos videos
   assert.equal((v2.match(/<VideoDelMomento /g) ?? []).length, 2, 'dos videos: la bienvenida y el del WhatsApp (el de 38 s, cortado en dos el 19/11)');
   assert.match(v2, /const VIDEO_BIENVENIDA = 'onboarding-bienvenida';/);
   // Sólo si el video existe de verdad: nunca un «no está grabado» en producción (el Cerebro, 19/11).
-  assert.match(v2, /\{videoBienvenida && filaMako\('arr-video', <VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="Bienvenida a MaKo" revision=\{false\} onTermina=\{soltarPrimero\} \/>\)\}/);
+  // (20/11, V5: quieto, marcado con «dale play»: tests/tutorial-entrada.test.ts.)
+  assert.match(v2, /\{videoBienvenida && filaMako\('arr-video', <VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="Bienvenida a MaKo" revision=\{false\} onTermina=\{soltarPrimero\} dalePlay \/>\)\}/);
   // El video, cortado en dos (Martín, 19/11: «que tenga cortes como los pasos»): la bienvenida arriba, y el del WhatsApp como su propio
   // mensaje justo antes del paso del código. No es `onboarding-whatsapp`, el de la pantalla vieja.
   assert.match(v2, /const VIDEO_WHATSAPP = 'onboarding-bienvenida-whatsapp';/);

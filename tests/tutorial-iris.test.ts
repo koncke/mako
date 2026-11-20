@@ -54,12 +54,16 @@ test('4. el motor recorta su hueco con el barrido y esconde la tarjeta mientras 
   const m = sinComentarios(leer('app/_ui/tutorial/MotorTutorial.tsx'));
   assert.match(m, /import \{[^}]*\btocaIris\b[^}]*\} from '\.\/iris'/);
   assert.match(m, /tocaIris\(\{ habia: habiaHueco\.current, hay: hayHueco, clave: claveMarca, barrida: barrida\.current, menosMovimiento: !!menosMovimiento\(\) \}\)/);
-  assert.match(m, /nodo\.style\.clipPath = recorteIris\(/, 'el hueco (su sombra de 200vmax es el velo) se recorta');
+  // El recorte lo anima `barrer` (iris.ts), que comparte con la entrada de los videos de los chats (V5).
+  assert.match(m, /import \{[^}]*\bbarrer\b[^}]*\} from '\.\/iris'/);
+  assert.match(m, /return barrer\(nodo, \(\) => capa\.removeAttribute\('data-iris'\)\);/, 'el hueco (su sombra de 200vmax es el velo) se recorta');
+  const ir = sinComentarios(leer('app/_ui/tutorial/iris.ts'));
+  assert.match(ir, /nodo\.style\.clipPath = recorteIris\(/);
+  assert.match(ir, /return \(\) => \{ if \(raf\) cancelAnimationFrame\(raf\); listo\(\); \};/, 'al irse el hueco a mitad, nada queda recortado');
   assert.match(m, /<div ref=\{huecoRef\} className="mk-rec__hueco"/);
   assert.match(m, /<div ref=\{capaRef\} className="mk-rec mk-tuto"/);
   assert.match(m, /capa\.setAttribute\('data-iris', ''\)/);
   assert.match(m, /\.mk-tuto\[data-iris\] \.mk-rec__tarjeta \{ opacity: 0; \}/, 'la tarjeta aparece al terminar el barrido');
-  assert.match(m, /return \(\) => \{ if \(raf\) cancelAnimationFrame\(raf\); listo\(\); \};/, 'al irse el hueco a mitad, nada queda recortado');
   // El Recorrido de todos (app/_ui/Recorrido.tsx) no se toca: el barrido es del motor, que sólo monta quien ve el V2.
   assert.doesNotMatch(sinComentarios(leer('app/_ui/Recorrido.tsx')), /iris/i);
   assert.match(leer('app/layout.tsx'), /sesion && veV2 && <MotorTutorial /);
