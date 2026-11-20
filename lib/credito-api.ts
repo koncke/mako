@@ -119,7 +119,11 @@ export type FilaCredito = {
   llamadas: number;
   /** La parte que gastó un negocio que usa esta clave como su Claude (ya sumada en `gastadoUsd`). */
   delNegocio: Array<{ ws: number; usd: number }>;
-  /** La última vez del período que Anthropic contestó «credit balance is too low» con esta clave. */
+  /**
+   * La última vez del período que Anthropic contestó «credit balance is too low» con esta clave. null si después volvió a cobrar
+   * una llamada: el 20/11/2026 las dos cuentas volvieron solas a la noche, y el Uso y el aviso seguían diciendo «sin crédito»
+   * hasta fin de mes (y una cuenta que sí paga quedaba fuera de «con qué sigue MaKo»).
+   */
   sinCreditoAt: string | null;
   /** Si todavía no se puede vincular: desde cuándo (los 7 días de suscripta). */
   vinculableDesde: string | null;
@@ -233,6 +237,7 @@ export function resumenCredito(p: {
     let usd = 0;
     const negocios = new Map<number, number>();
     const clientes = new Set<number>();
+    let ultimaCobrada = -Infinity;
     for (const f of p.gastos) {
       const t = Date.parse(f.created_at);
       if (!Number.isFinite(t) || t < ciclo.desde || t > p.ahora) continue;
@@ -247,10 +252,13 @@ export function resumenCredito(p: {
       const costo = Number(f.cost_usd) || 0;
       usd += costo;
       fila.llamadas++;
+      // Sólo una llamada COBRADA prueba que hay saldo: una falla por otra cosa (sobrecarga, un timeout) queda en 0.
+      if (costo > 0 && t > ultimaCobrada) ultimaCobrada = t;
       if (pago.negocio != null) negocios.set(pago.negocio, (negocios.get(pago.negocio) ?? 0) + costo);
       const w = Number(f.workspace_id);
       if (Number.isInteger(w) && w > 0 && w !== p.wsPlataforma) clientes.add(w);
     }
+    if (fila.sinCreditoAt && ultimaCobrada > Date.parse(fila.sinCreditoAt)) fila.sinCreditoAt = null;
     fila.clientes = [...clientes].sort((a, b) => a - b);
     fila.gastadoUsd = redondear(usd);
     fila.delNegocio = [...negocios].sort((a, b) => a[0] - b[0]).map(([ws, u]) => ({ ws, usd: redondear(u) }));
