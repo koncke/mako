@@ -1207,10 +1207,15 @@ export async function enviarAlGrupoSuperAdmin(texto: string, o: { sinCopia?: tru
   // texto de pie, en el hilo de la app y en WhatsApp (un texto largo va aparte: el pie de WhatsApp corta en ~1000). Si el archivo no sale por
   // WhatsApp, sale el texto solo: el aviso no se pierde por el adjunto.
   const conPie = texto.length <= PIE_MAX;
-  const media: MediaGrupo | null = o.archivo ? { tipo: o.archivo.mime === 'application/pdf' ? 'document' : 'image', mimetype: o.archivo.mime, fileName: o.archivo.nombre } : null;
-  const partes: PartePreparada[] | null = o.archivo && media
-    ? [{ tipo: 'media', base64: o.archivo.base64, media, ...(conPie ? { caption: texto } : {}) }, ...(conPie ? [] : [{ tipo: 'texto' as const, texto }])]
-    : null;
+  // UN AUDIO (20/11/2026, el día 7 del reto: «Lo escucha Martín»): el texto primero y el audio después (un audio no lleva pie). Antes
+  // todo lo que no era PDF salía como imagen.
+  const esAudio = !!o.archivo?.mime.startsWith('audio/');
+  const media: MediaGrupo | null = o.archivo && !esAudio ? { tipo: o.archivo.mime === 'application/pdf' ? 'document' : 'image', mimetype: o.archivo.mime, fileName: o.archivo.nombre } : null;
+  const partes: PartePreparada[] | null = o.archivo && esAudio
+    ? [{ tipo: 'texto', texto }, { tipo: 'audio', base64: o.archivo.base64, mime: o.archivo.mime }]
+    : o.archivo && media
+      ? [{ tipo: 'media', base64: o.archivo.base64, media, ...(conPie ? { caption: texto } : {}) }, ...(conPie ? [] : [{ tipo: 'texto' as const, texto }])]
+      : null;
   const app = o.sinCopia ? null : await grupoApp();
   const wsApp = app ? await wsSuperAdmin().catch(() => null) : null;
   const copia = app && wsApp != null ? await app.copiarAlGrupo(wsApp, { texto, de: 'mako', ...(partes ? { partes } : {}) }) : null;
