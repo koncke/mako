@@ -79,11 +79,11 @@ test('las reglas de Martín (18/11): sin atajos, WhatsApp escribiendo ELLOS, nad
   // después el sistema para conseguir clientes con el Funnel Coach, y la marca lleva de la fila de uno a la del otro.
   const d1 = DIAS_RETO[0];
   // 20/11 (D1-14): el texto de la maqueta.
-  assert.equal(d1.mensaje, 'Hoy es tu día 1. Tu onboarding ya está; ahora tu oferta, con Offer Coach, y tu sistema de adquisición de clientes, con Funnel Coach. Empecemos por tu oferta.');
+  assert.equal(d1.mensaje, 'Hoy es tu día 1. Tu onboarding ya está; ahora tu oferta, con Offer Coach, y tu sistema para conseguir clientes, con Funnel Coach. Empecemos por tu oferta.');
   assert.deepEqual(d1.tareas.map((t) => [t.id, t.titulo]), [
     ['onboarding', 'Tu onboarding'],
     ['offer', 'Tu oferta, con Offer Coach'],
-    ['funnel', 'Tu sistema de adquisición, con Funnel Coach'],
+    ['funnel', 'Tu sistema para conseguir clientes, con Funnel Coach'],
   ]);
   assert.deepEqual(d1.tareas.map((t) => t.marcas.map((m) => m.sel)), [[], ['[data-recorrido="sb-offer"]'], ['[data-recorrido="sb-funnel"]']]);
   // Las dos marcas existen en la barra (las filas de los coaches, con la prop `marca` de FilaDeChat), sólo con los dos coaches.
@@ -470,7 +470,7 @@ test('tanda 7 (20/11): los textos de la maqueta, las marcas que faltaban y «Tu 
     'Día 6: tu video con IA, sin grabarte. El clip de 10 segundos va de regalo. Dale play.',
     'Día 7, el último: tu Marketing CoPilot revisa todo y arma tu semana. Dale play.',
   ], 'los mensajes de los días 2 a 7, los de la maqueta');
-  assert.equal(D[0].titulo, 'Tu onboarding, tu oferta y tu sistema de adquisición');
+  assert.equal(D[0].titulo, 'Tu onboarding, tu oferta y tu sistema para conseguir clientes');
   const t = (n: number, id: string) => D[n - 1].tareas.find((x) => x.id === id)!;
   assert.deepEqual([t(2, 'extension').titulo, t(2, 'extension').detalle], ['La extensión de MaKo para Chrome', 'MaKo a mano mientras navegas: tus leads, tus chats y tus anuncios.'], 'f24-08');
   assert.deepEqual([t(3, 'calendar').titulo, t(3, 'calendar').detalle], ['Conecta Google Calendar', 'Las llamadas que agenden caen en tu calendario.']);
@@ -654,7 +654,9 @@ test('verificación 20/11: la marca la lleva la barra; el día 1, las integracio
   const dias = diasDelReto('organico', integracionesDelReto(['organico', 'anuncios-a-vsl']));
   const t = (n: number, id: string) => dias[n - 1].tareas.find((x) => x.id === id)!;
   assert.deepEqual(marcasDeLaTarea(t(1, 'offer')).map((m) => [m.titulo, m.texto]), [['Tu día 1 sigue en Offer Coach', 'Ahí armamos tu oferta.']]);
-  assert.deepEqual(marcasDeLaTarea(t(1, 'funnel')).map((m) => [m.titulo, m.texto]), [['Ahora, Funnel Coach', 'Ahí armas tu sistema de adquisición de clientes.']]);
+  assert.deepEqual(marcasDeLaTarea(t(1, 'funnel')).map((m) => [m.titulo, m.texto]), [['Ahora, Funnel Coach', 'Ahí armas tu sistema para conseguir clientes.']]);
+  // El Cerebro, 20/11: lo simple gana a la maqueta. Ningún texto del reto dice «adquisición».
+  assert.ok(!/adquisici/.test(fuente('../lib/reto/dias.ts').replace(/\/\/[^\n]*/g, '')), 'sin «adquisición» en lo que se ve');
   const pj = marcasDeLaTarea(t(6, 'personaje'));
   assert.deepEqual([pj[0].titulo, pj[0].haz], ['Tu personaje con IA', 'Haz clic en Video'], 'la de Video titula con la tarea (R57-F2)');
   const crm = marcasDeLaTarea(t(3, 'contactos'));

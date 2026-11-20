@@ -809,7 +809,7 @@
  },
  {
   "id": "reto-dia-1",
-  "pestana": "Reto · Día 1: tu oferta y tu sistema de adquisición",
+  "pestana": "Reto · Día 1: tu oferta y tu sistema para conseguir clientes",
   "ruta": "/second-brain?reto=1",
   "icono": "lucide:trophy",
   "soloTexto": true,
@@ -829,7 +829,7 @@
     "rol": "cosa"
    },
    {
-    "dice": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+    "dice": "Cuando termine este video, te marco Offer Coach: empecemos por tu oferta.",
     "rol": "cierre"
    }
   ]
