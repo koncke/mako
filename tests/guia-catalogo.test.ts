@@ -103,7 +103,7 @@ test('3. toda tab que ve un cliente tiene su guía, o está en la lista que sól
 
 test('4. el Ops Center la usa: su guía, el «?» que la ofrece, y fuera el recorrido `sb-inicio`', () => {
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  assert.match(sb, /const guia = useGuiaDeLaTab\(ops \? '' : 'mako', \{ listo: conGuia && k\.cargado && k\.esJefe && k\.app != null, hechos: \{ sinApp: k\.app === 'bloquea', sinIA: k\.iaConectada === false \} \}\);/);
+  assert.match(sb, /const guia = useGuiaDeLaTab\(ops \? '' : 'mako', \{ listo: conGuia && k\.cargado && k\.esJefe && k\.app != null, hechos: \{ sinIA: k\.iaConectada === false \} \}\);/, 'sin `sinApp`: desde el 20/11/2026 ningún chat pide la app de escritorio');
   assert.match(sb, /className="co-ayuda" onClick=\{\(\) => guia\.ofrecer\(\)\}/);
   assert.doesNotMatch(sb, /<Recorrido |useRecorrido\(|PASOS_INICIO/, 'dos tutoriales en una pantalla');
   assert.equal(existsSync(join(RAIZ, 'app/second-brain/recorrido-inicio.ts')), false, 'el recorrido viejo se borra en la tanda que pone su guía');

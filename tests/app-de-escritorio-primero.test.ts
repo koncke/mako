@@ -1,107 +1,126 @@
 // =============================================================================
-// La app de escritorio primero, y el Uso con su esqueleto mientras carga (23/10/2026)
+// Ningún chat pide la app de escritorio para escribir (20/11/2026, la llamada con Leila)
 // =============================================================================
-// Martín: «En Ops Center cuando abro "USO" aún no me sale el loader, al principio me aparecen solo los botones de "Conectar GPT o
-// Claude"... Y muy importante, si detecta MaKo que no tienes instalado la app de escritorio, antes de mostrarte nada, o dejarte
-// usar cualquier chat, en cualquier tab, te debe aparecer el botón para que puedas descargar la app».
-//   1. el criterio, que decidió Martín: «Bloqueá igual: aunque tenga su clave de IA, primero tiene que descargar la app de
-//      escritorio antes de usar cualquier chat»; en el teléfono (no se instala), el aviso y el chat sigue;
-//   2. el servidor lo dice en `?suIA=1` (el teléfono, del pedido), si no se pudo saber no tapa nada, y bloqueado se destraba solo;
-//   3. sin la app (24/10/2026), la caja misma no deja escribir y dice «Instalar MaKo» en el lugar del micrófono, con la descarga
-//      de IA del cliente, no una copia;
-//   4. el Uso: el esqueleto mientras llega el estado; sin ninguna computadora, sólo el botón «Instalar MaKo desktop».
+// Martín (Fathom 205366178, 00:31:18): «hoy en día utilizamos los MaKo Tokens. Entonces, no pongas la restricción de instalar MaKo
+// para enviar mensajes». Pisa el «Bloqueá igual» del 23/10 y el «En ningún chat» del 25/10: hasta hoy, sin la computadora
+// conectada, la caja de todo chat con MaKo se apagaba con «Instala MaKo para escribir». Ahora se escribe y MaKo contesta con los
+// MaKo Tokens. Lo que fija este archivo (las cajas con motor propio, en tests/app-de-escritorio-todos-los-chats.test.ts):
+//   1. el servidor contesta `tiene` siempre (`?app=1` y `?suIA=1`), sin leer la computadora ni el dispositivo;
+//   2. el cliente ya no pregunta: ni el pedido a `?app=1` ni la relectura cada 8 s; el estado es `tiene`;
+//   3. la caja común (el Ops Center, la estrella de cada tab, el Second Brain, los coaches): sin `bloqueo`, sin la franja del
+//      teléfono, y el envío no mira la app;
+//   4. las aperturas y la guía: ningún paso «Instalar MaKo»; la escalera pregunta sólo por su IA;
+//   5. ningún texto «Instala MaKo» en las piezas de los chats;
+//   6. (de antes, sigue) el Uso de «Tus cuentas de IA», donde la app se sigue ofreciendo para trabajar con SU Claude.
 //
 // Correr: node --import tsx --test tests/app-de-escritorio-primero.test.ts
-// PROBADO ROMPIÉNDOLO (base 4/0), ver el pie.
+// PROBADO ROMPIÉNDOLO: ver el pie.
 // =============================================================================
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { appDeEscritorio } from '../lib/chat-mako-reglas';
+import * as APP from '../app/_chat/app-de-escritorio';
+import * as OPS from '../lib/aperturas/ops';
+import * as COMUNES from '../lib/aperturas/comunes';
+import * as REGLAS from '../lib/aperturas/reglas';
+import { GUIA_OPS_CENTER } from '../app/second-brain/guia-ops-center';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const suelto = (m: object, k: string) => (m as Record<string, any>)[k];
 
-test('1. el criterio: con computadora, nada; sin computadora, bloquea (aunque tenga su clave, también en la plataforma); en el teléfono, el aviso', () => {
-  assert.equal(appDeEscritorio({ conComputadora: true, telefono: false }), 'tiene');
-  // 25/10/2026 (Martín: «Ni en la cuenta de Mauricio ni en la mia... me sigue dejando enviar mensajes... No debería»): el negocio
-  // de la plataforma ya no queda afuera. El recorrido de todos los chats, en tests/app-de-escritorio-todos-los-chats.test.ts.
-  assert.equal(appDeEscritorio({ conComputadora: false, telefono: false }), 'bloquea');
-  assert.equal(appDeEscritorio({ conComputadora: false, telefono: true }), 'en-la-computadora', 'en el teléfono no se instala: no bloquea');
-  assert.equal(appDeEscritorio({ conComputadora: true, telefono: true }), 'tiene', 'con una conectada, el teléfono chatea');
-});
-
-test('2. el servidor lo dice con `?suIA=1`; sin poder saberlo no tapa nada; bloqueado, se destraba solo', () => {
+test('1. el servidor contesta `tiene` siempre, sin leer la computadora ni el dispositivo', () => {
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
-  assert.match(ruta, /const \[conectada, cuentas, app\] = await Promise\.all\(\[conSuIA\(persona\), cuentasDeIA\(persona\)\.catch\(\(\) => \[\]\), laApp\(persona, req\)\]\);\n\s*return json\(\{ ok: true, conectada, cuentas, app \}\);/);
-  const f = ruta.slice(ruta.indexOf('async function laApp('), ruta.indexOf('async function conSuIA('));
-  assert.match(f, /const conComputadora = \(await pcDe\(persona\.ws, persona\.actor\)\) != null;/, 'la computadora de ESTA persona (también en la plataforma)');
-  assert.doesNotMatch(f, /wsSuperAdmin/, 'la plataforma volvió a quedar afuera');
-  assert.match(f, /const telefono = tipoDeDispositivo\(req\.headers\.get\('user-agent'\), req\.headers\.get\('sec-ch-ua-mobile'\)\) !== 'escritorio';/, 'la misma pregunta del proxy');
-  assert.doesNotMatch(f, /claveDelCreditoAsignado|negocioConSuIA/, '«Bloqueá igual»: su clave o el crédito no lo destraban');
-  assert.match(f, /\} catch \{\n\s*return 'tiene';/);
-  const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
-  assert.match(motor, /setApp\(l\.ok && \(l\.datos\.app === 'bloquea' \|\| l\.datos\.app === 'en-la-computadora'\) \? l\.datos\.app : 'tiene'\);/);
-  assert.match(motor, /if \(app !== 'bloquea'\) return;\n\s*const t = window\.setInterval\(\(\) => \{ if \(document\.visibilityState === 'visible'\) mirarSuIA\(\); \}, 8_000\);/, 'se destraba sin recargar');
-  assert.match(motor, /\|\| !cargado \|\| errorCarga \|\| app === 'bloquea'\) return false;/, 'bloqueado no manda nada, tampoco un pedido de la tab');
+  assert.match(ruta, /if \(sp\.get\('app'\)\) return json\(\{ ok: true, app: 'tiene' \}\);/, 'una pestaña de antes del 20/11 que pregunta, se destraba');
+  assert.match(ruta, /return json\(\{ ok: true, conectada, cuentas, app: 'tiene' \}\);/);
+  assert.doesNotMatch(ruta, /async function laApp\(|appDeEscritorio|tipoDeDispositivo/, 'nada decide si el chat bloquea');
+  assert.doesNotMatch(sinComentarios(leer('lib/chat-mako-reglas.ts')), /export function appDeEscritorio\(/, 'la regla del bloqueo se fue');
 });
 
-test('3. sin la app, LA CAJA MISMA no deja escribir: «Instalar MaKo» en el lugar del micrófono, con la descarga de IA del cliente', () => {
+test('2. el cliente ya no pregunta por la app: el estado es `tiene`', () => {
+  const pura = sinComentarios(leer('app/_chat/app-de-escritorio.ts'));
+  assert.doesNotMatch(pura, /fetch\(|setInterval\(/, 'ni el pedido a `?app=1` ni la relectura cada 8 s');
+  assert.equal(suelto(APP, 'useApp')(), 'tiene');
+  assert.equal(suelto(APP, 'useAppBloqueada')(), false);
+  for (const k of ['FRASE_APP', 'FRASE_INSTALAR', 'FRASE_RESPONDER', 'mirarApp']) assert.equal(suelto(APP, k), undefined, `${k} se fue`);
+  assert.doesNotMatch(sinComentarios(leer('app/_chat/ModalCuentasIA.tsx')), /mirarApp/, 'cerrar «Tus cuentas de IA» ya no relee la app');
+});
+
+test('3. la caja común: sin bloqueo ni franja, y el envío no mira la app', () => {
   const p = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
-  // 24/10/2026 (Martín: «Si no tengo instalada la app de desktop NO debe dejarme escribir nada, directamente en el chat donde está
-  // el botón de audio se debería reemplazar por "Instalar MaKo"»): no un cartel en lugar de la caja; la caja, bloqueada.
+  assert.doesNotMatch(p, /useBloqueoApp|FranjaApp|FRASE_RESPONDER|'bloquea'|en-la-computadora/);
   const caja = p.slice(p.indexOf('export function CajaDelCliente('));
-  assert.match(caja, /const bloqueoApp = useBloqueoApp\(\(\) => k\.setConectando\(true\)\);/);
-  assert.ok(caja.indexOf('useBloqueoApp(') < caja.indexOf('return '), 'el hook, antes de cualquier return');
-  assert.match(caja, /const bloqueada = k\.app === 'bloquea';/);
-  assert.match(caja, /bloqueo=\{bloqueada \? bloqueoApp : undefined\}/, 'la MISMA caja, con su bloqueo');
-  assert.match(caja, /alFinal=\{angosta \|\| bloqueada \? null : conectar\}/, 'sin «Conectar tu IA»: sin la app no destraba nada');
-  assert.doesNotMatch(p, /<AppPrimero/, 'el cartel que reemplazaba la caja se fue');
-  const hilo = p.slice(p.indexOf('export function HiloDelCliente('), p.indexOf('export function CajaDelCliente('));
-  // Vacía y bloqueada: sin la portada ni sus arranques, PERO con la apertura (29/10/2026: sus botones no escriben nada).
-  assert.match(hilo, /!k\.items\.length && !k\.trabajo \? \(apertura \?\? \(k\.app === 'bloquea' \? null : \(/, 'vacía y bloqueada: la apertura, sin la portada');
-  // En la conversación del teléfono la franja va debajo de la cabecera (app/m/_chat/AvisoDeIA.tsx, test 9 de m-chat-pantalla).
-  assert.match(p, /\{k\.app === 'en-la-computadora' && !avisosArriba && <FranjaApp \/>\}/, 'en el teléfono, el aviso arriba de la caja');
-  // La caja: el campo apagado con la frase, y en el lugar del botón el que la destraba.
-  const c = sinComentarios(leer('app/_chat/CajaChat.tsx'));
-  assert.match(c, /const quieto = enviando \|\| apagado \|\| !!p\.bloqueo;/);
-  assert.match(c, /placeholder=\{p\.bloqueo \? p\.bloqueo\.frase : /);
-  assert.match(c, /\{p\.bloqueo \? p\.bloqueo\.boton : grabacion && /);
-  // El botón: la descarga de IA del cliente (no se reescribe la detección), y tocado, «Ya lo instalé: conectar».
-  const pieza = sinComentarios(leer('app/_chat/AppPrimero.tsx'));
-  assert.match(pieza, /import \{ DescargarMaKo, avisoAlAbrir \} from '@\/app\/integraciones\/CuentasYDispositivos';/);
-  assert.doesNotMatch(pieza, /\/api\/ia-pc\/descargar|navigator\./, 'la descarga y la detección no se reescriben');
-  // El «ya lo descargó» es el compartido de la página (29/10/2026): la apertura y la caja pasan juntas a «Ya lo instalé».
-  assert.match(pieza, /const descargado = useDescargado\(\);/);
-  assert.match(pieza, /<DescargarMaKo className="co-instalar" texto="Instalar MaKo" onClick=\{marcarDescargado\}>/);
-  assert.match(pieza, /<button type="button" className="co-instalar" onClick=\{onConectar\} title=\{avisoAlAbrir\(\)\} data-app-primero="conectar" data-recorrido="mk-conectar">/);
-  assert.match(pieza, /Ya lo instalé: conectar/);
+  assert.doesNotMatch(caja, /bloqueo=\{/, 'la caja vuelve a apagarse');
+  assert.match(caja, /alFinal=\{angosta \? null : conectar\}/);
+  const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
+  assert.doesNotMatch(motor, /'bloquea'/, 'el motor no frena ni relee por la app');
+  assert.match(motor, /\|\| ocupadoRef\.current \|\| !cargado \|\| errorCarga\) return false;/, 'el envío no mira la app');
+  // El teléfono: la línea de debajo de la cabecera sólo dice lo de su IA.
+  const aviso = sinComentarios(leer('app/m/_chat/AvisoDeIA.tsx'));
+  assert.doesNotMatch(aviso, /FRANJA_APP|data-app-franja/);
 });
 
-test('4. el Uso: el esqueleto mientras llega el estado; sin ninguna computadora, SÓLO el botón de instalar', () => {
+test('4. las aperturas y la guía: ningún paso «Instalar MaKo»', () => {
+  assert.deepEqual([...suelto(REGLAS, 'ACCIONES_COMUNES')], ['conectar'], '«instalar» ya no es una acción');
+  const catalogo = (suelto(OPS, 'CATALOGO') as Array<{ id: string }>).map((c) => c.id);
+  assert.ok(!catalogo.includes('ops:ia-instalar'), 'el paso de instalar se fue del catálogo');
+  // Con cualquier respuesta, ningún botón instala; la escalera es la de su IA.
+  const aperturaOps = suelto(OPS, 'aperturaOps') as (h: object, r: object) => { id: string; botones: Array<{ accion?: string }> } | null;
+  for (const iaConectada of [true, false]) {
+    for (const ia of [undefined, OPS.IA_CLAUDE, OPS.IA_CHATGPT, OPS.IA_NINGUNA]) {
+      const a = aperturaOps({ app: 'tiene', iaConectada }, ia ? { [OPS.ID_IA]: ia } : {});
+      assert.ok(!a?.botones.some((b) => b.accion === 'instalar'), `ia=${ia}`);
+      if (iaConectada) assert.equal(a, null, 'con su IA, nada');
+    }
+  }
+  assert.equal(aperturaOps({ app: 'tiene', iaConectada: false }, { [OPS.ID_IA]: OPS.IA_CLAUDE })?.id, 'ops:ia-conectar');
+  const pasoSinIA = suelto(COMUNES, 'pasoSinIA') as (o: object) => { id: string } | null;
+  assert.equal(pasoSinIA({ superficie: 'x', iaConectada: false })?.id, 'x:sin-ia');
+  assert.equal(pasoSinIA({ superficie: 'x', iaConectada: true }), null);
+  assert.doesNotMatch(sinComentarios(leer('app/_chat/AperturaMako.tsx')), /InstalarMaKo|'instalar'|'bloquea'/);
+  const anclas = GUIA_OPS_CENTER.anclas as readonly { id: string; antes?: string }[];
+  assert.ok(!anclas.some((a) => a.id === 'mk-instalar' || a.antes === 'mk-instalar'), 'la guía no señala «Instalar MaKo»');
+});
+
+test('5. ningún texto «Instala MaKo» en las piezas de los chats', () => {
+  assert.equal(existsSync(join(RAIZ, 'app/_chat/InstalarMaKo.tsx')), false, 'el botón del bloqueo se fue');
+  assert.equal(existsSync(join(RAIZ, 'app/_chat/AppPrimero.tsx')), false, 'la caja tapada y la franja se fueron');
+  const dirs = ['app/_chat', 'app/second-brain', 'app/m/_chat', 'app/m/second-brain', 'lib/aperturas'];
+  const con: string[] = [];
+  for (const d of dirs) {
+    for (const n of readdirSync(join(RAIZ, d))) {
+      if (!/\.(ts|tsx)$/.test(n)) continue;
+      if (/Instala(r)? MaKo|Descarga MaKo en tu computadora/.test(sinComentarios(leer(`${d}/${n}`)))) con.push(`${d}/${n}`);
+    }
+  }
+  assert.deepEqual(con, []);
+});
+
+test('6. el Uso: el esqueleto mientras llega el estado; sin ninguna computadora, el botón de instalar y las claves', () => {
   const t = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
   assert.match(t, /\{!estado && !leido && !eligiendo && !tutorial && <EsqueletoDeCuentas \/>\}/);
   // 24/10/2026 (Martín: «si no tengo instalada no tengo que ver el modal de siempre, solo el botón bien diseñado de "Instalar MaKo
-  // desktop"»): sin computadora, ni cuentas ni «Nueva cuenta».
+  // desktop"»): sin computadora, ni cuentas ni «Nueva cuenta». Es «Tus cuentas de IA», no un chat: la app se ofrece para SU Claude.
   assert.match(t, /\{vacia && !eligiendo && !tutorial && <InstalarDesktop onConectar=\{\(\) => abrirTutorialEn\(4\)\} \/>\}/);
   assert.match(t, /\{\(estado \|\| leido\) && !vacia && !eligiendo && !tutorial && \(\n\s*<>\n\s*<NuevaCuenta /, '«Nueva cuenta» recién con el estado, y no sin computadora');
-  // 25/10/2026 tarde, LO POSTERIOR GANA (Martín: «elimina las IA dentro de las integraciones, para eso tenemos el bloque que dice
-  // "Tus cuentas de IA"»): las claves de API salieron de la grilla y viven acá, así que «sin computadora, SÓLO el botón» pasó a
-  // «sin computadora, el botón Y las claves». Sin ellas, quien no tiene MaKo Desktop no tendría dónde pegar su clave.
+  // 25/10/2026 tarde (Martín: «elimina las IA dentro de las integraciones, para eso tenemos el bloque que dice "Tus cuentas de
+  // IA"»): las claves de API viven acá, con o sin computadora.
   assert.match(t, /\{\(estado \|\| leido\) && !eligiendo && !tutorial && <ClavesDeApi /, 'las claves de API, con o sin computadora');
   assert.match(t, /<DescargarMaKo className="tci-instalar__boton" texto="Instalar MaKo desktop" onClick=\{\(\) => setDescargado\(true\)\}>/);
   assert.match(t, /setLeido\(true\);/, 'sin estado después de intentar, no queda el esqueleto para siempre');
 });
 
-// PROBADO ROMPIÉNDOLO (23/10/2026, base 4/0):
-//   · el teléfono también bloquea (`'bloquea'` siempre sin computadora)    → 3/1 (1)
-//   · el `catch` de `laApp` devolviendo 'bloquea'                          → 3/1 (2)
-//   · AppPrimero con su propio link a /api/ia-pc/descargar                 → 3/1 (3)
-//   (24/10/2026, el cartel en el lugar de la caja: probado rompiéndolo en tests/tus-cuentas-ia-diseno.test.ts → romper-diseno)
-//   · «Nueva cuenta» sin esperar el estado                                 → 3/1 (4)
-//   (24/10/2026, la caja bloqueada y el modal con un botón, base 4/0):
-//   · la caja del cliente sin `bloqueo` (vuelve a dejar escribir)          → 3/1 (3)
-//   · el modal sin computadora con «Nueva cuenta» otra vez                 → 3/1 (4)
+// PROBADO ROMPIÉNDOLO (20/11/2026, base 6/0; contra el código de antes 1/5, sólo pasaba el 6), de a una y restaurando:
+//   · `?app=1` contestando `bloquea`                                       → 5/1 (1)
+//   · `useAppBloqueada` devolviendo true                                   → 5/1 (2)
+//   · la caja común otra vez con `bloqueo=`                                → 5/1 (3)
+//   · el envío de useChatCliente mirando `app === 'bloquea'`               → 5/1 (3)
+//   · la línea del teléfono con la franja de la app                        → 5/1 (3)
+//   · «instalar» otra vez en ACCIONES_COMUNES                              → 5/1 (4)
+//   · la escalera pidiendo instalar al elegir Claude                       → 5/1 (4)
+//   · la guía con «Instalar MaKo» y «Conectar» detrás                      → 4/2 (4, 5)
+// Las de las cajas con motor propio, en tests/app-de-escritorio-todos-los-chats.test.ts.

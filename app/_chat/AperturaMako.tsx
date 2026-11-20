@@ -12,8 +12,8 @@
 //     mensaje de MaKo EN el hilo. Con algo en el bloque, la apertura calla (quien la monta lo dice con `libre`).
 //   · NUNCA SE GUARDA en la conversación: el Cerebro es uno en toda la app y un mensaje guardado saldría en todas las tabs.
 //   · Lo escrito en la caja NO se lee como respuesta: va al chat como siempre y la apertura se cierra (`escritos`).
-//   · Las acciones comunes las hace la pieza: `instalar` es «Instalar MaKo» de la caja (InstalarMaKo, el mismo «ya lo descargó»)
-//     y `conectar` abre «Tus cuentas de IA» ahí mismo. Las de la pantalla llegan en `acciones`, un `Record` tipado: ofrecer algo
+//   · La acción común la hace la pieza: `conectar` abre «Tus cuentas de IA» ahí mismo («Instalar MaKo» se fue el 20/11/2026:
+//     ningún chat pide la app de escritorio). Las de la pantalla llegan en `acciones`, un `Record` tipado: ofrecer algo
 //     que la pantalla no hace no compila.
 // La guía de cada pestaña (lib/guia/, app/_ui/guia/) habla con ESTA pieza: su pregunta es una apertura (`guia:<tab>`).
 
@@ -29,16 +29,14 @@ import { CSS_OFFER } from '@/app/offer/estilos';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { anotarApertura, useMemoriaAperturas } from './aperturas-memoria';
 import { pasoSinIA } from '@/lib/aperturas/comunes';
+import type { AppDeEscritorio } from '@/lib/chat-mako-reglas';
 import {
   PREFIJO_NEGOCIO, claveApertura, decisionDeCallar, esAccionComun, puedeHablar, respuestasDeMemoria, saludoDe,
   type AccionComun, type Apertura, type Boton, type Superficie,
 } from '@/lib/aperturas/reglas';
 
-// Con `next/dynamic`: traen CSS y la pieza se dibuja en un test en node.
-const InstalarMaKo = dynamic(() => import('./InstalarMaKo'), { ssr: false, loading: () => null });
+// Con `next/dynamic`: trae CSS y la pieza se dibuja en un test en node.
 const ModalCuentasIA = dynamic(() => import('./ModalCuentasIA'), { ssr: false, loading: () => null });
-
-type AppDeEscritorio = 'tiene' | 'bloquea' | 'en-la-computadora';
 
 /** Lo que dibuja la pieza: la apertura de ahora, lo que ya se dijo en esta visita y qué hacer con un toque. */
 export type EstadoApertura<A extends string = string> = {
@@ -93,7 +91,7 @@ export function useApertura<H, A extends string>(p: {
 
   let actual: Apertura<A> | null = null;
   if (memoria && hechos != null && !cerrada) {
-    const sinIA = pend ? pasoSinIA({ superficie: superficie.id, app: p.app ?? null, iaConectada: p.iaConectada ?? null, pendiente: { texto: pend.texto } }) as Apertura<A> | null : null;
+    const sinIA = pend ? pasoSinIA({ superficie: superficie.id, iaConectada: p.iaConectada ?? null, pendiente: { texto: pend.texto } }) as Apertura<A> | null : null;
     const a = sinIA ?? superficie.apertura(hechos, r);
     if (a) {
       const clave = claveApertura(a.id, a.entidad ?? p.entidad);
@@ -136,7 +134,7 @@ export function useApertura<H, A extends string>(p: {
         setCerrada(true);
         return;
       case 'pedir': {
-        const puede = p.app !== 'bloquea' && p.iaConectada !== false && !!p.onPedir;
+        const puede = p.iaConectada !== false && !!p.onPedir;
         if (puede && p.onPedir!(b.pedido)) {
           // Salió: el turno lo toma (su burbuja es la del chat). Un pendiente que salió se borra de la memoria.
           anotarApertura(pend && visible.id.endsWith(':pendiente') ? pend.clave : claveVisible, 'respondida');
@@ -221,7 +219,6 @@ export function AperturaMako<A extends string>({ estado, quien, acciones, onCone
         {a.botones.map((b) => {
           const c = clase(b);
           if (b.tipo === 'ir') return <Link key={b.rotulo} className={c} href={b.href}>{b.rotulo}</Link>;
-          if (b.tipo === 'hacer' && b.accion === 'instalar') return <span key={b.rotulo} className="ch-apertura__pieza"><InstalarMaKo /></span>;
           const tocar = () => {
             if (b.tipo === 'hacer') {
               if (b.accion === 'conectar') { if (onConectar) onConectar(); else setConectando(true); }
