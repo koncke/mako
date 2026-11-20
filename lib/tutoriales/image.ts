@@ -15,7 +15,7 @@ export const TUTORIAL_IMAGE: TutorialPestana = {
       antes: 'a[href="/image-editor?ver=crear"]',
       titulo: 'Con tu marca',
       texto: 'El nombre de tu negocio ya está puesto en cada lámina.',
-      sub: 'Toca aquí, en la portada de Lista o tips: ya trae el nombre de tu negocio.',
+      sub: 'Mira aquí, la portada de Lista o tips: ya trae el nombre de tu negocio.',
       lado: 'derecha',
     },
     {
