@@ -27,7 +27,9 @@
 // ⚠️ SOLTAR UN ARCHIVO SE FRENA SIEMPRE (revisión del Cerebro, 20/10): sin preventDefault Chrome lo abre en la pestaña y el
 // dueño pierde la conversación. Arrastrar y soltar es de la PANTALLA (la caja no lo hace).
 
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type DragEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type DragEvent, type ReactNode } from 'react';
+import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
+import { useColaDeSalida, type FilaDeCola } from '@/app/_chat/useColaDeSalida';
 import { Button } from '@/app/_ui';
 import { useWs } from '@/app/_ui/Link';
 import { MakoStar } from '@/app/_components/MakoBrand';
@@ -38,7 +40,6 @@ import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { FilaDelChat } from '@/app/admin/operaciones/Hilo';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 import { itemsDeOffer, type ItemHilo } from '@/app/m/mako/chat-ui';
-import { estaAbajo } from '@/lib/centro-caja';
 import { SECCION_OFFER, criaturaDeOffer } from '@/lib/chat-mako-reglas';
 import { conWs } from '@/lib/ws-tab';
 import type { AdjuntoVista, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
@@ -137,9 +138,6 @@ export function ChatOffer({
   /** Para la píldora del día («Hoy», «Ayer») del hilo. */
   const [ahora] = useState(() => Date.now());
   const hilo = useRef<HTMLDivElement>(null);
-  /** ¿Se estaba mirando lo último? Entonces lo nuevo lo sigue (si se subió a leer algo de antes, no se lo mueve). */
-  const abajo = useRef(true);
-  const deSesion = useRef(sesion.id);
 
   const mensajes = sesion.mensajes;
   const ultimo = mensajes[mensajes.length - 1];
@@ -171,14 +169,38 @@ export function ChatOffer({
     ? (ultimo.opciones ?? []).map((t, idx) => ({ t: t.trim(), idx })).filter((o) => o.t)
     : [];
 
-  // Lo nuevo se ve sin buscarlo: la conversación sigue abajo si se estaba mirando lo último, al abrir otra y cuando escribe
-  // el dueño.
-  useLayoutEffect(() => {
-    const h = hilo.current;
-    if (!h) return;
-    if (deSesion.current !== sesion.id) { deSesion.current = sesion.id; abajo.current = true; }
-    if (abajo.current || pendiente) h.scrollTop = h.scrollHeight;
-  }, [items, respondiendo, armando?.corriendo, armando?.error, opciones.length, error, sesion.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // LO QUE LLEGA EN ESTA VISITA, DE A UNO (20/11, la auditoría de chats, coaches-8): el primer mensaje de una conversación nueva salía con
+  // sus píldoras de golpe, y en cada respuesta las píldoras salían junto con el texto. Por la cola de salida: el mensaje de MaKo con sus
+  // puntitos y sus píldoras en la pausa. Lo que ya estaba al abrir la conversación, de una; una conversación recién creada (sólo lo de
+  // MaKo, sin nada de la persona) trae su primer mensaje con puntitos.
+  const conocidos = useRef<{ sesion: string; ids: ReadonlySet<string> } | null>(null);
+  if (!conocidos.current || conocidos.current.sesion !== sesion.id) {
+    const recienCreada = mensajes.length > 0 && mensajes.every((m) => m.de === 'mako');
+    conocidos.current = { sesion: sesion.id, ids: new Set(recienCreada ? [] : items.map((x) => x.id)) };
+  }
+  const yaEstaban = conocidos.current.ids;
+  const filas = useMemo(() => items.map((x): FilaDeCola => {
+    if (yaEstaban.has(x.id) || x.k !== 'msg') return { id: x.id, de: x.k === 'msg' ? 'ya' : 'pieza', texto: '' };
+    if (x.role !== 'assistant') return { id: x.id, de: 'yo', texto: '' };
+    return { id: x.id, de: 'mako', texto: x.texto ?? '', pieza: !!porId.get(x.id.replace(/^of-/, ''))?.opciones?.length };
+  }), [items, yaEstaban, porId]);
+  const cola = useColaDeSalida(filas, { historial: () => [] });
+  const itemsVisibles = useMemo(() => {
+    const ver = new Set(cola.visibles.map((f) => f.id));
+    return items.filter((x) => ver.has(x.id));
+  }, [items, cola.visibles]);
+  // Las píldoras, recién en la pausa después de su mensaje.
+  const conPildoras = !ultimo || cola.conPieza(`of-${ultimo.id}`);
+  const escribe = respondiendo || cola.escribiendo;
+  // Los puntitos de la respuesta cuentan desde que la persona mandó: lo que tardó el servidor, cuenta.
+  const { empezoLaEspera } = cola;
+  useEffect(() => { if (respondiendo) empezoLaEspera(); }, [respondiendo, empezoLaEspera]);
+
+  // SIEMPRE AL ÚLTIMO MENSAJE (20/11, la auditoría de chats, coaches-7): bajaba sólo si estaba abajo o si había un mensaje propio
+  // pendiente. Con un mensaje nuevo baja siempre; lo que crece, sólo si estaba abajo (app/_chat/useBajarAlUltimo.ts, por la clave de la
+  // última fila).
+  const seguirHilo = useCallback(() => hilo.current, []);
+  useBajarAlUltimo(seguirHilo, `${sesion.id}|${itemsVisibles[itemsVisibles.length - 1]?.id ?? ''}|${escribe}|${armando?.corriendo ?? ''}|${armando?.error ?? ''}|${conPildoras && opciones.length}|${error ?? ''}`);
 
   /** Lo de Offer adentro de un mensaje de MaKo: el PDF y su nota de voz arriba; lo que leyó y las tarjetas, debajo. */
   const enMensaje = (x: ItemMsg): EnMensaje | null => {
@@ -214,7 +236,7 @@ export function ChatOffer({
   };
   // Van AL FINAL DEL HILO, y se desplazan con él (22/10/2026, el caso de uso de OF4 a 390 px): fijas arriba de la caja, cuatro
   // opciones largas ocupaban 250 px y la conversación quedaba en 240. Así las dibuja también el Ops Center (una pregunta del hilo).
-  const rapidas = opciones.length || onReintentar ? (
+  const rapidas = (opciones.length && conPildoras) || onReintentar ? (
     <div className="of-rapidas" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {onReintentar && (
         <div className="of-reintento" role="status">
@@ -222,7 +244,7 @@ export function ChatOffer({
           <Button variant="secondary" size="sm" onClick={onReintentar}>Reintentar</Button>
         </div>
       )}
-      {opciones.length > 0 && (
+      {opciones.length > 0 && conPildoras && (
         <div role="group" aria-label={varias ? 'Respuestas rápidas: puedes marcar varias' : 'Respuestas rápidas'} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           {varias && <span className="of-pill-ayuda">Puedes marcar varias</span>}
           {opciones.map(({ t, idx }) => {
@@ -272,17 +294,17 @@ export function ChatOffer({
           flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative',
           background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid var(--primary)', borderRadius: 16, overflow: 'hidden',
         }}>
-      <div className="co-hilo" ref={hilo} onScroll={(e) => { abajo.current = estaAbajo(e.currentTarget); }}>
+      <div className="co-hilo" ref={hilo}>
         <div className="co-hilo__col">
-          <HiloMako items={items} quien={quien} ahora={ahora} escribiendo={null}
+          <HiloMako items={itemsVisibles} quien={quien} ahora={ahora} escribiendo={null}
             tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} onCitar={onCitar} />
           {/* La espera, en la fila de MaKo del Ops Center: SÓLO LOS TRES PUNTITOS de «está escribiendo», sin texto (18/10/2026,
               Martín: «En lugar de "Revisando tu respuesta", sólo debería aparecer la animación de los ... como que está
               escribiendo»; por eso no el «Trabajando…» del hilo). Y «Analizando…» mientras LEE un link o un documento (18/10,
               14:00, Martín): ahí tarda y conviene decir qué hace. */}
-          {respondiendo && (
+          {escribe && (
             <FilaDelChat m={null} quien={{ titulo: quien.nombre }} marcas={null} hora={null}>
-              {leeAlgo(fuente) ? (
+              {respondiendo && leeAlgo(fuente) ? (
                 <span role="status" className="of-analizando">Analizando {fuente}<span className="of-puntos" aria-hidden><span>.</span><span>.</span><span>.</span></span></span>
               ) : (
                 <span role="status" aria-label="MaKo está escribiendo" className="of-escribiendo"><i /><i /><i /></span>

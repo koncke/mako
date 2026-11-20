@@ -341,15 +341,16 @@ export function ConversacionCerebro({ tab, apertura: aperturaPedida = null, aper
     window.addEventListener('keydown', tecla);
     return () => window.removeEventListener('keydown', tecla);
   }, [menuWA, infoWA, conectando, onCerrar, esDeArriba]);
-  // Como un chat: abre en lo último y baja con lo nuevo.
-  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);
+  // SIEMPRE AL ÚLTIMO MENSAJE (el panel, por la clave de la última fila: PanelChat.tsx → `seguir`; 20/11, ops-center-4). La apertura
+  // avisa lo suyo (AperturaMako → avisarMensajeNuevo).
+  const ultimaFila = `${k.items[k.items.length - 1]?.id ?? ''}|${k.enCurso ? 'escribe' : ''}`;
   // Lo que MaKo dice primero: la de la tab, la de la guía o la del Cerebro. Con algo de la tab en el bloque de preguntas, calla.
   const apertura = useAperturaDelCerebro(k, { libre: !(preguntas && preguntas.length > 0), propia: aperturaDeLaTab });
 
   return (
     <>
-      <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
+      <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja} seguir={{ clave: ultimaFila }}
         cabecera={{ clave: 'cerebro', titulo: k.nombre, criatura: k.nombreMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: onCerrar, antes }}
         arriba={<><TrabajosTerminados trabajos={trabajos} />{arriba}<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} /></>}
         despues={<>

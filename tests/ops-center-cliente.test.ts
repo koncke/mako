@@ -95,7 +95,8 @@ test('2. una conversación de Offer se dibuja con el MISMO hilo: la voz se escuc
   assert.equal(opcionesDeOffer(ms.slice(0, 2)), null, 'el último es de la persona: ninguna');
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.match(motor, /const l = await pedir<\{ mensajes: MensajeChat\[\] \}>\(`\$\{RUTA\}\?offerId=\$\{s\.id\}`\);/, 'se dibuja la proyección');
-  assert.match(motor, /setItems\(\[\.\.\.itemsDeSesion\(l\.datos\.mensajes \?\? \[\], \[\], \[\], conWsDeAudio\), \.\.\.\(op \? \[op\] : \[\]\)\]\);/);
+  // Por \`poner\`: en un turno, lo nuevo sale por la cola de salida (20/11, la auditoría de chats, coaches-5).
+  assert.match(motor, /poner\(\[\.\.\.itemsDeSesion\(l\.datos\.mensajes \?\? \[\], \[\], \[\], conWsDeAudio\), \.\.\.\(op \? \[op\] : \[\]\)\]\);/);
   // La pregunta rápida no lleva «Elige tú» ni «Saltear» (BloqueHilo.tsx).
   const b = sinComentarios(leer('app/_chat/BloqueHilo.tsx'));
   assert.match(b, /\{!b\.rapida && <button type="button" className="ch-enlace" disabled=\{quieta\} onClick=\{\(\) => responder\(ELIGE_TU_PREGUNTA\)\}>/);

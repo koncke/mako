@@ -588,8 +588,9 @@ test('21. el Offer Coach tiene su conversación, fija en su fila, y su video la 
   const v = leer('app/second-brain/VideoDelCoach.tsx');
   // (20/11, V5: quietos, marcados con «dale play»: tests/tutorial-entrada.test.ts.)
   // (20/11, F4: arriba del texto; el «dale play» sólo mientras es la portada: tests/onboarding-v2-coaches-videos.test.ts.)
-  assert.match(v, /<VideoDelMomento clave="offer-coach" titulo=\{ORIGEN_OFFER_COACH\} revision=\{revision\} dalePlay=\{dalePlay\} \/>/);
-  assert.match(v, /<VideoDelMomento clave="funnel-coach" titulo=\{ORIGEN_FUNNEL_COACH\} revision=\{revision\} dalePlay=\{dalePlay\} \/>/);
+  // (20/11, coaches-6: «Mira aquí, la caja del chat» se marca mientras la voz lo dice: `marcarFrases`.)
+  assert.match(v, /<VideoDelMomento clave="offer-coach" titulo=\{ORIGEN_OFFER_COACH\} revision=\{revision\} dalePlay=\{dalePlay\} marcarFrases \/>/);
+  assert.match(v, /<VideoDelMomento clave="funnel-coach" titulo=\{ORIGEN_FUNNEL_COACH\} revision=\{revision\} dalePlay=\{dalePlay\} marcarFrases \/>/);
   assert.match(v, /useVideoTutorial\(dosCoaches \? clave : null\)/);
   assert.match(v, /const conVideo = dosCoaches && \(video != null \|\| revision\);/);
   for (const f of ['app/second-brain/ChatDelCoach.tsx', 'app/m/second-brain/HojaDelCoach.tsx']) {

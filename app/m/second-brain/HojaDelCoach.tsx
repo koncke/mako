@@ -51,14 +51,15 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
 }) {
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  const { k, r, aspecto, quien, vacio, saludo, plan, titulo: nombre, tab, motorOffer, errorOffer, reintentarOffer } = useChatDelCoach({ referente, oferta, caja, cual, dosCoaches });
+  const { k, r, aspecto, quien, vacio, saludo, plan, titulo: nombre, tab, motorOffer, sinEscribir, errorOffer, reintentarOffer } = useChatDelCoach({ referente, oferta, caja, cual, dosCoaches });
   const portada = useVideoDelCoach(cual, dosCoaches, saludo);
   // La voz (sólo con los dos coaches, como en la computadora) y, con el motor de Offer, la portada arriba de su conversación y la
   // oferta armada en su mensaje (en el teléfono, «Descargar PDF» baja directo: ver app/second-brain/OfertaEnElChat.tsx).
   const conVoz = vozDelCoach(k.items);
   // El mismo hilo que la computadora (20/11, V7, V12, F4; app/second-brain/coach-compartido.tsx → useHiloDelCoach).
   const deLaOferta = useOfertaEnMensaje(motorOffer ? k.sesionOffer : null, () => caja.current?.focus(), true);
-  const { hilo: hiloCoach, enMensaje: enMensajeDelHilo } = useHiloDelCoach({ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta });
+  // La portada, con el saludo a su momento del video (coaches-1), como en la computadora.
+  const { hilo: hiloCoach, enMensaje: enMensajeDelHilo } = useHiloDelCoach({ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta, enPortada: vacio || (motorOffer && sinEscribir) });
   // El Funnel Coach del V2 no tiene referente al frente: su criatura no elige.
   const eligeReferente = puedeElegir && !(dosCoaches && cual === 'funnel');
   // Hablar con un referente es de MaKo Pro (14/11/2026, 'chat-referentes'): acá sólo decide qué se ve al elegir quién aconseja. El
@@ -69,7 +70,7 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
   const seguirHoja = useCallback(() => hilo.current?.closest(CUERPO_CHAT) as HTMLElement | null, []);
   // SIEMPRE AL ÚLTIMO MENSAJE (Martín, 20/11): con cada mensaje y cuando lo último crece (un video, una imagen o una tarjeta que
   // cargan después); si subió a leer, lo que crece no la arrastra (app/_chat/useBajarAlUltimo.ts).
-  useBajarAlUltimo(seguirHoja, `${hiloCoach.items[hiloCoach.items.length - 1]?.id ?? ''}|${k.trabajo ? 'trabaja' : ''}|${vista}`);
+  useBajarAlUltimo(seguirHoja, `${hiloCoach.items[hiloCoach.items.length - 1]?.id ?? ''}|${hiloCoach.enCurso ? 'escribe' : ''}|${vista}`);
 
   const panel = k.conectando ? 'conectar' : k.infoWA ? 'info' : vista === 'cerebro' && r ? 'cerebro' : vista === 'plan' && plan ? 'plan' : vista === 'elegir' ? 'elegir' : null;
   const volverDelPanel = () => { if (k.conectando) { k.setConectando(false); k.mirarSuIA(); } k.setInfoWA(null); setVista(null); };

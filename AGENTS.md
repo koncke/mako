@@ -2672,7 +2672,9 @@ van dos marcas en el mismo render).
   `scrollTop = scrollHeight` en un efecto. Una fila que no sale de la lista del chat avisa con `avisarMensajeNuevo()`.
 - **Sus mensajes salen por la cola (`useColaDeSalida`, app/_chat/useColaDeSalida.ts):** de a uno, con puntitos según su largo, y la
   tarjeta, el recuadro o el botón después del texto. El historial, de una. Cuánto escribe MaKo sale de UNA función (`msEscribiendo`,
-  lib/puntitos.ts): nunca un número fijo en una pantalla.
+  lib/puntitos.ts): nunca un número fijo en una pantalla. Cada fila dice qué es: `'mako'` (puntitos), `'pieza'` (la tarjeta, después
+  del texto) o ya; lo que no llegó en el turno, ya (app/_chat/fila-del-hilo.ts). Lo ya dicho en la página no vuelve a escribirse al
+  volver a montar (`useDichoConPuntitos`).
 - **Un chat con PERSONAS usa app/_chat/grupo/useSeguirElHilo.ts** (como WhatsApp: no arrastra a quien lee arriba, cuenta lo nuevo).
 - **Un mensaje que nombra algo de un video sale cuando la voz llega ahí** (app/_ui/tutorial/useMensajeDelVideo.ts) y nunca deja a nadie
   esperando: sin play, con error, pausado o ya visto, sale igual.

@@ -388,8 +388,10 @@ async function motor(responder: (url: string, init?: RequestInit) => Respuesta, 
   const g = globalThis as unknown as Record<string, unknown>;
   const pedidos: Array<{ url: string; init?: RequestInit }> = [];
   const intervalos: Array<() => void> = [];
+  // Los relojes (la cola de salida de lo de MaKo, 20/11): se guardan y se corren a mano (`relojes`).
+  let relojesPendientes: Array<() => void> = [];
   const antes = { window: g.window, document: g.document, fetch: g.fetch };
-  g.window = { setInterval: (f: () => void) => { intervalos.push(f); return intervalos.length; }, clearInterval() {}, setTimeout: () => 0, clearTimeout() {} };
+  g.window = { setInterval: (f: () => void) => { intervalos.push(f); return intervalos.length; }, clearInterval() {}, setTimeout: (f: () => void) => { relojesPendientes.push(f); return relojesPendientes.length; }, clearTimeout() {} };
   g.document = { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} };
   g.fetch = async (url: string, init?: RequestInit) => {
     pedidos.push({ url, init });
@@ -402,7 +404,8 @@ async function motor(responder: (url: string, init?: RequestInit) => Respuesta, 
   const props = { ws: 7, visible, onLeido: () => {} };
   const dibujar = () => d.dibujar(props);
   const asentar = async () => { for (let i = 0; i < 12; i++) await new Promise((r) => setImmediate(r)); return dibujar(); };
-  return { dibujar, asentar, pedidos, intervalos, cerrar: () => { d.desmontar(); g.window = antes.window; g.document = antes.document; g.fetch = antes.fetch; } };
+  const relojes = () => { const ya = relojesPendientes; relojesPendientes = []; for (const f of ya) f(); };
+  return { dibujar, asentar, relojes, pedidos, intervalos, cerrar: () => { d.desmontar(); g.window = antes.window; g.document = antes.document; g.fetch = antes.fetch; } };
 }
 
 test('15. lo nuevo sin recargar: pide con solape, mezcla, y un fallo no borra lo dibujado', async () => {
@@ -417,8 +420,14 @@ test('15. lo nuevo sin recargar: pide con solape, mezcla, y un fallo no borra lo
     await k.sondear();
     k = await m.asentar();
     assert.ok(m.pedidos.some((p) => p.url === '/api/grupos/7/mensajes?despues=70'), 'con solape');
-    assert.deepEqual(k.mensajes.map((x) => x.id), [100, 120], 'sin recargar');
+    // Lo de MaKo que llega con el chat abierto, de a uno y con sus puntitos primero (20/11, la auditoría de chats, ops-center-9).
+    assert.deepEqual(k.mensajes.map((x) => x.id), [100], 'sus puntitos primero');
     assert.equal(k.pensando, true);
+    // Sus puntitos: 600 ms + 20 por letra («Llegó solo»: 800 ms), medidos con el reloj de verdad.
+    await new Promise((r) => setTimeout(r, 900));
+    for (let i = 0; i < 4; i++) { m.relojes(); k = await m.asentar(); }
+    assert.deepEqual(k.mensajes.map((x) => x.id), [100, 120], 'sin recargar');
+    assert.equal(k.pensando, true, 'y MaKo sigue pensando (lo dice el servidor)');
     assert.ok(m.intervalos.length > 0, 'se lee solo');
     // Un fallo (el 503 de cada deploy) mantiene lo dibujado.
     responde = { status: 503, json: { ok: false, error: 'No pude leer el grupo.' } };

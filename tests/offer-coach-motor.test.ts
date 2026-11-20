@@ -47,10 +47,10 @@ test('3. el Offer Coach sigue SU conversación de Offer con el motor de Offer', 
   assert.match(m, /opcionArmar, busca: '', caja, desde: de\.desde, tab: de\.tab, quien, offerDirecto: motorOffer \}\)/);
   assert.match(m, /const sinEscribir = motorOffer && k\.cargado && !k\.errorCarga && !!k\.sesionOffer && !k\.sesionOffer\.mensajes\.some\(\(m\) => m\.de === 'yo'\);/);
   const c = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
-  assert.match(c, /if \(offerDirecto\) \{ setItems\(itemsDeOffer\(s\.mensajes, conWsDeAudio\)\); return; \}/, 'con el id de Offer en cada mensaje');
+  assert.match(c, /if \(offerDirecto\) \{ poner\(itemsDeOffer\(s\.mensajes, conWsDeAudio\)\); return; \}/, 'con el id de Offer en cada mensaje');
   const chat = sinComentarios(leer('app/second-brain/ChatDelCoach.tsx'));
   // (20/11, V12: la portada queda siempre arriba, y el hilo lo arma coach-compartido.tsx → useHiloDelCoach: tests/onboarding-v2-coaches-videos.test.ts.)
-  assert.match(chat, /useHiloDelCoach\(\{ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta \}\)/);
+  assert.match(chat, /useHiloDelCoach\(\{ k, cual, dosCoaches, plan, motorOffer, portada, conVoz, deLaOferta, enPortada, entrada \}\)/);
   assert.match(chat, /<HiloDelCliente k=\{hiloCoach\} enMensaje=\{enMensajeDelHilo\} \/>/);
   assert.match(sinComentarios(leer('app/second-brain/coach-compartido.tsx')), /return conVoz\(false, motorOffer \? \(deLaOferta as never\) : undefined\)\(x\);/, 'con el motor de Offer, la oferta en su mensaje');
 });
