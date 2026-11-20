@@ -7,26 +7,23 @@
 // en tu computadora…» iban apilados ARRIBA DE LA CAJA, dos bloques que le comían ~90 px a la conversación. El prototipo aprobado
 // (docs/prototipos/mako-mobile-chat.html, `.falta-ia`) lo pone como WhatsApp pone sus avisos: una línea fina pegada a la cabecera,
 // el texto a la izquierda y la acción a la derecha. Lo dice lo mismo que la caja de escritorio (PiezasCliente.tsx → CajaDelCliente):
-// sin la app, la franja; sin su IA, «Conectar»; con la app que bloquea, sin «Conectar» (no destraba nada). La caja, con
-// `avisosArriba`, deja de dibujarlos.
+// sin su IA, «Conectar». La caja, con `avisosArriba`, deja de dibujarlo. La franja de la app de escritorio se fue el 20/11/2026:
+// ningún chat la pide (lib/chat-mako-reglas.ts).
 
-import { FRANJA_APP } from '@/app/_chat/AppPrimero';
 import { ancla } from '@/app/_ui/guia/ancla';
 import { avisoDeIA } from './pantalla-chat';
 
 export const FALTA_IA = 'Conecta tu IA para que MaKo conteste';
 
-export function AvisoDeIA({ app, iaConectada, onConectar }: {
-  app: string | null | undefined;
+export function AvisoDeIA({ iaConectada, onConectar }: {
   iaConectada: boolean | null | undefined;
   onConectar: () => void;
 }) {
-  const a = avisoDeIA(app, iaConectada);
-  if (!a) return null;
+  if (!avisoDeIA(iaConectada)) return null;
   return (
-    <div className="m-chat__aviso" role="note" {...(a.texto === 'app' ? { 'data-app-franja': '' } : {})}>
-      <span className="m-chat__aviso-texto">{a.texto === 'app' ? FRANJA_APP : FALTA_IA}</span>
-      {a.conectar && <button type="button" className="m-chat__aviso-boton" onClick={onConectar} {...ancla('mk-conectar')}>Conectar</button>}
+    <div className="m-chat__aviso" role="note">
+      <span className="m-chat__aviso-texto">{FALTA_IA}</span>
+      <button type="button" className="m-chat__aviso-boton" onClick={onConectar} {...ancla('mk-conectar')}>Conectar</button>
     </div>
   );
 }

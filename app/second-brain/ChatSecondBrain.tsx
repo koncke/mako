@@ -376,7 +376,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // enseña; el «?» la vuelve a ofrecer. Su catálogo: ./guia-ops-center.ts. Sólo la del cliente: la del super admin es la de sus
   // chats de Claude Code, donde no habla MaKo.
   const conGuia = !ops && !ticketera && !verMapa;
-  const guia = useGuiaDeLaTab(ops ? '' : 'mako', { listo: conGuia && k.cargado && k.esJefe && k.app != null, hechos: { sinApp: k.app === 'bloquea', sinIA: k.iaConectada === false } });
+  const guia = useGuiaDeLaTab(ops ? '' : 'mako', { listo: conGuia && k.cargado && k.esJefe && k.app != null, hechos: { sinIA: k.iaConectada === false } });
   // Lo que MaKo dice primero en el Cerebro (la guía, o la escalera del primer ingreso: lib/aperturas/ops.ts).
   const apertura = useAperturaDelCerebro(k, { libre: conGuia });
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.

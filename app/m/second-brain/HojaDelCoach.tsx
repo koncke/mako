@@ -81,7 +81,7 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
   return (
     <>
       <PantallaChatM abierto onCerrar={onCerrar} id={tab}
-        aviso={panel ? undefined : <AvisoDeIA app={k.app} iaConectada={k.iaConectada} onConectar={() => k.setConectando(true)} />}
+        aviso={panel ? undefined : <AvisoDeIA iaConectada={k.iaConectada} onConectar={() => k.setConectando(true)} />}
         titulo={titulo ?? (
           <span className="m-operaciones-titulo">
             <button type="button" className="m-operaciones-titulo__muneco" disabled={!eligeReferente} aria-label="Elegir quién aconseja" onClick={() => setVista('elegir')}>

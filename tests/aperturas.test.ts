@@ -165,15 +165,15 @@ test('4. los pasos comunes: la oferta (0, 1, varias; sin la app sin texto libre)
   assert.equal(obj.botones[0].rotulo, 'Escribirte por WhatsApp', 'el de su funnel primero');
   assert.equal(obj.botones.length, 4);
   assert.equal(pasoObjetivo({ superficie: 'web', saltar: true }), null, 'si el funnel lo dice, no se pregunta');
-  assert.equal(pasoSinIA({ superficie: 'copywriter', app: 'bloquea', iaConectada: true })!.botones[0].tipo, 'hacer');
-  assert.equal(pasoSinIA({ superficie: 'copywriter', app: 'tiene', iaConectada: false })!.id, 'copywriter:sin-ia');
-  assert.equal(pasoSinIA({ superficie: 'copywriter', app: 'tiene', iaConectada: true, pendiente: { texto: 'Adapta esta página', para: 'Mentoría' } })!.botones[0].tipo, 'pedir');
-  assert.equal(pasoSinIA({ superficie: 'copywriter', app: 'tiene', iaConectada: true }), null);
+  // Sin la app de escritorio ya no hay paso (20/11/2026, tests/app-de-escritorio-primero.test.ts): sólo el de su IA.
+  assert.equal(pasoSinIA({ superficie: 'copywriter', iaConectada: false })!.id, 'copywriter:sin-ia');
+  assert.equal(pasoSinIA({ superficie: 'copywriter', iaConectada: true, pendiente: { texto: 'Adapta esta página', para: 'Mentoría' } })!.botones[0].tipo, 'pedir');
+  assert.equal(pasoSinIA({ superficie: 'copywriter', iaConectada: true }), null);
   for (const a of [tres, una, ninguna, sinApp, larga, obj]) {
     assert.deepEqual(problemasDeApertura(a, { primerPaso: true }), [], a.id);
     assert.deepEqual(marcasDeVoseo(textos(a)), [], a.id);
   }
-  for (const a of [pasoSinIA({ superficie: 'x', app: 'bloquea', iaConectada: null })!, pasoSinIA({ superficie: 'x', app: 'tiene', iaConectada: false })!]) {
+  for (const a of [pasoSinIA({ superficie: 'x', iaConectada: false })!]) {
     assert.deepEqual(problemasDeApertura(a, { primerPaso: false }), [], a.id);
   }
 });
@@ -190,10 +190,10 @@ test('5. la ruta: la fila de la SESIÓN, la clave con el workspace que arma ella
   assert.match(r, /status: 503/, 'una lectura caída no es «nunca vio nada»');
 });
 
-test('6. el montaje: en el Cerebro, en lugar de la portada (también sin la app) y después del último mensaje; nunca guardada', () => {
+test('6. el montaje: en el Cerebro, en lugar de la portada y después del último mensaje; nunca guardada', () => {
   const p = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   const hilo = p.slice(p.indexOf('export function HiloDelCliente('), p.indexOf('export function CajaDelCliente('));
-  assert.match(hilo, /!k\.items\.length && !k\.trabajo \? \(apertura \?\? \(k\.app === 'bloquea' \? null : \(/, 'vacío: la apertura, también bloqueado');
+  assert.match(hilo, /!k\.items\.length && !k\.trabajo \? \(apertura \?\? \(\n\s*<div className="co-portada">/, 'vacío: la apertura, o la portada');
   assert.match(hilo, /marcas=\{k\.marcas\}(?: enMensaje=\{enMensaje\})? \/>\n\s*\{apertura\}\n\s*<\/>/, 'con historia: después del último mensaje');
   const usar = p.slice(p.indexOf('export function useAperturaDelCerebro('), p.indexOf('export function HiloDelCliente('));
   assert.match(usar, /const libre = o\.libre && k\.esJefe && k\.cargado && !k\.errorCarga && !k\.enCurso && !o\.propia && !deLaGuia && !guia\.senalando && !guia\.esperando;/,
@@ -239,19 +239,20 @@ test('7. la pieza dibujada: el mensaje de MaKo, el recomendado marcado, el link 
   assert.match(html, /<button type="button" class="of-pill">Ahora no<\/button>/);
   const src = sinComentarios(leer('app/_chat/AperturaMako.tsx'));
   assert.match(src, /<ContextoWA\.Provider value=\{null\}>/, 'mensajes sin guardar: sin fijar ni reaccionar');
-  assert.match(src, /if \(b\.tipo === 'hacer' && b\.accion === 'instalar'\) return <span key=\{b\.rotulo\} className="ch-apertura__pieza"><InstalarMaKo \/><\/span>;/, '«Instalar MaKo» es la pieza de la caja');
+  assert.doesNotMatch(src, /InstalarMaKo/, '«Instalar MaKo» se fue el 20/11/2026: ningún chat pide la app de escritorio');
   assert.match(src, /<style>\{CSS_OFFER\}<\/style>/, '`.of-pill` sólo existe con la hoja de Offer montada');
 });
 
-test('8. las respuestas rápidas del hilo sin la app: dicen por qué y no se tocan', async () => {
+test('8. las respuestas rápidas del hilo: con `sinMandar` dicen por qué y no se tocan; el Cerebro ya no lo pasa', async () => {
   const { BloqueHilo } = await import('../app/_chat/BloqueHilo');
   const b = { t: 'pregunta' as const, pregunta: '¿Cuál prefieres?', opciones: [{ titulo: 'La A' }, { titulo: 'La B' }] };
-  const sin = renderToStaticMarkup(createElement(BloqueHilo, { b, onResponder: () => true, sinMandar: 'Para contestar, instala MaKo: el botón está abajo, en la caja.' }));
-  assert.match(sin, /class="ch-sin-mandar" role="note">Para contestar, instala MaKo/);
+  const sin = renderToStaticMarkup(createElement(BloqueHilo, { b, onResponder: () => true, sinMandar: 'Desde aquí no se puede contestar.' }));
+  assert.match(sin, /class="ch-sin-mandar" role="note">Desde aquí no se puede contestar\./);
   assert.equal((sin.match(/<button[^>]*class="ch-opcion"[^>]*disabled=""/g) ?? []).length, 2, 'no se tocan');
   const con = renderToStaticMarkup(createElement(BloqueHilo, { b, onResponder: () => true }));
   assert.doesNotMatch(con, /ch-sin-mandar|disabled/);
-  assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /sinMandar=\{k\.app === 'bloquea' \? FRASE_RESPONDER : null\}/, 'el Cerebro se lo pasa sin la app');
+  // Hasta el 20/11/2026 el Cerebro lo pasaba sin la app de escritorio («Para contestar, instala MaKo»). Ningún chat la pide ya.
+  assert.doesNotMatch(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /sinMandar=/, 'las respuestas rápidas del Cerebro andan siempre');
 });
 
 // PROBADO ROMPIÉNDOLO (29/10/2026, base 8/0):

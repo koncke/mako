@@ -12,15 +12,12 @@ export const BORDE_PX = 24;
 export const UMBRAL_CIERRE = 0.35;
 
 /**
- * Qué le falta para que MaKo conteste, en la línea debajo de la cabecera (./AvisoDeIA.tsx). Lo mismo que la caja de escritorio
- * (PiezasCliente.tsx → CajaDelCliente): sin la app, la franja; sin su IA, «Conectar»; con la app que bloquea, sin «Conectar» (no
- * destraba nada: la caja misma ya dice «Instalar MaKo»). null = nada que decir.
+ * ¿La línea debajo de la cabecera (./AvisoDeIA.tsx) dice «Conectar»? Lo mismo que la caja de escritorio (PiezasCliente.tsx →
+ * CajaDelCliente): sólo sin su IA. Hasta el 20/11/2026 también decía «Descarga MaKo en tu computadora» sin la app de escritorio;
+ * ningún chat la pide desde ese día (lib/chat-mako-reglas.ts). null = todavía no se sabe: nada.
  */
-export function avisoDeIA(app: string | null | undefined, iaConectada: boolean | null | undefined): { texto: 'app' | 'ia'; conectar: boolean } | null {
-  const sinApp = app === 'en-la-computadora';
-  const conectar = iaConectada === false && app !== 'bloquea';
-  if (!sinApp && !conectar) return null;
-  return { texto: sinApp ? 'app' : 'ia', conectar };
+export function avisoDeIA(iaConectada: boolean | null | undefined): boolean {
+  return iaConectada === false;
 }
 
 /** ¿Se cierra al soltar? Llevada más del 35 % del ancho, o soltada con un envión que la llevaría ahí (la proyección de Apple, ./../_ui/gestos.ts). */

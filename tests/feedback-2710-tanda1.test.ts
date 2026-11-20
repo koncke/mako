@@ -74,7 +74,8 @@ test('3. el instalador: tocado, dice que se está descargando y qué hacer si Ch
   const cyd = sinComentarios(leer('app/integraciones/CuentasYDispositivos.tsx'));
   assert.match(cyd, /return `\$\{AVISO_CHROME\} \$\{sistemas\[0\] === 'mac' \? AVISO_GATEKEEPER : AVISO_SMARTSCREEN\}`;/, 'Chrome primero, después el sistema');
   assert.match(leer('app/integraciones/TusCuentasIA.tsx'), /descargado \? 'Se está descargando: cuando termine, ábrelo'/);
-  assert.match(leer('app/_chat/app-de-escritorio.ts'), /FRASE_INSTALAR = 'Se está descargando: ábrelo al terminar'/);
+  // El de la caja del chat («Se está descargando: ábrelo al terminar») se fue el 20/11/2026 con «Instalar MaKo»: ningún chat
+  // pide la app de escritorio (tests/app-de-escritorio-primero.test.ts). Queda el de «Tus cuentas de IA», arriba.
 });
 
 test('4. los adjuntos: ninguna falla dice «No pude subir los adjuntos» a secas; lo que no se esperaba lleva su nombre', () => {

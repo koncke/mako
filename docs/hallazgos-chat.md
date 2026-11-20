@@ -5,6 +5,35 @@ para todos los chats de MaKo. Lo que sabe cada pantalla de su chat (su motor, su
 es lo que muerde al montarlas. Qué caja ofrece qué, y la excepción con su porqué: `lib/cajas-de-chat.ts` (el barrido,
 `tests/cajas-de-chat-unificadas.test.ts`). Lo del Ops Center en particular: [hallazgos-operaciones.md](hallazgos-operaciones.md).
 
+## Ningún chat pide la app de escritorio para escribir: se contesta con los MaKo Tokens (20/11/2026, la llamada con Leila)
+
+**Vive en:** app/api/mako/chat/route.ts (`?app=1` y `?suIA=1`) · app/_chat/app-de-escritorio.ts · app/_chat/useAppDeEscritorio.tsx ·
+app/second-brain/PiezasCliente.tsx y useChatCliente.ts · lib/aperturas/ (ops, comunes, reglas) · app/second-brain/guia-ops-center.ts ·
+app/m/_chat/AvisoDeIA.tsx · tests/app-de-escritorio-primero.test.ts y tests/app-de-escritorio-todos-los-chats.test.ts.
+
+- **La decisión:** Martín, en la llamada con Leila (Fathom 205366178, 00:31:18): «hoy en día utilizamos los MaKo Tokens. Entonces,
+  no pongas la restricción de instalar MaKo para enviar mensajes». Pisa el «Bloqueá igual» del 23/10 y el «En ningún chat» del 25/10.
+- **El corte va en el servidor.** `?app=1` y `?suIA=1` contestan `tiene` siempre, sin leer la computadora ni el dispositivo. Las
+  pestañas abiertas desde antes releían `?app=1` cada 8 s mientras bloqueaban, así que se destraban solas con el deploy. El cliente
+  ya no pregunta. Se fueron `InstalarMaKo`, `AppPrimero` (la caja tapada y la franja del teléfono), la acción `instalar` de las
+  aperturas, los pasos «Instala MaKo» de la escalera y del paso «sin IA», y la marca `mk-instalar` de la guía.
+- **Trampa: la guía probaba su mecanismo `antes` con esto.** «Conectar» aparecía detrás de «Instalar MaKo» (`antes: 'mk-instalar'`),
+  y tests/guia-reglas.test.ts lo usaba como ejemplo. Al sacar el ancla, ese test lo prueba con una guía de ejemplo.
+- **Trampa: tests/d6b-rutas.test.ts fija lo que usa el GET de la ruta.** Sacar `laApp` cambia la lista (`appDeEscritorio`,
+  `tipoDeDispositivo`): se actualiza la lista, no se afloja el test.
+- **Un cambio que se ve en el teléfono:** antes la escalera del Cerebro («¿Qué IA usas?») callaba ahí (`en-la-computadora`). Ahora
+  sale igual que en la computadora, si falta su IA.
+- **⚠️ SIN HACER, a propósito:** las ~20 cajas con motor propio siguen llamando a `useAppDeEscritorio` (ahora inerte: nunca
+  bloquea), con `bloqueo={appEscritorio.bloqueo}` y sus cortes `appEscritorio.bloqueada`, y `pasoOferta` sigue con `conApp`. Se sacan
+  DESPUÉS del parche sin subir de las pestañas («reto-tutoriales», pestanas-sin-subir-20-11), que toca esas mismas líneas en 13 de
+  ellas. Con el cableado se van los valores `bloquea` y `en-la-computadora` del tipo `AppDeEscritorio`, el `sinMandar` de
+  HiloMako/BloqueHilo (ya nadie lo pasa) y las clases `.co-instalar` y `.ch-app-franja`.
+- **Abierto, de producto:** la escalera («Para escribir por ti uso tu propia IA»), el chip «Conectar tu IA» y la línea del
+  teléfono «Conecta tu IA para que MaKo conteste» suponen que hace falta SU IA. Con los MaKo Tokens, a quien no tiene una le dicen
+  algo que no es cierto. No se tocaron: lo decide Martín.
+- **No es esto:** la tarjeta del día 2 del reto («Instala MaKo y activa los avisos», app/second-brain/reto/TarjetasDia2.tsx) habla de
+  la app del TELÉFONO para los avisos, no de la de escritorio.
+
 ## El ➤ de un audio grabado quedaba afuera en el Video Editor, y no por angosto (12/11/2026)
 
 **El síntoma (Martín, con captura):** «grabé un audio y fíjate que se corta porque el chat más angosto y no se ve el botón para
@@ -384,6 +413,9 @@ tests/recorrido-k-3010.test.ts (cinco roturas, cinco rojos). *30/10/2026, claude
 
 ## MaKo toma la iniciativa: la apertura, y las respuestas rápidas que sin la app no hacían nada (29/10/2026, claude3)
 
+> ⚠️ Lo de «sin la app» de esta entrada se fue el 20/11/2026: ningún chat pide la app de escritorio (la entrada de arriba,
+> «Ningún chat pide la app de escritorio»). `FRASE_RESPONDER`, `InstalarMaKo` y `mk-instalar` ya no existen.
+
 La base de docs/mako-iniciativa/ (T1 de plan.md + G1 de guia.md): lo que MaKo dice primero en un chat es una APERTURA
 (lib/aperturas/, la pieza app/_chat/AperturaMako.tsx), montada en el Cerebro (PiezasCliente.tsx → `useAperturaDelCerebro`), el
 mismo en el Ops Center, la estrella y la tarjeta de Create.
@@ -409,6 +441,9 @@ mismo en el Ops Center, la estrella y la tarjeta de Create.
   botones, dos «Ahora no» la callan) y la estrella cerrada (su corto, la primera visita).
 
 ## La caja trabada cortaba «Instala MaKo para escribir»: medir al llegar la frase no alcanzaba (11/11/2026, prueba de Copywriting)
+
+> Esa frase ya no sale desde el 20/11/2026 (ningún chat pide la app de escritorio). La trampa de medir al llegar sigue valiendo
+> para cualquier frase que cambie el alto del campo.
 
 - **Síntoma:** en una caja angosta (el panel de MaKo de las tabs de Create, a 1440), sin la app de escritorio, el campo de
   104 px mostraba «Instala MaKo» y la mitad de «para escribir». Medido: 40 px de alto con 61 de frase.
