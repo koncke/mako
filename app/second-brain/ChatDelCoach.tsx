@@ -108,10 +108,11 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
           // demás iban pegados al título, a la izquierda (Martín, 20/11, en el reto; lo mismo en Offer Coach y Funnel Coach).
           acciones: (
             <span className="co-cab__der">
-              {dosCoaches && <VideosDelChat videos={videosDeLaLista} />}
               {r && <span className="co-cab__inspirado">{inspiradoEn(r)}</span>}
               {plan && !mostrandoCerebro && <button type="button" className="co-chip" aria-pressed={mostrandoPlan} onClick={() => setViendoPlan((v) => !v)}>{mostrandoPlan ? 'Ver el chat' : 'Ver el plan'}</button>}
               {r && <BotonSecondBrainDe referente={r} viendo={mostrandoCerebro} onCambiar={(si) => { setViendoCerebro(si); if (si) setViendoPlan(false); }} />}
+              {/* El ícono de los videos, SIEMPRE lo último a la derecha (20/11/2026, Martín en la llamada con Leila, 00:31:46). */}
+              {dosCoaches && <VideosDelChat videos={videosDeLaLista} />}
             </span>
           ),
         }}
