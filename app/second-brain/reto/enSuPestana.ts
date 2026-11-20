@@ -11,10 +11,34 @@
 //   · Nunca encima de otra marca (el motor ocupado).
 // =============================================================================
 import { mostrarTutorial, senalAhora, senalarDondeTocar } from '@/app/_ui/tutorial/store';
+import { enEnsayo, marcarVistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
+import { anotarVisto } from '@/app/_ui/Recorrido';
 import type { TutorialPestana } from '@/lib/tutoriales';
 
 /** La fila de la pestaña en la barra (app/_components/Sidebar.tsx: cada fila es un link a su ruta). */
 export const selDeLaBarra = (ruta: string): string => `aside[data-sidebar] a[href^="${ruta.split('?')[0]}"]`;
+
+/**
+ * DÓNDE SE TOCA PARA ABRIR LA PESTAÑA. Una ruta con consulta no es una fila de la barra (segunda verificación de V1): la Ticketera vive
+ * en `/second-brain?ticketera=tickets`, y cortar la consulta marcaba la fila del OPS CENTER; al tocarla, el tutorial de la Ticketera
+ * corría sobre el Ops Center y la Ticketera no se abría nunca. Se abre con su botón del Ops Center (`sb-ticketera`). Otra ruta con
+ * consulta sin su botón: null (quien llama pasa el video ahí mismo).
+ */
+const BOTON_DE_LA_CONSULTA: Readonly<Record<string, string>> = { ticketera: '[data-recorrido="sb-ticketera"]' };
+export function dondeSeAbre(t: TutorialPestana): string | null {
+  if (!t.ruta.includes('?')) return selDeLaBarra(t.ruta);
+  return BOTON_DE_LA_CONSULTA[t.pestana] ?? null;
+}
+
+/**
+ * El tutorial de esa pestaña queda VISTO (segunda verificación de OD-06): su video ya lo pasó «Muéstrame…» (o el catálogo). Si no,
+ * al omitirlo o al dejar «Vuelve cuando quieras», el motor quedaba libre y el tutorial de la pestaña volvía a correr solo, el mismo video;
+ * y otra vez la próxima vez que se entraba. En el ensayo «desde cero», en el navegador.
+ */
+export function anotarTutorialVisto(t: TutorialPestana): void {
+  const id = `tutorial-${t.pestana}`;
+  if (enEnsayo()) marcarVistoEnEnsayo(id); else anotarVisto(id);
+}
 
 function seVe(sel: string): boolean {
   const el = document.querySelector(sel);
@@ -43,9 +67,10 @@ function volverAlReto(i = 0): void {
  */
 export function mostrarEnSuPestana(t: TutorialPestana, o: { texto: string; alTerminar?: () => void; volver?: boolean }): boolean {
   if (typeof document === 'undefined' || senalAhora() || t.ruta.includes('[')) return false;
-  const sel = selDeLaBarra(t.ruta);
-  if (!seVe(sel)) return false;
+  const sel = dondeSeAbre(t);
+  if (!sel || !seVe(sel)) return false;
   senalarDondeTocar({ sel, titulo: t.nombre, texto: o.texto, haz: `Haz clic en ${t.nombre}`, lado: 'derecha' }, () => {
+    anotarTutorialVisto(t);
     mostrarTutorial(t, { video: t.pestana, directo: true, alTerminar: () => {
       o.alTerminar?.();
       // En el acto (el motor ya soltó el video: `terminar` limpia y recién después avisa): si no, el tutorial de la pestaña, que la

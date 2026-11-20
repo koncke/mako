@@ -70,7 +70,8 @@ test('4. OA-F1: el WhatsApp se dibuja como lo escribió («+54 9 11 5555 0101»)
 });
 
 test('5. OA-11: «Sigamos en tu computadora» con el sobre delante de «Te mandamos el link» y «tu correo» sin email', () => {
-  const s = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
+  // En su archivo desde el 20/11 (R57-F5: el reto usa el mismo); ChatArranque lo re-exporta.
+  const s = sinComentarios(leer('app/onboarding/SeguirEnPc.tsx'));
   assert.match(s, /<p data-seguir-correo=""[^>]*>\s*<svg[^>]*aria-hidden="true"[^>]*><rect x="3" y="5" width="18" height="14" rx="2\.5" \/><path d="m4 7 8 6 8-6" \/><\/svg>/);
   assert.match(s, /Te mandamos el link a <b style=\{\{ color: 'var\(--ink\)' \}\}>\{email \|\| 'tu correo'\}<\/b>\./);
 });

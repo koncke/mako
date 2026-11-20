@@ -3670,3 +3670,42 @@ existía y el test pasaba, pero el camino de la persona se cortaba. El test comp
   - las respuestas por WhatsApp de los días 3 a 7 (d24-16, R57-10) y el aviso de las 20:00 que lee lo hecho (d24-04). Son del chat
     de WhatsApp (lib/reto/respuestas.ts, avisos*);
   - la pausa en el t_fin de la frase tocada (reto-dia-2-14, reto-dia-3-11 = motor-3/c). Es de MotorTutorial.tsx, del onboarding.
+
+## La segunda verificación (20/11, tarde): el video en su mensaje, la esquina que no avisaba y la foto que se abre al pasar el mouse (chat «reto-tutoriales», claude5)
+
+- **El video de los días 2 a 7 en su mensaje (V4, R57-21).** El diagnóstico obvio, «mover el `<video>` al chat», era el equivocado.
+  Las marcas, la pausa en el `t_fin` de cada frase, la retención después de un clic y lo tocado viven en UN `<video>`, el del
+  motor (MotorTutorial → VideoChico). Cambiar de elemento a mitad de camino lo pierde todo. **La regla:** no se muda el video. El
+  motor lo DIBUJA encima del lugar del mensaje (`data-video-lugar`) con `position: fixed`, recortado con `clip-path` a lo que se
+  ve del hilo. Con menos de un cuarto a la vista, en la esquina. Vive en app/_ui/tutorial/lugarDelVideo.ts (`lugarVisible`, pura y
+  con test) y en la rama `lugar` de VideoChico. La señal del tutorial lleva `lugar`.
+- **La esquina cortaba sin avisar (D1-03).** `terminar` (app/_ui/tutorial/store.ts) hacía `return` para el tipo `'video'`: un
+  video que terminaba en la esquina, o que se cerraba con su X, no le avisaba a nadie. Por eso el día 1 no marcaba Offer Coach. Ahora
+  la señal `'video'` lleva `alTerminar` (`reproducirFlotante(…, alTerminar)`). `volverAlChat` no es terminar, y no avisa.
+- **Una marca cuyo lugar no está en la pantalla espera para siempre y deja el motor ocupado.** Pasa con el video de la esquina que
+  termina con la persona en otra pestaña. Antes de marcar sola, `marcarLoQueFalta` mira que el primer lugar exista. Si no, queda
+  «Tu siguiente paso», que sin fila en el hilo (el día 1) corre las marcas de la tarea.
+- **«Pasa el mouse por tu foto» con una marca que espera un clic (OD-11).** El menú de la foto se abre al pasar el mouse. Quien
+  hacía eso e iba directo a Settings dejaba la marca de la foto esperando un clic que nunca llegaba. El motor acepta `pasar`
+  (`senalarDondeTocar(…, { pasar: true })`, `MarcaReto.pasar`): `pointerenter` sobre lo marcado cuenta como el clic.
+- **Lo visto de un tutorial, desde afuera (OD-06).** `useRecorrido` lee lo local con una clave que lleva la huella de la persona
+  (`quien`, la manda el server). Escribir `localStorage` sin esa huella no lo ve el gancho montado. `anotarVisto(id)`
+  (app/_ui/Recorrido.tsx) usa la última huella que contestó el server y además lo manda al server.
+- **Una ruta con consulta no es una fila de la barra (V1).** `selDeLaBarra` corta el `?`: la Ticketera
+  (`/second-brain?ticketera=tickets`) marcaba el Ops Center. `dondeSeAbre` (app/second-brain/reto/enSuPestana.ts) usa el botón
+  `sb-ticketera`. Una ruta con consulta sin botón conocido no se marca: el video va ahí mismo.
+- **«Cuándo se vio» no es «cuándo se abrió» (R57-F3).** `cuandoSeAbrio` (lib/reto/dias.ts) busca partiendo a la mitad el primer
+  minuto en que el día ya estaba abierto. **Trampa:** `diaAbierto` aplica el adelanto ACTUAL desde el inicio del reto. Para el
+  pasado hay que contarlo recién desde `adelantadoEn`; si no, el día adelantado sale abierto desde el primer minuto. El adelanto se
+  guarda exacto al hacerlo (`abiertoEl` y `adelantados`, /api/reto).
+- **La noche con la hora de las 20:00 (d24-04).** El día nuevo se abre a la misma hora que la noche: a las 20:02 la frenaba el aviso
+  de la mañana, y a las 21:02 el día era nuevo. No salía NUNCA. Ahora sale en la misma vuelta, antes que el de la mañana, con lo que
+  faltaba de los días anteriores. Lleva el texto de la maqueta (`Son N minutos.` con `TareaReto.min`) y sale también por correo.
+- **Por qué el reto tenía su propio «Sigamos en tu computadora» (R57-F5).** Importar app/onboarding/ChatArranque.tsx desde el Ops
+  Center del teléfono le sumaba las rutas del onboarding, que llegan a una IA (tests/d6b-rutas.test.ts). El componente vive ahora en
+  su archivo, app/onboarding/SeguirEnPc.tsx (`para: 'reto'`), y ChatArranque lo re-exporta.
+- **Lo que quedó sin hacer:**
+  - Nada de esto se miró en la app de verdad (sin `next dev`): el video encima del mensaje está probado por la cuenta y el código,
+    no a la vista.
+  - `tareasQueCierra` (lib/reto/dias.ts) ya no la usa la app: lo tocado no da nada por hecho (D1-01).
+  - Un adelanto de antes de este cambio no tiene `adelantados`, así que su «Adelantar al día N» no sale como mensaje.

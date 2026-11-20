@@ -7,10 +7,13 @@
 // momento del onboarding) que corre y sale de la vista, o se desmonta corriendo porque se navegó, sigue flotando abajo a la derecha
 // desde donde iba (`reproducirFlotante`, ./store.ts; lo dibuja <MotorTutorial>).
 // =============================================================================
-import { useEffect, type RefObject } from 'react';
-import { reproducirFlotante, volverAlChat } from './store';
+import { useEffect, useRef, type RefObject } from 'react';
+import { reproducirFlotante, volverAlChat, type MotivoFin } from './store';
 
-export function useVideoQueFlota(ref: RefObject<HTMLVideoElement | null>, clave: string | null, titulo: string): void {
+/** `alTerminarFuera`: si termina (o lo cierran) en la esquina (20/11, D1-03: el día 1 marca Offer Coach igual). */
+export function useVideoQueFlota(ref: RefObject<HTMLVideoElement | null>, clave: string | null, titulo: string, alTerminarFuera?: (m: MotivoFin) => void): void {
+  const aviso = useRef(alTerminarFuera);
+  useEffect(() => { aviso.current = alTerminarFuera; }, [alTerminarFuera]);
   useEffect(() => {
     const v = ref.current;
     if (!v || !clave) return;
@@ -18,7 +21,7 @@ export function useVideoQueFlota(ref: RefObject<HTMLVideoElement | null>, clave:
       if (v.paused || v.ended) return;
       const t = v.currentTime;
       v.pause();
-      reproducirFlotante(clave, titulo, t);
+      reproducirFlotante(clave, titulo, t, (m) => aviso.current?.(m));
     };
     const io = typeof IntersectionObserver !== 'undefined'
       // Al volver a verse, si estaba flotando, vuelve al chat desde el segundo en que iba (20/11, F2).

@@ -94,7 +94,8 @@ test('6. OA-F1: el WhatsApp de la burbuja, con la lada y en grupos (nunca pegado
 });
 
 test('7. OA-11 / OD-F3: «Sigamos en tu computadora» con la estrellita, el correo y el nombre del chat', () => {
-  const s = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
+  // En su archivo desde el 20/11 (R57-F5: el reto usa el mismo); ChatArranque lo re-exporta.
+  const s = sinComentarios(leer('app/onboarding/SeguirEnPc.tsx'));
   assert.match(s, /\{maqueta && <span aria-hidden="true" data-seguir-criatura=""><CriaturaMako size=\{64\} reaccion="contenta" \/><\/span>\}/);
   // Con su sobre, y «tu correo» sin email (20/11, la verificación de OA-11): tests/onboarding-v2-verificacion.test.ts, 5.
   assert.match(s, /Te mandamos el link a <b[^>]*>\{email \|\| 'tu correo'\}<\/b>\./);

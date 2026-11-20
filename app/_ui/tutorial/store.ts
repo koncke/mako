@@ -28,12 +28,19 @@ export type Senal =
       /** Sin la presentación: arranca en el video (lo pidió un clic, como el «▶» del video del día del reto). */
       directo?: boolean;
       /** La persona tocó lo marcado por una frase del video (su `sel`): el chat del reto lo cuenta como hecho. */
-      alTocar?: (sel: string) => void }
+      alTocar?: (sel: string) => void;
+      /** EL VIDEO EN SU MENSAJE (20/11, V4 y R57-21): el selector del lugar del chat donde se ve el video mientras ese lugar está a la
+       *  vista (el del día del reto). Fuera de la vista (se scrolleó, se navegó), en la esquina. Sin `lugar`, en la esquina. */
+      lugar?: string }
   /** Un video que se estaba viendo en su lugar y salió de la vista (o se navegó): sigue flotando abajo a la derecha, desde `desde`. */
-  | { tipo: 'video'; id: number; clave: string; titulo: string; desde: number }
+  | { tipo: 'video'; id: number; clave: string; titulo: string; desde: number;
+      /** Al terminar en la esquina, o al cerrarlo con su X (20/11, D1-03: la marca de Offer Coach del día 1 sale igual). */
+      alTerminar?: (m: MotivoFin) => void }
   | { tipo: 'marca'; id: number; paso: PasoTutorial & { haz: string }; alHacer: () => void; alOmitir?: () => void; listo?: string; libre?: boolean;
       /** «{título}: dale play» sobre un video quieto (V5, ./useDalePlay.ts): la tarjeta lleva sólo el título y la X. */
-      invita?: boolean };
+      invita?: boolean;
+      /** «Pasa el mouse por…»: pasar el mouse por lo marcado ya cuenta, como el clic (el menú de la foto se abre al pasar; OD-11). */
+      pasar?: boolean };
 
 let actual: Senal | null = null;
 let n = 0;
@@ -41,8 +48,8 @@ const oyentes = new Set<() => void>();
 const avisar = () => { for (const f of oyentes) f(); };
 
 /** El tutorial de una pestaña. Reemplaza lo que hubiera (una cosa por vez). */
-export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m: MotivoFin) => void; video?: string; directo?: boolean; alTocar?: (sel: string) => void }): void {
-  actual = { tipo: 'tutorial', id: ++n, tutorial, alTerminar: o?.alTerminar, ...(o?.video ? { video: o.video } : {}), ...(o?.directo ? { directo: true } : {}), ...(o?.alTocar ? { alTocar: o.alTocar } : {}) };
+export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m: MotivoFin) => void; video?: string; directo?: boolean; alTocar?: (sel: string) => void; lugar?: string }): void {
+  actual = { tipo: 'tutorial', id: ++n, tutorial, alTerminar: o?.alTerminar, ...(o?.video ? { video: o.video } : {}), ...(o?.directo ? { directo: true } : {}), ...(o?.alTocar ? { alTocar: o.alTocar } : {}), ...(o?.lugar ? { lugar: o.lugar } : {}) };
   avisar();
 }
 
@@ -51,9 +58,9 @@ export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m
  * chiquitita abajo a la derecha, o si scrolleo en el chat y queda muy arriba… que aparezca también ahí abajito»). Un video que
  * corría en su lugar y salió de la vista sigue aquí, desde donde iba. No pisa un tutorial en curso.
  */
-export function reproducirFlotante(clave: string, titulo: string, desde: number): void {
+export function reproducirFlotante(clave: string, titulo: string, desde: number, alTerminar?: (m: MotivoFin) => void): void {
   if (actual && actual.tipo !== 'video') return;
-  actual = { tipo: 'video', id: ++n, clave, titulo, desde };
+  actual = { tipo: 'video', id: ++n, clave, titulo, desde, ...(alTerminar ? { alTerminar } : {}) };
   tiempoFlotante = desde;
   avisar();
 }
@@ -63,8 +70,8 @@ export function reproducirFlotante(clave: string, titulo: string, desde: number)
  * («Entendido») y lo marcado no hace falta tocarlo. `libre`: sin las tapas alrededor del hueco (el mouse tiene que poder pasar por
  * otro lado: el menú de la foto se cierra si el mouse sale de la foto y no llega al menú).
  */
-export function senalarDondeTocar(paso: PasoTutorial & { haz: string }, alHacer: () => void, o?: { alOmitir?: () => void; listo?: string; libre?: boolean; invita?: boolean }): number {
-  actual = { tipo: 'marca', id: ++n, paso, alHacer, alOmitir: o?.alOmitir, listo: o?.listo, libre: o?.libre, ...(o?.invita ? { invita: true } : {}) };
+export function senalarDondeTocar(paso: PasoTutorial & { haz: string }, alHacer: () => void, o?: { alOmitir?: () => void; listo?: string; libre?: boolean; invita?: boolean; pasar?: boolean }): number {
+  actual = { tipo: 'marca', id: ++n, paso, alHacer, alOmitir: o?.alOmitir, listo: o?.listo, libre: o?.libre, ...(o?.invita ? { invita: true } : {}), ...(o?.pasar ? { pasar: true } : {}) };
   avisar();
   return n;
 }
@@ -141,7 +148,9 @@ export function terminar(id: number, como: MotivoFin | 'hecho'): void {
   if (!s || s.id !== id) return;
   actual = null;
   avisar();
-  if (s.tipo === 'video') return;
+  // El video de la esquina avisa a quien lo pidió (D1-03: antes cortaba sin avisar, y el día 1 no marcaba nunca Offer Coach si su
+  // video terminaba ahí). Al volver a su mensaje (`volverAlChat`) no termina: no avisa.
+  if (s.tipo === 'video') { s.alTerminar?.(como === 'omitido' ? 'omitido' : 'fin'); return; }
   if (s.tipo === 'tutorial') s.alTerminar?.(como === 'omitido' ? 'omitido' : 'fin');
   else if (como === 'omitido') s.alOmitir?.();
   else s.alHacer();
