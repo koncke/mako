@@ -138,6 +138,8 @@ const LECTURA_1047 = { esComprobante: true, operacion: null };
 test('⛔ la captura del 1047 con su pregunta NO es un pago', () => {
   assert.equal(esPreguntaYNoPago(LECTURA_1047, J1047), true);
   assert.equal(esPreguntaYNoPago(LECTURA_1047, '¿esto está bien?'), true);
+  assert.equal(esPreguntaYNoPago(LECTURA_1047, 'mako aca dice 23,50 para Pablo'), true, '«acá dice» sin tilde');
+  assert.equal(esPreguntaYNoPago(LECTURA_1047, 'fijate lo de Pablo'), true, '«fíjate» sin tilde');
 });
 
 test('un pago de verdad sigue siendo un pago: con su N.º aunque pregunte, o sin texto, o sin pregunta', () => {

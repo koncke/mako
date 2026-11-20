@@ -136,8 +136,9 @@ export function respuestaDePago(p: { pedido: PedidoDePago; texto: string; m: Par
   return [`Hoy son ${usd(total)}:`, ...renglones, lineaDePago(p.donde, { una: m.pendientes.length === 1, activa })].join('\n');
 }
 
-/** Lo que pide el texto que acompaña una foto: confirmar, preguntar, revisar. */
-const PIDE_ALGO = /\?|\b(confirm\w*|esta bien|es correcto|es asi|cuanto|cuanta|por que|que es|me dice|dice que|revis\w*|chequea\w*)\b/;
+/** Lo que pide el texto que acompaña una foto: confirmar, preguntar, revisar. «acá dice» y «fíjate» van por su raíz: es lo que ESCRIBE la persona, y la
+ *  palabra entera dispara el guardia del voseo (tests/puente-panel-copy.test.ts). */
+const PIDE_ALGO = /\?|\b(confirm\w*|esta bien|es correcto|es asi|cuanto|cuanta|por que|que es|me dice|dice que|ac[aá] dice|aqu[ií] dice|revis\w*|fij\w*|chequea\w*)\b/;
 
 /**
  * ¿ES UNA PREGUNTA Y NO UN PAGO? Una foto con un texto que pregunta o pide confirmar algo, y en la que la lectura no encontró un N.º de
