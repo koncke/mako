@@ -1029,6 +1029,18 @@ elegido en otra lámina, el filtro lo escondía.
   audio) en `comentarios` con `seccion: "angulos"`, `pieza: "angulos"` y `refiere_a: "Pregunta N"`. Debajo de cada
   pregunta se ven las respuestas con su estado, y lo que llega de la base se pinta sin borrar lo que se está escribiendo.
 
+**Reels y Carruseles en una sola grilla** (21/11, Martín: «no quiero textos innecesarios»). Sin títulos de sección. Lo
+que entra desde Spy va primero (lo más nuevo arriba), con el sello «En preparación», y después lo terminado. En la tarjeta
+el grande es NUESTRO reel o nuestra portada, y la referencia va en la miniatura; mientras no hay versión nuestra, el
+grande es la referencia. Formatos va al final, plegado detrás de «Formatos ▸». Viene: Ángulos pasa a llamarse
+«Tendencias», con datos por sector (no tocarla hasta que lleguen).
+
+**Dakota Hermes y los recortes de 15 s** (21/11). Entraron 408 piezas de Dakota (`spy/dakota-*`, cuenta `dakota`). Va con
+`creadores/dakota` creado sin foto (sale «DH»): la foto de perfil queda pendiente, porque Claude in Chrome no estaba
+conectado. **Trampa:** el almacén de archivos del artefacto tiene un tope de 1 GB y se llenó. Los recortes del Spy pasan a 15 s
+(480 px, ~500 KB, `recorte_s: 15`), y el detalle muestra «Ver completo en Instagram ↗» con el `url`. Lo nuevo propio (videos
+de referencia, láminas) también cuenta para ese tope.
+
 **El reel para mentores high ticket (los pistachos) está en «Reels terminados»** (21/11). No viene de la galería de
 animaciones: va a mano en `armar-cm.mjs` (`reels.push`).
 - **Cuál es la versión vigente:** `montaje/REEL-v-hormozi-palma.mp4` (37,8 s, con el clip de Hormozi aprobado). El relevo
