@@ -928,6 +928,19 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - **Regla en la página:** un reel sin video va al final, con el sello «Sin video todavía». En su detalle va el recuadro
       con la cara del creador, nunca la imagen como si fuera la referencia. Para ordenar, `tieneMedio` mira el video en los
       reels y las láminas en los carruseles.
+30. **Las series de contenido en Reels y Carruseles, y el «72×» como el chip rojo de MaKo** (21/11).
+    - Cinco series (docs/series/): 1 Elige A o B · 2 Educación · 3 Ventas · 4 Comentarios · 5 Gancho con avatar (estilo Rama).
+      En el filtro van como el renglón «Serie ›», de una sola opción, con «Sin serie».
+    - **De dónde sale la serie de cada pieza:** los 7 reels terminados, por su id (`serie1-*` 1, `edu-*` 2, `s3-*` 3,
+      `serie4-*` 4). Los 11 carruseles, todos en la 3; el dudoso es «Ofertas que se venden» (tuits de Hormozi), que podría
+      ser Educación. Lo que entra desde Spy usa la serie elegida al «Hacer mi versión».
+    - La propuesta por defecto: carrusel o con CTA → 3; avatar de Rama → 5; animación → 2; el resto → 2.
+    - Se guarda en la colección `series` (`<sección>-<id>`: `anim-`, `carr-`, `prod-`) y, para lo que entra desde Spy, también
+      en `produccion.serie`. En el detalle de Reels y Carruseles se cambia con el selector junto a «Aprobado».
+    - El chip «N×» copia `.mult` de `app/image-editor/carruseles/explorar.module.css` en su nivel «record»: `#e11d48`, 22 px
+      de alto, radio 6, letra de 12 px con peso 750. Sin «lo normal»: lo explica el «?» del orden.
+    - **Trampa:** dentro del recuadro-botón, el `select` de la serie necesita `pointer-events: auto`, igual que el método.
+      Si no, el clic lo agarra el botón que cubre el recuadro.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
