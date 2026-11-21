@@ -69,6 +69,21 @@ carrusel. No es el Spy de los clientes (ese va por Apify): es el relevo a mano d
 - La regla que más decide: a cámara con pantallas de apoyo de vez en cuando es a-camara («a cámara con b-roll»); es animacion sólo
   si la pantalla o el gráfico manda en la mitad o más de los cuadros.
 
+### ⛔ «/_blob/→» en la base: el mapeo tomaba la segunda palabra del renglón
+- **Síntoma (Martín):** muchas tarjetas negras en Spy, con el ícono de imagen rota. En 121 piezas (72 reels de Doglio y los 49 de
+  Collado) `medios.poster` y `medios.video` decían literalmente `"/_blob/→"`.
+- **Causa:** el subagente que subió esos lotes anotó en `assets-lineas.txt` el renglón entero de la respuesta
+  (`X.jpg → "/_blob/<id>" (id <id>)`) en lugar de «nombre id», y `spy-lotes.py mapa` tomaba la segunda palabra: la flecha. Los
+  ids estaban en el renglón: no hizo falta volver a subir nada.
+- **Lo que lo dejó pasar:** se validaron las líneas de los primeros lotes, pero no las del último subagente, y nada impedía
+  escribir un documento con un medio que no fuera un id real.
+- **La regla:** el mapeo saca el id con una expresión (los 32 hex del renglón, sin mirar el formato), y `spy.py armar` NO escribe
+  una pieza si algún medio no es `^/_blob/[0-9a-f]{32}$` o le falta el póster: la pieza espera hasta tener sus archivos. Las 93
+  piezas viejas de Content Machine con `vid/…` y `poster/…` son rutas de la versión y andan.
+- **Trampa de la PC:** un heredoc de Bash con `\b` dentro de un script de Python dejó caracteres de retroceso (0x08) en la
+  expresión, que no coincidía con nada y mapeó 0 archivos sin error. Las expresiones con barra invertida se escriben con el
+  editor, no por heredoc.
+
 ### ⛔ El «1102×» de Doglio: Instagram oculta los me gusta y yt-dlp devuelve un 3
 - **Síntoma:** en Spy salió primera una pieza de Doglio con «1102×» y 3.308 me gusta.
 - **Causa:** Doglio oculta los me gusta. yt-dlp no devuelve vacío: devuelve `like_count: 3`. 9 reels y 7 de sus 10 carruseles
