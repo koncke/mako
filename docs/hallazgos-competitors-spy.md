@@ -69,6 +69,35 @@ carrusel. No es el Spy de los clientes (ese va por Apify): es el relevo a mano d
 - La regla que más decide: a cámara con pantallas de apoyo de vez en cuando es a-camara («a cámara con b-roll»); es animacion sólo
   si la pantalla o el gráfico manda en la mitad o más de los cuadros.
 
+### ⛔ El «1102×» de Doglio: Instagram oculta los me gusta y yt-dlp devuelve un 3
+- **Síntoma:** en Spy salió primera una pieza de Doglio con «1102×» y 3.308 me gusta.
+- **Causa:** Doglio oculta los me gusta. yt-dlp no devuelve vacío: devuelve `like_count: 3`. 9 reels y 7 de sus 10 carruseles
+  tenían ese 3, y el N× del carrusel se calculó contra una mediana de 3. En las otras seis cuentas no hay ni un 3.
+- **La regla** (`oculto()` y `nx_de()` en `tools/spy.py`): 3 me gusta o menos es «no se sabe» (`me_gusta: null`). El N× compara
+  siempre la MISMA métrica (vistas con vistas; un reel sin vistas en la grilla, sus me gusta contra los me gusta de los reels
+  vecinos; carruseles contra carruseles), con al menos 6 vecinos con dato real, sin los fijados y sin el propio. Si no alcanza,
+  `nx: null`: los carruseles de Doglio quedaron sin N×.
+- **Los fijados** van primero en la grilla aunque sean viejos y tienen las vistas infladas: salen de los vecinos. Se marcan con
+  `fijado: true` (los vistos con el ícono en la grilla, en `grilla-21-11.txt`, más los 3 primeros que son más viejos que el 4.º).
+- Cada pieza lleva por separado `vistas`, `me_gusta` y `comentarios`, porque la página calcula su propio «× lo normal» contra lo
+  que se está mirando. `reproducciones` sigue igual a `vistas` (o 0) por compatibilidad.
+
+### El criterio v2 de los tipos (Martín, 21/11): Martín no se graba
+- «Faltan un montón de animaciones y no entiendo la diferencia entre a cámara y avatar IA». El tipo dice CÓMO lo haríamos
+  nosotros, y Martín no se graba: todo lo que lleva una persona va con su avatar de IA. Quedan tres tipos:
+  - **avatar-ia** con `escena`: `"a-camara"` (una persona hablando: selfie, escritorio, podcast, recorte de llamada, pizarra con la
+    persona) o `"sketch"` (escena actuada, gancho actuado, ficción con IA);
+  - **animacion**: tutoriales por pasos, listas, pantallas de apps, datos y gráficos, texto con voz en off, b-roll con voz, pantalla
+    dividida con la cara chica arriba y diagramas abajo, vlog o montaje con música, y lo que ya es animación o dibujo;
+  - **carrusel**.
+- **La regla de la duda:** si no está claro y el mensaje se entiende sin ver la cara de una persona, es animacion. Con los 8
+  cuadros: si una persona hablando ocupa la mitad o más, avatar-ia; si la mitad o más son pantallas, gráficos, texto o b-roll,
+  animacion. El criterio para los subagentes está en `C:/dev/referentes-videos/spy/criterio-tipos-v2.md`.
+- **Lo que cambió al reclasificar** (Haiku, de 96 mil a 117 mil tokens por agente de ~100 reels): Carrizo pasó de 2 a 37
+  animaciones (de 86), Doglio de 34 a 60 (de 197: sus reels de pantalla dividida con pizarra abajo), Collado de 0 a 10 (de 49) y
+  las 84 piezas viejas de código quedaron en 32 a cámara, 32 sketch y 20 animación. El caso más ambiguo: una persona chica en un
+  estudio blanco con mucho texto animado.
+
 ### ⛔ La laptop de Martín se apagó por temperatura: un proceso pesado a la vez
 - **Qué pasó (21/11, 07:27 UTC):** ventilador al máximo y apagón sin pantalla azul (Kernel-Power 41, código 0). Corrían a la vez
   dos bajadas de `procesar.py` (yt-dlp, whisper en la GPU y ffmpeg), la bajada de la biblioteca con 8 hilos y un subagente
