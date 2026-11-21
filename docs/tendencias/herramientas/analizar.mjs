@@ -121,11 +121,15 @@ for (const g of Object.values(grupos)) {
   // Con menos de 6 piezas o un solo referente no hay tendencia que medir: queda en `pocasSenales` (salvo que sea Nuevo).
   let estado;
   const pocas = P.length < 6 || refsES.length < 2;
-  if (!ES.length) estado = refsEN.length >= 2 && EN.length >= 4 ? 'Nuevo' : null; // todavía no llegó al español: «Nuevo» con llegaDelIngles
+  // El año (peso entre las mismas cuentas, hace un año contra hoy) desempata cuando los 30 días no dicen nada claro.
+  const anual = pesoAntes == null || pesoAhora == null ? null : pesoAhora >= 0.01 && pesoAhora >= 2 * pesoAntes ? 'sube' : pesoAntes >= 0.01 && pesoAhora <= 0.5 * pesoAntes ? 'baja' : 'igual';
+  if (!ES.length) estado = refsEN.length >= 2 && EN.length >= 4 && !hT?.n ? 'Nuevo' : null; // todavía no llegó al español: «Nuevo» con llegaDelIngles
   else if (edad <= 60 && rec.length >= 2) estado = 'Nuevo';
   else if (pocas) estado = null;
   else if (ritmoCom != null && ritmoCom >= 1.3 && (ritmoPiezas ?? 0) >= 1) estado = 'En crecimiento';
   else if ((ritmoPiezas != null && ritmoPiezas < 0.7) || (ritmoCom != null && ritmoCom < 0.7)) estado = 'En baja';
+  else if (anual === 'sube') estado = 'En crecimiento';
+  else if (anual === 'baja') estado = 'En baja';
   else estado = 'Saturado';
   const ej = [...P].sort((a, b) => (b.comentarios ?? 0) - (a.comentarios ?? 0));
   const ejemplos = []; const usados = new Set();
@@ -141,7 +145,7 @@ for (const g of Object.values(grupos)) {
     conversacion: conv == null ? null : Math.round(conv * 100), comentariosRecientes: recientes == null ? null : Math.round(recientes * 100),
     nxMediana: r1(med(P.map((p) => p.nx))), primeraVez: primera, edadDias: edad,
     pesoHaceUnAno: pesoAntes == null ? null : r1(100 * pesoAntes), pesoHoy: pesoAhora == null ? null : r1(100 * pesoAhora),
-    referentesHaceUnAno: hT ? hT.quienes.size : 0,
+    referentesHaceUnAno: hT ? hT.quienes.size : 0, anual,
     ctas: Object.entries(P.reduce((a, p) => { if (p.cta) a[p.cta] = (a[p.cta] || 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6),
     ejemplos,
   });

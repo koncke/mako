@@ -33,7 +33,7 @@ const sectores = ORDEN.map((s) => {
           referentes: f.referentes, referentesIngles: f.referentesIngles, piezas: f.piezas, piezas30: f.piezas30, piezas60: f.piezas60,
           ritmoPiezas: n0(f.ritmoPiezas), comentarios30: f.comentarios30, comentarios60: f.comentarios60, ritmoComentarios: n0(f.ritmoComentarios),
           comentariosPorMil: f.comentariosPorMil, comentariosPorMilSector: f.comentariosPorMilSector, conversacion: f.conversacion,
-          pesoHaceUnAno: f.pesoHaceUnAno, pesoHoy: f.pesoHoy, primeraVez: f.primeraVez,
+          pesoHaceUnAno: f.pesoHaceUnAno, pesoHoy: f.pesoHoy, enElAno: f.anual, primeraVez: f.primeraVez,
         },
         quienes: f.quienes, quienesIngles: f.quienesIngles, ctas: f.ctas,
         ejemplos: f.ejemplos.slice(0, 3),
@@ -52,6 +52,7 @@ const json = {
       'En crecimiento': 'los comentarios por día de los últimos 30 días son 1,3 veces o más los de los 60 anteriores, y se publica igual o más',
       'En baja': 'las piezas o los comentarios por día cayeron por debajo de 0,7 veces',
       'Saturado': 'se publica parejo y los comentarios no crecen: muchos lo dicen y ya no sorprende',
+      'desempate': 'si los 30 días no dicen nada claro, decide el año: el peso del tema entre las mismas cuentas se duplicó (crece) o se partió a la mitad (baja)',
     },
     comentarios: 'sólo de piezas medidas con 7 días o más; cada pieza suma como mucho 5 veces la mediana de su cuenta',
   },
@@ -68,7 +69,7 @@ for (const s of sectores) {
     const x = t.senales;
     const sen = [`${x.referentes} referentes${x.referentesIngles ? ` (+${x.referentesIngles} en inglés)` : ''}`, `${x.piezas30} piezas en 30 días contra ${x.piezas60} en los 60 anteriores`,
       x.ritmoComentarios != null ? `comentarios ${veces(x.ritmoComentarios)}` : null, x.comentariosPorMil != null ? `${fmt(x.comentariosPorMil)} comentarios cada 1.000 vistas` : null,
-      x.pesoHaceUnAno != null && x.pesoHoy != null ? `peso ${fmt(x.pesoHaceUnAno)} % → ${fmt(x.pesoHoy)} %` : null].filter(Boolean).join(' · ');
+      x.pesoHaceUnAno != null && x.pesoHoy != null ? `hace un año ${fmt(x.pesoHaceUnAno)} % de lo publicado, hoy ${fmt(x.pesoHoy)} %` : null].filter(Boolean).join(' · ');
     const uso = t.comoUsarla ? `${t.comoUsarla.gancho}${t.comoUsarla.cta ? ` CTA: **${t.comoUsarla.cta}**` : ''}` : '—';
     md += `| ${t.subsector ? t.subsector + ": " : ""}**${t.nombre}**${t.llegaDelIngles ? ' (llega del inglés)' : ''} | ${t.estado} | ${sen} | ${uso} |\n`;
   }
