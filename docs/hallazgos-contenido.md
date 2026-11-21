@@ -656,9 +656,30 @@ avatar de IA».
   control de permisos del modo automático** («acceso no autorizado»). Generar imágenes por script necesita que Martín lo habilite,
   o que corra él `generar-imagenes.mts`. Si no, queda Flow por Chrome. No se esquiva pidiéndoselo a otro chat.
 
+- **En esta página entra sólo lo que NUESTRA versión haría con video generado por IA** (Martín, 21/11).
+  - Entra: sketches, ganchos exagerados (también los actuados sin IA) y escenas con efecto.
+  - Sale: el tutorial animado, que va a la serie del personaje en cubos hecha por código y no gasta video con IA. También sale la
+    pizarra, lo dicho a cámara, el estudio, las llamadas y las preguntas del público, que van a la serie de Martín a cámara.
+  - El criterio es `conVideoIA` en `armar-pagina.mjs`. De los 20 temas quedaron 9; los otros 11 están en `otras-series.json`, con
+    su serie de destino.
+  - Con este filtro, Hormozi casi no aporta: 1 sketch en 48 reels.
+- **Escribir lo que Martín le enseña a decir a un cliente.** Cada frase lleva «le preguntas» o «le dices». Si no, en voz alta el «tú»
+  salta del espectador al cliente y se entiende otra cosa. «Se presenta» suena a «dice su nombre»: va «llega a la llamada».
+- **Competitor Spy no marca qué REEL hizo «diez veces más» que su cuenta**: eso lo hace sólo con carruseles. Un guion no puede
+  atribuírselo a la app.
+- **La lista de reels de una cuenta necesita sesión de Instagram, y el navegador de la app ya no la tiene** (21/11: el cartel de
+  «Log in» y 12 publicaciones). Bajar cada reel no la necesita. Sin sesión no se puede ampliar el relevo.
+  - Tampoco sirve YouTube: Rama y Víctor no tienen pestaña de Shorts.
+  - El primer filtro barato ya está escrito: `tools/portadas.py` arma hojas de 20 portadas numeradas para clasificar la forma
+    antes de bajar nada.
+
 ### Lo que quedó sin hacer (serie con avatar de IA)
 
 - **Las 20 imágenes de nuestra versión.** Ya están listos los fotogramas (`pub/cuadro/`), una frase por tema y el script
   (`generar-imagenes.mts`: Nano Banana Pro 2K, US$0,02 cada una). Esperan que se destrabe la clave, o Flow.
+- **Los regalos del CTA:** 13 de los 20 guiones regalan algo que no existe todavía, una guía o una plantilla (CRM, FILTRO, IA,
+  CLIENTES, NICHO, EMBUDO, MARGEN, SISTEMA, EMPEZAR, MENTOR, PRECIO, CIERRE y CASO). Los otros 7 regalan la app, pero no tienen
+  cargada la respuesta automática. Cada uno está en el campo `dudas` de `guiones.json`.
+- **Ampliar el relevo a 150-200 reels por cuenta:** espera la sesión de Instagram (en el panel de la app o en el Chrome de Martín).
 - **Los guiones adaptados:** Martín tiene que aprobar cada uno antes de generar el video con avatar (Omni 1.2 Flash, US$0,024 por
   segundo).
