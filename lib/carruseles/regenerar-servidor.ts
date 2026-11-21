@@ -80,14 +80,24 @@ async function revisar(jpeg: Buffer, esperados: readonly string[], o: OpcionesRe
  * ningún intento, vuelve el que menos falla con `faltan` (quien llama lo dice; nunca se entrega callado).
  */
 export async function regenerarLamina(ws: number, p: PedidoDeLamina, o: OpcionesRegenerar): Promise<LaminaRegenerada> {
-  const esperados = textosEsperados(cambiosReales(p.cambios).length ? p.cambios : []);
+  const esperados = textosEsperados(p.cambios);
   let mejor: { jpeg: Buffer; url: string; faltan: string[] } | null = null;
   let intentos = 0;
+  // ⚠️ LOS PARES NO SIEMPRE DICEN LA VERDAD (21/11/2026, el carrusel de Ramiro): la IA principal escribió el texto NUEVO también en
+  // «original», los pares no cambiaban nada, la lámina se salteaba y salía IGUAL a la referencia, sin revisar. Sin un par que
+  // cambie algo, primero se LEE la original: si ya dice lo esperado, no se genera; si no, va la lista en orden desde el primer intento.
+  let enOrdenDesdeElPrimero = false;
+  let hayQueEscribir = cambiosReales(p.cambios).length > 0;
+  if (!hayQueEscribir && esperados.length && o.leer) {
+    const m = /^data:image\/[a-z]+;base64,(.+)$/.exec(p.base);
+    const original = m ? Buffer.from(m[1], 'base64') : await bajarComoJpeg(p.base);
+    if (original && (await revisar(original, esperados, o)).length) { hayQueEscribir = true; enOrdenDesdeElPrimero = true; }
+  }
   // 1. El texto. Sin nada que cambiar, la base va tal cual a la persona.
-  if (cambiosReales(p.cambios).length) {
+  if (hayQueEscribir) {
     for (let i = 0; i < INTENTOS_POR_LAMINA && Date.now() < o.hastaMs; i++) {
       intentos++;
-      const prompt = i === 0 ? promptDeTextos(p.cambios) : promptDeTextos(p.cambios, { enOrden: esperados });
+      const prompt = i === 0 && !enOrdenDesdeElPrimero ? promptDeTextos(p.cambios) : promptDeTextos(p.cambios, { enOrden: esperados });
       const paso = await unPaso([p.base], prompt, o);
       if ('error' in paso) {
         if (!paso.reintentable || mejor) { if (!mejor) return { ok: false, error: paso.error, ...(paso.sinSaldo ? { sinSaldo: true } : {}) }; break; }

@@ -38,6 +38,17 @@ Flow. Va por ApiMart, con la clave de la plataforma y medido en MaKo Tokens (la 
   visión más (leer el texto de la lámina regenerada).
 
 **Trampas:**
+- ⚠️ **Los pares «original → nuevo» no siempre dicen la verdad.** En el de Ramiro, con el copy, la IA principal escribió el texto
+  NUEVO también en «original»: ningún par cambiaba nada, las láminas se salteaban y seis de siete salieron IGUALES a la
+  referencia, sin que nada lo revisara. Ahora, sin un par que cambie algo, se LEE la original; si no dice lo esperado, va la lista
+  en orden desde el primer intento.
+- ⚠️ **A la persona no la marca la IA principal** (sus «cuadros» no la nombraron en ninguna lámina de Ramiro). Con una persona que
+  poner, se pregunta lámina por lámina (`PROMPT_HAY_PERSONA`). Sigue fallando a veces: en «equipo», cuatro láminas quedaron con el
+  personaje pixelado del original; y una MANO (la de «Zoom progresivo») cuenta como persona.
+- ⚠️ La revisión mira que cada texto ESTÉ, no DÓNDE: en el del caballo, «1 lista o tips» quedó en el encabezado y el título dice
+  «Oct / Graphic Design», y pasó la revisión.
+- Los cinco de Martín, lado a lado: https://claude.ai/artifact/VSm2NYaJj1UovnvzpMPhiY (ws 9: 17c8dae2, e95791ee, 09d8c7d4,
+  0f2e2173, 445db85e). Hormozi y Ramiro salieron casi idénticos; equipo y copiar, con láminas avisadas.
 - ⚠️ El texto queda DENTRO de la imagen (como en la referencia): ya no se edita con el editor. Fue la decisión del 21/11.
 - ⚠️ El copy decide qué va en cada lugar: con dos renglones para una lámina de tres textos, el primero cayó en la miniatura en una
   lámina y en el título en otra. Un copy para regenerar va con un renglón por cada texto de la referencia.

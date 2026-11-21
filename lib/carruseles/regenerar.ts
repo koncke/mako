@@ -119,3 +119,12 @@ export function avisoDeTextoQueFalta(faltan: ReadonlyArray<{ lamina: number; fal
   const una = (x: { lamina: number; faltan: readonly string[] }) => `en la lámina ${x.lamina}, «${x.faltan[0].slice(0, 60)}»`;
   return `La IA de imagen no escribió bien ${malas.length === 1 ? 'un texto' : 'unos textos'} (${malas.slice(0, 3).map(una).join('; ')}): vuelve a generar ${malas.length === 1 ? 'esa lámina' : 'esas láminas'} antes de publicar.`;
 }
+
+/**
+ * ¿La lámina tiene una persona? (21/11/2026, el carrusel de Ramiro: los cuadros que lista la IA principal no la marcaron en ninguna
+ * lámina y Ramiro quedó en vez de Martín). Se pregunta lámina por lámina, con la imagen sola: una foto o un dibujo de alguien.
+ */
+export const PROMPT_HAY_PERSONA = 'Is there a person in this image (a photo, a drawing or a 3D figure of someone: their face or body)? A written name or a logo does not count. Return ONLY this JSON: {"persona": true} or {"persona": false}';
+
+/** Lo que contestó la pregunta de la persona: true sólo con un sí claro. */
+export const hayPersonaEn = (crudo: string | null | undefined): boolean => /"persona"\s*:\s*true/i.test(crudo ?? '');

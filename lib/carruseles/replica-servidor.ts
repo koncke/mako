@@ -423,33 +423,42 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   async function regenerarElCarrusel(): Promise<ResultadoReplica | null> {
     if ('error' in replica) return null;
     const { regenerarLaminas } = await import('./regenerar-servidor');
-    const { PROMPT_LEER_TEXTO, leidoDe, documentoRegenerado, avisoDeTextoQueFalta } = await import('./regenerar');
+    const { PROMPT_LEER_TEXTO, PROMPT_HAY_PERSONA, hayPersonaEn, leidoDe, documentoRegenerado, avisoDeTextoQueFalta } = await import('./regenerar');
     const conCopyR = partes ? conElCopy(replica, partes, { ...medidas, max: LAMINAS_MAX }).replica : replica;
     const baseDe = partes ? laminaParaCadaParte(conCopyR.laminas.length, replica.laminas.length) : conCopyR.laminas.map((_, i) => i);
+    const { leerDocumentoIA } = await import('../ai-cheap');
+    const { conSuIADelNegocio } = await import('../ia-del-negocio');
+    /** La IA del negocio mira UNA imagen (la lámina regenerada, o la original para saber si tiene una persona). null = no contestó. */
+    const mirar = async (dataUrl: string, prompt: string, maxTokens: number): Promise<string | null> => {
+      try {
+        const x = await conSuIADelNegocio(ws, () => leerDocumentoIA({
+          dataUrl, dataUrls: [dataUrl], isPdf: false, nombreArchivo: 'lamina', prompt, json: true,
+          feature: FEATURE_REPLICA, motivo: 'Mirar una lámina para regenerarla con IA', timeoutMs: 45_000, maxTokens, modelos: MODELOS_REPLICA,
+        }));
+        return x.text;
+      } catch { return null; }
+    };
+    const leer = async (dataUrl: string): Promise<string | null> => { const t = await mirar(dataUrl, PROMPT_LEER_TEXTO, 1_500); return t ? leidoDe(t) || null : null; };
     // La persona: la que dijo quien llama, o la foto que eligió el dueño (nunca en seco: copiarla escribe en su «Subidos»).
     let persona: string | null = null;
     if (o.persona === 'original' || o.persona === null) persona = null;
     else if (typeof o.persona === 'string') persona = o.persona;
     else if (pedidoBase.conAvatar && !o.seco) persona = (await fotoDelCliente(ws, fotoDelGuiado(g) ?? 'cara'))?.url ?? null;
+    // Qué láminas del original tienen una persona: lo que marcó la IA principal, y si no marcó nada, se pregunta lámina por lámina
+    // (21/11/2026: en el carrusel de Ramiro no marcó ninguna y él quedó en lugar de Martín).
+    const conPersona = new Map<number, boolean>();
+    if (persona) {
+      await Promise.all([...new Set(baseDe)].map(async (b) => {
+        const original = replica.laminas[b];
+        const marcada = (original?.cuadros ?? []).some((x) => x.persona) || !!original?.personas?.length;
+        conPersona.set(b, marcada || hayPersonaEn(await mirar(imagenes[b], PROMPT_HAY_PERSONA, 60)));
+      }));
+    }
     const pedidos = conCopyR.laminas.map((l, i) => {
       const b = baseDe[i];
-      const original = replica.laminas[b];
-      const tienePersona = (original?.cuadros ?? []).some((x) => x.persona) || !!original?.personas?.length;
-      return { base: imagenes[b], cambios: l.textos.map((t) => ({ antes: t.original ?? '', despues: t.texto })), persona: tienePersona ? persona : null };
+      return { base: imagenes[b], cambios: l.textos.map((t) => ({ antes: t.original ?? '', despues: t.texto })), persona: conPersona.get(b) ? persona : null };
     });
     avisar({ fase: 'escribir', con: 'la IA de imagen, lámina por lámina' });
-    const { leerDocumentoIA } = await import('../ai-cheap');
-    const { conSuIADelNegocio } = await import('../ia-del-negocio');
-    const leer = async (dataUrl: string): Promise<string | null> => {
-      try {
-        const x = await conSuIADelNegocio(ws, () => leerDocumentoIA({
-          dataUrl, dataUrls: [dataUrl], isPdf: false, nombreArchivo: 'lamina', prompt: PROMPT_LEER_TEXTO, json: true,
-          feature: FEATURE_REPLICA, motivo: 'Leer el texto de una lámina regenerada', timeoutMs: 45_000, maxTokens: 1_500, modelos: MODELOS_REPLICA,
-        }));
-        const leido = leidoDe(x.text);
-        return leido || null;
-      } catch { return null; }
-    };
     const hasta = o.hastaMs != null ? o.hastaMs - 12_000 : Date.now() + 260_000;
     const creador = c?.creador.usuario ? `@${c.creador.usuario}` : c?.creador.nombre ?? 'un ejemplo';
     const hechas = await regenerarLaminas(ws, pedidos, { hastaMs: hasta, seco: !!o.seco, leer, referencia: `Carrusel de ${creador}`, deA: 4 });
