@@ -60,7 +60,9 @@ test('ningún renglón del «⋯» lleva subtítulo, y el renglón ni siquiera l
   // quiere más o menos info». Es de quien mira (tests/crm-tarjeta-personalizable.test.ts).
   // «Editar etapas» sin el artículo desde el 24/10/2026, como «Cambiar nombre» («que no diga "Cambiar EL nombre"», Martín).
   // «Nombres de tus leads» (31/10/2026): cómo los saluda MaKo, y la palabra que no es un nombre («Kun»). Sólo la puede resolver el negocio.
-  const RENGLONES = ['Importar leads', 'Exportar leads', 'Editar etapas', 'Personalizar tarjetas', 'Nombres de tus leads'];
+  // «Asignar fuentes» (20/11/2026): Martín, «Y que en los 3 puntos de arriba a la derecha también esté esa opción» (la de la
+  // primera etapa, con el logo de Meta: app/crm/FuentesModal.tsx).
+  const RENGLONES = ['Importar leads', 'Asignar fuentes', 'Exportar leads', 'Editar etapas', 'Personalizar tarjetas', 'Nombres de tus leads'];
   for (const label of RENGLONES) {
     assert.ok(acc.includes(`label="${label}"`), `falta el renglón «${label}» en el «⋯»`);
   }

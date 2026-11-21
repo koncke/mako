@@ -59,6 +59,7 @@ import { quienEnElGrupo, SE_APRUEBAN_EN_LA_APP } from '@/lib/confirmacion-pura';
 import { cuentasDelCreditoDeLosGrupos, marcarCuentaDeLosGruposSinCredito } from '@/lib/credito-negocio';
 import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, NOTA_PEDIDO_DE_FUNCION, pideUnaFuncionalidad, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
+import { respuestaDelPagoDeLaAgencia } from '@/lib/agencia-mes-consulta';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
 import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, enElGrupoSinSenal, esCharlaConAlgo, laCharlaConAlgo, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
@@ -902,7 +903,8 @@ async function comprobanteDeLaMensualidad(wsData: number, instance: string, data
     if (!(await hayQueLeerComprobante(wsData))) return false;
     const b64 = adj.base64 ?? (await fetchMediaBase64EnInstancia(instance, jid, id, false))?.base64 ?? null;
     if (!b64) return false;
-    const r = await atenderComprobanteDeAgencia({ agenciaWs: wsData, waMensajeId: id, bytes: new Uint8Array(Buffer.from(b64, 'base64')) });
+    // `pie`: lo que dice el mensaje con la foto. Una pregunta sin N.º de operación no es un pago: sigue al turno (20/11/2026, el 1047).
+    const r = await atenderComprobanteDeAgencia({ agenciaWs: wsData, waMensajeId: id, bytes: new Uint8Array(Buffer.from(b64, 'base64')), pie: textoDelMensajeDeLaApp(data) });
     console.log(`[mako-doer] ws${wsData}: archivo del grupo → ${r.que}`);
     return r.atendido;
   } catch (e) {
@@ -926,7 +928,7 @@ export async function comprobanteDeLaApp(ws: number, data: MsgIn): Promise<boole
   return conSalidaDelGrupo({ ws, clave: jid, soloApp: true, hayInvitado: false }, () => comprobanteDeLaMensualidad(ws, '', data, jid));
 }
 
-/** El texto de un mensaje de la app, con el pie de la foto o del PDF (`msgDeFila`): `textoDe` no lee el de un documento. */
+/** El texto de un mensaje (de la app o de WhatsApp), con el pie de la foto o del PDF (`msgDeFila`): `textoDe` no lee el de un documento. */
 function textoDelMensajeDeLaApp(m: MsgIn): string {
   const msg = m.message ?? {};
   const doc = msg.documentMessage as { caption?: string } | undefined;
@@ -2042,6 +2044,23 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
         void recordUsage('ayuda-doer', 'ayuda', {}, `ws${wsData} · «${texto.slice(0, 40)}» → ${ayuda.split('\n')[0].slice(0, 120)}`, 'mako', 1).catch(() => {});
         return { engaged: true, reply: ayuda };
+      }
+    }
+
+    // ── LO QUE SE LE PAGA A MaKo (20/11/2026, lib/agencia-mes-consulta.ts) ──────────────────────────────────────────────────────
+    // «Mako pasame cuanto hay que pagar de Pablo Chavez para activar su cuenta» (Código Inmobiliario): el turno lo buscó como LEAD del CRM y
+    // contestó que no tenía monto. Es la entrada de la CUENTA de su cliente, y la contesta el CÓDIGO con la mensualidad de la agencia, ANTES
+    // del modelo: así gana la cuenta-cliente aunque el nombre también sea un lead. También el texto de una foto («acá me dice US$ 23,50,
+    // confírmame si está bien»): `texto` es todavía su pie. Sólo quien administra (ni un invitado ni el equipo: es lo que paga el negocio).
+    if (texto && !hayInvitado) {
+      const pago = await respuestaDelPagoDeLaAgencia(wsData, sinPrefijoDeLote(texto));
+      if (pago) {
+        const env = await enviarAGrupoJid(jid, pago);
+        if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+        await siNoLlego(wsData, actorDeWhatsApp(participante, data.pushName), soloApp, [env]);
+        await guardarTurno(wsData, jid, 'user', texto, msgId).catch(() => {});
+        if (env.ok) await guardarTurno(wsData, jid, 'assistant', pago, undefined).catch(() => {});
+        return { engaged: true, reply: pago };
       }
     }
 

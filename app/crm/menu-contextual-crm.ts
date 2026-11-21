@@ -32,7 +32,6 @@ import type { EntradaMenuContextual, ItemMenuContextual } from '@/app/_ui/MenuCo
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { ICONO_FUNNEL } from '@/app/_ui/icono-funnel';
 import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reunion';
-import { tipoDeFunnel, type EntradaId } from '@/lib/pipeline';
 import { ORDEN_KANBAN, type OrdenKanban } from './orden-kanban';
 import { textoDifusionDeColumna } from './seleccion-difusion';
 
@@ -52,8 +51,8 @@ export type IdOpcionCrm =
   // una columna (las del «⋯» de su cabecera; «Nuevo lead» vive ahí desde el 21/10/2026)
   | 'col_nuevo_lead' | 'col_ordenar' | 'col_difusion' | 'col_izquierda' | 'col_derecha' | 'col_campanas' | 'col_evento' | 'col_cobro' | 'col_tipo' | 'col_curso_prender' | 'col_curso_apagar'
   | 'col_renombrar' | 'col_agregar' | 'col_eliminar'
-  // el fondo (las del «⋯» de la barra)
-  | 'nuevo_lead' | 'importar' | 'exportar' | 'editar_etapas' | 'personalizar_tarjetas';
+  // el fondo (las del «⋯» de la barra). «Asignar fuentes» también acá desde el 20/11/2026.
+  | 'nuevo_lead' | 'importar' | 'asignar_fuentes' | 'exportar' | 'editar_etapas' | 'personalizar_tarjetas';
 
 /** Dónde cayó el clic y qué se sabe ahí. Lo arma la pantalla; acá no se lee el DOM. */
 export type ContextoCrm =
@@ -89,13 +88,12 @@ export type ContextoCrm =
     sobre: 'columna';
     /** El MISMO predicado que el arrastre de la columna (`seArrastraCol`). */
     mover: boolean;
-    /** Es la etapa de entrada: ahí van las campañas de Meta. */
-    entrada: boolean;
     /**
-     * «Asignar fuentes» se ofrece en ESTE funnel (`ofreceAsignarFuentes`, 18/11/2026): en uno de Prospección no. Ausente =
-     * se ofrece (lo de siempre).
+     * Es la PRIMERA etapa del pipeline (la de entrada): ahí va «Asignar fuentes», SIEMPRE. Martín, 20/11/2026: «Quiero que
+     * siempre la primera etapa de lead entrante tenga la opción de "Asignar fuentes", la que tiene el logo de Meta». Desde el
+     * 18/11 se escondía en los funnels de Prospección (`ofreceAsignarFuentes`); el «siempre» del 20/11 lo deja en todos.
      */
-    fuentes?: boolean;
+    entrada: boolean;
     /** Es una etapa de reunión: ahí se asigna el evento de agenda cuyas reservas caen en ella. */
     reunion?: boolean;
     /** Es Ganado (22/10/2026): ahí se vincula el producto que cobra («Vincular cobro», app/crm/CobroDeEtapaModal.tsx). */
@@ -111,17 +109,6 @@ export type ContextoCrm =
     difusion?: { visibles: number; filtrado: boolean } | null;
   }
   | { sobre: 'fondo'; seleccionados: number };
-
-/**
- * ¿«Asignar fuentes» va en el menú de la columna de entrada de ESTE funnel? (18/11/2026). Martín, 12/10: «que las opciones
- * estén referidas al FUNNEL, como "Anuncios a Landing", "Anuncios a WhatsApp", "Prospección"… Prospección no tiene Meta por
- * ningún lado». Las fuentes son las campañas de Meta y los formularios de Web Generator que TRAEN gente (CampanasModal); en
- * Prospección el que escribe primero es el negocio, así que no se ofrece. Un funnel sin tipo declarado (`[]`, o la lectura
- * caída) lo sigue ofreciendo: sólo se esconde cuando se SABE que es de Prospección.
- */
-export function ofreceAsignarFuentes(entradas: readonly EntradaId[] | null | undefined): boolean {
-  return tipoDeFunnel(entradas ?? [])?.id !== 'prospeccion';
-}
 
 /** Hay acciones de LOTE cuando el clic cae sobre un tildado y hay más de uno. Con uno solo, es su menú. */
 export const esLote = (c: ContextoCrm): boolean =>
@@ -142,7 +129,8 @@ function compactar(xs: ReadonlyArray<IdOpcionCrm | null>): Array<IdOpcionCrm | n
 export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
   if (c.sobre === 'fondo') {
     // El MISMO orden que el «⋯» de la barra (`AccionesHeader`): lo que trae leads, lo que los saca, y la configuración.
-    return compactar(['nuevo_lead', null, 'importar', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas', null, ...(c.seleccionados > 0 ? ['lote_limpiar' as const] : [])]);
+    // «Asignar fuentes» va con lo que TRAE leads, al lado de «Importar leads» (20/11/2026).
+    return compactar(['nuevo_lead', null, 'importar', 'asignar_fuentes', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas', null, ...(c.seleccionados > 0 ? ['lote_limpiar' as const] : [])]);
   }
   if (c.sobre === 'columna') {
     // ⚠️ POR SECCIONES (22/10/2026, Martín: «Ordena las opciones del desplegable de los 3 puntos... Ya no se entienden si
@@ -161,7 +149,7 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
       'col_ordenar',
       // La difusión a la columna entera (Leila, 29/10/2026): «Leads», porque es a quiénes le llega, no a la etapa.
       ...(c.difusion ? ['col_difusion' as const] : []),
-      ...(c.entrada && c.fuentes !== false ? ['col_campanas' as const] : []),
+      ...(c.entrada ? ['col_campanas' as const] : []),
       'col_renombrar',
       ...(c.tipo ? ['col_tipo' as const] : []),
       ...(c.reunion ? ['col_evento' as const] : []),
@@ -275,6 +263,7 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   col_eliminar: { texto: 'Eliminar etapa', icono: 'borrar', peligro: true },
   nuevo_lead: { texto: 'Nuevo lead', icono: 'persona-mas' },
   importar: { texto: 'Importar leads', icono: 'subir' },
+  asignar_fuentes: { texto: 'Asignar fuentes', icono: 'anuncio' },
   exportar: { texto: 'Exportar leads', icono: 'descargar' },
   editar_etapas: { texto: 'Editar etapas', icono: 'etapa' },
   personalizar_tarjetas: { texto: 'Personalizar tarjetas', icono: 'configurar' },
@@ -345,6 +334,7 @@ function conDatos(id: IdOpcionCrm, d: DatosMenuCrm): ItemMenuContextual {
     case 'lote_funnel':
       return { ...base, hijos: d.funnels.map((f) => ({ id: f.fid == null ? FUNNEL_DEL_NEGOCIO : String(f.fid), label: f.nombre })) };
     case 'col_campanas':
+    case 'asignar_fuentes':
       return d.logoMeta ? { ...base, icono: d.logoMeta } : base;
     case 'col_tipo':
       // «Al apretar o pasar el cursor me debería abrir un segundo desplegable allí mismo para ver el tipo de etapa actual y
