@@ -1023,6 +1023,11 @@ elegido en otra lámina, el filtro lo escondía.
 - **Trampa (ya corregida):** `contar()` usa `S[sec]`, y con `sec = 'angulos'` fallaba. La pestaña quedaba en blanco si se
   abría directo con `#angulos` (pasó en v49 y v50). Ahora se cuenta antes de cambiar de sección. Toda sección que no está en
   `S` tiene que evitar las funciones que leen `S[sec]`.
+- **v54:** la pestaña muestra la investigación nueva (commit cbc7cf6d5): fuentes con números, el mercado en filas con su
+  estado (saturada en gris, sube en verde, vacía en azul), los territorios A, B y C con los riesgos plegados, lo descartado
+  plegado y las 8 preguntas. El contenido vive en `ANG2`, en `cuerpo.html`. Cada pregunta guarda su respuesta (texto o
+  audio) en `comentarios` con `seccion: "angulos"`, `pieza: "angulos"` y `refiere_a: "Pregunta N"`. Debajo de cada
+  pregunta se ven las respuestas con su estado, y lo que llega de la base se pinta sin borrar lo que se está escribiendo.
 
 **El reel para mentores high ticket (los pistachos) está en «Reels terminados»** (21/11). No viene de la galería de
 animaciones: va a mano en `armar-cm.mjs` (`reels.push`).
