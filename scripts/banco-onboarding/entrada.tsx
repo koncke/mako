@@ -118,6 +118,23 @@ if (p === 'videos') {
     <MotorTutorial revision={false} />
     <div className="co-hilo" style={{ height: '100vh', overflow: 'auto', padding: 24, boxSizing: 'border-box' }}><LlegadaAlReto nombre="Valentina" listo /></div>
   </>);
+} else if (p === 'recuadro') {
+  // El recuadro sobre un video con el chat SCROLLEADO (21/11, producción: «Offer Coach: dale play» se marcaba por arriba del video, sobre
+  // la cabecera): una cabecera, un hilo con scroll y el video metido a medias debajo de la cabecera.
+  w.__bancoRuta = '/banco';
+  const t = { pestana: 'banco-recuadro', nombre: 'Banco', ruta: '/banco', pasos: [{ sel: '#objetivo-video', titulo: 'Offer Coach', texto: 'Dale play al video.', clic: true, haz: 'Haz clic en el video' }] } as unknown as TutorialPestana;
+  w.__banco = { tutorial: () => mostrarTutorial(t) };
+  raiz.render(<>
+    <MotorTutorial revision={false} />
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <header data-banco="cabecera" style={{ height: 64, flex: 'none', background: '#333', color: '#fff', padding: 16 }}>Offer Coach</header>
+      <div className="co-hilo" data-banco="hilo" style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ height: 600 }} />
+        <div id="objetivo-video" style={{ width: 360, height: 200, background: '#000', margin: '0 24px' }} />
+        <div style={{ height: 900 }} />
+      </div>
+    </div>
+  </>);
 } else if (p === 'marca') {
   w.__bancoRuta = '/banco';
   const t: TutorialPestana = {

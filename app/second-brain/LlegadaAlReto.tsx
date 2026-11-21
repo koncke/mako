@@ -123,9 +123,10 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
     const hiloDe = fila.current?.closest('.co-hilo') ?? null;
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
     if (hiloDe) { ro?.observe(hiloDe); for (const c of Array.from(hiloDe.children)) ro?.observe(c); }
-    hiloDe?.addEventListener('scroll', medir, { passive: true });
+    // Cualquier scroll (21/11, producción: el hueco quedaba arriba a la izquierda): el que mueve el hilo puede ser otro contenedor.
+    document.addEventListener('scroll', medir, { capture: true, passive: true });
     window.addEventListener('resize', medir);
-    return () => { ro?.disconnect(); hiloDe?.removeEventListener('scroll', medir); window.removeEventListener('resize', medir); };
+    return () => { ro?.disconnect(); document.removeEventListener('scroll', medir, { capture: true }); window.removeEventListener('resize', medir); };
   }, [fase]);
 
   // EL VELO ENTRA CON EL BARRIDO (OD-F2: la maqueta, b-entra pasa por `iris()`). El velo es la sombra de un hueco con la forma de la

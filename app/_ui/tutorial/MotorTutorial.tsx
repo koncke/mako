@@ -28,7 +28,7 @@ import { createPortal } from 'react-dom';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Button } from '../Button';
 import { cssRecorrido, useRecorrido } from '../Recorrido';
-import { Z_PISO_RECORRIDO, necesitaScroll, posicionTarjeta, recorteDe, type Caja, type Medida, type PosicionTarjeta } from '@/lib/recorridos';
+import { Z_PISO_RECORRIDO, cajaVisible, necesitaScroll, posicionTarjeta, recorteDe, seVeEntero, type Caja, type Medida, type PosicionTarjeta } from '@/lib/recorridos';
 import { pasosPara, tutorialDeRuta, type PasoTutorial, type TutorialPestana } from '@/lib/tutoriales';
 import { anotarRevision, elChatPresentaElRecorrido, motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
 import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
@@ -67,6 +67,16 @@ const cajaDe = (r: DOMRect): Caja => ({ x: r.left, y: r.top, ancho: r.width, alt
 const menosMovimiento = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /** Lo marcado por un selector libre: el primero que tiene cajas. Un selector inválido es «no está». */
+/** Las cajas de los contenedores que recortan a `el` (un hilo con scroll, una tarjeta con `overflow`): lo que queda afuera no se ve. */
+function contenedoresDe(el: HTMLElement): Caja[] {
+  const out: Caja[] = [];
+  for (let p = el.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+    const cs = getComputedStyle(p);
+    if (/(auto|scroll|hidden|clip)/.test(`${cs.overflowX} ${cs.overflowY}`)) out.push(cajaDe(p.getBoundingClientRect()));
+  }
+  return out;
+}
+
 function lugarDe(sel: string): HTMLElement | null {
   try {
     for (const el of Array.from(document.querySelectorAll<HTMLElement>(sel))) if (el.getClientRects().length > 0) return el;
@@ -673,13 +683,19 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   }, [paso, senal.tipo, siguiente, modoVideo]);
 
   // 2. Medir el recorte y la tarjeta; de nuevo con el scroll, el tamaño y los cambios de la página.
+  const llevado = useRef<HTMLElement | null>(null);
   const medir = useCallback(() => {
     const v = ventanaActual();
     const t = tarjetaRef.current?.getBoundingClientRect();
     const tam = { ancho: t?.width || 340, alto: t?.height || 170 };
     if (!paso) { setGeo({ hueco: null, tarjeta: { x: Math.max(12, (v.ancho - tam.ancho) / 2), y: Math.max(12, (v.alto - tam.alto) / 2), lado: 'abajo', flecha: null } }); return; }
     if (!el || !el.isConnected || !el.getClientRects().length) { setGeo({ hueco: null, tarjeta: null }); if (el) setEl(lugarDe(paso.sel)); return; }
-    const hueco = recorteDe(cajaDe(el.getBoundingClientRect()), v);
+    // LO QUE SE VE, no la caja entera (21/11, producción): un video metido debajo de la cabecera del chat se marcaba sobre la cabecera.
+    // Y si el contenedor lo tapa, primero se lleva a la vista (una vez por lugar): la ventana sola no lo detecta.
+    const entera = cajaDe(el.getBoundingClientRect());
+    const visible = cajaVisible(entera, contenedoresDe(el));
+    if (!seVeEntero(entera, visible) && llevado.current !== el) { llevado.current = el; el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' }); }
+    const hueco = recorteDe(visible.alto > 0 ? visible : entera, v);
     setGeo({ hueco, tarjeta: posicionTarjeta({ objetivo: hueco, tarjeta: tam, ventana: v, lado: paso.lado }) });
   }, [paso, el]);
   useLayoutEffect(() => {

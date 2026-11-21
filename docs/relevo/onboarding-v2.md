@@ -12,6 +12,12 @@ Lo pidió el Cerebro con las 3 capturas de Martín (ws 3, Nutri Vale). Despliegu
   Para hacerlo: con `desde`, dejar el video y adelantarlo al `t_inicio` de la primera frase cuyo `sel` es el del paso (`mismoLugar`), y
   que BrainDelRecorrido repita la animación al volver al paso del grafo (hoy `puesta` queda en true y no vuelve a «todo»).
 
+## Hecho después (cuenta reiniciada por Martín: «continúa sin problema con absolutamente todo»)
+- **1 y 10. El recuadro** (commit «El recuadro se ancla a lo que se ve»): el motor marca la caja RECORTADA por cada contenedor
+  (`cajaVisible`, lib/recorridos.ts) y, si el contenedor la tapa, la lleva a la vista antes (`seVeEntero` → scrollIntoView). El velo de la
+  llegada vuelve a medir con cualquier scroll. Banco «recuadro»: con el código viejo, el recuadro sobre la cabecera. OJO: el caso del
+  reto del 1 (el hueco sobre los «…») no se reprodujo en el banco; si vuelve a pasar en producción, mirar la medida de LlegadaAlReto.
+
 ## Falta (con por dónde empezar)
 1. **El recuadro del recorrido mal ubicado** (/second-brain?reto=1: el hueco sobre los «…» de MaKo escribiendo, arriba a la izquierda,
    en vez de la fila del reto). Mirar `lugarDe(sel)` en app/_ui/tutorial/MotorTutorial.tsx (toma el PRIMER elemento visible del selector)

@@ -211,6 +211,20 @@ export function posicionTarjeta(args: {
 }
 
 /**
+ * LO QUE SE VE del objetivo (21/11/2026, Martín en producción: el recuadro de «Offer Coach: dale play» se dibujaba más arriba que el video
+ * y se salía por encima de la cabecera del chat): su caja recortada por cada contenedor que la recorta (el hilo con scroll, una tarjeta con
+ * `overflow`). `getBoundingClientRect` da la caja ENTERA, también la parte metida debajo de la cabecera. Sin nada a la vista, alto 0.
+ */
+export function cajaVisible(objetivo: Caja, contenedores: readonly Caja[]): Caja {
+  let x0 = objetivo.x, y0 = objetivo.y, x1 = objetivo.x + objetivo.ancho, y1 = objetivo.y + objetivo.alto;
+  for (const c of contenedores) { x0 = Math.max(x0, c.x); y0 = Math.max(y0, c.y); x1 = Math.min(x1, c.x + c.ancho); y1 = Math.min(y1, c.y + c.alto); }
+  return { x: x0, y: y0, ancho: Math.max(0, x1 - x0), alto: Math.max(0, y1 - y0) };
+}
+
+/** ¿Se ve casi entero? Si no (lo tapa el contenedor), se lleva a la vista ANTES de marcarlo. */
+export const seVeEntero = (objetivo: Caja, visible: Caja): boolean => visible.alto >= objetivo.alto - 2 && visible.ancho >= objetivo.ancho - 2;
+
+/**
  * El recorte: el objetivo más un poco de aire, ENCAJADO en la ventana.
  *
  * Encajado porque un objetivo más grande que la pantalla (una tarjeta alta, una lista)
