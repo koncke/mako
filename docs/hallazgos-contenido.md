@@ -1071,6 +1071,20 @@ conectado. **Trampa:** el almacén de archivos del artefacto tiene un tope de 1 
 (480 px, ~500 KB, `recorte_s: 15`), y el detalle muestra «Ver completo en Instagram ↗» con el `url`. Lo nuevo propio (videos
 de referencia, láminas) también cuenta para ese tope.
 
+### Contrato de la colección `creadores` (21/11/2026, caricaturas)
+
+Cada creador de Spy lleva su caricatura en el filtro y en las tarjetas, con el estilo de `public/asesores/`. La página la
+toma de la base, así que sumar o cambiar una no requiere publicar.
+- **Documento `creadores/<cuenta>`:** `{ "nombre": "Víctor Heras", "usuario": "@victorherasemprendedor", "cuentas": ["victor",
+  "herasmedia"], "caricatura": "<id del almacén, 32 hex>", "foto": "/_blob/<id>" (opcional, de respaldo), "orden": 3 }`.
+  - `caricatura` le gana a `foto`. Puede ser el id solo o la ruta `/_blob/<id>`.
+  - `cuentas` agrupa las cuentas de una persona: la primera es la del documento y las demás se muestran como sus cuentas
+    (en el filtro, «2 cuentas ›»). Cada cuenta que tiene piezas propias sigue teniendo su documento, con su `usuario`.
+- **El archivo:** el chat de carruseles las deja en `C:/dev/caricaturas-creadores/<cuenta>.png`. Antes de subirlas se
+  achican a 160 × 160 px (pesan pocos KB), porque el almacén de 1 GB está lleno.
+- **Cómo se sube:** `Artifact` publish con `asset: true` (hasta 25 por llamada) y después `ArtifactData` `batch` con
+  `update` de `caricatura` en cada `creadores/<cuenta>`, pinado a la versión leída.
+
 **El reel para mentores high ticket (los pistachos) está en «Reels terminados»** (21/11). No viene de la galería de
 animaciones: va a mano en `armar-cm.mjs` (`reels.push`).
 - **Cuál es la versión vigente:** `montaje/REEL-v-hormozi-palma.mp4` (37,8 s, con el clip de Hormozi aprobado). El relevo
