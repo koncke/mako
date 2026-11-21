@@ -156,7 +156,12 @@ export async function fotoDelCliente(ws: number, preferir: 'cara' | 'look' = 'ca
 }
 
 /** Qué se replica: un carrusel (o un anuncio) del explorador, o una miniatura de YouTube de la biblioteca de Thumbnails. */
-export type EjemploAReplicar = { que: 'carrusel'; id: number } | { que: 'thumbnail'; id: number } | { que: 'vertical'; id: string };
+export type EjemploAReplicar = { que: 'carrusel'; id: number } | { que: 'thumbnail'; id: number } | { que: 'vertical'; id: string }
+  /**
+   * Un carrusel que NO está en la biblioteca ni en Spy (21/11/2026: los de Martín de Ramiro Cubría, @textura.us, @adarshxdesign),
+   * con sus láminas dadas (data:image o http de NUESTRO bucket). Sólo desde un script o la API: la ruta no lo acepta.
+   */
+  | { que: 'imagenes'; urls: string[]; creador: string; enlace?: string | null; texto?: string | null };
 
 export type OpcionesReplica = {
   pedido?: string | null;
@@ -185,6 +190,17 @@ export type OpcionesReplica = {
    * de que la ruta corte. Sin él (el comando de prueba, la API de MaKo), cada pedido tiene su plazo entero, como antes.
    */
   hastaMs?: number;
+  /**
+   * REGENERAR CADA LÁMINA CON IA desde su referencia (21/11/2026, ./regenerar.ts): por defecto, sí, cuando hay clave de ApiMart y
+   * se vieron todas las láminas de un carrusel. `false` = la réplica de antes (la plancha y el texto editable encima).
+   */
+  regenerar?: boolean;
+  /**
+   * Quién va donde el original tiene una persona, al regenerar: la URL de su foto o de su personaje (data:image o http),
+   * `'original'` para dejar a la del original (Hormozi en «9 YouTube courses»: la persona ES el gancho), o null para no tocarla.
+   * Sin esto, la foto que eligió el dueño en el guiado (`fotoDelCliente`), salvo en seco.
+   */
+  persona?: string | 'original' | null;
 };
 
 /** «Editar» el carrusel `id` (o el anuncio) del explorador: lo que llama la API de MaKo. */
@@ -207,6 +223,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   try {
     if (ej.que === 'thumbnail') { const { thumbnailPorId } = await import('../thumbnails/servidor'); t = await thumbnailPorId(ej.id); }
     else if (ej.que === 'vertical') { const { verticalPorId } = await import('../thumbnails/verticales-servidor'); v = await verticalPorId(ej.id); }
+    else if (ej.que === 'imagenes') c = carruselDeImagenes(ej);
     else c = await referenciaDelNegocio(ej.id);
   } catch { return { ok: false, error: miniatura ? 'No pude leer esa miniatura. Vuelve a intentar.' : 'No pude leer ese carrusel. Vuelve a intentar.', falla: true }; }
   if (!c && !t && !v) return { ok: false, error: miniatura ? 'Esa miniatura ya no está: elige otra.' : 'Ese ejemplo ya no está: elige otro.' };
@@ -215,11 +232,12 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   void usuarioDeInstagram(ws);
   const anuncio = c?.clase === 'anuncio';
   // La miniatura de YouTube: la grande si la tiene, si no la de siempre (`hq` existe en todos los videos). La vertical: su portada.
-  const urls = t ? [imagenDeVideo(t.video, 'max'), imagenDeVideo(t.video, 'hq')] : v ? [v.miniatura] : imagenesDe(c as Carrusel).slice(0, IMAGENES_MAX);
+  const urls = t ? [imagenDeVideo(t.video, 'max'), imagenDeVideo(t.video, 'hq')] : v ? [v.miniatura] : ej.que === 'imagenes' ? ej.urls.slice(0, IMAGENES_MAX) : imagenesDe(c as Carrusel).slice(0, IMAGENES_MAX);
   const total = miniatura || anuncio ? 1 : Math.max(1, Math.min(LAMINAS_MAX, c?.laminas ?? urls.length ?? 1));
   let imagenes: string[];
   if (t) { const una = (await comoDataUrl(urls[0])) ?? (await comoDataUrl(urls[1])); imagenes = una ? [una] : []; }
-  else imagenes = (await Promise.all(urls.map(comoDataUrl))).filter((x): x is string => !!x);
+  // Las láminas dadas como data:image (un carrusel de afuera) van tal cual.
+  else imagenes = (await Promise.all(urls.map((u) => (/^data:image\/(png|jpe?g|webp);base64,/.test(u) ? Promise.resolve(u) : comoDataUrl(u))))).filter((x): x is string => !!x);
   avisar({ fase: 'leer', laminas: total, vistas: Math.min(imagenes.length, total) });
 
   const [{ contextoDelNegocio, vozDelNegocio }, kit] = await Promise.all([import('../negocio-para-crear'), kitParaUsar().catch(() => null)]);
@@ -294,8 +312,12 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   // una no se pudo leer, la réplica sale como antes.
   const proporcion = vertical ? '9:16' : miniatura ? '16:9' : '4:5';
   const medidas = medidasDe(proporcion);
-  const marcas = imagenes.length ? await marcarLaminas(imagenes, medidas.ancho, medidas.alto) : [];
-  const conMarcas = marcas.length > 0 && marcas.every(Boolean);
+  // Al regenerar con IA (abajo) la plancha no hace falta: leer las láminas a píxeles se hace sólo si se vuelve a la réplica de antes.
+  const { apimartKey } = await import('../apimart');
+  const quiereRegenerar = !miniatura && imagenes.length === total && (o.regenerar ?? true) && !!(await apimartKey().catch(() => null));
+  let marcas: Awaited<ReturnType<typeof marcarLaminas>> = [];
+  const leerMarcas = async () => { if (!marcas.length && imagenes.length) marcas = await marcarLaminas(imagenes, medidas.ancho, medidas.alto); };
+  if (!quiereRegenerar) await leerMarcas();
   // ⚠️ La IA mira las láminas LIMPIAS (13/11/2026): con las figuras numeradas encima («F1», «F2») las listó como textos y corrió
   // todo el contenido una lámina. A la persona la reconoce el segundo pedido, que mira cada figura recortada.
   const paraLaIA = imagenes;
@@ -345,7 +367,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
     if (!errores.includes(m)) errores.push(m);
-    console.warn(`[carruseles] «Editar» sin la IA del negocio (ws=${ws}, ${ej.que} ${ej.id}): ${m.slice(0, 600)}`);
+    console.warn(`[carruseles] «Editar» sin la IA del negocio (ws=${ws}, ${ej.que} ${'id' in ej ? ej.id : ej.creador}): ${m.slice(0, 600)}`);
     return conGuias(avisoSinIA(m, o.negocioAjeno ?? null), errores);
   }
   // La palabra que el dueño pide comentar la pone el código (./replica.ts, `palabraDelTema`): la IA la cambió una vez de tres.
@@ -384,6 +406,82 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   if ('error' in replica) {
     console.warn(`[carruseles] «Editar»: la IA contestó algo que no se pudo leer (ws=${ws}): ${crudo.slice(0, 300)}`);
     return conGuias({ aviso: `${replica.error} Por ahora, cada lámina trae una guía.`, conectar: null }, [...errores, replica.error]);
+  }
+
+  // ⛔ CADA LÁMINA SE REGENERA CON IA DESDE SU REFERENCIA (21/11/2026, ./regenerar.ts y ./regenerar-servidor.ts). Martín, 20/11: «no
+  // salieron idénticos y tenían que salir realmente idénticos… eso lo tienes que hacer con inteligencia artificial». Con todas las
+  // láminas a la vista y la clave de ApiMart, la base de cada una es SU original y la IA de imagen cambia sólo los textos (y la
+  // persona, en otro paso). Si no se pudo (sin MaKo Tokens, el proveedor), sigue la réplica de antes y se dice por qué.
+  let avisoRegenerar: string | null = null;
+  if (quiereRegenerar) {
+    const r = await regenerarElCarrusel();
+    if (r) return r;
+    // No se pudo: la réplica de antes, que necesita las láminas leídas a píxeles.
+    await leerMarcas();
+  }
+  const conMarcas = marcas.length > 0 && marcas.every(Boolean);
+  async function regenerarElCarrusel(): Promise<ResultadoReplica | null> {
+    if ('error' in replica) return null;
+    const { regenerarLaminas } = await import('./regenerar-servidor');
+    const { PROMPT_LEER_TEXTO, PROMPT_HAY_PERSONA, hayPersonaEn, leidoDe, documentoRegenerado, avisoDeTextoQueFalta } = await import('./regenerar');
+    const conCopyR = partes ? conElCopy(replica, partes, { ...medidas, max: LAMINAS_MAX }).replica : replica;
+    const baseDe = partes ? laminaParaCadaParte(conCopyR.laminas.length, replica.laminas.length) : conCopyR.laminas.map((_, i) => i);
+    const { leerDocumentoIA } = await import('../ai-cheap');
+    const { conSuIADelNegocio } = await import('../ia-del-negocio');
+    /** La IA del negocio mira UNA imagen (la lámina regenerada, o la original para saber si tiene una persona). null = no contestó. */
+    const mirar = async (dataUrl: string, prompt: string, maxTokens: number): Promise<string | null> => {
+      try {
+        const x = await conSuIADelNegocio(ws, () => leerDocumentoIA({
+          dataUrl, dataUrls: [dataUrl], isPdf: false, nombreArchivo: 'lamina', prompt, json: true,
+          feature: FEATURE_REPLICA, motivo: 'Mirar una lámina para regenerarla con IA', timeoutMs: 45_000, maxTokens, modelos: MODELOS_REPLICA,
+        }));
+        return x.text;
+      } catch { return null; }
+    };
+    const leer = async (dataUrl: string): Promise<string | null> => { const t = await mirar(dataUrl, PROMPT_LEER_TEXTO, 1_500); return t ? leidoDe(t) || null : null; };
+    // La persona: la que dijo quien llama, o la foto que eligió el dueño (nunca en seco: copiarla escribe en su «Subidos»).
+    let persona: string | null = null;
+    if (o.persona === 'original' || o.persona === null) persona = null;
+    else if (typeof o.persona === 'string') persona = o.persona;
+    else if (pedidoBase.conAvatar && !o.seco) persona = (await fotoDelCliente(ws, fotoDelGuiado(g) ?? 'cara'))?.url ?? null;
+    // Qué láminas del original tienen una persona: lo que marcó la IA principal, y si no marcó nada, se pregunta lámina por lámina
+    // (21/11/2026: en el carrusel de Ramiro no marcó ninguna y él quedó en lugar de Martín).
+    const conPersona = new Map<number, boolean>();
+    if (persona) {
+      await Promise.all([...new Set(baseDe)].map(async (b) => {
+        const original = replica.laminas[b];
+        const marcada = (original?.cuadros ?? []).some((x) => x.persona) || !!original?.personas?.length;
+        conPersona.set(b, marcada || hayPersonaEn(await mirar(imagenes[b], PROMPT_HAY_PERSONA, 60)));
+      }));
+    }
+    const pedidos = conCopyR.laminas.map((l, i) => {
+      const b = baseDe[i];
+      return { base: imagenes[b], cambios: l.textos.map((t) => ({ antes: t.original ?? '', despues: t.texto })), persona: conPersona.get(b) ? persona : null };
+    });
+    avisar({ fase: 'escribir', con: 'la IA de imagen, lámina por lámina' });
+    const hasta = o.hastaMs != null ? o.hastaMs - 12_000 : Date.now() + 260_000;
+    const creador = c?.creador.usuario ? `@${c.creador.usuario}` : c?.creador.nombre ?? 'un ejemplo';
+    const hechas = await regenerarLaminas(ws, pedidos, { hastaMs: hasta, seco: !!o.seco, leer, referencia: `Carrusel de ${creador}`, deA: 4 });
+    const mala = hechas.find((h) => !h.ok);
+    if (mala && !mala.ok) {
+      console.warn(`[carruseles] regenerar con IA no pudo (ws=${ws}): ${mala.error}`);
+      avisoRegenerar = `No pude regenerar las láminas con IA (${mala.error.replace(/\.$/, '')}): armé tu versión como antes.`;
+      return null;
+    }
+    const srcs = hechas.map((h) => (h.ok ? h.src : ''));
+    const notas = `${notasDeReplica(c as Carrusel)}\n\nCada lámina se regeneró con IA desde la del original.`;
+    const doc = documentoRegenerado({ srcs, ...medidas, notas, nuevoId: randomUUID });
+    mostrar(doc);
+    const titulo = `${anuncio ? 'Anuncio' : 'Carrusel'} · ${replica.titulo}`.slice(0, 120);
+    const aviso = [
+      avisoDeTextoQueFalta(hechas.map((h, i) => ({ lamina: i + 1, faltan: h.ok ? h.faltan : [] }))) ?? '',
+      partes && partes.length > LAMINAS_MAX ? `Tu copy tiene ${partes.length} láminas: armé las primeras ${LAMINAS_MAX}, el máximo de un carrusel aquí.` : '',
+    ].filter(Boolean).join(' ') || null;
+    if (o.seco) return { ok: true, id: '(seco)', titulo, aviso, doc, vistas: imagenes.length, errores, replica: conCopyR, imagenes, marcadas: [] };
+    const guardado = await crearDiseno(ws, quien, { titulo, doc });
+    if (!guardado.ok) return { ok: false, error: guardado.error, falla: true };
+    avisar({ fase: 'fin', ok: true, id: guardado.id, titulo, aviso });
+    return { ok: true, id: guardado.id, titulo, aviso, vistas: imagenes.length };
   }
 
   const estilo = estiloSinSerif(estiloConKit((tipoCarrusel((c ? estructuraDe(c).tipo : null) ?? 'lista') ?? tipoCarrusel('lista'))!.estilo, kit, fuenteDelEditorDeImagen), kit);
@@ -442,6 +540,8 @@ Lo que leí del original: ${replica.lectura}` : notasBase;
   const aviso = [
     // Las láminas que faltaron y no llegaron: el armado de antes NO va callado (19/11/2026).
     avisoFaltan ?? '',
+    // La regeneración con IA que no se pudo (21/11/2026): tampoco callada.
+    avisoRegenerar ?? '',
     partes && partes.length > LAMINAS_MAX ? `Tu copy tiene ${partes.length} láminas: armé las primeras ${LAMINAS_MAX}, el máximo de un carrusel aquí.` : '',
     conPersona ? 'Donde el original tiene una persona dejé su lugar marcado: ahí vas tú, generado con IA en el mismo estilo (necesita Google Flow abierto desde el ícono de MaKo).' : '',
     cifras.length ? `Revisa ${cifras.length === 1 ? 'esta cifra' : 'estas cifras'}: no salen de tu negocio (${cifras.join(', ')}). Cámbialas por algo tuyo o sácalas.` : '',
@@ -558,4 +658,17 @@ export async function leerLoQueTiene(ws: number, id: number): Promise<Lectura & 
     console.warn(`[carruseles] lectura del guiado sin la IA del negocio (ws=${ws}, ${id}): ${m.slice(0, 300)}`);
     return nada(m.slice(0, 200));
   }
+}
+
+/**
+ * Un carrusel de afuera (sus láminas dadas, 21/11/2026) con la forma de uno del explorador: lo que usa la réplica de él es su
+ * creador, su link, su pie y cuántas láminas tiene. Lo demás, vacío.
+ */
+function carruselDeImagenes(ej: Extract<EjemploAReplicar, { que: 'imagenes' }>): Carrusel {
+  const usuario = ej.creador.replace(/^@/, '').trim() || null;
+  return {
+    id: 0, competidorId: 0, origen: 'biblioteca', creador: { nombre: ej.creador, usuario, foto: null }, url: ej.enlace ?? null,
+    miniatura: ej.urls[0] ?? null, texto: ej.texto ?? null, gancho: null, tipoGancho: null, cierre: null, formato: '', medio: 'carrusel',
+    laminas: ej.urls.length, megusta: null, comentarios: null, publicada: null, traida: null,
+  } as unknown as Carrusel;
 }

@@ -8,6 +8,53 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## La réplica REGENERA cada lámina con IA desde su referencia, por ApiMart (21/11/2026)
+
+**El pedido** (Martín, 20/11, sobre sus 11 carruseles de ventas y los de Leila): «no salieron idénticos y tenían que salir realmente
+idénticos… eso lo tienes que hacer con inteligencia artificial, le tienes que pasar la referencia y pedirle a la IA que cambie al
+personaje o a los textos». La plancha (borrar las letras y escribir encima) no puede con un titular enorme sobre una foto ni con las
+poses; la IA de imagen sí.
+
+**El diagnóstico obvio era el equivocado: «la IA de imagen de MaKo es Flow».** Lo es (lib/flow-cola.ts, la extensión en un Chrome con
+Flow abierto), pero el 21/11 **ningún** puente andaba (ws 9, 1, 10 y 11 «sin sesión», el ws 4 sin puente) y muchos clientes no tienen
+Flow. Va por ApiMart, con la clave de la plataforma y medido en MaKo Tokens (la decisión de Martín del 7/11).
+
+**Cómo quedó:**
+- `generarImagen` y `esperarTarea` (lib/apimart.ts) con sus reglas puras (`MODELOS_IMAGEN`, `cuerpoDePedidoImagen` en
+  apimart-reglas.ts; `mtDeImagenDe` en mako-tokens-reglas.ts, que es quien importa a apimart-reglas y no al revés). Modelo:
+  **Nano Banana Pro** (`gemini-3-pro-image-preview`, 4:5, hasta 14 referencias, US$0,02); respaldo Nano Banana y Seedream 4 (sin
+  4:5: va 3:4).
+- lib/carruseles/regenerar.ts (los prompts y la revisión) y regenerar-servidor.ts: por lámina, se cobran los MaKo Tokens ANTES; la
+  BASE es la lámina original y el prompt cambia sólo los textos («original» → «nuevo»); se LEE lo que salió con la IA del negocio y,
+  si falta una palabra o una tilde, se vuelve a generar (el segundo intento, con la lista en orden: la IA principal a veces escribe el
+  texto nuevo en «original»); la persona es OTRO paso, con UNA referencia. Lo generado se copia a nuestro bucket (ApiMart lo borra a
+  las 24 h).
+- «Editar» (`replicarEjemplo`) regenera por defecto con todas las láminas a la vista y la clave; si no puede (sin MaKo Tokens, el
+  proveedor), sigue la réplica de antes y lo dice. `persona: 'original'` deja a la persona del original (Hormozi ES el gancho).
+- Un carrusel que no está en la biblioteca (`que: 'imagenes'`) y scripts/carruseles-rehacer-con-ia.mts (con `--copy`).
+- Medido: la portada de «9 YOUTUBE COURSES» salió igual, con «9 AGENTES DE IA» y sus tildes, en 37 s. El carrusel entero (11
+  láminas, con el copy de Martín), 266 s, todas bien escritas al primer intento.
+- tests/apimart-imagen.test.ts y tests/carruseles-regenerar.test.ts. tests/carruseles-editar-a-tiempo.test.ts cuenta un pedido de
+  visión más (leer el texto de la lámina regenerada).
+
+**Trampas:**
+- ⚠️ **Los pares «original → nuevo» no siempre dicen la verdad.** En el de Ramiro, con el copy, la IA principal escribió el texto
+  NUEVO también en «original»: ningún par cambiaba nada, las láminas se salteaban y seis de siete salieron IGUALES a la
+  referencia, sin que nada lo revisara. Ahora, sin un par que cambie algo, se LEE la original; si no dice lo esperado, va la lista
+  en orden desde el primer intento.
+- ⚠️ **A la persona no la marca la IA principal** (sus «cuadros» no la nombraron en ninguna lámina de Ramiro). Con una persona que
+  poner, se pregunta lámina por lámina (`PROMPT_HAY_PERSONA`). Sigue fallando a veces: en «equipo», cuatro láminas quedaron con el
+  personaje pixelado del original; y una MANO (la de «Zoom progresivo») cuenta como persona.
+- ⚠️ La revisión mira que cada texto ESTÉ, no DÓNDE: en el del caballo, «1 lista o tips» quedó en el encabezado y el título dice
+  «Oct / Graphic Design», y pasó la revisión.
+- Los cinco de Martín, lado a lado: https://claude.ai/artifact/VSm2NYaJj1UovnvzpMPhiY (ws 9: 17c8dae2, e95791ee, 09d8c7d4,
+  0f2e2173, 445db85e). Hormozi y Ramiro salieron casi idénticos; equipo y copiar, con láminas avisadas.
+- ⚠️ El texto queda DENTRO de la imagen (como en la referencia): ya no se edita con el editor. Fue la decisión del 21/11.
+- ⚠️ El copy decide qué va en cada lugar: con dos renglones para una lámina de tres textos, el primero cayó en la miniatura en una
+  lámina y en el título en otra. Un copy para regenerar va con un renglón por cada texto de la referencia.
+- Lo que la referencia trae adentro (las miniaturas de otros creadores en «9 YouTube courses») queda: para cambiarlo, otro paso.
+- `esDelMarco` reconoce ahora «01 of 11», «3 de 7» y «Oct ©2026»: sin eso el contador recibía un renglón del copy.
+
 ## La llamada con Leila (20/11/2026): el copy pegado se inventaba, las láminas agregadas salían «en blanco» y las fotos se repetían
 
 **El síntoma** (Fathom 205366178, 00:49:31–00:53:42): «le pegué el copy que quería… y las que salen del máximo que tenía el
@@ -33,6 +80,8 @@ se APLANABA (`\s+` → un espacio) y se cortaba en 300 letras (`TOPE_LIBRE`, lib
   `documentoDeReplica` no repite una URL; un cuadro sin foto propia va sin foto. La búsqueda se escribe para el texto NUEVO.
 - tests/carruseles-copy-pegado.test.ts (10 casos, con el copy de Leila tal cual). Contra origin/main fallan los tres que se pueden
   correr allá (el copy aplanado, f1/f2 repetidas, la lámina blanca).
+- En seco con la IA real: `scripts/carruseles-probar-editar.mts --ws 3 --id <id> --copy <archivo>` dice «Copy palabra por palabra:
+  N de P láminas» y cuál renglón falta en cada una.
 
 **«No se lee, y le puse a aumentar contraste» (00:51:37).** «Mejora el contraste» era un pedido a la IA del chat: mira un JSON de
 colores, NO la foto, y nadie medía después. Ahora es medido y sin IA (`mejorarContraste`, app/image-editor/mako/chat/contraste.ts):
@@ -79,8 +128,11 @@ en un degradé sintético queda a 1 nivel del fondo (el parche liso se apartaba 
   carrusel entero cae al armado viejo. **El diagnóstico obvio (buscarlo por su color) era el equivocado**: se probó y encontraba
   sólo pedazos (el gris de abajo del degradé no es «blanco») y borraba franjas sueltas, peor que el armado viejo. Se sacó. Lo fiel
   ahí es regenerar el cuadro con IA (Flow), la misma deuda de arriba (lib/carruseles/plancha.ts, «parte 7»).
-- La referencia «con blur» que eligió Leila no se identificó: su diseño (ws 11, `14331b1a`) no guarda de qué ejemplo salió. Se le
-  preguntó al Cerebro. Sin ella, el blur se probó con un degradé sintético, no con su lámina.
+- ⚠️ **De qué ejemplo salió un diseño SÍ se guarda: en las notas de la PRIMERA PÁGINA** (`doc.pages[0].notes`, «Diseño tomado de
+  un ejemplo de @cuenta (link)…»), no en `doc.notes`. Mirando `doc.notes` (vacío) se concluyó que no se guardaba y se le preguntó
+  al Cerebro por nada. Los de Leila (ws 11): el de la llamada (`14331b1a`, con el copy pegado) y otros dos salieron de
+  **@creatoearn** (`Dc6RTCcCH41`, biblioteca 1417: fotos a toda página con un filtro oscuro, palo seco y la bajada en itálica); el
+  de la foto desenfocada de playa, de **@beautyinc** (`De2C0ojlEfB`, biblioteca 1451). El blur se probó con un degradé sintético.
 - Para repetir una plancha sin pagar otra IA: lo que guarda `scripts/carruseles-probar-editar.mts --salida` (replica.json +
   original-N.jpg) se replanchea con `marcarLaminas` + `planchasDeLaReplica` en seco. ⚠️ Sin el segundo pedido (`completar`), la
   repetición pierde lo que ése agregaba (la persona de la portada, textos sin dueño): «equipo», «siete» y «ticket», fieles con la

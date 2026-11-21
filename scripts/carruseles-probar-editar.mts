@@ -47,6 +47,7 @@ const idVertical = que === 'vertical' ? op('id') : null;
 if (que === 'vertical' && !/^[a-z][a-z0-9-]{1,20}:[A-Za-z0-9_.-]{1,80}$/.test(idVertical ?? '')) { console.log('Falta --id <fuente:id> (el verticalId que da buscar_thumbnails con formato vertical, como spy:1115).'); process.exit(1); }
 if (que !== 'vertical' && (!Number.isSafeInteger(id) || id === 0)) { console.log('Falta --id <n> (el id que da buscar_carruseles; negativo = biblioteca) o --sin-laminas.'); process.exit(1); }
 
+const copiado = op('copy') ? (await import('node:fs')).readFileSync(op('copy')!, 'utf8') : null;
 const t0 = Date.now();
 const seg = () => `${((Date.now() - t0) / 1000).toFixed(1)} s`;
 // --plazo <s>: el aviso de la ruta (285 en la pantalla) y la corrida acotada como allá (19/11/2026, ticket 119: «Editar» tiene que
@@ -59,8 +60,9 @@ const r = await runWithWorkspace(ws, () => R.replicarEjemplo(ws, 'script:probar-
   // --avatar cara|look|ninguno: lo que contestaría el dueño en el guiado (sin esto, la API vieja: sin foto del negocio).
   // --oferta «…» (la escrita a mano: «Lo escribo yo») y --pedido «…» (lo que escribe en la caja del chat): lo mismo que manda la
   // pantalla (19/11/2026, la prueba de hacer DENTRO de MaKo los carruseles de ventas).
-  guiado: op('avatar') || op('oferta') || op('pedido')
-    ? { ofertaId: null, ofertaLibre: op('oferta'), avatar: (op('avatar') ?? 'cara') as 'cara' | 'look' | 'ninguno', cambio: 'textos', pedido: op('pedido') }
+  // --copy <archivo>: el COPY pegado (20/11/2026, lib/carruseles/copy-pegado.ts), tal cual está en el archivo («Slide 1…»).
+  guiado: op('avatar') || op('oferta') || op('pedido') || op('copy')
+    ? { ofertaId: null, ofertaLibre: op('oferta'), avatar: (op('avatar') ?? 'cara') as 'cara' | 'look' | 'ninguno', cambio: 'textos', pedido: op('pedido'), ...(copiado ? { copy: copiado } : {}) }
     : null,
   alEvento: (e: { fase: string; [k: string]: unknown }) => {
     if (e.fase === 'leer') console.log(`[${seg()}] leer: ${e.vistas} de ${e.laminas} láminas llegaron a la IA`);
@@ -95,6 +97,20 @@ if (r.replica && paginas.length) {
     }
   });
   console.log(`  Textos de la IA que llegaron a la lámina: ${total - perdidos.length} de ${total}${perdidos.length ? ` · perdidos: ${perdidos.slice(0, 8).join(' · ')}` : ''}`);
+}
+// Con --copy: ¿cada lámina dice SU parte, palabra por palabra? (20/11/2026, la llamada con Leila: «se lo inventó»).
+if (copiado && paginas.length) {
+  const C = await imp('lib/carruseles/copy-pegado.ts');
+  const partes = (C.partesDelCopy(copiado) ?? []) as Array<{ lineas: string[]; abajo: string | null }>;
+  const palabras = (s: string) => s.split(/\s+/).filter(Boolean).join(' ');
+  let bien = 0;
+  partes.forEach((p, i) => {
+    const dicho = palabras((paginas[i]?.objects ?? []).filter((o) => o.type === 'textbox').map((o) => String(o.text)).join(' '));
+    const falta = [...p.lineas, ...(p.abajo ? [p.abajo] : [])].filter((l) => !dicho.includes(palabras(l)));
+    if (!falta.length) bien++;
+    else console.log(`  ✖ lámina ${i + 1}: falta «${falta[0].slice(0, 60)}»${falta.length > 1 ? ` y ${falta.length - 1} más` : ''}`);
+  });
+  console.log(`  Copy palabra por palabra: ${bien} de ${partes.length} láminas (el diseño tiene ${paginas.length})`);
 }
 // --salida <carpeta>: el diseño (doc.json), lo que leyó la IA (replica.json), las láminas que miró (original-N.jpg) y la plancha de
 // cada lámina (plancha-N.jpg), para mirarlas y para probar la plancha sin pagar otra IA (13/11/2026).
