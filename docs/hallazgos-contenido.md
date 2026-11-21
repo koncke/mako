@@ -951,6 +951,11 @@ conservan su id anterior.
   Desde el 21/11 lleva también `metodo`: `avatar`, `anim` o `carrusel`. Una pieza con avatar se puede hacer animada.
 - **Tipos en `spy` desde el 21/11:** `avatar-ia` (con `escena: "sketch"` o `"a-camara"`), `animacion` y `carrusel`. Si un
   documento viejo trae `a-camara` como tipo, la página lo lee como avatar con escena «a-camara».
+- **Criterio v2 (21/11, chat de la competencia):** las 257 piezas tienen `fecha` (AAAA-MM-DD, del `upload_date` de yt-dlp).
+  `vistas` (número o null) va aparte de `me_gusta` y `comentarios`: la página toma `vistas` y, si es null, `reproducciones`.
+  También vienen `fijado` (estaba fijado en la grilla) y, en la biblioteca de MaKo, `laminas_pendientes: true` cuando sólo
+  está la portada: la tarjeta dice «Portada · láminas en camino» y el detalle, «Láminas en camino». Un `nx` sin 6 vecinos
+  con dato real queda en null: así salió el 1102× de los carruseles de Doglio, que ocultan los me gusta.
 - **Cómo se escribe:** `ArtifactData` → `batch` con `{op: "set", collection: "spy", doc_id, file_path}`, hasta 50 por llamada, con
   cada documento en un `.json` local. Para cambiar una pieza que ya existe, se lee primero y se escribe con su `if_version`.
 - **Qué hace la página:** filtra por «Tipo» y por creador, con sus caricaturas. Ordena por «Los que más superaron a su cuenta» (`nx`,
