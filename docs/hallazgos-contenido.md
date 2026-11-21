@@ -757,6 +757,11 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - **Trampa:** «el original tiene que estar siempre». A 5 de los 7 reels terminados les faltaba la transcripción de la
       referencia: se transcribió con faster-whisper y se tradujo a mano (`content-machine/transcr/originales.json`). Los otros
       dos (Serie 1 y Serie 4) siguen sin video de referencia. Un reel de Víctor no tiene voz: queda marcado `sin_voz`.
+16. **«Filtrar» va en la fila de las pestañas, pegado a la derecha** (21/11). El conteo va chico, a su izquierda, y en el teléfono
+    el botón queda sólo con el ícono. Antes estaba en una segunda fila, a la izquierda, porque el pedido se entendió mal.
+    - **Trampa:** una regla `.panel { display: flex !important }` le gana a `[hidden] { display: none !important }` del esqueleto
+      del artefacto si viene después, y deja el panel de filtros siempre a la vista. Se escribe `.panel:not([hidden])`. Lo mismo
+      vale para cualquier elemento que la página esconde con `hidden`.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 

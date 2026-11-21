@@ -1,6 +1,8 @@
 # Relevo — serie con avatar IA (chat hijo del Cerebro)
 
-Actualizado: 21/11/2026 ~07:00 UTC, cuenta claude5 (92 %). Spy lee de la base (v26) y la competencia la baja otro chat.
+Actualizado: 21/11/2026 ~07:25 UTC, cuenta claude5 (93 %). Content Machine v30: Spy lee de la base; guion editable y «Aplicar al guion» (capacidad sample); la competencia la baja otro chat.
+
+**A medias (v30):** el guion técnico por lámina lo describe Claude la primera vez que Martín abre cada lámina (`tecnico/<clave>-<lámina>`); el de reels espera el campo `tecnico` del chat de la competencia; Serie 1 y Serie 4 siguen sin video de referencia (buscar sus reels desde el Chrome de Martín).
 
 ## Dónde está
 - **La página: «Content Machine»,** https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz. Tres pestañas:
