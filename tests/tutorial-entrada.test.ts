@@ -64,7 +64,8 @@ test('3. la tarjeta del «dale play»: sólo el título y la X roja (sin «Lo ha
   assert.match(m, /if \(senal\.invita \|\| \(!senal\.listo && !senal\.alOmitir\)\) return null;/, 'sin pie');
   const g = sinComentarios(leer('app/_ui/tutorial/useDalePlay.ts'));
   assert.match(g, /\{ sel: `\[data-dale-play="\$\{marca\}"\]`, titulo: tituloDalePlay\(titulo\), texto: '', haz: '', lado: 'derecha' \}/);
-  assert.match(g, /\{ invita: true, alOmitir: visto \}/);
+  // (20/11: y le avisa a quien la puso, `alCerrar`: tests/inventario-videos-y-reto.test.ts.)
+  assert.match(g, /\{ invita: true, alOmitir: \(\) => \{ visto\(\); alCerrar\.current\?\.\(\); \} \}/);
   assert.match(g, /tocaDalePlay\(\{ activo, aLaVista, motorLibre: senal == null, cerrado: cerrado \|\| dalePlayCerrado\(clave\) \}\)/);
   assert.match(g, /if \(sueltaDalePlay\(\{ activo, aLaVista \}\)\) \{ soltarSenal\(mia\.current\); mia\.current = null; \}/);
   assert.match(g, /new IntersectionObserver\(/);
@@ -82,8 +83,10 @@ test('4. el reproductor del chat lo pide quieto, y el onboarding y la llegada lo
   assert.match(a, /<VideoDelMomento clave=\{VIDEO_WHATSAPP\} titulo="Tu WhatsApp con MaKo" revision=\{false\} dalePlay \/>/);
   const l = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
   // (20/11: y recién con el video dibujado, tests/llegada-dale-play-dibujado.test.ts.)
-  assert.match(l, /useDalePlay\(play, \{ clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado\(\{ poster, posterCargado \}\) \}\);/);
-  assert.match(l, /<button ref=\{play\} type="button" className="sbl-video" onClick=\{empezar\}/);
+  assert.match(l, /useDalePlay\(play, \{ clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado\(\{ poster, posterCargado \}\),\n\s*alCerrar: /);
+  // (20/11: la marca va sobre el reproductor entero del mensaje, que es el lugar del video: tests/video-en-el-chat.test.ts.)
+  assert.match(l, /<div ref=\{play\} className="mk-vmom sbl-vlugar" data-video-lugar="recorrido"/);
+  assert.match(l, /onClick=\{\(e\) => \{ e\.stopPropagation\(\); empezar\(\); \}\} aria-label="Ver el recorrido por MaKo"/);
 });
 
 test('5. cada coach entra la primera vez como la bienvenida: oscuro, escribe, y su video con «dale play»', () => {

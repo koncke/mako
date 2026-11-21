@@ -43,7 +43,6 @@ import {
   type Stage,
   type StageBand,
   type FunnelTransition,
-  type EntradaId,
   esTerminal,
   etapasVisibles,
   MAX_LABEL_ETAPA,
@@ -81,7 +80,7 @@ import { TraerDeOtroProducto } from './TraerDeOtroProducto';
 import { TraerDeGrupoWA } from './TraerDeGrupoWA';
 import { ExtraccionModal } from './ExtraccionModal';
 import { NombresModal } from './NombresModal';
-import { CampanasModal } from './CampanasModal';
+import { FuentesModal } from './FuentesModal';
 import { TipoEtapaModal } from './TipoEtapaModal';
 import { AVISO_SIN_LUGAR, NOMBRE_TIPO_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
 import { EventosDeEtapaModal } from './EventosDeEtapaModal';
@@ -143,7 +142,7 @@ import { ReunionesParaPreparar, type ReunionParaPreparar } from './TarjetaReunio
 import { AccionesLoteLeads, destinosDeLote, type ManijaLote } from './AccionesLoteLeads';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
-import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, ofreceAsignarFuentes, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
+import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from './seleccion-columna';
 import { cuantasDibujar, TANDA_COLUMNA } from './columna-por-tandas';
 import { publicarLeadAbierto } from './lead-abierto';
@@ -495,7 +494,6 @@ export function CrmBoard({
   abrirEmbudo = null,
   abrirImportar = false,
   funnelActivo = null,
-  entradasFunnel = null,
   ordenManual = {},
   cursoAlGanar = null,
   partners = false,
@@ -545,8 +543,6 @@ export function CrmBoard({
   abrirImportar?: boolean;
   /** null = el funnel del negocio (sin `?funnel=` en la URL). */
   funnelActivo?: number | null;
-  /** Cómo entra la gente a ESTE funnel (su tipo, `tipoDeFunnel`): en uno de Prospección no se ofrece «Asignar fuentes». */
-  entradasFunnel?: EntradaId[] | null;
   /** El orden que se armó arrastrando tarjetas en este embudo: etapa → leads (mig 0200). */
   ordenManual?: Record<string, number[]>;
   /**
@@ -2427,6 +2423,13 @@ export function CrmBoard({
   }, [columnasKanban, colsPropias]);
   /** Por esta columna se agarra. La entrada no se mueve (nada va antes de ella). */
   const seArrastraCol = (c: Stage) => colsPropias.includes(c.key) && c.kind !== 'entrada';
+  /**
+   * ¿Es la PRIMERA etapa del pipeline? (20/11/2026, «Asignar fuentes» siempre ahí). La de entrada; y si el funnel no marca
+   * ninguna como entrada, la primera columna del recorrido — la misma regla que `etapaDeEntrada` (lib/lead-funnel-reglas.ts),
+   * que es donde caen los leads nuevos.
+   */
+  const esPrimeraEtapa = (c: Stage) => c.kind === 'entrada'
+    || (!columnasKanban.some((s) => s.kind === 'entrada') && columnasKanban.find((s) => (s.band ?? 'pipeline') === 'pipeline')?.key === c.key);
 
   const limpiarDragCol = () => {
     colAgarrada.current = null;
@@ -2655,7 +2658,8 @@ export function CrmBoard({
       return {
         leadId: null, colKey: c.key,
         ctx: {
-          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada', fuentes: ofreceAsignarFuentes(entradasFunnel), reunion: c.kind === 'reunion', ganado: c.key === 'ganado', tipo: columnaConTipo(c),
+          // «Asignar fuentes» en la PRIMERA etapa, siempre (20/11/2026): la de entrada, o la primera columna si ninguna lo es.
+          sobre: 'columna', mover: seArrastraCol(c), entrada: esPrimeraEtapa(c), reunion: c.kind === 'reunion', ganado: c.key === 'ganado', tipo: columnaConTipo(c),
           // La MISMA condición que el renglón del «⋯» (y su test, tests/crm-curso-al-ganar.test.ts).
           curso: cursoAlGanar && terminalEstadoFor(c.key) === 'ganado' ? cursoPrendido : null,
           borrable: colsBorrables.has(c.key),
@@ -2777,7 +2781,8 @@ export function CrmBoard({
       case 'col_ordenar': if (c && valor && valor in ORDEN_KANBAN) elegirOrden(c.key, valor as OrdenKanban); return;
       case 'col_izquierda': if (c) moverCol(c.key, -1); return;
       case 'col_derecha': if (c) moverCol(c.key, 1); return;
-      case 'col_campanas': setCampanasAbierto(true); return;
+      case 'col_campanas':
+      case 'asignar_fuentes': setCampanasAbierto(true); return;
       // La columna ENTERA sin tildar nada (sin filtros), o «los N que se ven» (`seleccionDeColumna`).
       case 'col_difusion': if (c) setDifusion(seleccionDeColumna({ etapa: c.key, funnelId: funnelDeDifusion }, visiblesDe(c.key), hayFiltros)); return;
       case 'col_evento': if (c) setEventoDe({ etapa: c.key, nombre: c.label }); return;
@@ -3322,7 +3327,8 @@ export function CrmBoard({
         <AccionesHeader
           onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead({ etapa: null })}
           onEditarEtapas={() => setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) })}
-          onPersonalizarTarjetas={() => setPersonalizando(true)} onNombres={puedeCrearCrm ? () => setViendoNombres(true) : undefined} funnelActivo={funnelActivo} />
+          onPersonalizarTarjetas={() => setPersonalizando(true)} onNombres={puedeCrearCrm ? () => setViendoNombres(true) : undefined} funnelActivo={funnelActivo}
+          onAsignarFuentes={() => setCampanasAbierto(true)} />
       </div>
 
       {/* ⛔ SIN HEADER DESDE EL 12/10/2026. Era el ícono del CRM y un «CRM» de 46 px a la
@@ -3688,7 +3694,9 @@ export function CrmBoard({
           </>)} />
       )}
       {campanasAbierto && (
-        <CampanasModal
+        // «ASIGNAR FUENTES» REDISEÑADO (20/11/2026, app/crm/FuentesModal.tsx): «Campañas de Meta» y «Formularios», con la
+        // calificación automática de cada formulario. Lo abren la primera etapa (su «⋯») y el «⋯» de arriba a la derecha.
+        <FuentesModal
           // ⚠️ EL PRINCIPAL VA COMO `null`: `funnelActivo` puede traer su id numérico, y con
           // ese número la tabla no reconocería sus propias campañas como «Este».
           funnelId={funnelActivo == null || funnels.find((f) => f.id === funnelActivo)?.esDefault ? null : funnelActivo}

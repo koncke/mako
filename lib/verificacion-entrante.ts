@@ -147,6 +147,9 @@ export type VistaEntrante = {
   otroNumero: string | null;
   /** V2: lo que la tarjeta del código tiene que decir porque su mensaje llegó y no le pudo contestar (`avisoDelPedidoV2`). */
   aviso?: string | null;
+  /** LA REVISIÓN (21/11/2026): el WhatsApp simulado de un número nuevo (lib/onboarding-v2/whatsapp-simulado.ts). «Abrir WhatsApp» abre el
+   *  modal con el pedido y lo que MaKo contesta (el código, su tarjeta y «Guárdame…»); nada sale por WhatsApp. */
+  simulado?: { pedido: string; respuesta: string; agendar: string; codigo: string };
 };
 
 export function vistaDeEntrante(v: EstadoVerificacion | null | undefined, ahora: number): VistaEntrante | null {

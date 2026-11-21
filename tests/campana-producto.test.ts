@@ -233,7 +233,8 @@ test('las campañas se asignan desde el «⋯» de la columna, con el principal 
   // «En el editor de CRM, elimina lo de "Asignar campañas", para eso ya tenemos los 3 puntos en cada columna...».
   const src = sinComentarios(leer('app/crm/EtapasModal.tsx'));
   assert.doesNotMatch(src, /CampanasModal|Asignar campañas|funnelIdCampanas/, 'volvieron las campañas al editor del CRM');
-  assert.match(sinComentarios(leer('app/crm/CrmBoard.tsx')), /\{campanasAbierto && \(\s*<CampanasModal\b/, 'el «⋯» de la columna dejó de abrir las campañas');
+  // Desde el 20/11/2026 el «⋯» abre «Asignar fuentes» rediseñado (app/crm/FuentesModal.tsx), con las campañas en su primera pestaña.
+  assert.match(sinComentarios(leer('app/crm/CrmBoard.tsx')), /\{campanasAbierto && \(\s*<FuentesModal\b/, 'el «⋯» de la columna dejó de abrir las campañas');
   // Y el server se defiende igual: traduce el id del principal a null antes de validar.
   const acc = sinComentarios(leer('app/crm/campanas-actions.ts'));
   assert.match(acc, /return \{ ok: true, id: f\.esDefault \? null : f\.id, real: f\.id,/);
@@ -491,9 +492,12 @@ test('el «⋯» de la columna de ENTRADA ofrece las campañas, y sólo esa colu
   // (el renglón en todas las columnas) → 34/1.
   // Desde el 22/10/2026 el «⋯» abre el MISMO menú que el clic derecho (app/crm/menu-contextual-crm.ts, «ponlas en secciones»).
   // La entrada la marca `contextoBajo`, el logo de Meta va por `logoMeta`, y lo abre su `case`.
-  assert.match(b, /sobre: 'columna', mover: seArrastraCol\(c\), entrada: c\.kind === 'entrada'/);
+  // Desde el 20/11/2026 es «la PRIMERA etapa» (`esPrimeraEtapa`: la de entrada, o la primera columna si ninguna lo es), y el
+  // mismo `case` lo abre también desde el «⋯» de arriba (`asignar_fuentes`). Ver tests/crm-fuentes-prospeccion.test.ts.
+  assert.match(b, /sobre: 'columna', mover: seArrastraCol\(c\), entrada: esPrimeraEtapa\(c\)/);
+  assert.match(b, /const esPrimeraEtapa = \(c: Stage\) => c\.kind === 'entrada'/);
   assert.match(b, /logoMeta: <LogoMeta size=\{\d+\} \/>/);
-  assert.match(b, /case 'col_campanas': setCampanasAbierto\(true\); return;/);
+  assert.match(b, /case 'col_campanas':\s*case 'asignar_fuentes': setCampanasAbierto\(true\); return;/);
   assert.match(b, /funnelActivo == null \|\| funnels\.find\(\(f\) => f\.id === funnelActivo\)\?\.esDefault \? null : funnelActivo/,
     'el principal va como null');
 });

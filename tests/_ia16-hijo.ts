@@ -92,11 +92,13 @@ async function main() {
   await runWithWorkspace(12, () => ai.chatCheapCascade({ system: 's', user: 'x', feature: 'landing-analyst', provs: ['groq'], erroresOut: errores }).catch(() => ''));
   out.erroresConGroqPedido = errores;
 
-  // ── Sin su IA: nada de la plataforma, con o sin datos de clientes ─────────────────────────────────────────────────
+  // ── Sin su IA: nada de la red gratis, con o sin datos de clientes ─────────────────────────────────────────────────
+  // La nota de voz, aparte (20/11/2026, Martín: «el usuario debería poder enviar audios independientemente de si tiene la IA
+  // conectada o no, porque para eso ya usamos los MaKo Tokens»): la escucha el Whisper de MaKo, con la clave de la plataforma.
+  out.notaSinSuIA = await correr(14, nota);
   out.sinSuIA = {
     ws14TextoConPII: hosts(await correr(14, texto('lead_insights', { pii: true }))),
     ws14TextoSinPII: hosts(await correr(14, texto('ads-rename'))),
-    ws14NotaDeVoz: hosts(await correr(14, nota)),
     ws14Anuncio: hosts(await correr(14, () => ai.transcribirAudio(audio, 'audio/ogg', { feature: 'transcribir-anuncio', sinGroq: true }))),
     // La copia de la clave de la plataforma no es suya.
     ws1Texto: hosts(await correr(1, texto('ads-rename'))),
