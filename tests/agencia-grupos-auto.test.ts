@@ -16,7 +16,8 @@ import { join } from 'node:path';
 import { lineaDeLaAgencia, mismoTelefono, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo } from '../lib/agencia-equipo-grupo';
 
 const RAIZ = join(import.meta.dirname, '..');
-const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_agencia-grupos-auto-hijo.ts')], {
+// `--experimental-test-module-mocks`: el hijo abre el corte de «no se crean grupos» (20/11/2026) para probar el código dormido del nacimiento.
+const salida = execFileSync(process.execPath, ['--conditions=react-server', '--experimental-test-module-mocks', '--import', 'tsx', join(RAIZ, 'tests', '_agencia-grupos-auto-hijo.ts')], {
   cwd: RAIZ, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'inherit'],
 });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

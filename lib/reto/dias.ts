@@ -259,7 +259,8 @@ export const muestrasDe = (intereses: readonly string[] | null | undefined): Mue
   [...new Set(intereses ?? [])].map((i) => MUESTRA_DE_INTERES[i]).filter((m): m is MuestraReto => !!m).slice(0, 3);
 const enLista = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
 export const RETO_EMPEZAR_DIA1 = 'Empezar mi día 1';
-export const RETO_INTERES_YA = (ms: readonly MuestraReto[]) => `Me dijiste que lo primero que quieres es ${enLista(ms.map((m) => m.hacer))}. ¿Te muestro cómo hacerlo ahora, o empezamos tu día 1? Si lo resuelves primero, no te preocupes: tu reto te espera aquí.`;
+// Con formato (21/11/2026, Martín: «es un bloque largo»): las cosas en viñetas y lo clave en negrita (el globo lo dibuja con Markdown).
+export const RETO_INTERES_YA = (ms: readonly MuestraReto[]) => `Me dijiste que lo primero que quieres es:\n${ms.map((m) => `- **${m.hacer}**`).join('\n')}\n\n¿Te muestro cómo hacerlo ahora, o empezamos tu **día 1**? Si lo resuelves primero, no te preocupes: tu reto te espera aquí.`;
 export const RETO_MUESTRA = (m: MuestraReto) => `Te muestro dónde ${m.hacer}, en ${m.nombre}. Dale play.`;
 // La maqueta dice «Cuando quieras lo armamos juntos»: «juntos» marca género (la regla de los textos neutros).
 export const RETO_MUESTRA_FIN = (m: MuestraReto) => `Listo: ya sabes dónde ${m.hacer}. Cuando quieras, lo armamos; tu reto te espera.`;

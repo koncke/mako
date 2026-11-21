@@ -23,6 +23,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { createPortal } from 'react-dom';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
+import { limpiarClavesDelOnboarding } from '@/lib/reinicio-en-el-navegador';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { AvisoFlotante } from './AvisoFlotante';
 import { WS_DISENO } from '@/lib/auth-session';
@@ -244,6 +245,9 @@ export function PanelAgencia({ cliente, onCambio }: {
       // El navegador guarda borradores y marcas de leído sin distinguir
       // workspace: sin limpiarlos, el cliente reseteado sigue pareciendo lleno.
       try { Object.keys(localStorage).filter((k) => k.toLowerCase().startsWith('mako')).forEach((k) => localStorage.removeItem(k)); } catch { /* modo privado */ }
+      // Y lo del onboarding que NO empieza con «mako» (20/11/2026, el inventario de botones): la llegada, el «dale play», la entrada de
+      // cada coach. Sin esto el onboarding volvía con «¿cómo te llamas?» antes del video, como «Reiniciar» antes de arreglarse.
+      limpiarClavesDelOnboarding([window.localStorage, window.sessionStorage]);
       // Vaciado el workspace, el onboarding vuelve a estar pendiente: se va
       // derecho ahí, sin pasar por una pantalla que ya no tiene nada que mostrar.
       //
