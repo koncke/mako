@@ -2538,3 +2538,46 @@ La ficha muestra UNA línea con «Revisar la clave». Es la única excepción al
 **La regla que queda:** lo que la ficha pone en pantalla con una clase `spy-…` lleva su regla en la hoja de la ficha (`const CSS` de DetallePieza), con los mismos valores que SpyApp, para que en la computadora se vea igual. Los botones van acotados a `.spyd-nota .spy-boton`, no a `.spyd .spy-boton`: con una regla más ancha, un `spy-boton spy-boton-primario` dentro de la ficha perdería su fondo. Test: `tests/spy-ficha-estilos.test.ts`, que mira que cada clase `spy-…` de la ficha tenga su regla ahí.
 
 **Sin hacer:** `SuOferta` también usa `.spy-boton`, pero hoy no se monta en el teléfono (ver el comentario en `SpyM.tsx`). Si un día se monta, le pasa lo mismo.
+
+## El análisis con video para clientes: lo que se midió diseñándolo (21/11/2026)
+
+El diseño está en [spy/analisis-con-video.md](spy/analisis-con-video.md). Acá van las trampas.
+
+**⚠️ El diagnóstico obvio era el equivocado: «la clave de Apify está vencida desde el 13/11» no quería decir «Spy está roto para
+los clientes».** La clave de Spy es de CADA negocio (`APIFY_INSTAGRAM_TOKEN` en `credenciales`, por `credDelCliente`, que nunca
+cae a la de la plataforma). La rechazada es la del espacio 9. El único cliente con Spy, Leila (espacio 11), tiene la suya y anda: el
+19/11 le entraron reels nuevos. Se ve en un SELECT y sin tocar claves:
+- `credenciales` por `clave like 'APIFY%'`: qué negocio tiene clave, sin el valor;
+- `max(visto_primera_vez)` de `spy_piezas` por negocio: hasta cuándo entró algo;
+- `motivo` y `claveRechazada` en `app_settings` → `spy.transcripcion.*`.
+
+**Lo que sí quedó abierto:** el único guion que pidió Leila (16/11) falló al BAJAR el mp4 del CDN de Instagram desde Vercel
+(«No pude bajar el video de Instagram»), con Apify contestando bien. **No es el agente**: el CDN contesta 206 a
+`MaKoBot/1.0`, y a un agente de Chrome le contesta **302** (al revés de lo que uno espera). Puede ser el enlace vencido o la IP de
+Vercel. No se volvió a probar porque gasta el crédito de Apify de Leila. Es el paso del que depende todo el análisis con video:
+la primera prueba con la clave nueva del espacio 9 es bajar 3 reels desde producción.
+
+**ffmpeg ya corre en Vercel** (`app/api/cron/montaje/route.ts`, `ffmpeg-static`, `maxDuration` 800). Para medir un reel no hace
+falta el worker de Railway: el worker queda para el OCR y la música separada de la voz (`docs/diseno-desarmar-video.md`). Medido en
+la PC (3 reels de 89 a 151 s a 1080 px), la vista previa entera a 480 px son 40 a 48 s de CPU y los cuadros con los cortes, 14 a 17 s.
+Lo caro es decodificar el 1080 px, no la detección de escenas: por eso la vista previa va con sólo los primeros 35 s.
+
+**`MAX_BYTES_VIDEO` (25 MB) rechaza el 5 % de los reels:** 14 de 294 reels relevados pasan ese peso a 1080 px (la mediana es
+11,1 MB, en 75 s). En el guion de hoy, eso es «pesa demasiado» sin transcribir.
+
+**Dos cuentas del N× conviven, y no son la misma:**
+- la de la app (`lib/multiplo-rendimiento.ts`): 20 vecinas del mismo creador y formato, 7 como mínimo, nada de menos de una semana;
+- la del relevo a mano del 19 y el 21/11: la mediana de los 6 reels maduros más cercanos, afuera los de menos de 48 h.
+
+Para clientes va la de la app, porque Martín pidió el 5/11 «calculado igual en toda la app». ⚠️ `docs/hallazgos-contenido.md` dice
+que Spy no marca el N× de los REELS: **el código sí lo calcula** (las vistas, `p.tipo === 'reel'` → «corto»), y en producción 573
+de los 616 reels de Leila tienen vistas. Si no se ve, es la pantalla, y se verifica mirando antes de dar el dato por cierto.
+
+**«Formato» y «forma» son dos ejes distintos.** Los 19 formatos de Spy dicen QUÉ cuenta un reel (tutorial, lista, POV…). La forma
+del relevo dice CÓMO está hecho (sketch con IA, a cámara, animado, pizarra…), y es la que decide con qué herramienta de MaKo se
+replica. Meter la forma entre los 19 formatos rompería la marca `formatosV` y obligaría a releer todo.
+
+**Sin hacer:**
+- programar el diseño: espera las decisiones de Martín (§8 del diseño);
+- la clave del espacio 9: la carga Martín, porque es el dueño de la cuenta de Apify;
+- el guion que no pudo bajar sigue sin «Volver a intentar»: estaba en la lista desde el 14/11 y sigue igual.
