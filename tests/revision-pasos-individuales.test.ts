@@ -85,6 +85,9 @@ test('4. quién arranca la marca: el motor (desde su paso, sin el video) y el ch
   assert.match(m, /useState\(senal\.tipo === 'tutorial' && senal\.desde \? senal\.desde : /, 'empieza en su paso');
   assert.match(m, /senal\.tipo === 'tutorial' && senal\.desde \? null :/, 'sin el video (sigue los pasos desde el primero)');
   assert.match(m, /tomarSalto\(esDelRecorrido\)/, 'el motor toma el salto del recorrido');
+  // Al terminarlo (u omitirlo) queda visto, como cualquier recorrido (21/11, el Cerebro).
+  assert.match(m, /const r = useRecorrido\(ID_RECORRIDO, \{ autoabrir: false \}\);/);
+  assert.match(m, /mostrarTutorial\(TUTORIAL_RECORRIDO, \{ desde: s\.recorrido, alTerminar: \(m\) => cerrar\.current\(m\) \}\)/);
   const r = sinComentarios(fuente('app/second-brain/reto/ChatDelReto.tsx'));
   assert.match(r, /tomarSalto\(esDeUnaTarea\)/, 'el chat del reto toma el de la tarea');
   assert.match(r, /marcasDesde\(marcasDeLaTarea\(t\), s\.marca\)/);
@@ -102,4 +105,5 @@ test('4. quién arranca la marca: el motor (desde su paso, sin el video) y el ch
 //   · el salto del recorrido corrido en uno                          → 3
 //   · lo visto de hoy con el video en el paso del video              → 3
 //   · el motor sin empezar en su paso                                → 4
+//   · el recorrido del salto sin anotarse visto al terminar          → 4
 // ─────────────────────────────────────────────────────────────────────────────

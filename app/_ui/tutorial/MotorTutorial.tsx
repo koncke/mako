@@ -42,6 +42,7 @@ import { BarraDelVideo, alternarVideo } from './BarraDelVideo';
 import { CSS_REPRODUCTOR } from './VideoDelMomento';
 import { instalarUnVideoALaVez } from './un-video-a-la-vez';
 import { esDelRecorrido, tomarSalto } from '@/lib/onboarding-v2/salto-pendiente';
+import { ID_RECORRIDO } from '@/lib/onboarding-v2/llegada';
 import { TOPE_CADENA_MS, TOPE_CARGA_MS, alFinSinMarca, arrancaLaPrimeraVez, fraseQueSuena, retenerAlFin, comoCadena, navegaA, pasoDeLaCadena, saltarSinMarca, siguienteConMarca, soloEnComputadora, soltarRetencion, type Retencion } from './pausas';
 
 /**
@@ -207,12 +208,21 @@ export function MotorTutorial({ revision }: { revision: boolean }) {
 /**
  * «IR A UN PASO» DEL RECORRIDO (21/11/2026, la revisión: «para ir exactamente al paso que quiere»): el salto lo dejó la barra
  * (lib/onboarding-v2/salto-pendiente.ts); al llegar, en cuanto su lugar (o lo que lo abre) está en la pantalla, el recorrido arranca
- * en ESE paso. Si en 12 s no aparece, no arranca (nunca una marca a la nada).
+ * en ESE paso. Si en 12 s no aparece, no arranca (nunca una marca a la nada). Al terminarlo (u omitirlo) queda VISTO, como cualquier
+ * recorrido (21/11, el Cerebro): el mismo `onCerrar` que la llegada (app/second-brain/LlegadaAlReto.tsx).
  */
 function SaltoDelRecorrido() {
+  const [s, setS] = useState<{ recorrido: number } | null>(null);
+  useEffect(() => { setS(tomarSalto(esDelRecorrido)); }, []);
+  // Lo visto se pregunta SÓLO con un salto: el motor va en todas las pantallas.
+  return s ? <CorrerElSalto s={s} /> : null;
+}
+
+function CorrerElSalto({ s }: { s: { recorrido: number } }) {
+  const r = useRecorrido(ID_RECORRIDO, { autoabrir: false });
+  const cerrar = useRef(r.onCerrar);
+  useEffect(() => { cerrar.current = r.onCerrar; });
   useEffect(() => {
-    const s = tomarSalto(esDelRecorrido);
-    if (!s) return;
     let vivo = true, t = 0;
     // El recorrido se trae SÓLO con un salto: el motor va en todas las pantallas y no carga el texto del reto por las dudas.
     void import('@/lib/onboarding-v2/recorrido').then(({ TUTORIAL_RECORRIDO }) => {
@@ -222,13 +232,13 @@ function SaltoDelRecorrido() {
       const desde = Date.now();
       const mirar = () => {
         if (!vivo) return;
-        if (lugares.some((x) => !!lugarDe(x))) { mostrarTutorial(TUTORIAL_RECORRIDO, { desde: s.recorrido }); return; }
+        if (lugares.some((x) => !!lugarDe(x))) { mostrarTutorial(TUTORIAL_RECORRIDO, { desde: s.recorrido, alTerminar: (m) => cerrar.current(m) }); return; }
         if (Date.now() - desde < 12_000) t = window.setTimeout(mirar, 150);
       };
       mirar();
     });
     return () => { vivo = false; window.clearTimeout(t); };
-  }, []);
+  }, [s]);
   return null;
 }
 
