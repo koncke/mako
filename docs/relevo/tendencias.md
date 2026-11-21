@@ -17,6 +17,11 @@ que rehace el chat de Content Machine (local_fc754a71-87b7-4a34-8133-0307a31abe1
    `lib/asesores/catalogo.ts`, los autores de Knowledge (`app/conocimientos/catalogo.ts` → `CURSOS_TODOS`), los 77 links
    (`C:/dev/inspiracion/relevo.json`), el Spy de producción (54 competidores, volcado en el scratchpad de los ángulos:
    `gurus-b/comp.json`) y la web. Se pasa al Cerebro ANTES de bajar nada.
+1b. [en curso] Piloto con lo que ya había (sin bajar nada): `armar-piezas.mjs` junta el Spy de producción (`C:/dev/tendencias/prod90.json`)
+   y lo bajado → `C:/dev/tendencias/piezas.jsonl` (2.532 piezas en 90 días). `lotes.mjs` → 14 lotes de 200 en `lotes/`; 7 agentes
+   sonnet los clasifican con `instrucciones-clasificar.md` y `temas.json` → `clasif/lote-NN.json`. Si un lote no tiene su archivo
+   en `clasif/`, se vuelve a lanzar SÓLO ese (el mismo prompt: leer instrucciones + temas, clasificar leyendo, validar con node).
+   Después: fundir los «nuevo:…» en `alias.json` y correr `analizar.mjs` → `tabla.json`.
 2. Pedirle al chat Spy lo liviano de los últimos 90 días (texto, fecha, vistas, me gusta, cantidad de comentarios, CTA, tipo) →
    `C:/dev/tendencias/<cuenta>/`. Después, transcripción sólo de las piezas con más comentarios.
 3. Análisis por tema dentro de cada sector: referentes que lo tratan, 30 días contra los 60 anteriores, comentarios cada 1.000
@@ -42,6 +47,10 @@ que rehace el chat de Content Machine (local_fc754a71-87b7-4a34-8133-0307a31abe1
 - **Herramientas** (versionadas en `docs/tendencias/herramientas/`, copia de trabajo en `C:/dev/tendencias/herramientas/`):
   `yt-chequeo.mjs` (¿existe el canal?, último video, cuántos en 90 días, sin claves), `referentes.mjs` (la lista), `analizar.mjs`
   (de `piezas.jsonl` + `clasificacion.json` a `tabla.json` con el estado de cada tema).
+- ⚠️ **El Spy de producción midió cada pieza UNA vez** (del 4 al 19/11): una pieza medida a los 2 días tiene pocos comentarios
+  porque todavía no los juntó, y una cuenta medida el 4/11 no tiene piezas después. Comparar «últimos 30 días contra los 60
+  anteriores» desde hoy daría «En baja» en todo. `analizar.mjs` corta cada cuenta en SU última medición y cuenta comentarios sólo
+  de piezas medidas con 7 días o más (ventanas corridas 7 días).
 - **Método del estado** (en `analizar.mjs`): Nuevo = visto por primera vez hace ≤ 60 días y con ≤ 3 referentes · En crecimiento =
   comentarios por día de los últimos 30 días ≥ 1,3× los de los 60 anteriores, sin bajar las piezas · En baja = piezas o
   comentarios < 0,7× · si no, Saturado. Los comentarios-palabra del CTA se separan de los de conversación con la muestra de texto.

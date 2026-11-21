@@ -1,0 +1,90 @@
+{
+  "_regla": "Un tema nombra DE QUÉ habla la pieza, no su forma ni su muletilla. Si habla de dos cosas, manda lo que regala el CTA o la promesa del gancho. Si nada calza, 'nuevo:<3 a 5 palabras>'. 'fuera' = vida personal, sorteos, viajes, otro rubro.",
+  "Orgánico de nicho": {
+    "contenido-que-vende": "el contenido de valor ya no alcanza; contenido que atrae clientes y no seguidores; lo viral no vende",
+    "trazabilidad": "medir qué pieza trae ventas o cash, no vistas; planilla o CRM de contenido",
+    "palabra-clave-dm": "«comenta X» y el DM automático (ManyChat), embudo por mensajes directos",
+    "historias-que-venden": "secuencias de historias de Instagram para vender",
+    "angulo-y-mensaje": "el problema es el ángulo o el mensaje; avatar; niveles de conciencia; copy del contenido",
+    "marca-personal-autoridad": "posicionamiento, autoridad, te eligen por cómo comunicas; speaker",
+    "pocos-seguidores": "vender con pocos seguidores o un nicho chico",
+    "frecuencia-y-mitos": "cuánto publicar, horarios, hashtags, constancia",
+    "linkedin-b2b": "contenido para LinkedIn o B2B"
+  },
+  "Orgánico viral": {
+    "ganchos": "fórmulas de gancho, los primeros 3 segundos",
+    "guiones-y-storytelling": "escribir guiones virales, estructura, storytelling",
+    "formatos-y-edicion": "formatos que retienen (sketch, podcast, animado, trends), edición y ritmo",
+    "reels-de-prueba": "reels de prueba (trial reels), testear, repetir lo que funcionó",
+    "algoritmo-cambio": "la plataforma o el algoritmo cambió; alcance; qué premia Instagram/TikTok hoy",
+    "viral-en-el-nicho": "viral dentro del nicho contra viral genérico",
+    "caso-de-crecimiento": "cómo hice viral a alguien, de 0 a N seguidores",
+    "colaboraciones": "colaboraciones, collabs, crecer con otros"
+  },
+  "Anuncios": {
+    "follow-me-ads": "anuncios al contenido orgánico, impulsar reels, anuncios para ganar seguidores",
+    "creativos-y-conceptos": "el creativo es la segmentación (Andromeda), probar conceptos y ángulos de anuncio",
+    "escalar-presupuesto": "escalar, subir presupuesto, CBO/ABO, la pared de escala, costo por resultado",
+    "anuncios-a-mensajes": "campañas a WhatsApp, DM o mensajes",
+    "vsl-y-embudo-pago": "VSL, webinar, landing y embudo pago (o «nada de VSL»)",
+    "ugc-y-creativos-ia": "UGC, creativos o avatares con IA para anuncios",
+    "medicion-y-atribucion": "qué anuncio trajo la venta, CAPI, píxel, métricas",
+    "ganchos-de-anuncio": "plantillas y ganchos para anuncios"
+  },
+  "Closing y ventas": {
+    "llamada-de-cierre": "guion y estructura de la llamada de venta, preguntas, tono",
+    "objeciones": "manejar objeciones (lo tengo que pensar, es caro, mi pareja)",
+    "seguimiento": "seguimiento, la venta se cae después de la llamada o por falta de seguimiento",
+    "setting-y-agenda": "setter, calificar y agendar por DM, primeras conversaciones",
+    "equipo-comercial": "contratar, pagar y gestionar closers y setters",
+    "venta-por-chat": "vender por chat o WhatsApp sin llamada",
+    "asistencia-a-llamadas": "show rate, recordatorios, que vengan a la llamada"
+  },
+  "IA": {
+    "edicion-con-ia": "IA o Claude que edita video, efectos o motion por código, CapCut con IA",
+    "avatar-y-video-ia": "avatares, clones, HeyGen, video generado, influencer virtual",
+    "carruseles-con-ia": "carruseles o diseño hechos con IA (Canva con IA, Claude Design)",
+    "agentes-y-setters-ia": "agentes de IA que contestan, venden o agendan; WhatsApp con IA; setter con IA",
+    "automatizaciones": "n8n, Make, automatizar procesos del negocio",
+    "claude-como-empleado": "Claude o Claude Code trabajando en el negocio con carpetas e instrucciones",
+    "regalo-de-herramientas-ia": "regala prompts, herramientas o su ecosistema de IA a cambio de un comentario",
+    "ia-reemplaza-equipo": "la IA reemplaza editores, setters o media buyers; sueldos contra software",
+    "app-del-referente": "el referente vende su propia app o software de IA",
+    "noticias-de-ia": "lanzamientos y novedades de modelos y herramientas"
+  },
+  "YouTube": {
+    "youtube-para-clientes": "YouTube como buscador y fuente de clientes a largo plazo",
+    "podcast-y-entrevistas": "podcast o entrevistas como formato",
+    "canales-automatizados": "canales sin cara, automatizados o con IA",
+    "monetizar-el-canal": "AdSense y monetizar el canal",
+    "miniaturas-y-titulos": "miniaturas, títulos, CTR, retención en YouTube",
+    "shorts": "YouTube Shorts"
+  },
+  "High ticket": {
+    "cobrar-caro": "subir precios, ticket alto, valor percibido, nunca bajar el precio",
+    "oferta-irresistible": "armar la oferta, garantías, bonos, modelos de cobro",
+    "clientes-que-pagan": "atraer clientes que pagan contra curiosos; filtrar",
+    "negocio-sin-ti": "sistemas, delegar, que el negocio funcione sin ti",
+    "equipo-chico": "menos es más, equipo chico, recortar",
+    "casos-y-resultados": "facturé X, casos de clientes, resultados con cifras",
+    "dejar-de-vender-horas": "productizar, dejar de cambiar horas por plata",
+    "agencia-y-servicios": "conseguir clientes para una agencia o servicio B2B",
+    "escalar-el-negocio": "pasar de una cifra a otra, crecer, restricciones del negocio"
+  },
+  "Low ticket": {
+    "embudo-low-ticket": "producto barato que paga los anuncios y lleva al ticket alto",
+    "productos-digitales": "ebooks, plantillas, cursos baratos, Hotmart, afiliados",
+    "lanzamientos": "lanzamientos, webinars, preventas, retos",
+    "comunidad-y-membresia": "Skool, membresías, comunidades pagas",
+    "copiar-productos-ganadores": "espiar y copiar productos que ya venden"
+  },
+  "Mentalidad y coaching": {
+    "disciplina-y-habitos": "disciplina, hábitos, rutina, productividad",
+    "dinero-y-abundancia": "mentalidad de dinero, ricos contra pobres",
+    "entorno-y-relaciones": "tu entorno, pareja, amigos, familia",
+    "miedo-y-accion": "miedo, dejar de postergar, pasar a la acción",
+    "proposito-y-sentido": "propósito, sentido, felicidad",
+    "estilo-de-vida": "joven y millonario, lujo, viajes como prueba",
+    "liderazgo": "liderar equipos, cultura, contratar"
+  }
+}
