@@ -49,6 +49,7 @@ import { MS_SIN_PLAY, useMensajeDelVideo } from '@/app/_ui/tutorial/useMensajeDe
 import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { useColaDeSalida, type FilaDeCola } from '@/app/_chat/useColaDeSalida';
 import { MOMENTO_AGENDADO, MOMENTO_CODIGO, MOMENTO_NOMBRE } from '@/lib/onboarding-v2/momentos';
+import { ejemploDe } from '@/lib/onboarding-v2/saltar';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean; whatsapp?: VistaArranque['whatsapp'] };
 
@@ -100,8 +101,11 @@ const PASO_ABRIR_WHATSAPP = {
 
 const horaDe = (d: Date) => d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
+export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, ejemplos = false }: {
   inicial: VistaArranque;
+  /** LA REVISIÓN (20/11/2026): las respuestas de ejemplo de la maqueta, un toque y avanza. Lo decide la PÁGINA con la puerta
+   *  (`puedeVerLaRevision`: alguien de MaKo en un negocio de prueba); sin ella, nada. Nunca a un cliente. */
+  ejemplos?: boolean;
   /** En un teléfono: el primer paso acá y «Continuar el onboarding desde la PC» al final (18/11). Lo decide la página. */
   seguirEnPc?: boolean;
   persona?: { nombre: string; email: string };
@@ -198,6 +202,15 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
     } finally {
       setOcupado(false);
     }
+  };
+
+  // La respuesta de ejemplo de la pregunta que se escribe (el nombre, el negocio), sólo en la revisión: un toque la manda.
+  const ejemplo = ejemplos ? ejemploDe(etapa) : null;
+  const mandarEjemplo = (t: string) => {
+    if (ocupado || etapa === 'listo' || etapa === 'cierre') return;
+    primeroListo();
+    cola.mostrarYa([MOMENTO_NOMBRE.mensaje]);
+    void responder({ texto: t }, t);
   };
 
   const mandarTexto = () => {
@@ -491,6 +504,12 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
               onUna={(i) => void responder({ opcion: i, opcionTexto: enRecuadro.opciones![i] }, enRecuadro.opciones![i])}
               onVarias={(vs) => void responder({ opciones: vs }, vs.join(' · '))}
               onOtra={(t) => void responder({ texto: t }, t)} />}
+            {ejemplo && fase === 'chat' && !ocupado && (
+              <div className="arr-v2__ejemplos" role="group" aria-label="Respuesta de ejemplo de la revisión">
+                <span>Revisión · respuesta de ejemplo:</span>
+                <button type="button" className="arr-v2__ejemplo" onClick={() => mandarEjemplo(ejemplo)}>{ejemplo}</button>
+              </div>
+            )}
             {/* La caja del Ops Center, la de una línea (Martín, 19/11: «la barra de chat abajo… está como muy alta»). */}
             <div className={`co-caja${etapa === 'listo' && enTelefono ? ' arr-v2__caja--dos' : ''}`} onFocusCapture={soltarPrimero} onPointerDownCapture={soltarPrimero}>
               <CajaChat texto={texto} onTexto={(v) => { setError(null); setTexto(v); }} onMandar={mandarTexto} placeholder={placeholder} enterManda
@@ -724,6 +743,9 @@ const CSS_V2 = `
 .arr-v2__error-ico { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--bad); color: #fff; display: grid; place-items: center; font: 800 12px/1 'Geist', system-ui, sans-serif; margin-top: 1px; }
 .arr-v2__error-t { flex: 1; min-width: 0; }
 .arr-v2__error > button { flex: none; border: 0; background: none; color: var(--dim); cursor: pointer; font: inherit; padding: 0 2px; }
+.arr-v2__ejemplos { max-width: 760px; margin: 0 auto 8px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; font-size: var(--fs-meta); color: var(--faint); }
+.arr-v2__ejemplo { border: 1px dashed var(--border-strong); border-radius: 999px; padding: 4px 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.arr-v2__ejemplo:hover { background: var(--surface-2); }
 .arr-v2__aviso { max-width: 760px; margin: 0 auto 8px; font-size: var(--fs-sm); color: var(--dim); text-align: center; }
 /* La tarjeta del código. */
 .arr-v2__wa { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: flex-start; height: 42px; padding: 0 18px; border-radius: 999px; border: 0;

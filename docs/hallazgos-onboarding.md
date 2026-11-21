@@ -3,6 +3,28 @@
 El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-state.ts`) y
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
+## La revisión: ir a cualquier paso y respuestas de ejemplo, con el estado real (20/11/2026, noche, claude5, chat «onboarding-v2»)
+
+Martín: «viste que hay un desplegable en el artefacto que me deja ir avanzando o retrocediendo. Si no, cada vez que quiero ver algo que
+ya pasó, tengo que resetear todo». La maqueta salta REPRODUCIENDO eventos con respuestas precargadas (`flujo(ev)` + `precarga`, en
+C:/dev/artefactos-onboarding/cuerpo.html). La app guarda el estado en el server, así que acá saltar es ESCRIBIR el estado del paso.
+- **Cómo:** «Reiniciar onboarding» (el mismo del botón, ya probado: borra el estado del onboarding y del reto y olvida los tutoriales,
+  sin tocar los datos) y después el estado del paso (lib/onboarding-v2/saltar.ts, puro; lo escribe saltar-server.ts). Los del
+  arranque, con las respuestas de ejemplo de la maqueta (escenario A). La llegada, con el onboarding terminado (`status: 'done'`). Cada
+  día del reto, con el recorrido visto para el dueño, el día 1 elegido y los días hasta N adelantados, como «Adelantar al día N». Las
+  tareas de los días de antes van con «Lo hago después»: las hechas de verdad las LEE MaKo, no se escriben.
+- **Lo que no se adivina, se mide con la máquina de verdad:** el test pasa cada estado por `etapaDeArranqueV2` y `diaAbierto`. **Trampa
+  del reto:** `adelantado` no es «cuántos días adelantó» sino el día que quedó abierto (`/api/reto`, «adelantar»). Con `n - 1`, el día
+  N quedaba en N-1.
+- **Lo del navegador:** lo visto del reto va por el `inicio` del reto (`mako.reto.visto.<inicio>|…`), así que un reto nuevo arranca
+  limpio. El desplegable anota como vistos los videos de los días de antes en ESTE navegador. El del dueño no, salvo la limpieza del
+  reinicio.
+- **La puerta** (alguien de MaKo, en el 3 o el 9) va en el server: la ruta y la página que pasa `ejemplos`. Regla en AGENTS.md.
+- **Sin hacer:** el paso «código» no está en el desplegable (pide un código pendiente de verdad: se llega con «Tu WhatsApp» y
+  «Seguir»). Las preguntas de los coaches (Offer Coach y Funnel Coach) no tienen respuestas de ejemplo; sólo las que se escriben en el
+  arranque (el nombre y el negocio), porque las de opciones ya se contestan con un toque. Nada se probó contra la base: lo prueba el
+  Cerebro en producción, en el ws 3. tests/revision-saltar-y-ejemplos.test.ts (roto de a una rotura, 8).
+
 ## «¡Hola de nuevo!» se iba a la esquina sin motivo (20/11/2026, noche, claude5, chat «onboarding-v2»)
 
 - **Síntoma** (Martín, en producción, ws 3): sin scroll, con el mensaje a la vista, tocó play y el video saltó al recuadro chico de

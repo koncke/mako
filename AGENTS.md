@@ -2715,6 +2715,15 @@ guarda por persona en el onboarding (empezó el V2, vio el recorrido, la barra o
 **Se lee del dueño siempre; se ESCRIBE en el dueño sólo en los negocios de prueba** (`escribeComoElCliente`: ws 3 y ws 9). En cualquier
 otro cliente, lo que hace el administrador no toca el perfil del cliente (la D7, docs/diseno-curso-skool.md).
 
+# Las herramientas de la revisión nunca le aparecen a un cliente
+
+«Ir a un paso» (el desplegable de la barra del administrador) y las respuestas de ejemplo del onboarding V2 (20/11/2026, Martín: «como en
+el artefacto») se ven SÓLO con `puedeVerLaRevision` (lib/onboarding-v2/saltar.ts): alguien de MaKo (`getSesionAdmin`) en un negocio de
+PRUEBA (`WS_PRUEBA_COMO_CLIENTE`: el 3 y el 9; nunca el 11 de Leila, que es una clienta). La puerta va en el SERVER: la ruta
+(/api/admin/saltar-onboarding, en GET y en POST, con el negocio que dice el server) y la página que pasa `ejemplos`. La pantalla no
+decide nada: sin el sí del server no dibuja. Una herramienta de revisión nueva usa la misma puerta. Un paso nuevo del onboarding o del
+reto se suma a `PASOS_DE_REVISION` con su estado, y lo mira la máquina de verdad en tests/revision-saltar-y-ejemplos.test.ts.
+
 # Algo nuevo que guarde estado del onboarding o del reto se suma a «Reiniciar onboarding»
 
 «Reiniciar onboarding» (20/11/2026: el botón de la vista de administrador y scripts/reiniciar-onboarding.mts) borra SÓLO el estado del
