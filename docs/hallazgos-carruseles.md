@@ -8,6 +8,53 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## Todo el feedback de Martín sobre la réplica de carruseles, para llevarlo al replicador (20–21/11/2026)
+
+Lo que Martín fue diciendo de sus 11 carruseles de ventas y de los de Leila, ronda por ronda: qué se vio, por qué pasaba y qué tiene
+que hacer «Editar» (`replicarEjemplo`, lib/carruseles/replica-servidor.ts) para que no vuelva. Los arreglos de cada ronda están en
+las entradas de abajo; esto es la lista para el producto.
+
+1. **«Idénticos, y con IA, no con plantilla».** *Síntoma:* la réplica reconstruía la lámina en el editor (plancha, guías, fotos de
+   banco) y no se parecía. *Causa:* el texto se borraba de la imagen y se escribía encima; un titular enorme o una pose no se pueden
+   borrar. *Regla:* cada lámina se REGENERA con la IA de imagen y su lámina original de base, cambiando sólo lo que hay que cambiar
+   (lib/carruseles/regenerar*.ts). El gancho se calca (su fórmula y su estética), las poses se conservan y **las letras nunca tapan
+   una cara**. *Falta en el replicador:* revisar que ninguna caja de texto quede sobre una cara (hoy nadie lo mira).
+2. **El personaje y la firma correctos.** *Síntoma:* en «equipo» quedó el personaje pixelado del original en 4 de 7 láminas, en el de
+   Ramiro una mano se volvió el personaje, y sobrevivieron @albert.olgaard, @ramiro.cubria y «textura.agency». *Causa:* la persona la
+   detecta otra pregunta a la IA (`PROMPT_HAY_PERSONA`) que a veces dice que no, y el @ del creador sólo cambia si el copy lo trae.
+   *Regla:* donde haya una persona va el personaje del negocio (Martín: en cubos), haciendo lo que hace la de la referencia, y el @ y
+   la marca del creador pasan SIEMPRE a los del negocio. *Falta en el replicador:* sumar a cada pedido de texto el cambio fijo
+   «@creador → @negocio» y «marca del creador → marca del negocio» (`promptDeTextos`, lib/carruseles/regenerar.ts), aunque el copy no
+   los nombre; y revisar la persona después de generar (¿quedó alguien que no es el personaje?).
+3. **«Con criterio, no feedback específico».** *Síntoma:* el diseño estaba bien y el carrusel no decía nada nuestro. *Causa:* se
+   calcaba la referencia lámina por lámina sin pensar qué contaba. *Regla, el método de 5 pasos:* (a) entender por qué funcionó la
+   referencia (fórmula del gancho, promesa, cómo avanza, estética, qué pide al final); (b) el gancho con la misma fórmula y el tema
+   del negocio; (c) el cuerpo con el mismo diseño y contenido NUESTRO, con las mismas expresiones, tono y largo, nunca calcado; (d)
+   un CTA que dé algo real (si promete una guía, que exista); (e) autocrítica leyéndolo como en Instagram. *Falta en el replicador:*
+   el análisis y el guion ANTES de generar, a la vista del dueño (hoy se genera directo desde el copy).
+4. **«Si tapo el texto, ¿la imagen cuenta lo mismo?»** *Síntoma:* «página Hormozi» sobre la web de Auralis, «Competitor Spy» sobre
+   las ruedas de color de Instagram Edits, «Elige a Hormozi» sobre un proyecto de Claude, «lista o tips» sobre tablas de corte,
+   «Marketing · inspirado en Vilma» sobre la miniatura de un desconocido, «el asistente contesta» con unos prismáticos. *Causa:* el
+   motor cambia texto y persona; todo lo demás que se VE queda de la referencia. *Regla:* las capturas son de MaKo (nunca las de la
+   app de la referencia: Claude, Edits, Manus, Auralis, Runway, Canva); nada de «inspirado en…» en vez de mostrar a quien se nombra;
+   los cuadros muestran el tema; los íconos son los de las herramientas que nombra el texto; la acción del personaje cuenta el texto.
+   *Falta en el replicador:* un paso VISUAL por lámina: la IA lista lo que se ve (capturas, logos, fotos, íconos) y lo cambia por
+   material del negocio (sus capturas, su logo, sus páginas) con UNA referencia por lámina. El material de MaKo está hoy en
+   C:/dev/carruseles-ventas/*/img y en capturas nuevas de ws 3/9 (con los datos de personas tapados antes de mandarlas a la IA).
+5. **En español y en tuteo.** *Síntoma:* «save for later» en las siete de «equipo», «TEAM», «Comentá», «Grabá». *Causa:* lo que
+   `esDelMarco` y `NO_RECIBE` (lib/carruseles/copy-pegado.ts) dejan quieto (el pie, los botones) no se traduce, y el voseo de la
+   referencia pasa tal cual. *Regla:* un texto en otro idioma o en voseo se traduce aunque sea del marco («Guárdalo»).
+   *Falta en el replicador:* mandar también los textos del marco a la traducción, y revisar el voseo en lo leído.
+6. **Los dos bugs encontrados.** El «01/05» del copy se tomaba como marca de lámina y corría todos los renglones (arreglado:
+   `partesDelCopy` en lib/carruseles/copy-pegado.ts, test 13 de tests/carruseles-copy-pegado.test.ts). Una lámina que no se podía
+   leer pasaba como «bien escrita» y salía igual a la referencia sin aviso (arreglado: `revisar` en
+   lib/carruseles/regenerar-servidor.ts, test 8 de tests/carruseles-regenerar.test.ts).
+7. **La IA de imagen cambia lo que no se le pidió.** Contadores («02 / 06» donde decía «01 / 06»), «Grok MaKo», asteriscos literales,
+   el CTA entero si no se nombra lo que queda, y a veces no saca un elemento por más que se le pida (la planilla de Hormozi detrás de
+   «COMENTA OFERTA»: se resolvió al revés, con la pantalla de MaKo de base y la lámina como referencia del texto). *Falta en el
+   replicador:* después de cada paso, comparar el texto leído contra el pedido COMPLETO de la lámina (también contadores y firmas),
+   no sólo contra lo que se cambió.
+
 ## La réplica REGENERA cada lámina con IA desde su referencia, por ApiMart (21/11/2026)
 
 **El pedido** (Martín, 20/11, sobre sus 11 carruseles de ventas y los de Leila): «no salieron idénticos y tenían que salir realmente
