@@ -5853,7 +5853,8 @@ titular), no se tiñe.
   - Un archivo borrado sin `git rm` da ENOENT en cinco de sus casos.
   - Una ruta nueva sin `git add` no se enumera.
   - Primero el índice; después `MAKO_REGENERAR_SNAPSHOT=1`, y el diff del snapshot tiene que mostrar sólo esas líneas.
-- **Sin hacer:** el Cliente de Diseño se llenaba con «todo» de /api/datos-mau (lo cuenta app/api/admin/cliente-diseno/route.ts). Esa vía ya
-  no existe: si el diseño necesita un negocio con datos, hace falta otra. Las bitácoras y algunos comentarios todavía nombran
-  «Datos de Mau» como historia; el test mira sólo el código.
+- **Decidido (el Cerebro, 21/11):** el Cliente de Diseño se llenaba con «todo» de /api/datos-mau (lo cuenta
+  app/api/admin/cliente-diseno/route.ts). Esa vía ya no existe, y no se arma otra ahora. Si algún día el diseño necesita un negocio con
+  datos, van datos INVENTADOS (una semilla de prueba), NUNCA copiados de un cliente real como hacía datos-mau.
+- Las bitácoras y algunos comentarios todavía nombran «Datos de Mau» como historia; el test mira sólo el código.
 - tests/sin-datos-de-mauricio.test.ts.

@@ -17,6 +17,7 @@ import { emailDelDuenoDelWs } from '@/lib/dueno-del-ws';
 import { perfilConVisto } from '@/lib/recorridos';
 import { ID_RECORRIDO } from './llegada';
 import { CLAVE_RETO } from '@/lib/reto/dias';
+import { codigoSimulado } from './whatsapp-simulado';
 import { clavesVistasDelReto, despuesDelPaso, destinoDelPaso, diaDelPaso, esPasoDelArranque, estadoArranqueHasta, estadoRetoEnDia, saltoDelPaso, type PasoDeRevision, type SaltoPendiente } from './saltar';
 
 const CLAVE_ARRANQUE = 'onboarding.arranque';
@@ -44,7 +45,7 @@ export async function saltarAlPaso(ws: number, paso: PasoDeRevision): Promise<Sa
     const tel = await getEstadoVerificacionContacto(ws).catch(() => null);
     const numero = tel?.verificado && tel.telefono ? tel.telefono : null;
     if (esPasoDelArranque(paso)) {
-      await setSetting(CLAVE_ARRANQUE, JSON.stringify(estadoArranqueHasta(paso, { telefonoNumero: numero })));
+      await setSetting(CLAVE_ARRANQUE, JSON.stringify(estadoArranqueHasta(paso, { telefonoNumero: numero, codigo: codigoSimulado() })));
       return { destino: destinoDelPaso(paso), vistos: [], salto: null, avisos };
     }
     // La llegada y el reto: el onboarding contestado entero y TERMINADO.

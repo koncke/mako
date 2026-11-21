@@ -15,7 +15,7 @@ import { TUTORIAL_RECORRIDO } from './recorrido';
 import type { EstadoArranque } from '@/lib/onboarding-arranque';
 import { DIAS_RETO, type EstadoReto, type MarcaReto } from '@/lib/reto/dias';
 
-export type PasoDelArranque = 'bienvenida' | 'nombre' | 'telefono' | 'agendado' | 'agendado-no' | 'negocio' | 'origen' | 'interes' | 'cierre';
+export type PasoDelArranque = 'bienvenida' | 'nombre' | 'telefono' | 'codigo' | 'agendado' | 'agendado-no' | 'negocio' | 'origen' | 'interes' | 'cierre';
 /** Un id de la lista (`esPasoDeRevision` lo valida): los del arranque, 'llegada', 'recorrido-N', 'reto', 'dia-N', 'dia-N-video',
  *  'dia-N-<tarea>' y 'dia-N-<tarea>-<marca>'. */
 export type PasoDeRevision = string;
@@ -30,6 +30,7 @@ export const PASOS_DE_REVISION: ReadonlyArray<{ id: PasoDeRevision; grupo: Grupo
   { id: 'bienvenida', grupo: 'Onboarding', rotulo: 'El video de bienvenida' },
   { id: 'nombre', grupo: 'Onboarding', rotulo: '1 · Tu nombre' },
   { id: 'telefono', grupo: 'Onboarding', rotulo: '2 · Tu WhatsApp' },
+  { id: 'codigo', grupo: 'Onboarding', rotulo: '3 · El código por WhatsApp' },
   { id: 'agendado', grupo: 'Onboarding', rotulo: '¿Guardaste el contacto de MaKo?' },
   { id: 'agendado-no', grupo: 'Onboarding', rotulo: 'Si no lo guardó: por qué importa' },
   { id: 'negocio', grupo: 'Onboarding', rotulo: '4 · Tu negocio' },
@@ -53,7 +54,7 @@ export const PASOS_DE_REVISION: ReadonlyArray<{ id: PasoDeRevision; grupo: Grupo
 ];
 const IDS = new Set<string>(PASOS_DE_REVISION.map((p) => p.id));
 export const esPasoDeRevision = (x: unknown): x is PasoDeRevision => typeof x === 'string' && IDS.has(x);
-const ARRANQUE: readonly PasoDelArranque[] = ['bienvenida', 'nombre', 'telefono', 'agendado', 'agendado-no', 'negocio', 'origen', 'interes', 'cierre'];
+const ARRANQUE: readonly PasoDelArranque[] = ['bienvenida', 'nombre', 'telefono', 'codigo', 'agendado', 'agendado-no', 'negocio', 'origen', 'interes', 'cierre'];
 export const esPasoDelArranque = (p: PasoDeRevision): p is PasoDelArranque => (ARRANQUE as readonly string[]).includes(p);
 /** Lo que dice un paso del reto: su día, y si es su video o una tarea (con su marca, desde 0). */
 function partesDelDia(p: PasoDeRevision): { dia: number; video: boolean; tarea: string | null; marca: number } | null {
@@ -152,10 +153,16 @@ function visible(numero: string): string {
  * El estado del arranque EN `paso`: todo lo de antes contestado con las respuestas de ejemplo, y la pregunta de `paso` sin contestar.
  * El WhatsApp de antes, el verificado del negocio (`telefonoYa`: «ya está confirmado», sin código nuevo).
  */
-export function estadoArranqueHasta(paso: PasoDelArranque, o: { telefonoNumero: string | null }): EstadoArranque {
+export function estadoArranqueHasta(paso: PasoDelArranque, o: { telefonoNumero: string | null; codigo?: string }): EstadoArranque {
   // El video de bienvenida: nada contestado y sin haberlo visto. La segunda del contacto: contestó que no lo guardó.
   if (paso === 'bienvenida') return {};
   if (paso === 'agendado-no') return { ...estadoArranqueHasta('agendado', o), agendado: 'no' };
+  // El código (21/11): el WhatsApp de un número NUEVO, simulado (./whatsapp-simulado.ts): esperando el código, con «Abrir WhatsApp» que abre
+  // el modal. Nada de la verificación de verdad. El código lo pone el server (`o.codigo`).
+  if (paso === 'codigo') {
+    const numero = o.telefonoNumero || EJEMPLOS_DE_REVISION.telefonoNumero;
+    return { ...estadoArranqueHasta('telefono', o), telefono: 'codigo', telefonoNumero: `+${numero.replace(/\D/g, '')}`, telefonoVisto: visible(numero), telefonoEntrante: true, simulacion: { codigo: o.codigo ?? '000000' } };
+  }
   const hasta = (['nombre', 'telefono', 'agendado', 'negocio', 'origen', 'interes', 'cierre'] as const).indexOf(paso);
   const e: EstadoArranque = { introVista: true };
   const numero = o.telefonoNumero || EJEMPLOS_DE_REVISION.telefonoNumero;

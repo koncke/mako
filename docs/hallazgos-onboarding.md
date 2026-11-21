@@ -4246,7 +4246,7 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
   PROPIA sesión, el script los borraría.
 - **El texto del recorrido se trae sólo con un salto** (import dinámico): el motor va en todas las pantallas.
 - **Sin hacer:**
-  - El código del WhatsApp no está en la lista; va con el punto 3 (el camino de un número nuevo).
+  - El código del WhatsApp entró a la lista después, con la simulación del punto 3.
   - El recorrido arrancado por un salto no se anota visto al terminar.
   - Las marcas del medio no se tocaron en páginas de verdad (los Playwright contra el ws 3).
 - tests/revision-pasos-individuales.test.ts (roto de a una rotura, 5).
@@ -4268,5 +4268,6 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
   borra.
 - **Sin hacer:**
   - Mirarlo en la app de verdad (los Playwright contra el ws 3).
-  - «Ir a un paso» todavía no tiene «El código por WhatsApp».
+  - «Ir a un paso» ya tiene «El código por WhatsApp» (21/11): deja el estado esperando el código, con la simulación y un código que pone
+    el server.
 - tests/revision-whatsapp-simulado.test.ts (roto de a una rotura, 4).

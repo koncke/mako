@@ -8,7 +8,7 @@
 //   · cada día: MaKo escribe y manda el video, el video, cada tarea y cada marca de cada tarea.
 // Al llegar, la marca exacta la arranca quien corresponde: el motor (el recorrido, desde su paso) y el chat del reto (la tarea, desde
 // su marca; las de antes se tocan solas, como el `antes` en cadena del motor).
-// El código del WhatsApp NO está: su paso es el del punto 3 (el camino de un número nuevo, con el modal que simula WhatsApp).
+// El código del WhatsApp (21/11, después del punto 3): el camino de un número nuevo, con el modal que simula WhatsApp.
 //
 // ⚠️ PROBADO ROMPIÉNDOLO: ver al pie.
 // =============================================================================
@@ -27,8 +27,8 @@ const HECHOS = { modo: 'oferta', v2: true, conTelefono: true, terminado: false, 
 const ids = PASOS_DE_REVISION.map((p) => p.id);
 
 test('1. la lista: el arranque mensaje por mensaje, el recorrido marca por marca y cada día con su video, sus tareas y sus marcas', () => {
-  assert.deepEqual(ids.slice(0, 9), ['bienvenida', 'nombre', 'telefono', 'agendado', 'agendado-no', 'negocio', 'origen', 'interes', 'cierre']);
-  assert.deepEqual(ids.slice(9, 10 + TUTORIAL_RECORRIDO.pasos.length), ['llegada', ...TUTORIAL_RECORRIDO.pasos.map((_, k) => `recorrido-${k + 1}`)]);
+  assert.deepEqual(ids.slice(0, 10), ['bienvenida', 'nombre', 'telefono', 'codigo', 'agendado', 'agendado-no', 'negocio', 'origen', 'interes', 'cierre']);
+  assert.deepEqual(ids.slice(10, 11 + TUTORIAL_RECORRIDO.pasos.length), ['llegada', ...TUTORIAL_RECORRIDO.pasos.map((_, k) => `recorrido-${k + 1}`)]);
   TUTORIAL_RECORRIDO.pasos.forEach((p, k) => assert.ok(PASOS_DE_REVISION.find((x) => x.id === `recorrido-${k + 1}`)?.rotulo.includes(p.titulo), `la marca ${k + 1}, con su título`));
   for (const d of DIAS_RETO) {
     assert.ok(ids.includes(`dia-${d.n}`) && ids.includes(`dia-${d.n}-video`), `el día ${d.n} y su video`);
@@ -41,7 +41,6 @@ test('1. la lista: el arranque mensaje por mensaje, el recorrido marca por marca
   assert.ok(ids.length > 60, 'el desglose entero, no 16 bloques');
   assert.equal(esPasoDeRevision('dia-2-video'), true);
   assert.equal(esPasoDeRevision('dia-9'), false);
-  assert.ok(!ids.includes('codigo'), 'el código del WhatsApp va con el punto 3');
 });
 
 test('2. el arranque: cada mensaje deja la máquina de verdad en su etapa (el video de bienvenida, y la segunda del contacto)', () => {
@@ -51,6 +50,13 @@ test('2. el arranque: cada mensaje deja la máquina de verdad en su etapa (el vi
   const no = estadoArranqueHasta('agendado-no', { telefonoNumero: '5491155550101' });
   assert.equal(etapaDeArranqueV2(no, HECHOS), 'agendado', 'sigue en el contacto');
   assert.equal(no.agendado, 'no', 'con la segunda pregunta («si no lo guardó»)');
+  // El código (21/11): el WhatsApp de un número NUEVO, simulado; nunca el «ya está confirmado».
+  const cod = estadoArranqueHasta('codigo', { telefonoNumero: '5491155550101', codigo: '482913' });
+  assert.equal(etapaDeArranqueV2(cod, HECHOS), 'codigo');
+  assert.deepEqual(cod.simulacion, { codigo: '482913' }, 'con el código del modal');
+  assert.equal(cod.telefonoEntrante, true);
+  assert.ok(!cod.telefonoYa, 'como un número nuevo');
+  assert.match(fuente('lib/onboarding-v2/saltar-server.ts'), /estadoArranqueHasta\(paso, \{ telefonoNumero: numero, codigo: codigoSimulado\(\) \}\)/, 'el código lo pone el server');
 });
 
 test('3. al llegar, la marca exacta: el recorrido desde su paso; la tarea desde su marca; el día y su video, como recién llegado', () => {
@@ -102,6 +108,7 @@ test('4. quién arranca la marca: el motor (desde su paso, sin el video) y el ch
 // PROBADO ROMPIÉNDOLO (21/11/2026), de a una rotura, y cada una cae:
 //   · sin las marcas de las tareas en la lista                       → 1
 //   · la bienvenida con el video ya visto                            → 2
+//   · el código sin la simulación                                    → 2
 //   · el salto del recorrido corrido en uno                          → 3
 //   · lo visto de hoy con el video en el paso del video              → 3
 //   · el motor sin empezar en su paso                                → 4
