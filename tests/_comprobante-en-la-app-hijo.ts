@@ -16,12 +16,19 @@ const WS = 13, OTRO = 10, AJENO = 14;
 const JID = '120363000000000013@g.us', JID_OTRO = '120363000000000010@g.us';
 
 /** Lo que la escena le hace decir a la lectura del comprobante, y lo que le llegó. */
-const lectura = { prendida: new Set<number>([WS]), atendido: true, llamadas: [] as Array<{ ws: number; id: string; bytes: number; png: boolean }> };
+const lectura = { prendida: new Set<number>([WS]), atendido: true, llamadas: [] as Array<{ ws: number; id: string; bytes: number; png: boolean; pie: string | null }> };
+/** Lo que pregunta la agencia por lo que se paga (20/11/2026, lib/agencia-mes-consulta.ts): la escena dice qué contesta el código. */
+const consulta = { respuesta: null as string | null, llamadas: [] as Array<{ ws: number; texto: string }> };
+mock.module(pathToFileURL(join(RAIZ, 'lib/agencia-mes-consulta.ts')).href, {
+  namedExports: {
+    respuestaDelPagoDeLaAgencia: async (ws: number, texto: string) => { consulta.llamadas.push({ ws, texto }); return consulta.respuesta; },
+  },
+});
 mock.module(pathToFileURL(join(RAIZ, 'lib/agencia-mes-comprobante.ts')).href, {
   namedExports: {
     hayQueLeerComprobante: async (ws: number) => lectura.prendida.has(ws),
-    atenderComprobanteDeAgencia: async (p: { agenciaWs: number; waMensajeId: string; bytes: Uint8Array }) => {
-      lectura.llamadas.push({ ws: p.agenciaWs, id: p.waMensajeId, bytes: p.bytes.byteLength, png: p.bytes[0] === 0x89 && p.bytes[1] === 0x50 });
+    atenderComprobanteDeAgencia: async (p: { agenciaWs: number; waMensajeId: string; bytes: Uint8Array; pie?: string | null }) => {
+      lectura.llamadas.push({ ws: p.agenciaWs, id: p.waMensajeId, bytes: p.bytes.byteLength, png: p.bytes[0] === 0x89 && p.bytes[1] === 0x50, pie: p.pie ?? null });
       if (!lectura.atendido) return { atendido: false, que: 'no es un comprobante' };
       // Lo que contesta el código de verdad: `textoAlGrupoDeLaAgencia`, como equipo.
       const { enviarAlGrupoMaKo } = await import('../lib/mako-grupo');
@@ -43,6 +50,8 @@ function limpiar() {
   db.app_settings = db.app_settings.filter((f) => !String(f.key).startsWith('mako.doer.'));
   lectura.llamadas.splice(0);
   lectura.atendido = true;
+  consulta.llamadas.splice(0);
+  consulta.respuesta = null;
 }
 
 async function main() {
@@ -66,6 +75,13 @@ async function main() {
     f.append('archivo', new File([PNG], 'comprobante.png', { type: 'image/png' }));
     for (const [k, v] of Object.entries(campos)) f.append(k, v);
     const r = await comoPersona(sesionDe(u), () => mensajes.POST(new NextRequest(`https://hola-mako.com/api/grupos/${ws}/mensajes`, { method: 'POST', body: f }), { params: Promise.resolve({ ws: String(ws) }) }));
+    const status = r.status;
+    await correrDespues();
+    return status;
+  };
+  /** Una persona escribe sólo texto. */
+  const escribe = async (u: Record<string, unknown>, ws: number, texto: string) => {
+    const r = await comoPersona(sesionDe(u), () => mensajes.POST(new NextRequest(`https://hola-mako.com/api/grupos/${ws}/mensajes`, { method: 'POST', body: JSON.stringify({ texto }), headers: { 'content-type': 'application/json' } }), { params: Promise.resolve({ ws: String(ws) }) }));
     const status = r.status;
     await correrDespues();
     return status;
@@ -113,6 +129,24 @@ async function main() {
   await foto(BOB, WS);
   out.sinAutollamado = { conMaKo, suelta: cola() };
   escena.cron = conCron;
+
+  // 8. EL 1047 (20/11/2026): la captura de la app con una pregunta. La lectura llega CON el texto; no era un pago, y el turno contesta lo que
+  //    se paga con el código, antes del modelo.
+  const PAGO = 'Sí, está bien. Para activar la cuenta de Pablo Chavez son US$ 23,50 si pagas hoy.';
+  const J1047 = 'mako aca me dice que Pablo Chavez para ponerlo como activo tiene que pagar USD 23,50, confirmame si esta bien';
+  limpiar(); lectura.atendido = false; consulta.respuesta = PAGO; escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'No debería salir.' });
+  await foto(ANA, WS, { texto: J1047 });
+  out.preguntaConFoto = { llamadas: [...lectura.llamadas], consulta: [...consulta.llamadas], hilo: hilo(), modelo: alModelo().length };
+
+  // 9. EL 1039: sólo texto. Lo contesta el código, no el modelo (que lo buscaba como lead del CRM).
+  limpiar(); consulta.respuesta = PAGO; escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'Pablo Chavez (lead #2665) no tiene venta ni cuotas cargadas.' });
+  await escribe(ANA, WS, 'Mako pasame cuanto hay que pagar de Pablo Chavez para activar su cuenta');
+  out.pregunta1039 = { consulta: [...consulta.llamadas], hilo: hilo(), modelo: alModelo().length };
+
+  // 10. Un invitado pregunta lo mismo: lo que paga el negocio no es para él. Ni se consulta.
+  limpiar(); consulta.respuesta = PAGO; escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'Eso lo ve quien administra.' });
+  await escribe(JOAN, WS, 'Mako pasame cuanto hay que pagar de Pablo Chavez para activar su cuenta');
+  out.invitadoPago = { consulta: consulta.llamadas.length, mako: hilo().filter((f) => f.autor === 'mako').map((f) => f.texto) };
 
   void storage;
   await decirYSalir(decirResultado(out));

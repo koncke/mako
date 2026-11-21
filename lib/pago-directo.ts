@@ -24,7 +24,11 @@ export async function leerDatosDePagoDirecto(): Promise<DatosDePagoDirecto> {
 }
 
 export async function guardarDatosDePagoDirecto(crudo: unknown): Promise<{ ok: true; datos: DatosDePagoDirecto } | { ok: false; error: string }> {
-  const datos = datosLimpios(crudo);
+  // ⚠️ EL INTERRUPTOR DEL CHECKOUT NO SE PIERDE AL GUARDAR UN DATO (20/11/2026): el editor de Settings › Payments manda sólo los campos de texto;
+  // sin `checkoutPublico` en lo que llega, se conserva el guardado (y si no se puede leer, queda apagado: nunca se prende por accidente).
+  const o = crudo && typeof crudo === 'object' && !Array.isArray(crudo) ? (crudo as Record<string, unknown>) : {};
+  const checkoutPublico = typeof o.checkoutPublico === 'boolean' ? o.checkoutPublico : (await leerDatosDePagoDirecto()).checkoutPublico;
+  const datos = datosLimpios({ ...o, checkoutPublico });
   try {
     const ws = await wsSuperAdmin();
     const { error } = await getSupabaseServer().from('app_settings')
