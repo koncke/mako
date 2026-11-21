@@ -1126,6 +1126,11 @@ toma de la base, así que sumar o cambiar una no requiere publicar.
   achican a 160 × 160 px (pesan pocos KB), porque el almacén de 1 GB está lleno.
 - **Cómo se sube:** `Artifact` publish con `asset: true` (hasta 25 por llamada) y después `ArtifactData` `batch` con
   `update` de `caricatura` en cada `creadores/<cuenta>`, pinado a la versión leída.
+- **Cargadas el 21/11:** dakota, mdmukeem, tyler-mommsen, mosidd, joseph y hyperframes (600 × 600 → 160 × 160 px, de 4,6 a
+  6,3 KB cada una; copias en `content-machine/caricaturas/`). `victor` lleva `cuentas: ["victor", "herasmedia"]`. Los 7
+  primeros (Ramiro, Víctor, Heras Media, Hormozi, Carrizo, Doglio, Collado) ya tenían su caricatura de MaKo en `foto`.
+  Para un creador nuevo, la caricatura la hace el chat de carruseles (`docs/hallazgos-generativa.md`, «Caricaturas de
+  creadores»).
 
 **El reel para mentores high ticket (los pistachos) está en «Reels terminados»** (21/11). No viene de la galería de
 animaciones: va a mano en `armar-cm.mjs` (`reels.push`).
