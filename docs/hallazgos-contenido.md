@@ -964,6 +964,12 @@ y la app tiene que copiar el modelo:
   una o las dos. La tarjeta dice «Víctor Heras · @herasmedia» con la cara de Víctor.
   - Hoy el vínculo está en la página (`PERSONA_DE = { herasmedia: 'victor' }`). En MaKo tiene que ser un dato del creador:
     una persona con una lista de cuentas, no una cuenta suelta por creador.
+  - En el filtro, la persona con varias cuentas es una baldosa más de la grilla, del mismo tamaño que las otras, con un
+    indicador «2 cuentas ›». El indicador abre al costado el mismo submenú en cascada (una cuenta por renglón, ✓ en las
+    elegidas, se puede elegir más de una y el submenú queda abierto). Tocar la baldosa elige todas sus cuentas. Primero
+    ocupaba todo el ancho con las cuentas como chips sangrados debajo, y Martín dijo que rompía el diseño.
+  - El submenú mide su ancho después de dibujarse (264 a 360 px), así un usuario largo como @victorherasemprendedor entra en
+    un renglón, y se ubica con ese ancho real.
 - Lo que ya había quedó así: El avión = MaKo · A o B; los tres de Educación = Personal · Educación; Cubos = MaKo · Animados;
   El ticket = Personal · Ventas; Comentarios = MaKo · Comentarios; los 11 carruseles = Personal · Ventas. El dudoso es
   «Ofertas que se venden» (tuits de Hormozi), que podría ser Educación.
