@@ -92,3 +92,14 @@ que rehace el chat de Content Machine (local_fc754a71-87b7-4a34-8133-0307a31abe1
 - Ojo: en los reels con «comenta X» la muestra de comentarios es casi toda la palabra; lo que pide la gente sale de YouTube y
   de los carruseles. Un comentario de una o dos palabras («Ia», «Promtp») cuenta como palabra.
 - Juan ADS promociona SaleADS.ai (competidor directo de MaKo) en su YouTube.
+
+## Cambio de Martín (21/11, ~10:00 UTC): ÁNGULOS, tres señales, gráfico; Operaciones y Lifestyle
+
+- Lo visible dice **ángulos**. Salidas: `docs/tendencias/angulos.json` + `mapa.md` (`generar.mjs`). Tres señales por separado
+  (insistencia en parte, interacción cada 1.000 vistas, contagio), crecimiento, puntaje por percentiles y estado. Método en
+  `docs/hallazgos-contenido.md` («El método de los ÁNGULOS GANADORES»). Diseño de la pestaña: `docs/tendencias/diseno-pestana-angulos.md`
+  (paleta validada con dataviz: aqua/azul/naranja + anillo para Nuevo).
+- Sectores **Operaciones** (10) y **Lifestyle** (8); lista en 163. Los temas de equipo y delegación pasaron de High ticket y
+  Mentalidad a Operaciones (alias). Las 872 piezas «fuera» se releyeron (`refuera-NN`): ~90 Lifestyle, ~14 Operaciones.
+- Pendiente: que el chat Spy termine Anuncios → clasificar lo nuevo → `uso.mjs Anuncios` + agente de «cómo usarlo» →
+  `generar.mjs` → mandar Anuncios al Cerebro (para Martín) y al chat de Content Machine (local_fc754a71-…) con el diseño.
