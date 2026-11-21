@@ -1,6 +1,10 @@
+'use client';
+
 // =============================================================================
 // «Mejora el contraste», MEDIDO en el navegador (20/11/2026, la llamada con Leila: «No se lee… y le puse a aumentar contraste»)
 // =============================================================================
+// ⚠️ «use client»: corre sólo en el navegador (dibuja con el motor, usa `document`) y toma el hilo del chat (./hilo.ts, también
+// «use client»). Sin la directiva, tests/frontera-use-client.test.ts lo cuenta como del servidor importando valores de un cliente.
 // Lo que se mide: cada página se dibuja SIN sus textos (lo que el motor exporta, `renderPageToCanvas`, a un cuarto del tamaño) y
 // de cada texto se toman los píxeles de su caja: eso es lo que tiene detrás (una foto, un blur, el velo, el fondo). Con eso,
 // lib/image-editor/contraste.ts decide (otro color o un velo) y vuelve a medir lo que queda. Sin IA: la de antes miraba un JSON de

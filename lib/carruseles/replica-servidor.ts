@@ -442,7 +442,7 @@ Lo que leí del original: ${replica.lectura}` : notasBase;
   const aviso = [
     // Las láminas que faltaron y no llegaron: el armado de antes NO va callado (19/11/2026).
     avisoFaltan ?? '',
-    partes && partes.length > LAMINAS_MAX ? `Tu copy tiene ${partes.length} láminas: armé las primeras ${LAMINAS_MAX}, el máximo de un carrusel acá.` : '',
+    partes && partes.length > LAMINAS_MAX ? `Tu copy tiene ${partes.length} láminas: armé las primeras ${LAMINAS_MAX}, el máximo de un carrusel aquí.` : '',
     conPersona ? 'Donde el original tiene una persona dejé su lugar marcado: ahí vas tú, generado con IA en el mismo estilo (necesita Google Flow abierto desde el ícono de MaKo).' : '',
     cifras.length ? `Revisa ${cifras.length === 1 ? 'esta cifra' : 'estas cifras'}: no salen de tu negocio (${cifras.join(', ')}). Cámbialas por algo tuyo o sácalas.` : '',
   ].filter(Boolean).join(' ') || null;
