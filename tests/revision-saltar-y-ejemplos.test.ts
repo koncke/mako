@@ -74,7 +74,10 @@ test('3. cada día del reto queda ABIERTO en ese día (lo mira diaAbierto, el de
 });
 
 test('4. los pasos, en su orden (onboarding, llegada, reto); y la respuesta de ejemplo de cada pregunta que se escribe', () => {
-  assert.deepEqual(PASOS_DE_REVISION.map((p) => p.id), ['nombre', 'telefono', 'agendado', 'negocio', 'origen', 'interes', 'cierre', 'llegada', 'reto', 'dia-1', 'dia-2', 'dia-3', 'dia-4', 'dia-5', 'dia-6', 'dia-7']);
+  // 21/11/2026: el desglose entero, como el artefacto (tests/revision-pasos-individuales.test.ts); acá, el orden de los bloques.
+  const ids = PASOS_DE_REVISION.map((p) => p.id);
+  const orden = ['nombre', 'telefono', 'agendado', 'negocio', 'origen', 'interes', 'cierre', 'llegada', 'reto', 'dia-1', 'dia-2', 'dia-3', 'dia-4', 'dia-5', 'dia-6', 'dia-7'].map((x) => ids.indexOf(x));
+  assert.ok(orden.every((i, k) => i >= 0 && (k === 0 || i > orden[k - 1])), 'los bloques, en el orden en que se viven');
   assert.equal(esPasoDeRevision('dia-3'), true);
   assert.equal(esPasoDeRevision('dia-8'), false);
   assert.equal(esPasoDeRevision('__proto__'), false);

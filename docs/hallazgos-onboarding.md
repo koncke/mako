@@ -4225,3 +4225,28 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
 - **Sin hacer:** no se miró dentro de la app con el recorrido real, porque la regla es no abrir MaKo en el navegador de la app (los
   tutoriales suenan). Eso lo cubren los Playwright contra el ws 3, la tanda que sigue.
 - tests/brain-del-recorrido.test.ts (roto de a una rotura, 6).
+
+## «Ir a un paso» con todos los pasos: llegar a una marca del medio (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Pedido** (Martín en el ws 3): «Hoy son 16 bloques. Tiene que tener el desglose de cada uno». Ahora la lista tiene cada mensaje del
+  arranque, la llegada y cada marca del recorrido, y cada día con MaKo que escribe, su video, cada tarea y cada marca. Son más de 60
+  pasos (`PASOS_DE_REVISION`, lib/onboarding-v2/saltar.ts), armados con los datos de verdad: TUTORIAL_RECORRIDO y DIAS_RETO.
+- **Cómo se llega a la marca exacta:** el server deja la base. El navegador recibe `vistos` (lo de hoy, según el paso) y un `salto`
+  (lib/onboarding-v2/salto-pendiente.ts, en sessionStorage). Al llegar, lo toma uno solo: el motor arranca el recorrido en su paso, y
+  el chat del reto marca la tarea desde su marca.
+- **Trampa 1: una marca del medio de una tarea vive en OTRA pestaña.** Marcarla desde el chat del reto deja una marca esperando algo que
+  no está («una marca espera siempre»). Va con `marcasDesde`: las de antes van como `antes` en cadena y se tocan solas, como en el
+  motor. El link de la barra navega sin recargar y el motor, que está en el layout raíz, sigue vivo.
+- **Trampa 2: el recorrido desde su paso va SIN el video.** El video sigue los pasos desde el primero (`sigueLosPasos`); arrancarlo en el
+  medio exigiría buscar el segundo de cada frase. Con `desde`, el motor corre con las tarjetas. La flecha existe sólo con el grafo
+  abierto: su paso va a `/second-brain?panel=mapa`.
+- **Trampa 3: el salto sobrevive a la limpieza del reinicio porque su clave (`mako.v2.salto`) NO está en `CLAVES_DEL_NAVEGADOR`.** Un
+  salto ES un reinicio, y el script del layout borra esas claves al cargar. Ojo, sin probar: los `vistos` (`mako.reto.visto.…`) sí
+  están en esa lista. Hoy no se borran porque el script no corre mirando otro negocio; si alguien revisa en el negocio de prueba con su
+  PROPIA sesión, el script los borraría.
+- **El texto del recorrido se trae sólo con un salto** (import dinámico): el motor va en todas las pantallas.
+- **Sin hacer:**
+  - El código del WhatsApp no está en la lista; va con el punto 3 (el camino de un número nuevo).
+  - El recorrido arrancado por un salto no se anota visto al terminar.
+  - Las marcas del medio no se tocaron en páginas de verdad (los Playwright contra el ws 3).
+- tests/revision-pasos-individuales.test.ts (roto de a una rotura, 5).

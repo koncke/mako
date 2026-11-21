@@ -17,11 +17,12 @@ import { emailDelDuenoDelWs } from '@/lib/dueno-del-ws';
 import { perfilConVisto } from '@/lib/recorridos';
 import { ID_RECORRIDO } from './llegada';
 import { CLAVE_RETO } from '@/lib/reto/dias';
-import { diaDelPaso, esPasoDelArranque, estadoArranqueHasta, estadoRetoEnDia, type PasoDeRevision } from './saltar';
+import { clavesVistasDelReto, despuesDelPaso, destinoDelPaso, diaDelPaso, esPasoDelArranque, estadoArranqueHasta, estadoRetoEnDia, saltoDelPaso, type PasoDeRevision, type SaltoPendiente } from './saltar';
 
 const CLAVE_ARRANQUE = 'onboarding.arranque';
 
-export type Salto = { destino: string; reto: { inicio: string; dia: number } | null; avisos: string[] };
+/** Adónde ir, lo visto que anota el navegador de quien mira (el reto de antes y, de hoy, lo del paso) y la marca que se arranca al llegar. */
+export type Salto = { destino: string; vistos: string[]; salto: SaltoPendiente | null; avisos: string[] };
 
 /** El recorrido del Ops Center, VISTO para el dueño (los días del reto vienen después de él). */
 async function recorridoVistoDelDueno(ws: number, cuando: string, avisos: string[]): Promise<void> {
@@ -44,7 +45,7 @@ export async function saltarAlPaso(ws: number, paso: PasoDeRevision): Promise<Sa
     const numero = tel?.verificado && tel.telefono ? tel.telefono : null;
     if (esPasoDelArranque(paso)) {
       await setSetting(CLAVE_ARRANQUE, JSON.stringify(estadoArranqueHasta(paso, { telefonoNumero: numero })));
-      return { destino: '/onboarding', reto: null, avisos };
+      return { destino: destinoDelPaso(paso), vistos: [], salto: null, avisos };
     }
     // La llegada y el reto: el onboarding contestado entero y TERMINADO.
     const ahora = Date.now();
@@ -53,10 +54,14 @@ export async function saltarAlPaso(ws: number, paso: PasoDeRevision): Promise<Sa
     const st = estadoDeLoGuardado(await getSetting('onboarding.state'));
     await setSetting('onboarding.state', JSON.stringify({ ...st, status: 'done', completedAt: cuando, completedBy: 'revision' }));
     const dia = diaDelPaso(paso);
-    if (dia == null) return { destino: '/second-brain?reto=1', reto: null, avisos };
+    // La llegada y cada marca del recorrido (21/11): el recorrido sin ver; la marca la arranca el motor al llegar.
+    if (dia == null) return { destino: destinoDelPaso(paso), vistos: [], salto: saltoDelPaso(paso), avisos };
     await recorridoVistoDelDueno(ws, cuando, avisos);
     const e = estadoRetoEnDia(dia, ahora);
+    // Una tarea (21/11): las de hoy antes de ella, «Lo hago después», así es la próxima.
+    const hoy = despuesDelPaso(paso);
+    if (hoy.length) e.despues = [...(e.despues ?? []), ...hoy];
     await setSetting(CLAVE_RETO, JSON.stringify(e));
-    return { destino: '/second-brain?reto=1', reto: { inicio: e.inicio, dia }, avisos };
+    return { destino: destinoDelPaso(paso), vistos: clavesVistasDelReto(e.inicio, dia, paso), salto: saltoDelPaso(paso), avisos };
   });
 }

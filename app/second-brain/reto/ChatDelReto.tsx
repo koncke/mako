@@ -57,6 +57,8 @@ import { DIAS_RETO, RETO_D2_EXT, RETO_D2_PERFIL, RETO_MANANA, RETO_PILOTO, cuand
 import { NOTA_PRO_UNA_VEZ, TAREA_PRO } from '@/lib/reto/pro-del-reto';
 import { Burbuja, DeLaPersona } from './Burbuja';
 import { SeguirEnPc } from '@/app/onboarding/SeguirEnPc';
+import { marcasDesde } from '@/lib/onboarding-v2/saltar';
+import { esDeUnaTarea, tomarSalto } from '@/lib/onboarding-v2/salto-pendiente';
 import { esTelefono } from '@/lib/telefono';
 import { ClipDelReto } from './ClipDelReto';
 import { RETO_EN_TU_PLAN } from '@/lib/reto/plan-reglas';
@@ -171,10 +173,11 @@ export function verVideoDelDia(dia: DiaReto, conMarcas: boolean, titulo: string,
 }
 
 /** Marca uno por uno los lugares de una tarea (la barra, el menú de la foto, la sección) y la da por hecha al tocar el último. */
-export function marcarTarea(marcas: readonly MarcaReto[], alTerminar: () => void, alDejar?: () => void): void {
+export function marcarTarea(marcas: readonly (MarcaReto & { antes?: string | readonly string[] })[], alTerminar: () => void, alDejar?: () => void): void {
   const [m, ...resto] = marcas;
   if (!m) { alTerminar(); return; }
-  senalarDondeTocar({ sel: m.sel, titulo: m.titulo, texto: m.texto, haz: m.haz, lado: m.lado },
+  // `antes` (21/11, «Ir a un paso» a una marca del medio): las marcas de antes de la tarea se tocan solas, en cadena, como en el motor.
+  senalarDondeTocar({ sel: m.sel, titulo: m.titulo, texto: m.texto, haz: m.haz, lado: m.lado, ...(m.antes ? { antes: m.antes } : {}) },
     () => (resto.length ? window.setTimeout(() => marcarTarea(resto, alTerminar, alDejar), 350) : alTerminar()),
     { alOmitir: alDejar, libre: m.libre, ...(m.listo ? { listo: m.listo } : {}), ...(m.pasar ? { pasar: true } : {}) });
 }
@@ -271,6 +274,19 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
     // El día 1 sin «Lo hago después» (auditoría F1: la maqueta no lo tiene); los demás días sí.
     marcarTarea(marcasDeLaTarea(t), dejaParaDespues(t) ? dejar : () => { void leer(); }, n === 1 ? undefined : dejar);
   }, [leer, hacer]);
+  // «IR A UN PASO» A UNA TAREA (21/11/2026, la revisión: «para ir exactamente al paso que quiere»): el salto que dejó la barra
+  // (lib/onboarding-v2/salto-pendiente.ts) se toma UNA vez, con el reto ya leído, y la tarea se marca desde su marca.
+  const saltoTomado = useRef(false);
+  useEffect(() => {
+    if (!e || saltoTomado.current) return;
+    saltoTomado.current = true;
+    const s = tomarSalto(esDeUnaTarea);
+    const dia = s ? DIAS_RETO.find((x) => x.n === s.dia) : undefined;
+    const t = s && dia ? dia.tareas.find((x) => x.id === s.tarea) : undefined;
+    if (!s || !dia || !t) return;
+    anotarMarcada(`${dia.n}:${t.id}`);
+    window.setTimeout(() => marcarTarea(marcasDesde(marcasDeLaTarea(t), s.marca), () => { void leer(); }), 700);
+  }, [e, leer]);
   const marcarLoQueFalta = useCallback(function marcar(dia: DiaReto, saltar: readonly string[] = [], siempre = false) {
     if (!e || senalAhora()) return;
     // Lo dejado para después no se vuelve a marcar en la misma visita: sigue la próxima (`saltar` lleva lo que se dejó recién).

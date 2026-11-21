@@ -41,6 +41,7 @@ import { useLugarALaVista } from './lugarDelVideo';
 import { BarraDelVideo, alternarVideo } from './BarraDelVideo';
 import { CSS_REPRODUCTOR } from './VideoDelMomento';
 import { instalarUnVideoALaVez } from './un-video-a-la-vez';
+import { esDelRecorrido, tomarSalto } from '@/lib/onboarding-v2/salto-pendiente';
 import { TOPE_CADENA_MS, TOPE_CARGA_MS, alFinSinMarca, arrancaLaPrimeraVez, fraseQueSuena, retenerAlFin, comoCadena, navegaA, pasoDeLaCadena, saltarSinMarca, siguienteConMarca, soloEnComputadora, soltarRetencion, type Retencion } from './pausas';
 
 /**
@@ -196,10 +197,39 @@ export function MotorTutorial({ revision }: { revision: boolean }) {
       )}
       {/* useSearchParams en el layout: con su Suspense (si no, el build no prerenderiza las páginas estáticas). */}
       <Suspense fallback={null}><TutorialDeLaRuta /></Suspense>
+      <SaltoDelRecorrido />
       {senal && senal.tipo === 'video' && <VideoFlotante key={senal.id} senal={senal} />}
       {senal && senal.tipo !== 'video' && <Capa key={senal.id} senal={senal} revision={revision} />}
     </>
   );
+}
+
+/**
+ * «IR A UN PASO» DEL RECORRIDO (21/11/2026, la revisión: «para ir exactamente al paso que quiere»): el salto lo dejó la barra
+ * (lib/onboarding-v2/salto-pendiente.ts); al llegar, en cuanto su lugar (o lo que lo abre) está en la pantalla, el recorrido arranca
+ * en ESE paso. Si en 12 s no aparece, no arranca (nunca una marca a la nada).
+ */
+function SaltoDelRecorrido() {
+  useEffect(() => {
+    const s = tomarSalto(esDelRecorrido);
+    if (!s) return;
+    let vivo = true, t = 0;
+    // El recorrido se trae SÓLO con un salto: el motor va en todas las pantallas y no carga el texto del reto por las dudas.
+    void import('@/lib/onboarding-v2/recorrido').then(({ TUTORIAL_RECORRIDO }) => {
+      const paso = TUTORIAL_RECORRIDO.pasos[s.recorrido];
+      if (!vivo || !paso) return;
+      const lugares = [paso.sel, ...(typeof paso.antes === 'string' ? [paso.antes] : paso.antes ?? [])];
+      const desde = Date.now();
+      const mirar = () => {
+        if (!vivo) return;
+        if (lugares.some((x) => !!lugarDe(x))) { mostrarTutorial(TUTORIAL_RECORRIDO, { desde: s.recorrido }); return; }
+        if (Date.now() - desde < 12_000) t = window.setTimeout(mirar, 150);
+      };
+      mirar();
+    });
+    return () => { vivo = false; window.clearTimeout(t); };
+  }, []);
+  return null;
 }
 
 /** La primera vez en una pestaña con tutorial: lo arranca solo, cuando su primer paso ya está en la pantalla. */
@@ -311,7 +341,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   const telefono = typeof window !== 'undefined' && window.innerWidth < ANCHO_TELEFONO;
   const pasos: PasoTutorial[] = useMemo(() => (senal.tipo === 'tutorial' ? pasosPara(senal.tutorial, telefono) : [senal.paso]), [senal, telefono]);
   // -1 = la presentación de la pestaña (su `intro`), antes del primer paso. Una marca va directo a su lugar.
-  const [i, setI] = useState(senal.tipo === 'tutorial' && senal.tutorial.intro ? -1 : 0);
+  const [i, setI] = useState(senal.tipo === 'tutorial' && senal.desde ? senal.desde : senal.tipo === 'tutorial' && senal.tutorial.intro ? -1 : 0);
   const [el, setEl] = useState<HTMLElement | null>(null);
   const [geo, setGeo] = useState<Geo>({ hueco: null, tarjeta: null });
   const [videoArriba, setVideoArriba] = useState(false);
@@ -321,7 +351,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   const videoPedido = useVideoTutorial(senal.tipo === 'tutorial' ? senal.video ?? null : null);
   const videoPropio = useVideoTutorial(senal.tipo === 'tutorial' ? senal.tutorial.pestana : null);
   const videoAlgun = videoPedido ?? videoPropio;
-  const video = videoAlgun && senal.tipo === 'tutorial' && VIDEO_FIEL.has(senal.tutorial.pestana) && !sigueLosPasos(videoAlgun.frases ?? [], senal.tutorial.pasos) ? null : videoAlgun;
+  const video = senal.tipo === 'tutorial' && senal.desde ? null : videoAlgun && senal.tipo === 'tutorial' && VIDEO_FIEL.has(senal.tutorial.pestana) && !sigueLosPasos(videoAlgun.frases ?? [], senal.tutorial.pasos) ? null : videoAlgun;
   // Con otro video que el de la pestaña (el recorrido), su cierre es SU último lugar marcado («toca aquí, en Reto de 7 días»), no el
   // último paso del tutorial de la pestaña.
   const conVideoPedido = !!videoPedido;
