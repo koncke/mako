@@ -295,7 +295,18 @@ export type Bloque = {
  */
 function conSusSignos(img: Rgba, r: Caja): Caja {
   const fondo = colorDominante(img, { x: r.x - 8, y: r.y - 4, ancho: r.ancho + 16, alto: r.alto + 8 }, (x, y) => x >= r.x && x < r.x + r.ancho && y >= r.y && y < r.y + r.alto);
-  const conTinta = (x: number) => { for (let y = r.y; y < r.y + r.alto; y++) if (distancia(pixel(img, x, y), fondo) > TINTA_DE_LAMINA) return true; return false; };
+  // El color de la LETRA del renglón (lo que se aparta del fondo adentro de él): un signo suelto es de ese color. Sin esto, sobre un
+  // degradé (un blur, 20/11/2026) el fondo que se aleja del dominante contaba como «tinta» y el renglón se estiraba hasta el borde
+  // de la lámina, y su borrado tomaba el borde como costado.
+  const letra = colorDominante(img, r, (x, y) => distancia(pixel(img, x, y), fondo) <= TINTA_DE_LAMINA);
+  const deLaLetra = distancia(letra, fondo) > TINTA_DE_LAMINA;
+  const conTinta = (x: number) => {
+    for (let y = r.y; y < r.y + r.alto; y++) {
+      const c = pixel(img, x, y);
+      if (distancia(c, fondo) > TINTA_DE_LAMINA && (!deLaLetra || distancia(c, letra) < 2 * TINTA_DE_LAMINA)) return true;
+    }
+    return false;
+  };
   const hueco = Math.max(4, Math.round(0.45 * r.alto));
   let x0 = r.x;
   for (let x = r.x - 1, sin = 0; x >= 0 && sin <= hueco; x--) { if (conTinta(x)) { x0 = x; sin = 0; } else sin++; }
@@ -853,7 +864,9 @@ export function planchar(img: Rgba, lectura: LecturaDeLamina, p: PedidoPlancha):
   const personas = p.personas.map((n) => figuras.get(n)?.caja).filter((c): c is Caja => !!c);
   for (const [i, b] of bloques.entries()) {
     if (!b) continue;
-    const pastilla = pastillaDe(img, b);
+    // Sobre un degradé (un blur) no hay pastilla que buscar: el fondo que cambia de un lado al otro parecía el borde de una
+    // «pastilla de contorno» y sólo se borraba la letra de adentro (20/11/2026).
+    const pastilla = p.tapar && esDegrade(img, b.caja, 3) ? null : pastillaDe(img, b);
     if (pastilla && borrarZona(img, pastilla.letra, 2)) { bloques[i] = { ...b, pastilla }; continue; }
     // Renglón por renglón: la caja que los junta a todos toca lo que hay al lado del renglón más ancho (un ícono, otra caja).
     // Un renglón sobre un fondo que no se puede continuar (una foto, una textura) se TAPA con el color de alrededor y el texto nuevo
@@ -861,11 +874,17 @@ export function planchar(img: Rgba, lectura: LecturaDeLamina, p: PedidoPlancha):
     // armaba como antes, con fondo liso y fotos de banco: el equipo de bots de @albert.olgaard por un titular sobre una textura,
     // «9 referentes» por un título sobre la miniatura de un video. Un parche liso detrás de UN texto se nota; perder el diseño de
     // las siete láminas, mucho más.
+    // 20/11/2026 (la llamada con Leila, su plantilla «con blur»): ya no con un parche LISO, que sobre un blur o una foto se ve como
+    // un rectángulo de otro color. Se RELLENA desde los cuatro bordes (`rellenarZona`): sobre un blur no se nota, sobre una foto
+    // queda un desenfoque de lo que la rodea.
+    // Y sobre un DEGRADÉ (un blur, una luz) `borrarZona` «puede» pero rellena con un color plano la fila cuyos costados difieren
+    // mucho: en un carrusel, un degradé va directo al relleno de los cuatro bordes.
     const pad = Math.max(3, Math.round(0.08 * b.altoRenglon));
     for (const f of b.franjas) {
+      if (p.tapar && esDegrade(img, f, pad)) { rellenarZona(img, f, pad); continue; }
       if (borrarZona(img, f, pad)) continue;
       if (!p.tapar) return deshacer(`el fondo del texto ${i + 1} no es parejo`);
-      taparZona(img, f, pad);
+      rellenarZona(img, f, pad);
     }
   }
   // La persona sobre un fondo que no se puede continuar (una foto, un edificio, un degradé) se TAPA con el color que domina a su
@@ -905,4 +924,79 @@ export function taparZona(img: Rgba, zona: Caja, pad: number): void {
       img.px[i + 2] = c[2];
     }
   }
+}
+
+/** La mediana de unos píxeles (por canal): un borde con una mota no arrastra el relleno. */
+function mediana(cs: readonly Color[]): Color {
+  const m = (k: 0 | 1 | 2) => cs.map((c) => c[k]).sort((a, b) => a - b)[Math.floor(cs.length / 2)];
+  return [m(0), m(1), m(2)];
+}
+
+/**
+ * Una zona RELLENADA desde sus cuatro bordes (20/11/2026, la plantilla «con blur» de Leila): cada píxel es la mezcla de lo que hay
+ * a su izquierda, a su derecha, arriba y abajo de la zona, pesada por la distancia (la superficie de Coons: interpola los cuatro
+ * bordes y descuenta las esquinas). Sobre un fondo desenfocado o un degradé no se nota; sobre una foto queda un desenfoque de lo que
+ * la rodea, en vez de un rectángulo liso de otro color (`taparZona`). Cada borde es la mediana de 3 píxeles hacia afuera (una mota o
+ * el filo de una letra de al lado no lo arrastran). Un lado pegado al borde de la lámina toma el de enfrente.
+ */
+export function rellenarZona(img: Rgba, zona: Caja, pad: number): void {
+  const z = dentro(img, { x: zona.x - pad, y: zona.y - pad, ancho: zona.ancho + 2 * pad, alto: zona.alto + 2 * pad });
+  if (!z.ancho || !z.alto) return;
+  const x0 = z.x - 1;
+  const x1 = z.x + z.ancho;
+  const y0 = z.y - 1;
+  const y1 = z.y + z.alto;
+  const afuera = (xs: number[], ys: number[]): Color | null => {
+    const cs: Color[] = [];
+    for (const y of ys) for (const x of xs) if (x >= 0 && x < img.ancho && y >= 0 && y < img.alto) cs.push(pixel(img, x, y));
+    return cs.length ? mediana(cs) : null;
+  };
+  const izq: Array<Color | null> = [];
+  const der: Array<Color | null> = [];
+  for (let y = z.y; y < y1; y++) { izq.push(afuera([x0, x0 - 1, x0 - 2], [y])); der.push(afuera([x1, x1 + 1, x1 + 2], [y])); }
+  const arr: Array<Color | null> = [];
+  const aba: Array<Color | null> = [];
+  for (let x = z.x; x < x1; x++) { arr.push(afuera([x], [y0, y0 - 1, y0 - 2])); aba.push(afuera([x], [y1, y1 + 1, y1 + 2])); }
+  const fondo = colorDominante(img, { x: z.x - 6, y: z.y - 6, ancho: z.ancho + 12, alto: z.alto + 12 }, (x, y) => x >= z.x && x < x1 && y >= z.y && y < y1);
+  // Un lado que no existe (la zona toca el borde de la lámina) toma el de enfrente; sin ninguno de los dos, el fondo de alrededor.
+  const L = izq.map((c, i) => c ?? der[i] ?? fondo);
+  const R = der.map((c, i) => c ?? izq[i] ?? fondo);
+  const T = arr.map((c, i) => c ?? aba[i] ?? fondo);
+  const B = aba.map((c, i) => c ?? arr[i] ?? fondo);
+  const esq = (a: Color, b: Color): Color => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+  const c00 = esq(L[0], T[0]);
+  const c10 = esq(R[0], T[T.length - 1]);
+  const c01 = esq(L[L.length - 1], B[0]);
+  const c11 = esq(R[R.length - 1], B[B.length - 1]);
+  for (let j = 0; j < z.alto; j++) {
+    const v = (j + 1) / (z.alto + 1);
+    for (let i = 0; i < z.ancho; i++) {
+      const u = (i + 1) / (z.ancho + 1);
+      const k = ((z.y + j) * img.ancho + z.x + i) * 4;
+      for (let c = 0; c < 3; c++) {
+        const val = (1 - u) * L[j][c] + u * R[j][c] + (1 - v) * T[i][c] + v * B[i][c]
+          - ((1 - u) * (1 - v) * c00[c] + u * (1 - v) * c10[c] + (1 - u) * v * c01[c] + u * v * c11[c]);
+        img.px[k + c] = Math.max(0, Math.min(255, Math.round(val)));
+      }
+    }
+  }
+}
+
+/**
+ * ¿Lo que rodea a la zona es un DEGRADÉ (un blur, una luz que cambia de un lado al otro)? Los dos costados difieren y, más lejos,
+ * el color SIGUE alejándose en la misma dirección. Un ícono pegado a un costado también hace que difieran, pero más allá del
+ * ícono vuelve el fondo: eso no es un degradé y lo resuelve `borrarZona` (toma el costado bueno).
+ */
+export function esDegrade(img: Rgba, zona: Caja, pad: number): boolean {
+  const y = Math.min(img.alto - 1, Math.max(0, Math.round(zona.y + zona.alto / 2)));
+  const x0 = zona.x - pad;
+  const x1 = zona.x + zona.ancho + pad;
+  const L = costado(img, x0, y, -1);
+  const R = costado(img, x1 - 1, y, 1);
+  if (!L || !R) return false;
+  const lejos = Math.max(12, Math.round(0.5 * zona.alto));
+  const Lf = costado(img, Math.max(0, x0 - lejos), y, -1) ?? L;
+  const Rf = costado(img, Math.min(img.ancho - 1, x1 - 1 + lejos), y, 1) ?? R;
+  const d = distancia(L, R);
+  return d > 30 && distancia(Lf, R) >= d - 10 && distancia(L, Rf) >= d - 10;
 }

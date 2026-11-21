@@ -13,6 +13,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import { crearGrupoSuelto, enviarAGrupoJid, descripcionGrupoMaKo } from '@/lib/mako-grupo';
+import { SIN_GRUPOS_NUEVOS } from '@/lib/altas-en-grupos';
 import { catalogoPorCategoria, EMOJI_CATEGORIA, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
 export const dynamic = 'force-dynamic';
@@ -39,7 +40,8 @@ export async function POST(req: NextRequest) {
   if (!jid) {
     if (!numero) return NextResponse.json({ ok: false, error: 'pasa numero o jid' }, { status: 400 });
     const g = await crearGrupoSuelto('MaKo · Pruebas 🧪', [numero], descripcionGrupoMaKo('Pruebas'));
-    if (!g.ok) return NextResponse.json({ ok: false, error: g.error }, { status: 500 });
+    // MaKo no crea grupos nuevos (20/11/2026): sin `jid` de un grupo que ya existe, no hay demo. 409 con el aviso.
+    if (!g.ok) return NextResponse.json({ ok: false, error: g.error }, { status: g.error === SIN_GRUPOS_NUEVOS ? 409 : 500 });
     jid = g.jid;
     await sleep(1500);
   }

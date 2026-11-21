@@ -59,7 +59,7 @@ export type OperacionImagen =
   | { op: 'alinear'; refs: string[]; a: AlinearA }
   | { op: 'bloquear'; ref: string; bloqueado: boolean }
   | { op: 'fondo'; pagina?: string; color: string }
-  | { op: 'agregar_pagina'; despues_de?: string; duplicar?: boolean; nueva?: string }
+  | { op: 'agregar_pagina'; despues_de?: string; duplicar?: boolean; nueva?: string; textos?: string[] }
   | { op: 'borrar_pagina'; pagina: string }
   | { op: 'agregar_forma'; forma: FormaNueva; pagina?: string; x: number; y: number; ancho: number; alto: number; color?: string; ref?: string }
   | { op: 'agregar_foto'; foto: string; pagina?: string; x?: number; y?: number; ancho?: number; alto?: number; cubrir?: boolean; ref?: string }
@@ -93,7 +93,9 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
   { op: 'alinear', forma: '{"op":"alinear","refs":["t3k","f0z"],"a":"centro"}', para: 'Alinea elementos con la PÁGINA: "a" es izquierda, centro, derecha (horizontal) o arriba, medio, abajo (vertical). Cada uno por separado.' },
   { op: 'bloquear', forma: '{"op":"bloquear","ref":"i7q","bloqueado":true}', para: `Bloquea (true) o desbloquea (false) un elemento. Uno bloqueado no se cambia con otras operaciones: primero se desbloquea. ${REF}.` },
   { op: 'fondo', forma: '{"op":"fondo","color":"#F3EFE7"}', para: `El color de fondo de UNA página (#RRGGBB). ${PAGINA}. Para que todo el diseño lleve ese fondo, una por cada página.` },
-  { op: 'agregar_pagina', forma: '{"op":"agregar_pagina","despues_de":"pa3","duplicar":true,"nueva":"pn1"}', para: 'Agrega una página después de "despues_de" (la ref de una página; sin ella, al final). Con "duplicar": true es una copia de esa página; si no, una en blanco. "nueva": una ref nueva («pn1», «pn2»…) para poner cosas en esa página en este mismo pedido, con su "pagina": sin ella, lo que agregues NO va ahí.' },
+  // 20/11/2026 (la llamada con Leila: «le agregué, pero es página 9 en blanco»): sin «duplicar» era una página BLANCA, y los textos
+  // que la IA le ponía con el color crema del diseño no se veían. En un carrusel, la nueva copia el diseño de una lámina de contenido.
+  { op: 'agregar_pagina', forma: '{"op":"agregar_pagina","despues_de":"pa3","textos":["EL TÍTULO","El cuerpo, tal cual"],"nueva":"pn1"}', para: 'Agrega una página después de "despues_de" (la ref de una página; sin ella, al final). En un diseño de varias páginas (un carrusel) la nueva COPIA EL DISEÑO de una lámina de contenido: su fondo, sus fotos, sus formas y el lugar, la letra y el color de sus textos. Con "textos" (los renglones de esa lámina TAL CUAL los dictó la persona, en orden: el título primero y el pie al final), sus textos dicen eso, sin agregar otros. Con "duplicar": true es una copia exacta de "despues_de". "nueva": una ref nueva («pn1», «pn2»…) para poner cosas en esa página en este mismo pedido, con su "pagina": sin ella, lo que agregues NO va ahí.' },
   { op: 'borrar_pagina', forma: '{"op":"borrar_pagina","pagina":"pa3"}', para: 'Borra una página con todo lo que tiene. Un diseño siempre se queda con al menos una.' },
   { op: 'agregar_forma', forma: '{"op":"agregar_forma","forma":"rectangulo","x":0,"y":900,"ancho":1080,"alto":180,"color":"#141414","ref":"n2"}', para: `Agrega una forma: "forma" es rectangulo o circulo. ${MEDIDAS}. "color" de relleno (#RRGGBB). ${PAGINA}. "ref" opcional: una nueva («n1»…) para seguir cambiándola en este pedido.` },
   { op: 'agregar_foto', forma: '{"op":"agregar_foto","foto":"o1","x":0,"y":0,"ancho":1080,"alto":720,"cubrir":true,"ref":"n3"}', para: `Pone una foto de la lista "fotos" del DISEÑO: "foto" es su ref. Sin "cubrir" entra entera en la caja (ancho y alto), sin deformarse; con "cubrir": true llena la caja y corta lo que sobra. ${MEDIDAS} (sin medidas va centrada). ${PAGINA}. "ref" opcional: una nueva («n1»…) para seguir cambiándola en este pedido, por ejemplo mandarla atrás de los textos con "capa". Sólo las de "fotos": una dirección de internet no sirve.` },
@@ -217,7 +219,7 @@ const VALIDAS: Record<IdOperacionImagen, readonly string[]> = {
   alinear: ['refs', 'a'],
   bloquear: ['ref', 'bloqueado'],
   fondo: ['pagina', 'color'],
-  agregar_pagina: ['despues_de', 'duplicar', 'nueva'],
+  agregar_pagina: ['despues_de', 'duplicar', 'nueva', 'textos'],
   borrar_pagina: ['pagina'],
   agregar_forma: ['forma', 'pagina', 'x', 'y', 'ancho', 'alto', 'color', 'ref'],
   agregar_foto: ['foto', 'pagina', 'x', 'y', 'ancho', 'alto', 'cubrir', 'ref'],
@@ -365,7 +367,14 @@ export function validarOperacion(crudo: unknown): Validada {
       if (raw.despues_de !== undefined && !esRefPagina(raw.despues_de)) return { ok: false, motivo: 'una página nueva después de otra que ya no está' };
       if (raw.duplicar !== undefined && typeof raw.duplicar !== 'boolean') return { ok: false, motivo: 'una página nueva sin decir si es una copia' };
       if (raw.nueva !== undefined && !esRefPagina(raw.nueva)) return { ok: false, motivo: 'una página nueva que no pude identificar' };
-      return { ok: true, op: { op, ...(raw.despues_de !== undefined ? { despues_de: raw.despues_de as string } : {}), ...(raw.duplicar === true ? { duplicar: true } : {}), ...(raw.nueva !== undefined ? { nueva: raw.nueva as string } : {}) } };
+      // Los renglones de la lámina nueva (20/11/2026): cada uno un texto del copy, tal cual. Uno que no es texto la descarta.
+      let textos: string[] | undefined;
+      if (raw.textos !== undefined) {
+        if (!Array.isArray(raw.textos) || raw.textos.length > 24) return { ok: false, motivo: 'una página nueva con textos que no pude leer' };
+        textos = raw.textos.map((x) => (typeof x === 'string' && x.trim() && x.length <= TOPES_CHAT_IMAGEN.texto ? x.replace(/\r\n?/g, '\n').trim() : '')).filter(Boolean);
+        if (textos.length !== raw.textos.length) return { ok: false, motivo: 'una página nueva con un texto vacío o demasiado largo' };
+      }
+      return { ok: true, op: { op, ...(raw.despues_de !== undefined ? { despues_de: raw.despues_de as string } : {}), ...(raw.duplicar === true ? { duplicar: true } : {}), ...(raw.nueva !== undefined ? { nueva: raw.nueva as string } : {}), ...(textos?.length ? { textos } : {}) } };
     }
     case 'borrar_pagina': {
       if (!esRefPagina(raw.pagina)) return { ok: false, motivo: 'un borrar página sin la página' };

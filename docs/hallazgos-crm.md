@@ -20,6 +20,97 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Asignar fuentes» rediseñado y la calificación automática por formulario: lo que no se ve en el código (20/11/2026, `punta/fuentes-crm`)
+
+**Vive en:** `app/crm/FuentesModal.tsx` (estado) · `app/crm/FuentesVista.tsx` (lo que se ve, sin estado: se dibuja igual en el
+artefacto) · `app/crm/fuentes-actions.ts` · `lib/calificacion-formulario.ts` (el motor, puro) · `lib/fuentes-formularios.ts` (el
+guardado, puro) · `lib/calificacion-aplicar.ts` (mover y dejar el porqué) · `lib/formulario-meta-funnel.ts` (los lead forms de
+Meta) · las puertas: `app/api/track/optin/route.ts` (`calificarEnvio`), `lib/meta-lead-nuevo.ts` (`calificarLeadDeMeta`), el poll
+(`lib/meta-leads.ts`) y Zernio (`lib/zernio-leads.ts`). El pedido: Martín y el audio de Juanfran (Código Inmobiliario, ws 13: «de 20
+leads, 13 o 14 cumplían» y el inmobiliario los marcaba no calificados). La referencia copiada: el «Routing logic» de Calendly
+(rutas en orden, la primera que se cumple gana, y una ruta de respaldo), con «al menos N de M» para el «3 de 4».
+
+- **El `form_id` de Meta no se guardaba en NINGÚN lado.** Llegaba en el payload del webhook (`change.value.form_id`) y se tiraba;
+  el poll lo tenía en el bucle y no lo pasaba; Zernio lo parseaba y no lo usaba. Ahora viaja hasta `upsertLeadFromMeta`
+  (`meta_form_id`, decide el funnel si el formulario está asignado: gana a la campaña) y hasta la calificación. **Sigue sin
+  guardarse en el lead** (sería una columna = migración): para listar o reaplicar se le pide a Meta `/{form}/leads` y se cruzan los
+  `meta_lead_id`. Consecuencia: el «REAPLICAR» de un formulario de Meta sólo ve los leads que Meta todavía devuelve.
+- **Una página de afuera no trae id de formulario.** El Pixel manda `formulario_id` sólo si el `<form>` tiene `data-mako-form` (los
+  de Web Generator). La identidad de un formulario externo es su PÁGINA (`leads.pagina_registro`, ya normalizada) y su clave es
+  `web:<página>`; prenderlo escribe la misma `landing.config` de /integraciones (con su tope de 12 páginas).
+- **`lead_formularios` (mig 0415) sigue sin aplicar:** sin ella no se sabe cuántos envíos tiene cada formulario de Web Generator (la
+  fila sale sin número) y el «REAPLICAR» de uno cae a los leads de la URL de su landing. No es un error: `faltaLaTabla`.
+- **Las reglas son POR FUNNEL** (`crm.reglas_formulario` en `app_settings`, sin tabla nueva): las etapas son de cada funnel
+  («Revisión» existe en uno y no en otro). Y se aplican al lead en cada funnel donde está, llegue por el formulario o por la campaña.
+- **«No es» sin respuesta NO se cumple.** «Si la zona no es Norte → Descalificado» descalificaría al que no contestó la zona (una
+  pregunta nueva, un lead viejo). Para eso está «no tiene respuesta», que se elige a propósito.
+- **Qué mueve el «REAPLICAR» (`puedeMoverDesde`):** sólo al que está en la entrada o en una etapa que esas reglas reparten. Es lo que
+  arregla el caso de Juanfran (el que quedó en «Descalificado» a mano y cumplía vuelve a «Lead entrante») sin sacar de «Agenda R1» al
+  que ya avanzó. Primero cuenta (`simular`) y la pregunta dice el número.
+- **Meta nombra las preguntas y las opciones con guiones bajos** (`¿en_qué_zona_buscas?`, `más_de_3_millones`) y la página como las
+  escribió el negocio: se compara con `normalizar` (sin tildes, sin signos, `_` = espacio) y se MUESTRA con `legible`. ⚠️ `normalizar`
+  saca los puntos y las comas: los números («$2,500,000», «2.5M») se leen con `numeroDe`, que no la usa (lo encontró el test).
+- **La calificación va ANTES de anunciar y de las automatizaciones:** un descalificado no entra a la secuencia de «lead nuevo». Y un
+  lead que el poll rescata viejo (no se anuncia) igual se califica: ubicarlo no le escribe a nadie.
+- **«Siempre la primera etapa»:** desde el 18/11 «Asignar fuentes» se escondía en los funnels de Prospección (`ofreceAsignarFuentes`).
+  Martín, 20/11: «siempre». Se fue la excepción y la lectura de `entradas` de la página; y si un funnel no marca ninguna columna como
+  entrada, va en la primera (`esPrimeraEtapa`, la misma regla que `etapaDeEntrada`).
+- **El artefacto:** el `.mk-modal__fondo` de la app anima con `mkFade` y en Chromium headless quedaba en `opacity: 0` (la captura
+  salía sin modal). En las páginas del artefacto va `animation: none`. El dibujante: `C:/dev/artefactos-fuentes/` (fuera del repo).
+- **El primer rojo de la punta (corrida 1977) fueron cinco cosas que los tests de la PC no ven:** un TS7022 (`const r = await
+  graph<T>(url)` adentro de un `while (url)` que reasigna `url` desde `r`: se infieren en círculo; `tsx` lo corre perfecto y sólo el
+  tsc entero lo caza — se arregla escribiendo el tipo de `r`), y cuatro guardas de repo que mira GitHub: una acción del servidor
+  nueva pide **su operación en la API de MaKo** (`lib/api-mako/cobertura.ts`, la DEUDA no crece; con su ruta REST en
+  `lib/api-mako/rest.ts`, un parámetro `object` con sus `campos`, y `node --import tsx scripts/generar-api-doc.mjs`), **su clase
+  para la cuenta de revisión de las tiendas** (`MAKO_REGENERAR_SNAPSHOT=1 … tests/cuenta-revision-escrituras.test.ts`), y el hito
+  de la bitácora **su `sesion`** (`$CLAUDE_CODE_HOST_SESSION_ID`). Y un test de Zernio que lee el texto `if (!c.nuevo) return;`:
+  una rama nueva se escribe al lado, no envolviéndolo. Por eso la lógica quedó en `lib/fuentes-crm-server.ts` y la pantalla y la
+  API son dos puertas finas sobre ella.
+- **El segundo rojo: cinco operaciones nuevas del área CRM le robaron lugar a otras en el chat.** El chat elige sus herramientas
+  por relevancia con un tope de 12.000 caracteres (`PRESUPUESTO_REGISTRO_CHARS`, lib/doer-herramientas.ts), y descripciones con
+  «leads», «anuncios» y «Meta» ganaban en pedidos que no eran de formularios: «¿qué anuncio tiene el mejor costo por lead?» dejó de
+  traer `ver_rendimiento_anuncios` (tests/ops-center-bateria.test.ts) y un seguimiento dejó de traer `recomendar_mensajes_whatsapp`
+  (tests/doer-hilo.test.ts). La relevancia puntúa raíces de 5 letras del pedido en el id y el título (×2) y la descripción (×1)
+  (`ordenarPorRelevancia`, lib/api-mako/registro.ts), y el clasificador le SUMA a todo pedido sobre un lead las palabras de
+  `RELEVANCIA_CRM` (lib/mako-intencion.ts: «asignar», «calificado», «etapa», «historial»…). Se arregló sin tocar el tope ni los
+  pisos: el id, el título y la descripción hablan sólo del dominio (formulario, embudo, reglas, descalificar, «columna» en vez de
+  «etapa»; `asignar_formulario` pasó a `elegir_embudo_de_formulario`) y las palabras comunes quedaron en los parámetros, que no
+  puntúan. Medido con el ordenador real: con «reglas del formulario…» salen 1.º a 5.º de 126; con «¿cuántos leads entraron esta
+  semana?», del 64 al 99. **La regla:** una operación nueva del CRM se escribe sin las raíces de los pedidos de todos los días y se
+  corre contra tests/ops-center-bateria y tests/doer-hilo ANTES de subir.
+- **Escape con un desplegable abierto cerraba el modal ENTERO, y la ✕ perdía el borrador sin preguntar** (21/11/2026, visto en la
+  verificación del ws 4). Lo del Escape es del desplegable y del modal de la casa, y está en
+  [hallazgos-ui.md](hallazgos-ui.md) («Un Escape cerraba el panel Y LA FICHA ENTERA», el agregado del 21/11). Lo del CRM: «Volver» y
+  «Cancelar» ya preguntaban «¿Salir sin guardar las reglas?», pero la ✕, Escape y el clic afuera iban derecho al `onCerrar` de
+  `CrmBoard`. **La regla:** un modal con borrador no le pasa el `onCerrar` de afuera directo al `<Modal>`: todas las salidas pasan
+  por la misma pregunta (`salirSinGuardar`, `app/crm/FuentesModal.tsx`; tests/desplegable-escape-en-modal.test.ts).
+- **«Mandar a la papelera» «no reaccionaba al primer clic», y el diagnóstico obvio era el equivocado** (21/11/2026, ws 3, en
+  `/crm/<id>`). Parecía que el primer clic se perdía (un doble render, un estado pisado) y que el segundo lo hacía. Reconstruido del
+  registro de la verificación: el primero SÍ entró; el segundo no hizo nada, porque el tacho ya estaba apagado; lo que se vio fue el
+  primero terminando. Tres cosas juntas: (1) el cartel se cerraba en el acto y lo único que cambiaba era el tacho del fondo, gris;
+  (2) el borrado era una server action, y Next las despacha DE A UNA (`dispatchAction` de
+  `next/dist/client/components/app-router-instance.js`, Next 16.2.6): esperaba detrás de las que la ficha manda al abrir —medido en
+  el ws 4: cinco en serie entre los 4,9 y los 9,3 s, otra a los 13 s; en una cuenta grande como la del ws 3 cada una tarda más—, y
+  el lead seguía en la base varios segundos después del clic; (3) con `redirect`, la respuesta traía el tablero entero dibujado
+  antes de que cambiara la pantalla. Arreglo: las dos fichas (la de página completa y el pop-up) van por una RUTA,
+  `app/api/crm/papelera/route.ts` (misma puerta `exigirSesion`, misma escritura `mandarLeadsAPapelera`), que sale en el acto y en
+  paralelo; la de página completa navega después con `router.push`, que en la fila de Next pasa ADELANTE de lo que espera; y el
+  cartel queda abierto con su spinner hasta que la pantalla cambia (tests/papelera-ficha-primer-toque.test.ts). Las server actions
+  `deleteLeadAction`/`deleteLeadInlineAction` siguen (la API de MaKo y sus tests las nombran). **La regla:** un cartel de confirmación
+  se cierra cuando la acción TERMINÓ, no cuando empezó; y una escritura que tiene que sentirse en el acto desde una pantalla con
+  lecturas por server action en vuelo va por una ruta.
+
+**Sin hacer** (y dónde iría): el lead que YA existía y llena otro formulario de Meta no se califica al llegar
+(`alNacerLeadDeMeta` corre sólo al crear; `lib/leads.ts`, rama `existing`); el opt-in que queda como propuesta (duplicado ambiguo)
+tampoco (`app/api/track/optin/route.ts`, `crearPropuesta`); la barra de lote de campañas (tildar varias y «Asignar a este funnel»)
+se reemplazó por un interruptor por fila, y `app/crm/CampanasModal.tsx` + `FuentesWebGenerator.tsx` quedan para la puerta de
+`CampanasDelProducto.tsx`, que no monta nadie hoy: borrarlos es otra tanda. Apagar una página externa en «Formularios» deja su fila
+en `landing.config` sin funnel y sigue listada como fuente (`alternarFormulario`, rama `web:`, `lib/fuentes-crm-server.ts`). El
+«Recorrido del lead» de la ficha dice «No era buen fit» en vez del motivo de la regla (`lib/journey.ts`; el motivo sí está en
+«Motivo de salida»). Las otras escrituras de la ficha que van por server action (mover de etapa, etiquetas, pagos) hacen la misma
+fila detrás de las lecturas: no medido si se nota; y el «Mandar a la papelera» de la tarjeta del tablero (`eliminarLeadsAction`,
+`app/crm/CrmBoard.tsx`) cierra su cartel antes de terminar, aunque avisa al final.
+
 ## `buscar_leads` era literal: «Carolina Casab» no encontraba a «Carolina Cassab» (ticket #121, 20/11/2026, ws 13)
 
 **Vive en:** `lib/mako-tools.ts` (`buscar_leads`, `aproximadosDe`) · `lib/buscar-texto.ts` (`coincideBusqueda`, `casiIgual`,
