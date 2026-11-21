@@ -46,7 +46,8 @@ import { EMAIL_MAKO, linkApp } from './app-url';
 import { diagnosticoEnTexto, esFalloPasajero, leadDeLaCompra, opcionStripe, pasarelaDeLaCompra, pasarelasDelPais, pasarelasParaOfrecer, precioCambio, TEXTO_PRECIO_CAMBIO, TEXTO_PRUEBA_USADA_WHATSAPP, TEXTO_SIN_PASARELA, whatsappsDeLaPrueba, type PedidoCompra, type PrecioVisto } from './compra-plan-reglas';
 import { casillaDeLaPrueba, creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, patronesDeLaCasilla, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
 import { whatsappDelPedido } from './paises';
-import { conRecargoDePasarela, formatoDelMonto, montoDelMedio, NOMBRE_MEDIO_DIRECTO } from './pago-directo-reglas';
+import { conRecargoDePasarela, formatoDelMonto, medioDirectoQueVale, montoDelMedio, NOMBRE_MEDIO_DIRECTO } from './pago-directo-reglas';
+import { leerDatosDePagoDirecto } from './pago-directo';
 import { creadoPorPrimerMes, TEXTO_PROMO_CUENTA, TEXTO_PROMO_USADA, TEXTO_PROMO_VENCIDA } from './primer-mes-reglas';
 import { PROMO_ENTRADA } from './promo-entrada-reglas';
 import { listarUsuarios } from './usuarios';
@@ -130,7 +131,7 @@ export async function ofertaDelPlan(planId: string, opts: { conPrueba?: boolean;
   try {
     const ws = await wsSuperAdmin();
     const monedas = await monedasDeLaPlataforma(ws);
-    // EL PRECIO POR PASARELA ES EL DE LISTA + 5 % (18/11/2026, Martín: «si pagan por pasarela de pago, se le debe sumar el 5 %»): acá, en UN solo punto,
+    // EL PRECIO POR PASARELA: el de lista + `RECARGO_PASARELA`, que hoy es 0 (el mismo precio por cualquier medio, Martín 18/11 y 20/11): acá, en UN solo punto,
     // para que lo que muestra la página sea lo que cobra `iniciarCompraDePlan` (que usa este mismo monto). La lista queda para transferencia y Binance.
     // ⚠️ LOS PESOS, AL DÓLAR CRIPTO DEL MOMENTO (19/11/2026, Martín: «no del día, sino del momento… cuando alguien da clic en comprar»;
     // lib/dolar-cripto-reglas.ts): los dólares del plan × la cotización de ahora, al millar hacia arriba. Sin una cotización que pase los frenos
@@ -336,10 +337,12 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
     }
     const de = p.origen?.landing ? ` desde la landing «${p.origen.landing}»` : '';
     const ref = p.ref ? ` (referido por ${p.ref})` : '';
-    // «Transferencia o Binance · 5 % OFF» (18/11/2026): el medio y el monto CON el descuento, calculado acá con el plan (nunca el del cliente).
-    // La activación es de Martín, a mano: el aviso dice que hay que verificar que la plata entró.
-    const directo = p.medioDirecto && elegido
-      ? { medio: p.medioDirecto, monto: montoDelMedio(p.medioDirecto, { precioUsd: elegido.precioUsd, precioArs: precioEnPesos(elegido) }) }
+    // «Transferencia o Binance» (18/11/2026): el medio y el monto de LISTA, calculado acá con el plan (nunca el del cliente). Sólo si el checkout
+    // la ofrece hoy (`medioDirectoQueVale`, 20/11/2026): con el interruptor apagado, una pestaña de antes o un POST a mano queda como un «Quiero»
+    // común. La activación es de Martín, a mano: el aviso dice que hay que verificar que la plata entró.
+    const medio = p.medioDirecto ? medioDirectoQueVale(p.medioDirecto, await leerDatosDePagoDirecto()) : null;
+    const directo = medio && elegido
+      ? { medio, monto: montoDelMedio(medio, { precioUsd: elegido.precioUsd, precioArs: precioEnPesos(elegido) }) }
       : null;
     const dePago = directo
       ? ` Va a pagar por ${NOMBRE_MEDIO_DIRECTO[directo.medio]}${directo.monto ? ` ${formatoDelMonto(directo.monto)}` : ''}: el precio de lista.`

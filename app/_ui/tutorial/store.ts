@@ -31,7 +31,10 @@ export type Senal =
       alTocar?: (sel: string) => void;
       /** EL VIDEO EN SU MENSAJE (20/11, V4 y R57-21): el selector del lugar del chat donde se ve el video mientras ese lugar está a la
        *  vista (el del día del reto). Fuera de la vista (se scrolleó, se navegó), en la esquina. Sin `lugar`, en la esquina. */
-      lugar?: string }
+      lugar?: string;
+      /** «IR A UN PASO» (21/11, la revisión): empieza en este paso (su índice), con sus tarjetas y sin el video (el video sigue los pasos
+       *  desde el primero). */
+      desde?: number }
   /** Un video que se estaba viendo en su lugar y salió de la vista (o se navegó): sigue flotando abajo a la derecha, desde `desde`. */
   | { tipo: 'video'; id: number; clave: string; titulo: string; desde: number;
       /** Al terminar en la esquina, o al cerrarlo con su X (20/11, D1-03: la marca de Offer Coach del día 1 sale igual). */
@@ -48,22 +51,31 @@ const oyentes = new Set<() => void>();
 const avisar = () => { for (const f of oyentes) f(); };
 
 /** El tutorial de una pestaña. Reemplaza lo que hubiera (una cosa por vez). */
-export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m: MotivoFin) => void; video?: string; directo?: boolean; alTocar?: (sel: string) => void; lugar?: string }): void {
-  actual = { tipo: 'tutorial', id: ++n, tutorial, alTerminar: o?.alTerminar, ...(o?.video ? { video: o.video } : {}), ...(o?.directo ? { directo: true } : {}), ...(o?.alTocar ? { alTocar: o.alTocar } : {}), ...(o?.lugar ? { lugar: o.lugar } : {}) };
+export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m: MotivoFin) => void; video?: string; directo?: boolean; alTocar?: (sel: string) => void; lugar?: string; desde?: number }): void {
+  actual = { tipo: 'tutorial', id: ++n, tutorial, alTerminar: o?.alTerminar, ...(o?.video ? { video: o.video } : {}), ...(o?.directo ? { directo: true } : {}), ...(o?.alTocar ? { alTocar: o.alTocar } : {}), ...(o?.lugar ? { lugar: o.lugar } : {}), ...(o?.desde ? { desde: o.desde } : {}) };
   avisar();
 }
 
 /**
  * EL VIDEO SIEMPRE A LA VISTA (Martín, 18/11: «si estoy viendo el tutorial y me voy a otro lugar… que aparezca la vista previa
  * chiquitita abajo a la derecha, o si scrolleo en el chat y queda muy arriba… que aparezca también ahí abajito»). Un video que
- * corría en su lugar y salió de la vista sigue aquí, desde donde iba. No pisa un tutorial en curso.
+ * corría en su lugar y salió de la vista sigue aquí, desde donde iba. No pisa un tutorial en curso. Devuelve si pasó a la esquina.
  */
-export function reproducirFlotante(clave: string, titulo: string, desde: number, alTerminar?: (m: MotivoFin) => void): void {
-  if (actual && actual.tipo !== 'video') return;
+export function reproducirFlotante(clave: string, titulo: string, desde: number, alTerminar?: (m: MotivoFin) => void): boolean {
+  if (!cedeAlFlotante(actual)) return false;
   actual = { tipo: 'video', id: ++n, clave, titulo, desde, ...(alTerminar ? { alTerminar } : {}) };
   tiempoFlotante = desde;
   avisar();
+  return true;
 }
+
+/**
+ * ¿Lo de ahora le deja el lugar a un video que pasa a la esquina? (20/11/2026, Martín: «el video se reproduce EN el chat», y pasa a la
+ * esquina cuando su mensaje sale de la vista.) La marca de una frase del video (`libre`, VideoDelMomento con `marcarFrases`) y un
+ * «dale play» (`invita`) sí: son del video, y con ellas puesto el video quedaba pausado en el chat y en ningún lado. Una tarea (la fila
+ * de Offer Coach, «Muéstrame…») o un recorrido, no: no se pisan, y el video sigue en el chat (./useVideoQueFlota.ts).
+ */
+export const cedeAlFlotante = (s: Senal | null): boolean => !s || s.tipo === 'video' || (s.tipo === 'marca' && (!!s.libre || !!s.invita));
 
 /**
  * Un solo lugar donde tocar. `alHacer` corre cuando la persona toca lo marcado. Con `listo`, la tarjeta lleva ese botón

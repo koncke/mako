@@ -60,7 +60,7 @@ test('3. la ruta: con `yaVerificado` en el V2 marca `telefonoYa` y NO escribe «
   assert.match(ruta, /telefonoYa: yaEnElV2 \? true : undefined \}\);/);
   assert.match(ruta, /if \(r\.yaVerificado && !yaEnElV2\) await anotarRespuesta\(\{ \.\.\.e, telefono: 'verificado', telefonoNumero: `\+\$\{digitos\}` \}, h, CODIGO_CARGADO, confirmado\);/);
   assert.equal((ruta.match(/telefonoEntrante: undefined, telefonoYa: undefined/g) ?? []).length, 2, '«Cambiar número» y «Usar otro número»');
-  assert.match(sinComentarios(leer('lib/onboarding-arranque.ts')), /CAMBIAR_NUMERO\) return \{ ok: true, patch: \{[^}]*telefonoYa: undefined \} \}/);
+  assert.match(sinComentarios(leer('lib/onboarding-arranque.ts')), /CAMBIAR_NUMERO\) return \{ ok: true, patch: \{[^}]*telefonoYa: undefined(?:, simulacion: undefined)? \} \}/);
 });
 
 test('4. la tarjeta del contacto queda en la conversación (no sólo en el último mensaje), con «Guardar contacto»', () => {

@@ -423,9 +423,9 @@ test('CABLEADO: el setting no se hereda del dueño — se lee con el workspace_i
   assert.match(b, /\.eq\('workspace_id', ws\)\.eq\('key', KEY_RECORDATORIO\)/);
   assert.doesNotMatch(b, /getSetting\(/, 'getSetting lee el contexto y fuera de uno cae al dueño');
   assert.match(b, /if \(error\) throw/, '«no pude leer» no es «apagado»');
-  // Y los dos caminos que COPIAN settings del dueño a otro workspace (clonar la configuración,
-  // traer los datos de Mau) no lo pueden llevar: le prenderían el recordatorio a otro negocio.
-  for (const r of ['lib/clonar-config.ts', 'lib/datos-mau.ts']) {
+  // Y el camino que COPIA settings del dueño a otro workspace (clonar la configuración; el de los datos de Mau se borró el 21/11)
+  // no lo puede llevar: le prendería el recordatorio a otro negocio.
+  for (const r of ['lib/clonar-config.ts']) {
     assert.doesNotMatch(sinComentarios(leer(r)), /automations\.recordatorio_reunion|KEY_RECORDATORIO/, `${r} copiaría el interruptor de otro negocio`);
   }
 });

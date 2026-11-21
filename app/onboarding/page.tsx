@@ -19,7 +19,8 @@ import { redirect } from 'next/navigation';
 // entera en producción el 29/09/2026. Ver app/onboarding/tabs-catalogo.ts.
 import { destinoDeTabVieja } from './tabs-catalogo';
 import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
-import { getUsuarioActual } from '@/lib/auth';
+import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
+import { puedeVerLaRevision } from '@/lib/onboarding-v2/saltar';
 import { veOnboardingV2, esRevision } from '@/lib/onboarding-v2/revision';
 import { esTelefono } from '@/lib/movil-guard';
 import { ChatArranque, SeguirEnPc } from './ChatArranque';
@@ -73,10 +74,12 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     // cliente; lib/seguir-en-pc.ts → personaDelOnboarding): con él va «Te mandamos el link a…» y lo que la pantalla recuerda por persona.
     // El dueño o nadie (`emailDelOnboarding`): mirando como administrador, nunca el correo del administrador.
     const persona = sesion ? { nombre: (sesion.nombre ?? '').trim().split(/\s+/)[0] ?? '', email: await emailDelOnboarding() } : undefined;
+    // LA REVISIÓN (20/11/2026): las respuestas de ejemplo, SÓLO con alguien de MaKo en un negocio de prueba (lib/onboarding-v2/saltar.ts).
+    const adminDeMaKo = !!(await getSesionAdmin().catch(() => null));
     const ws = await getWorkspaceActual();
     // EL ONBOARDING V2 (19/11/2026): el de la maqueta (./ChatArranqueV2.tsx). Con la guardia puesta, la pantalla de siempre (su aviso).
     if (vista.v2 && !vista.bloqueo) {
-      return <ChatArranqueV2 inicial={vista} key={`ws-${ws ?? 'ninguno'}`} seguirEnPc={seguirEnPc} persona={persona} />;
+      return <ChatArranqueV2 inicial={vista} key={`ws-${ws ?? 'ninguno'}`} seguirEnPc={seguirEnPc} persona={persona} ejemplos={puedeVerLaRevision({ ws, admin: adminDeMaKo })} />;
     }
     return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} seguirEnPc={seguirEnPc} persona={persona} videos={v2 ? { revision: esRevision(v2, sesion?.email) } : null} />;
   }

@@ -13,10 +13,11 @@ import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { leerDeBinanceDirecto } from '@/lib/binance-pay-directo';
 
-// El literal, no la constante REGION_DE_BINANCE: Next lo lee del archivo sin evaluarlo. El test exige que sean iguales.
-// ⚠️ ES LA ÚNICA FUNCIÓN FUERA DE pdx1 (tests/region-funciones.test.ts, EXCEPCIONES): las demás corren al lado de la base. Ésta no toca la
-// base: carga sólo el secreto del cron y lib/binance-pay-directo.ts (tests/binance-pay-region.test.ts lo fija).
-export const preferredRegion = 'gru1';
+// ⚠️ LA REGIÓN LA PONE vercel.json (`functions["app/api/cron/binance-pagos/route.ts"].regions = ["gru1"]`), NO un export de este archivo:
+// la primera versión la pedía con el export de Next y Vercel la IGNORÓ (medido el 21/11 en los request-logs: los crons de las 00:17 y las
+// 00:47 UTC corrieron esta ruta en pdx1 y Binance contestó 451). Es la ÚNICA función fuera de pdx1 (tests/region-funciones.test.ts,
+// EXCEPCIONES): las demás corren al lado de la base. Ésta no toca la base: carga sólo el secreto del cron y lib/binance-pay-directo.ts
+// (tests/binance-pay-region.test.ts lo fija).
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
