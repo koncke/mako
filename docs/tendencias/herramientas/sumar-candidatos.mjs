@@ -8,7 +8,7 @@ const norm = (s) => (s || '').toLowerCase().replace(/^@/, '').trim();
 const ya = new Set(base.flatMap((r) => [norm(r.instagram), norm(r.youtube)]).filter(Boolean));
 const SECTOR = (c) => {
   const s = (c.sector || '').toLowerCase(), sub = (c.subsector || '').toLowerCase();
-  if (s.startsWith('ia') || sub) {
+  if (s.startsWith('ia') || (!s && sub)) {
     if (/edici/.test(sub)) return 'IA · Edición con IA';
     if (/carrusel|diseñ/.test(sub)) return 'IA · Carruseles con IA';
     if (/avatar|video/.test(sub)) return 'IA · Avatares y video con IA';
@@ -26,16 +26,23 @@ const SECTOR = (c) => {
 };
 const slug = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
 const extra = [], descartados = [];
+const porHandle = {};
+// Descartados a mano (21/11): identidad sin confirmar, cuentas muy chicas o fuera de tema, o mejor ubicados en otro sector.
+const DESCARTAR = new Set(["Anuncios|Pol Corominas", "Anuncios|Susan Gorbina", "Anuncios|Santi García Mentor", "Closing y ventas|Gallo (¿Gallo Reyna? sin confirmar)",
+  "High ticket|Mauro Clemente", "IA · Agentes y setters con IA|Soy Dalto (Lucas Dalto)", "Low ticket|Lu Villalobos mkt", "Low ticket|Joshua Camacho", "YouTube|Esteban Quiroga"]);
 for (const f of fs.readdirSync(DIR).filter((x) => /^candidatos-.*\.json$/.test(x))) {
   for (const c of JSON.parse(fs.readFileSync(`${DIR}/${f}`, 'utf8'))) {
     const ig = norm(c.instagram), y = c.youtube && /^@/.test(c.youtube.trim()) ? c.youtube.trim() : null;
     const sector = SECTOR(c);
+    if (DESCARTAR.has(`${sector}|${c.nombre}`)) { descartados.push(`${c.nombre} (a mano)`); continue; }
+    const previo = (ig && porHandle[ig]) || (y && porHandle[norm(y)]);
+    if (previo) { if (!previo.sectores.includes(sector)) previo.sectores.push(sector); continue; }
     const ytActivo = y && yt[y]?.ok && (yt[y].en90 || 0) > 0;
     const motivo = !sector ? 'sin sector' : (ig && ya.has(ig)) || (y && ya.has(norm(y))) ? 'ya está' : !ig && !ytActivo ? 'sin Instagram ni YouTube activo'
       : c.confianza === 'baja' && !ytActivo ? 'confianza baja' : null;
     if (motivo) { descartados.push(`${c.nombre} (${motivo})`); continue; }
-    if (ig) ya.add(ig); if (y) ya.add(norm(y));
-    extra.push({ clave: slug(c.nombre), nombre: c.nombre, instagram: ig || null, youtube: y, sectores: [sector], nota: `ronda 2: ${c.por_que || ''}`.slice(0, 140) });
+        const x = { clave: slug(c.nombre), nombre: c.nombre, instagram: ig || null, youtube: y, sectores: [sector], nota: `ronda 2: ${c.por_que || ''}`.slice(0, 140) };
+    extra.push(x); if (ig) porHandle[ig] = x; if (y) porHandle[norm(y)] = x;
   }
 }
 fs.writeFileSync(`${DIR}/referentes-extra.json`, JSON.stringify(extra, null, 1));
