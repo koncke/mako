@@ -64,7 +64,8 @@ const enLaBarra = (ruta: string, nombre: string, texto: string): MarcaReto => ({
 export const RETO_TITULO = 'Reto de 7 días';
 /** Martín, 18/11, textual. */
 export const RETO_SUB = 'Cada día un video para que avances con tu negocio. Puedes adelantar días cuando quieras.';
-export const RETO_HOLA = (nombre: string) => `¡Hola${nombre ? `, ${nombre}` : ''}! Éste es tu reto de 7 días. ${RETO_SUB}`;
+/** Sin otro saludo (21/11, Martín: «no quiero que le salude de vuelta, ya le saludó como 5 veces»): lo saludó la llegada. «Este», sin tilde. */
+export const RETO_HOLA = (_nombre: string) => `Este es tu reto de 7 días. ${RETO_SUB}`;
 
 /** «En X › Y»: la ruta va aparte para que empiece por la tab de la barra (tests/mako-nombres-de-tabs.test.ts). */
 const en = (ruta: string): string => `En ${ruta}`;
@@ -259,7 +260,8 @@ export const muestrasDe = (intereses: readonly string[] | null | undefined): Mue
   [...new Set(intereses ?? [])].map((i) => MUESTRA_DE_INTERES[i]).filter((m): m is MuestraReto => !!m).slice(0, 3);
 const enLista = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
 export const RETO_EMPEZAR_DIA1 = 'Empezar mi día 1';
-export const RETO_INTERES_YA = (ms: readonly MuestraReto[]) => `Me dijiste que lo primero que quieres es ${enLista(ms.map((m) => m.hacer))}. ¿Te muestro cómo hacerlo ahora, o empezamos tu día 1? Si lo resuelves primero, no te preocupes: tu reto te espera aquí.`;
+// Con formato (21/11/2026, Martín: «es un bloque largo»): las cosas en viñetas y lo clave en negrita (el globo lo dibuja con Markdown).
+export const RETO_INTERES_YA = (ms: readonly MuestraReto[]) => `Me dijiste que lo primero que quieres es:\n${ms.map((m) => `- **${m.hacer}**`).join('\n')}\n\n¿Te muestro cómo hacerlo ahora, o empezamos tu **día 1**? Si lo resuelves primero, no te preocupes: tu reto te espera aquí.`;
 export const RETO_MUESTRA = (m: MuestraReto) => `Te muestro dónde ${m.hacer}, en ${m.nombre}. Dale play.`;
 // La maqueta dice «Cuando quieras lo armamos juntos»: «juntos» marca género (la regla de los textos neutros).
 export const RETO_MUESTRA_FIN = (m: MuestraReto) => `Listo: ya sabes dónde ${m.hacer}. Cuando quieras, lo armamos; tu reto te espera.`;

@@ -187,7 +187,7 @@ test('lo tocado durante el video del día cuenta como hecho: la tarea cuya últi
   assert.doesNotMatch(chat, /accion: 'hecha'/, 'el chat del reto nunca marca «hecha» por un toque');
   // 20/11 (D1-03, d24-09 y R57-12): nada se marca solo a los 0,9 s; lo que falta, al terminar o cerrar el video del día.
   assert.ok(!chat.includes('}, 900)'), 'sin la marca automática a los 900 ms');
-  assert.ok(chat.includes('alTerminar: () => o.alTerminar?.()') && chat.includes('{ alTocar: onTocado, alTerminar: onFin }') && chat.includes('onTermina={alFin} onTerminaFuera={alFin}'), 'la marca de lo que falta sale al terminar el video (también en la esquina: D1-03)');
+  assert.ok(chat.includes('alTerminar: () => avisos.alTerminar?.()') && chat.includes('{ alTocar: onTocado, alTerminar: onFin }') && chat.includes('onTermina={alFin} onTerminaFuera={alFin}'), 'la marca de lo que falta sale al terminar el video (también en la esquina: D1-03)');
   assert.ok(chat.includes("marcarTarea(marcasDeLaTarea(t), dejaParaDespues(t) ? dejar : () => { void leer(); }, n === 1 ? undefined : dejar);"), 'el día 1 sin «Lo hago después» (F1)');
   assert.match(chat, /¡Hiciste todo lo del día \{dia\.n\}!/, 'con todo hecho, la felicita y pasa a WhatsApp');
 });
@@ -225,7 +225,7 @@ test('«¿Qué hacemos ahora?»: lo elegido en el onboarding, con su «Muéstram
   const { muestrasDe, RETO_INTERES_YA, RETO_MUESTRA, RETO_MUESTRA_FIN } = await import('../lib/reto/dias');
   const ms = muestrasDe(['Armar mi landing', 'Videos con IA y con mi avatar', 'Armar mi landing', 'algo raro', 'Ordenar mis ventas en un CRM', 'Ver mis números en un tablero']);
   assert.deepEqual(ms.map((m) => m.pestana), ['web', 'video', 'crm'], 'sin repetir, sin lo desconocido, hasta 3; el avatar va a Video');
-  assert.equal(RETO_INTERES_YA(ms), 'Me dijiste que lo primero que quieres es armar tu landing, hacer tus videos con IA y ordenar tus ventas en el CRM. ¿Te muestro cómo hacerlo ahora, o empezamos tu día 1? Si lo resuelves primero, no te preocupes: tu reto te espera aquí.');
+  assert.equal(RETO_INTERES_YA(ms), 'Me dijiste que lo primero que quieres es:\n- **armar tu landing**\n- **hacer tus videos con IA**\n- **ordenar tus ventas en el CRM**\n\n¿Te muestro cómo hacerlo ahora, o empezamos tu **día 1**? Si lo resuelves primero, no te preocupes: tu reto te espera aquí.');
   assert.equal(RETO_MUESTRA(ms[0]), 'Te muestro dónde armar tu landing, en Web Generator. Dale play.');
   assert.doesNotMatch(RETO_MUESTRA_FIN(ms[0]), /juntos/, 'neutro en género');
   const { INTERESES_V2 } = await import('../lib/onboarding-arranque');
@@ -242,7 +242,7 @@ test('«¿Qué hacemos ahora?»: lo elegido en el onboarding, con su «Muéstram
 test('el desplegable del reto: «El reto de 7 días de MaKo», el video de cada día abierto, el ícono y la flecha (20/11, V2, D1-17, R57-F6)', () => {
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(chat.includes("const RETO_TITULO_DESPLEGABLE = 'El reto de 7 días de MaKo';") && chat.includes('{RETO_TITULO_DESPLEGABLE}</p>'), 'el título de la maqueta');
-  assert.ok(chat.includes('{!futuro && <VideoEnElMenu dia={dia} hoy={dia.n === actual} />}'), 'cada día abierto o hecho, con su video');
+  assert.ok(chat.includes('{!futuro && <VideoEnElMenu dia={dia} hoy={dia.n === actual} alElegir={cerrarMenu} />}'), 'cada día abierto o hecho, con su video');
   assert.ok(chat.includes('adelántalo al terminar el día de hoy'), 'el texto de la maqueta');
   assert.ok(chat.includes('className="rt-btn__ico"') && chat.includes('className="rt-btn__flecha"'), 'el ícono de la lista y la flecha');
 });
@@ -384,7 +384,7 @@ test('cada día abre con el velo y MaKo escribiendo, y su video con «dale play�
   assert.ok(chat.includes("const fase = useEntrada(delReto(`reto-dia-${dia.n}`), hoy && nuevo);") && chat.includes('<EntradaEscribiendo foto='), 'la entrada del motor (no una propia)');
   assert.ok(chat.includes('useDalePlay(raiz, {') && chat.includes('dalePlay={dalePlay && !visto} />'), 'el «dale play» del motor, en los dos videos');
   assert.ok(!chat.includes('<video ref='), 'sin el reproductor del navegador (V14)');
-  assert.ok(chat.indexOf('<TarjetaHora p={p}') > 0 && chat.indexOf('<TarjetaHora p={p}') < chat.indexOf('<Burbuja><p>{RETO_D2_PERFIL}</p></Burbuja>'), 'la hora antes del perfil');
+  assert.ok(chat.indexOf('<TarjetaHora p={p}') > 0 && chat.indexOf('<TarjetaHora p={p}') < chat.indexOf('<Burbuja><Markdown text={RETO_D2_PERFIL} /></Burbuja>'), 'la hora antes del perfil');
   assert.ok(chat.includes("const ultimo = dia.n === 2 ? dia.tareas.find((t) => t.id === 'perfil') : undefined;"), 'el perfil sale de la tarjeta del día 2');
 });
 
@@ -567,7 +567,7 @@ test('tanda 8 (20/11): el cierre del reto con el piloto y lo pendiente (R57-08),
   assert.ok(chat.includes('<span className="rt-tarea__de">Del día {n} · </span>'), 'con «Del día N»');
   assert.ok(chat.includes("void hacer({ accion: 'despues', dia: n, id: t.id })"), '«Lo hago después» se guarda en SU día');
   // f24-07
-  const iVideo = chat.indexOf('<VideoDelDia dia={dia} onTocado={onTocadoEnVideo}'), iMsj = chat.indexOf('<p className="rt-dia__msj">{dia.mensaje}</p>');
+  const iVideo = chat.indexOf('<VideoDelDia dia={dia} onTocado={onTocadoEnVideo}'), iMsj = chat.indexOf('<div className="rt-dia__msj"><Markdown text={dia.mensaje} /></div>');
   assert.ok(iVideo > 0 && iVideo < iMsj, 'el video arriba y el texto abajo');
   assert.ok(chat.includes('<Burbuja ancho hora={dia.n > 1 ? hora : null}>'), 'con la hora del mensaje desde el día 2');
 });
@@ -580,7 +580,7 @@ test('d24-08 (20/11): el día 2 de hoy va en pasos, de a uno y con su mensaje; u
   assert.ok(chat.includes('const pasos2 = dia.n === 2 && hoy;'), 'sólo el día 2 de HOY');
   assert.ok(chat.includes("const enLaTarjeta = pasos2 ? primeras.filter((t) => t.id === 'app') :"), 'la tarjeta del día empieza sólo con la app');
   assert.ok(enDia.includes("if (pasos2 && llega2(1) && tarea('extension')) poner('ext', RETO_D2_EXT, true);") && chat.includes("{sale('ext') && tarea2('extension') && ("), 'la extensión, en su paso');
-  assert.ok(chat.includes('<Burbuja><p>{RETO_D2_EXT}</p></Burbuja>'), 'con su mensaje');
+  assert.ok(chat.includes('<Burbuja><Markdown text={RETO_D2_EXT} /></Burbuja>'), 'con su mensaje');
   assert.ok(enDia.includes('if (perfil && llega2(3) && (') && chat.includes("{ultimo && sale('perfil') && ("), 'el perfil, recién con los tres primeros listos');
   assert.ok(chat.includes('const deAUna = hoy && (dia.n === 3 || dia.n === 4);') && chat.includes(': deAUna && iSigue >= 0 ? primeras.slice(0, iSigue + 1) : primeras;'), 'los días 3 y 4 de hoy, de a una tarea');
 });
@@ -657,7 +657,7 @@ test('d24-22 (20/11): el reto es un proyecto del Plan, con una tarea por día qu
   // El final del día 3 lo cuenta y marca Plan, sólo con el proyecto creado.
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(chat.includes('const enElPlan3 = termino && actual?.n === 3 && !!e?.enElPlan;'), 'sólo con el proyecto creado');
-  assert.ok(chat.includes("{dia.n === 3 && !!e.enElPlan && verFin('plan') && <Burbuja><p>{RETO_EN_TU_PLAN}</p></Burbuja>}"));
+  assert.ok(chat.includes("{dia.n === 3 && !!e.enElPlan && verFin('plan') && <Burbuja><Markdown text={RETO_EN_TU_PLAN} /></Burbuja>}"));
   assert.equal(RETO_EN_TU_PLAN, 'Tu reto también está en tu Plan: cada día se cierra solo cuando leo que lo hiciste.');
   assert.ok(chat.includes("const MARCA_PLAN: MarcaReto = { sel: 'aside[data-sidebar] a[href^=\"/plan\"]'"), 'marca Plan en la barra');
 });
@@ -724,7 +724,7 @@ test('verificación 20/11: el día de hoy, uno a la vez (d24-08, R57-15); sin «
   assert.ok(chat.includes('{esLaQueToca && onDespuesDe && <button type="button" className="rt-tarea__luego" onClick={() => onDespuesDe(n, t.id)}>Lo hago después</button>}'), '«Lo hago después» en la que toca');
   assert.ok(chat.includes('{ico && <span className="rt-tarea__ico" aria-hidden><Icon name={ico} size={16} /></span>}'), 'el ícono de su pestaña');
   assert.ok(fuente('../lib/reto/en-el-dia.ts').includes("if (perfil && llega2(3) && (!pasos2 || !!e.horaWa || tareaDespues(e, 2, 'hora'))) poner('perfil', RETO_D2_PERFIL, true);"), 'el perfil, después de la hora');
-  assert.ok(chat.includes('{esperaApp && hoy && qrDeAntes && <Burbuja><p>{RETO_D2_RECORDATORIO}</p></Burbuja>}'), 'el recordatorio del QR (d24-07)');
+  assert.ok(chat.includes('{esperaApp && hoy && qrDeAntes && <Burbuja><Markdown text={RETO_D2_RECORDATORIO} /></Burbuja>}'), 'el recordatorio del QR (d24-07)');
 });
 
 test('verificación 20/11: lo visto se recuerda por día; el desplegable, el pin, la caja y «Completo» (d24-11, V2, D1-08, D1-17, d24-17, R57-08)', () => {
@@ -732,7 +732,7 @@ test('verificación 20/11: lo visto se recuerda por día; el desplegable, el pin
   assert.ok(chat.includes('const [nuevo] = useState(() => !yaVisto(`entrada:${dia.n}`));'), 'la entrada, la primera vez');
   assert.ok(chat.includes('activo: dalePlay && conMarcas && !visto'), 'el «dale play», mientras no se vio');
   assert.ok(chat.includes("if (hoy && !visto) return <p className=\"rt-menu__luego\">Su video sale cuando lo abres.</p>;"));
-  assert.ok(chat.includes('onClick={() => verVideoDelDia(dia, conMarcas, titulo)}'), 'el del día 1, sin la cadena de marcas');
+  assert.ok(chat.includes('onClick={() => { alElegir?.(); verVideoDelDia(dia, conMarcas, titulo); }}'), 'el del día 1, sin la cadena de marcas');
   assert.ok(chat.includes("actual === 7 && diaTerminado(d.estado, diasDelReto(d.funnel, d.integraciones)[6])) ? 'Completo'"), '«Completo» al cerrar el día 7');
   assert.ok(chat.includes('<svg className="rt-menu__flecha"') && chat.includes('<PinDelReto dias='), 'la flecha de cada fila y el pin');
   assert.ok(chat.includes('const quienMako = useMemo(() => ({ nombre: RETO_TITULO, aspecto: ASPECTO_RETO }), []);'), '«Escribe a Reto de 7 días», con el avatar del reto');

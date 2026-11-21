@@ -26,7 +26,7 @@ import { useRecorrido } from '@/app/_ui/Recorrido';
 import { marcarVistoEnEnsayo, useEnsayo, vistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
 import { chatPresentaRecorrido, mostrarTutorial, senalAhora, terminar, useSenal } from '@/app/_ui/tutorial/store';
 import { CSS_REPRODUCTOR } from '@/app/_ui/tutorial/VideoDelMomento';
-import { esconderLaBarra } from '@/app/_ui/tutorial/barra-oculta';
+import { esconderLaBarra, mostrarLaBarra } from '@/app/_ui/tutorial/barra-oculta';
 import { avisarMensajeNuevo } from '@/app/_chat/useBajarAlUltimo';
 import { msEscribiendo } from '@/app/_chat/useColaDeSalida';
 import { barrer } from '@/app/_ui/tutorial/iris';
@@ -37,6 +37,7 @@ import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ASPECTO_RETO } from '@/lib/centro-munecos';
 import { Icon } from '@/app/_components/icons';
+import { Markdown } from '@/app/_components/Markdown';
 import { ID_RECORRIDO, textoLlegada } from '@/lib/onboarding-v2/llegada';
 
 const menosMovimiento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -122,9 +123,10 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
     const hiloDe = fila.current?.closest('.co-hilo') ?? null;
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
     if (hiloDe) { ro?.observe(hiloDe); for (const c of Array.from(hiloDe.children)) ro?.observe(c); }
-    hiloDe?.addEventListener('scroll', medir, { passive: true });
+    // Cualquier scroll (21/11, producción: el hueco quedaba arriba a la izquierda): el que mueve el hilo puede ser otro contenedor.
+    document.addEventListener('scroll', medir, { capture: true, passive: true });
     window.addEventListener('resize', medir);
-    return () => { ro?.disconnect(); hiloDe?.removeEventListener('scroll', medir); window.removeEventListener('resize', medir); };
+    return () => { ro?.disconnect(); document.removeEventListener('scroll', medir, { capture: true }); window.removeEventListener('resize', medir); };
   }, [fase]);
 
   // EL VELO ENTRA CON EL BARRIDO (OD-F2: la maqueta, b-entra pasa por `iris()`). El velo es la sombra de un hueco con la forma de la
@@ -161,7 +163,10 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
     const el = imgPoster.current;
     if (poster && el?.complete && el.naturalWidth > 0) setPosterCargado(poster);
   }, [poster, fase]);
-  useDalePlay(play, { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado({ poster, posterCargado }) });
+  // Su X (20/11/2026, el inventario de botones): cerraba la invitación para siempre y el reto quedaba FRENADO, con el recorrido sin ver y
+  // la barra escondida. Ahora es «Omitir recorrido»: queda visto y la barra vuelve.
+  useDalePlay(play, { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado({ poster, posterCargado }),
+    alCerrar: () => { mostrarLaBarra(); alTerminar('omitido'); } });
   // ¿Corre el recorrido? Mientras corre, su video lo dibuja el motor ENCIMA de este lugar (o en la esquina, si el mensaje no se ve).
   const senal = useSenal();
   const corre = senal?.tipo === 'tutorial' && senal.tutorial === TUTORIAL_RECORRIDO;
@@ -207,7 +212,7 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
               </div>
               {/* Con el video en el mensaje, el motor no muestra «Omitir recorrido» entre paso y paso (sólo en la esquina): va aquí. */}
               {corre && senal && <button type="button" className="sbl-omitir" onClick={() => terminar(senal.id, 'omitido')}>Omitir recorrido</button>}
-              <div className="ch-md"><p>{textoLlegada(nombre)}</p></div>
+              <div className="ch-md"><Markdown text={textoLlegada(nombre)} /></div>
             </div>
           </div>
         </div>

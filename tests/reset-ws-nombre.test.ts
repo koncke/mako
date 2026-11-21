@@ -26,8 +26,8 @@ test('el RESET deja a su gente de cero: sin la foto, el nombre ni el perfil que 
   // `copiarPerfilDelDueno` (lib/datos-mau.ts), con un recibo DENTRO de app_settings que el RESET borraba. Roturas
   // (romper-reset-gente.js; base 2/0): sin borrar la foto → 1/1 · sin los campos de perfil copiados → 1/1.
   const src = leer('lib/reset-workspace.ts');
-  assert.match(src, /import \{ PERFIL_EXTRA \} from '\.\/datos-mau';/, 'los campos que copia «Datos de Mau» salen de UNA lista');
+  // «Datos de Mau» se borró el 21/11: la lista de los campos que copiaba vive con el RESET, que se los sigue sacando a los negocios de antes.
+  assert.match(src, /export const PERFIL_EXTRA = \[/, 'los campos copiados salen de UNA lista');
   assert.match(src, /for \(const k of PERFIL_EXTRA\) delete perfil\[k\];/);
   assert.match(src, /\.update\(\{ nombre: NOMBRE_WS_PRUEBA, foto_url: null, perfil \}\)\.eq\('id', u\.id\)\.eq\('workspace_id', ws\)/, 'la foto de Mauricio sobrevive al RESET');
-  assert.match(leer('lib/datos-mau.ts'), /export const PERFIL_EXTRA = \[/);
 });

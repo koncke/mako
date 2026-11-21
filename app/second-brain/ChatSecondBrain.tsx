@@ -67,6 +67,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useRouter } from '@/app/_ui/Link';
 import { Modal, Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
@@ -121,6 +122,7 @@ import { PREVIA_DEL_FUNNEL_COACH_V2, previaDelCoach, previaDelOfferCoach } from 
 import { ASPECTO_FUNNEL_COACH_V2 } from './useChatDelCoach';
 import { usePasoAlFunnel } from './reto/usePasoAlFunnel';
 import { useVueltaAlReto } from './reto/useVueltaAlReto';
+import type { LoQueSabe } from '@/lib/onboarding-v2/brain-del-recorrido';
 import { MensajeVueltaAlReto } from './reto/MensajeVueltaAlReto';
 
 /** Cuántas filas se ven debajo del Cerebro antes de «Mostrar N más». */
@@ -189,7 +191,13 @@ type Props = {
   soloLectura?: boolean;
   /** El primer nombre de la persona, para el saludo del reto. */
   nombrePersona?: string;
+  /** Lo que MaKo sabe de la persona (onboarding V2): el Second Brain del recorrido, sobre el grafo. */
+  loQueSabe?: LoQueSabe | null;
 };
+
+// EL SECOND BRAIN DEL RECORRIDO (21/11): la animación de la maqueta sobre el grafo, mientras corre el recorrido. Trae el cerebro de la
+// portada en corto (28 KB): va aparte, y se pide antes (abajo) para que esté al abrirse el grafo.
+const BrainDelRecorrido = dynamic(() => import('./BrainDelRecorrido').then((m) => m.BrainDelRecorrido), { ssr: false });
 
 /** Los videos del chat «Onboarding» (20/11, V9): para volver a verlos terminado el onboarding (el ícono de videos de su cabecera). */
 // El recorrido, con sus marcas (20/11, la verificación de V9): el motor lo pasa como la primera vez.
@@ -225,7 +233,9 @@ const urlPelada = (e: Elegido | null): boolean => !!e && ('id' in e || 'offer' i
 /** El chat de Claude Code de entrada: el Cerebro (va primero) o el primero que puede recibir. */
 const centroDeEntrada = (k: Centro): string | null => (k.chats.find((c) => c.sesion) ?? k.chats[0])?.clave ?? null;
 
-function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, coachInicial = null, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', retoV2 = false, dosCoaches = false, retoInicial = false, nombrePersona = '', hiloOnboarding = null, soloLectura = false }: Omit<Props, 'centro'> & { centro: Centro | null }) {
+function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, coachInicial = null, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', retoV2 = false, dosCoaches = false, retoInicial = false, nombrePersona = '', loQueSabe = null, hiloOnboarding = null, soloLectura = false }: Omit<Props, 'centro'> & { centro: Centro | null }) {
+  // El Second Brain del recorrido se pide ya: al tocar «Second Brain» en el recorrido tiene que estar.
+  useEffect(() => { if (retoV2 && loQueSabe) void import('./BrainDelRecorrido'); }, [retoV2, loQueSabe]);
   // `?coach=offer` sin los dos coaches es el coach único: un link de la revisión no abre un chat que esta persona no tiene.
   const coachDeEntrada: CoachDelOps | null = coachInicial === 'offer' && !dosCoaches ? 'funnel' : coachInicial;
   const router = useRouter();
@@ -725,6 +735,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           {mapa
             ? <VolverDelGrafo.Provider value={() => { setConChat(false); setYendo('fuera'); router.push(hrefVolver); }}>{mapa}</VolverDelGrafo.Provider>
             : <CargandoMako que="tu Second Brain" alto="100%" />}
+          {/* La primera vez, en el recorrido: el Second Brain de la portada que se apaga hasta lo que MaKo sabe (BrainDelRecorrido.tsx). */}
+          {mapa && retoV2 && loQueSabe && <BrainDelRecorrido sabe={loQueSabe} />}
         </section>
       ) : enOtroChat ? null : centro && nuevoCentro ? (
         // Un chat NUEVO de Claude Code: vacío, con su caja; con el primer mensaje, MaKo decide dónde va (ChatNuevo.tsx).
@@ -782,7 +794,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       })}
       {/* El grupo de un negocio (ChatDelGrupo.tsx): su hilo, los avisos y quién está. */}
       {/* Al llegar del onboarding (V2), la marca que lleva al chat del reto (MarcaAlReto.tsx). */}
-      {retoV2 && !reto && <MarcaAlReto empezo={!!datosReto.d?.estado} listo={!!datosReto.d?.ve} />}
+      {retoV2 && !reto && <MarcaAlReto empezo={!!datosReto.d?.estado} listo={!!datosReto.d?.ve} enOtroLado={conCoach || enOtroChat} />}
       {/* El chat del reto (ChatDelReto.tsx): su hilo de cada día y su desplegable. */}
       {retoV2 && reto && !verMapa && !ticketera && (
         <ChatDelReto nombre={nombrePersona} onVolver={() => { setReto(false); setConChat(false); }} />

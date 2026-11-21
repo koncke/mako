@@ -23,6 +23,7 @@ import { esDeBiblioteca } from './biblioteca';
 import { carruselDeLaBiblioteca } from './biblioteca-servidor';
 import { estructuraDe, laminasDesde, notasDe, planDeReferencia } from './referencia';
 import { anunciosDe, type PiezaAnuncio } from './anuncios';
+import { laminasConElCopy, type ParteDelCopy } from './copy-pegado';
 
 /**
  * La publicación `id` como carrusel del explorador: una de las cuentas que sigue el negocio, o (con el id en negativo) una
@@ -57,7 +58,7 @@ export type CreadoDesdeReferencia =
  * `seco`: arma el documento y NO lo guarda (el comando de prueba, scripts/carruseles-probar-editar.mts). Lo que devuelve es
  * lo mismo salvo el `id`, así que quien llama muestra las láminas igual: en seco no se saltea ningún paso del armado.
  */
-export async function crearCarruselDesdeReferencia(ws: number, quien: string, id: number, tipo?: unknown, laminas?: unknown, o: { seco?: boolean } = {}): Promise<CreadoDesdeReferencia> {
+export async function crearCarruselDesdeReferencia(ws: number, quien: string, id: number, tipo?: unknown, laminas?: unknown, o: { seco?: boolean; copy?: readonly ParteDelCopy[] | null } = {}): Promise<CreadoDesdeReferencia> {
   let c: Carrusel | null;
   try { c = await referenciaDelNegocio(id); } catch { return { ok: false, error: 'No pude leer ese carrusel. Vuelve a intentar.', falla: true }; }
   if (!c) return { ok: false, error: 'Ese carrusel no está entre los de las cuentas que sigues ni en la biblioteca de ejemplos.' };
@@ -66,13 +67,18 @@ export async function crearCarruselDesdeReferencia(ws: number, quien: string, id
   if ('error' in plan) return { ok: false, error: plan.error };
   // La marca del negocio (5/11/2026, lib/marca/kits.ts): el kit de por defecto pone sus colores, sus fuentes y su logo.
   const kit = await kitParaUsar().catch(() => null);
+  // ⛔ EL COPY NO NECESITA IA (21/11/2026, la prueba en producción en el ws 3, sin IA conectada): con un copy pegado, cada lámina
+  // lleva SU parte (el primer renglón de título y el resto de cuerpo, con el pie al final), no la guía. Antes salían las guías
+  // («Tu gancho con un número…») y el copy se perdía aunque la pantalla decía que había llegado. Ver ./copy-pegado.ts.
+  const guias = laminasDesde(e, plan.tipo.id, plan.laminas);
+  const conCopy = o.copy?.length ? laminasConElCopy(guias, o.copy) : guias;
   const doc = documentoDeCarrusel({
-    laminas: laminasDesde(e, plan.tipo.id, plan.laminas), estilo: estiloSinSerif(estiloConKit(plan.tipo.estilo, kit, fuenteDelEditorDeImagen), kit),
+    laminas: conCopy, estilo: estiloSinSerif(estiloConKit(plan.tipo.estilo, kit, fuenteDelEditorDeImagen), kit),
     marca: await marcaDelNegocio(ws, kit), nuevoId: randomUUID, notas: notasDe(e),
   });
   const titulo = `Carrusel · ${plan.tipo.nombre}`;
-  if (o.seco) return { ok: true, id: '(seco)', titulo, tipo: plan.tipo.id, laminas: plan.laminas, de: e.de, doc };
+  if (o.seco) return { ok: true, id: '(seco)', titulo, tipo: plan.tipo.id, laminas: conCopy.length, de: e.de, doc };
   const r = await crearDiseno(ws, quien, { titulo, doc });
   if (!r.ok) return { ok: false, error: r.error, falla: true };
-  return { ok: true, id: r.id, titulo, tipo: plan.tipo.id, laminas: plan.laminas, de: e.de, doc };
+  return { ok: true, id: r.id, titulo, tipo: plan.tipo.id, laminas: conCopy.length, de: e.de, doc };
 }

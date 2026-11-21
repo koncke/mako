@@ -5,6 +5,20 @@ para todos los chats de MaKo. Lo que sabe cada pantalla de su chat (su motor, su
 es lo que muerde al montarlas. Qué caja ofrece qué, y la excepción con su porqué: `lib/cajas-de-chat.ts` (el barrido,
 `tests/cajas-de-chat-unificadas.test.ts`). Lo del Ops Center en particular: [hallazgos-operaciones.md](hallazgos-operaciones.md).
 
+## Formato en los mensajes de MaKo: el reto, la llegada y el arranque ponían el texto crudo (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Síntoma** (Martín, en producción): «Me dijiste que lo primero que quieres es hacer tus videos con IA, espiar a tu competencia y
+  armar tus guiones…» era un bloque largo. Pidió negritas, cursivas, subrayado, viñetas y números.
+- **Lo que había:** el parser compartido (app/_components/Markdown.tsx, sin HTML crudo) ya hacía negrita, cursiva, viñetas y números,
+  y los coaches lo usaban (HiloMako). Pero los globos del reto, la llegada y el arranque ponían su texto en un `<p>`: un `**` se hubiera
+  visto crudo. El subrayado no existía.
+- **Ahora:** el parser suma `++subrayado++`, sólo si el texto lo trae: lo demás conserva el DOM de siempre, y los tests que comparan el
+  dibujo no cambian. Los globos del reto, la llegada y el arranque dibujan su texto con él. «Me dijiste que…» va con las cosas en viñetas
+  y lo clave en negrita.
+- **Trampa:** el texto del día del reto (`dia.mensaje`) va también en el CORREO, que es texto plano: no lleva marcas, o se verían
+  crudas ahí. Un texto que sale por más de un lado lleva formato sólo si TODOS sus lados lo dibujan.
+- tests/formato-en-los-globos.test.ts (roto de a una rotura, 4).
+
 ## Un globo con un video era más ancho que su video (20/11/2026, chat «onboarding-v2», claude5)
 
 - **Síntoma** (Martín, en producción): en la llegada al reto, el texto de abajo («Te doy la bienvenida a tu Ops Center…») ensanchaba

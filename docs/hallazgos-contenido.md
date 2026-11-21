@@ -1006,6 +1006,41 @@ elegido en otra lámina, el filtro lo escondía.
 - `estado`: «nuevo» al crearlo; el chat que lo atiende lo pasa a «visto» o «hecho». Se ve como chip.
 - **Trampa:** la capacidad `sample` lee texto e imágenes, no audio. La transcripción de los audios adjuntos la hace el chat
   (faster-whisper en la PC) y la escribe en `transcripcion`. Los comentarios dictados ya llegan como texto.
+
+## La pestaña «Ángulos» (21/11/2026)
+
+- Va después de Carruseles (`#angulos`). Es `docs/series/angulos-de-comunicacion.md` (commit 9fef26253) puesto en tarjetas:
+  la definición arriba; Personal y MaKo en dos columnas con el color de su cuenta; abajo «Todos los caminos llevan a Roma,
+  con tensión», «Qué NO hacer» y «Cómo seguimos», con las 4 preguntas para Martín destacadas en amarillo.
+- El contenido está escrito a mano en la página (`ANG` en `cuerpo.html`), resumido para que entre en cada tarjeta sin
+  achicar la letra. **Si cambia el documento, hay que actualizar `ANG`:** no se lee solo.
+- Cada gancho busca su referencia en Spy por el código de la publicación (`id`, `<cuenta>-<código>` o la `url`). Si la
+  encuentra, muestra la miniatura y, al tocarla, abre la pieza en Spy. Si no, dice «Todavía no está en Spy»: pasa con
+  Dakota, que no está en la colección.
+- Pendiente (pedido para más adelante): etiquetar cada pieza de Spy con su ángulo y filtrar por ángulo.
+- **21/11, más tarde:** Martín rechazó esa propuesta («súper genéricos»). La pestaña muestra «Ángulos en investigación»
+  (`ANG_EN_INVESTIGACION = true`). Las tarjetas y `ANG` quedan guardadas para la versión nueva.
+- **Trampa (ya corregida):** `contar()` usa `S[sec]`, y con `sec = 'angulos'` fallaba. La pestaña quedaba en blanco si se
+  abría directo con `#angulos` (pasó en v49 y v50). Ahora se cuenta antes de cambiar de sección. Toda sección que no está en
+  `S` tiene que evitar las funciones que leen `S[sec]`.
+
+**El reel para mentores high ticket (los pistachos) está en «Reels terminados»** (21/11). No viene de la galería de
+animaciones: va a mano en `armar-cm.mjs` (`reels.push`).
+- **Cuál es la versión vigente:** `montaje/REEL-v-hormozi-palma.mp4` (37,8 s, con el clip de Hormozi aprobado). El relevo
+  del reel todavía dice v6, pero está desactualizado: lo vigente lo registra `docs/relevo/cerebro.md`. En la carpeta hay
+  también una v7 del 9/11 que nunca se mandó.
+- La referencia es el reel de Josep (@tachocream, [DdTdIIPDzHU](https://www.instagram.com/reel/DdTdIIPDzHU/)), que ya
+  estaba en `C:/dev/reel-mentores/josep/josep-reel.mp4`, con su transcripción en `palabras-josep.json`.
+- El Guion técnico de un reel terminado ahora usa `ref.estructura` si la hay (bloques con tiempos), con lo nuestro de cada
+  bloque en `copia`. Si no la hay, sigue mostrando `origen`.
+
+**Cuando el chat de carruseles termina una pieza** (21/11, «9 agentes de IA»): se trae la página de su artefacto
+(`Artifact read`, `path: index.html`) a `content-machine/carruseles/index.html` y se rearma. Al publicar se pasan en `files`
+sólo las imágenes de esa pieza, `carr/<id>/mako-NN.jpg` y `ref-NN.jpg`, como `{artifact, path}`: el servidor las vuelve a
+copiar de la versión actual. Un publish sin `files` deja las copias viejas, porque la copia no se actualiza sola. Después se
+lee una (`Artifact read` con `paths`) para comprobar que es la nueva.
+- **Trampa:** si en la sesión no se leyeron antes las copias ya publicadas, el publish se rechaza («not read as published»)
+  y no sube nada. Se leen primero (`Artifact read` con `paths`) y después se vuelve a publicar.
 - Lo que ya había quedó así: El avión = MaKo · A o B; los tres de Educación = Personal · Educación; Cubos = MaKo · Animados;
   El ticket = Personal · Ventas; Comentarios = MaKo · Comentarios; los 11 carruseles = Personal · Ventas. El dudoso es
   «Ofertas que se venden» (tuits de Hormozi), que podría ser Educación.

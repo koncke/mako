@@ -130,7 +130,9 @@ test('10. los relojes del modo video se limpian al desmontar, y nunca un play() 
   // Ningún play() suelto: todos pasan por `reproducir`, salvo el arranque del modo video y el del VideoChico (cada uno con su
   // reintento en silencio).
   const sueltos = (m.match(/v\.play\(\)/g) ?? []).length;
-  assert.equal(sueltos, 5, `v.play() en el motor: ${sueltos} (reproducir 1, el arranque 2, VideoChico 2)`);
+  // 21/11 (producción): + el arranque DESDE UN PASO del medio (2, igual que el arranque: con sonido y, si no, en silencio), al volver a un
+  // paso con «Atrás» o «Ir a un paso» (tests/revision-pasos-individuales.test.ts).
+  assert.equal(sueltos, 7, `v.play() en el motor: ${sueltos} (reproducir 1, el arranque 2, el arranque desde un paso 2, VideoChico 2)`);
 });
 
 // EL `antes` EN CADENA (20/11; el Cerebro: Chats con canales y el Dashboard con hojas). Probado rompiéndolo: arrancando siempre por el

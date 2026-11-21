@@ -2050,17 +2050,24 @@ con ciclo propio (Leila) manda al grupo de MaKo se aplica SÓLO si el pago está
   El cron del pago sin captura (lib/binance-sin-captura.ts, también del 20/11) lee la misma API y queda igual de ciego.
   **La causa:** vercel.json pone el proyecto entero en `pdx1` (Portland, EE. UU.), y Binance bloquea EE. UU. No era la clave ni la firma: desde la PC
   (Argentina) la misma lectura contesta 200.
-  **El arreglo (20/11, noche):** la cuenta se lee desde São Paulo. Una ruta interna, sólo de lectura, `/api/cron/binance-pagos` (`preferredRegion =
-  'gru1'`, el secreto del cron, sin agenda en Vercel), lee directo (`leerDeBinanceDirecto`); desde cualquier otra región, `pagosRecibidosEnBinance` le
-  pide los pagos a ella (lib/binance-pay-region.ts, `caminoDeBinance` + `leerPorLaRuta`); desde la PC, directo. El resto del proyecto sigue en `pdx1`,
-  cerca de la base. El plan del equipo es **Pro** (medido en la API de Vercel): deja una región por función. ⚠️ En la documentación de Next la
-  opción `preferredRegion` figura como deprecada y Vercel documenta el `functions.regions` de vercel.json; el Next 16.2.6 del repo SÍ la lee y la pasa
-  como región de la función (node_modules/next/dist/build/index.js). Si algún día deja de respetarse, la ruta lo dice: devuelve `region`
-  (`VERCEL_REGION`), y la falla de Binance llega con «(desde pdx1)». Una respuesta de la ruta sin la lista nunca es «cero pagos»: es falla.
-  tests/binance-pay-region.test.ts (8 casos, roto 13 veces).
+  **El arreglo (20/11, noche):** la cuenta se lee desde São Paulo. Una ruta interna, sólo de lectura, `/api/cron/binance-pagos` (el secreto del
+  cron, sin agenda en Vercel, región `gru1` en vercel.json), lee directo (`leerDeBinanceDirecto`); desde cualquier otra región, `pagosRecibidosEnBinance`
+  le pide los pagos a ella (lib/binance-pay-region.ts, `caminoDeBinance` + `leerPorLaRuta`); desde la PC, directo. El resto del proyecto sigue en
+  `pdx1`, cerca de la base. El plan del equipo es **Pro** (medido en la API de Vercel): deja una región por función. Una respuesta de la ruta sin la
+  lista nunca es «cero pagos»: es falla. tests/binance-pay-region.test.ts (8 casos, roto 13 veces).
+  ⛔ **El diagnóstico obvio era el equivocado: `export const preferredRegion = 'gru1'` NO movió la función.** El Next 16.2.6 del repo lee el export y
+  lo pasa al despliegue (node_modules/next/dist/build/index.js), y con eso se dio por hecho. Medido el 21/11 en los request-logs de Vercel
+  (`GET api.vercel.com/logs/request-logs`, `requestPath=/api/cron/binance-pagos`): los crons de las 00:17 y las 00:47 UTC llegaron a la ruta con el
+  secreto (200), pero la ruta corrió en **pdx1** y Binance contestó 451; el cron lo dejó escrito «… (desde pdx1)». Con `"regions": ["pdx1"]` en
+  vercel.json, el export de Next no pesa. Lo que Vercel documenta para pisar la región en UNA función es `functions["app/api/cron/binance-pagos/route.ts"]
+  .regions = ["gru1"]` en vercel.json («This overrides the project-level `regions` setting for the matched functions», vercel.com/docs/project-
+  configuration/vercel-json#functions): es lo que quedó. La cadena entera (cron → ruta con el secreto → respuesta) ya andaba; sólo faltaba la región.
+  ✅ **Medido en producción el 21/11** (deploy de 1459a483c): la ruta contesta `x-vercel-id: gru1::gru1` (el cron de cobros sigue en `gru1::pdx1`);
+  el cron de las 01:47 UTC leyó Binance sin 451 (request-logs: la ruta 200 en 1,7 s, sin aviso) y guardó `binance.pagadores.13 = {ids: [206956446],
+  nombres: [jz_]}`; en seco, los 5 pagos de Código de noviembre salen usados y no queda nada por aprender. Ningún aviso a Martín.
   ⚠️ **La primera subida (a2cb44fc4) dio rojo en tests/region-funciones.test.ts**, el guardia que tiene a TODAS las funciones al lado de la base
   (pdx1, ~5 ms por consulta contra ~97 ms): una región por su cuenta en app/ o lib/ (también en un comentario) lo rompe. Quedó UNA excepción
-  escrita, esta ruta, con su porqué; y la lectura directa se separó en lib/binance-pay-directo.ts para que la función de São Paulo no cargue
+  escrita, esta ruta, con su porqué (desde el 21/11, la de vercel.json: el export sigue prohibido); y la lectura directa se separó en lib/binance-pay-directo.ts para que la función de São Paulo no cargue
   nada de la base ni de la navegación (lib/app-url.ts arrastraba `movil-rutas` → `nav`): sus imports los fija el test.
 - **Medido el 19/11 contra la cuenta real (sólo lectura):** el 16/11 reenviado → «no entró» (no se cuenta dos veces); el 11/11 ya anotado → a Martín; un pago de 426
   que no se hizo → «no entró». **No probado de punta a punta con un comprobante real** (el próximo es el de Leila, el 26/11).

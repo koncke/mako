@@ -31,7 +31,10 @@ export type Senal =
       alTocar?: (sel: string) => void;
       /** EL VIDEO EN SU MENSAJE (20/11, V4 y R57-21): el selector del lugar del chat donde se ve el video mientras ese lugar está a la
        *  vista (el del día del reto). Fuera de la vista (se scrolleó, se navegó), en la esquina. Sin `lugar`, en la esquina. */
-      lugar?: string }
+      lugar?: string;
+      /** «IR A UN PASO» (21/11, la revisión): empieza en este paso (su índice), con sus tarjetas y sin el video (el video sigue los pasos
+       *  desde el primero). */
+      desde?: number }
   /** Un video que se estaba viendo en su lugar y salió de la vista (o se navegó): sigue flotando abajo a la derecha, desde `desde`. */
   | { tipo: 'video'; id: number; clave: string; titulo: string; desde: number;
       /** Al terminar en la esquina, o al cerrarlo con su X (20/11, D1-03: la marca de Offer Coach del día 1 sale igual). */
@@ -43,13 +46,21 @@ export type Senal =
       pasar?: boolean };
 
 let actual: Senal | null = null;
+
+/** El paso del tutorial que muestra el motor (su índice), o null: lo lee «Ir a un paso» para seguir el recorrido (21/11). */
+let pasoMotor: number | null = null;
+const oyentesPaso = new Set<() => void>();
+export function anotarPasoDelMotor(i: number | null): void { if (pasoMotor === i) return; pasoMotor = i; for (const f of oyentesPaso) f(); }
+export function usePasoDelMotor(): number | null {
+  return useSyncExternalStore((f) => { oyentesPaso.add(f); return () => { oyentesPaso.delete(f); }; }, () => pasoMotor, () => null);
+}
 let n = 0;
 const oyentes = new Set<() => void>();
 const avisar = () => { for (const f of oyentes) f(); };
 
 /** El tutorial de una pestaña. Reemplaza lo que hubiera (una cosa por vez). */
-export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m: MotivoFin) => void; video?: string; directo?: boolean; alTocar?: (sel: string) => void; lugar?: string }): void {
-  actual = { tipo: 'tutorial', id: ++n, tutorial, alTerminar: o?.alTerminar, ...(o?.video ? { video: o.video } : {}), ...(o?.directo ? { directo: true } : {}), ...(o?.alTocar ? { alTocar: o.alTocar } : {}), ...(o?.lugar ? { lugar: o.lugar } : {}) };
+export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m: MotivoFin) => void; video?: string; directo?: boolean; alTocar?: (sel: string) => void; lugar?: string; desde?: number }): void {
+  actual = { tipo: 'tutorial', id: ++n, tutorial, alTerminar: o?.alTerminar, ...(o?.video ? { video: o.video } : {}), ...(o?.directo ? { directo: true } : {}), ...(o?.alTocar ? { alTocar: o.alTocar } : {}), ...(o?.lugar ? { lugar: o.lugar } : {}), ...(o?.desde ? { desde: o.desde } : {}) };
   avisar();
 }
 

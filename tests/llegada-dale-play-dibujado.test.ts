@@ -32,7 +32,7 @@ test('1. el video está dibujado sólo con SU póster cargado: sin manifiesto, s
 
 test('2. la llegada marca el «dale play» recién con el video dibujado, y anota el póster cuando carga (también si ya estaba en caché)', () => {
   const l = sinComentarios(fuente('app/second-brain/LlegadaAlReto.tsx'));
-  assert.match(l, /useDalePlay\(play, \{ clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado\(\{ poster, posterCargado \}\) \}\);/);
+  assert.match(l, /useDalePlay\(play, \{ clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado\(\{ poster, posterCargado \}\),\n\s*alCerrar: /);
   assert.match(l, /const poster = video\?\.poster \?\? null;/);
   assert.match(l, /\{poster \? <img ref=\{imgPoster\} className="mk-vmom__portada" src=\{poster\} alt="" onLoad=\{\(\) => setPosterCargado\(poster\)\} \/> : <span className="sbl-video__vacio" \/>\}/);
   // Un póster que ya estaba en caché puede cargar antes de que React escuche: se mira `complete` al dibujarlo.
