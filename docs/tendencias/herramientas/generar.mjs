@@ -30,7 +30,7 @@ const sectores = ORDEN.map((s) => {
           compartidosPorMil: null, guardadosPorMil: null, conversacion: f.conversacion },
         contagio: { referentes: f.contagio, quienes: f.quienes, enIngles: f.quienesIngles },
         crecimiento: { piezas30: f.piezas30, piezas60: f.piezas60, ritmoPiezas: f.ritmoPiezas, comentarios30: f.comentarios30, comentarios60: f.comentarios60,
-          ritmoComentarios: f.ritmoComentarios, enElAno: f.anual, pesoHaceUnAno: f.pesoHaceUnAno, pesoHoy: f.pesoHoy, primeraVez: f.primeraVez },
+          ritmoComentarios: f.ritmoComentarios, ritmoInteraccion: f.ritmoInteraccion, enElAno: f.anual, pesoHaceUnAno: f.pesoHaceUnAno, pesoHoy: f.pesoHoy, primeraVez: f.primeraVez },
       },
       piezas: f.piezas, ctas: f.ctas, ejemplos: f.ejemplos.slice(0, 3),
       comoUsarla: u.gancho ? { gancho: u.gancho, cta: u.cta || null, porque: u.porque || null } : null,
@@ -53,14 +53,14 @@ const json = {
       insistencia: 'la mayor parte de lo que publica un mismo referente que va a este ángulo (contada con 3 piezas o más): si insiste, le funciona',
       interaccion: 'mediana de comentarios cada 1.000 vistas (piezas con 500 vistas o más y medidas con 7 días o más). Compartidos y guardados: no vienen en lo que se baja (Instagram muestra los compartidos en la app, los guardados casi nunca)',
       contagio: 'cuántos referentes distintos lo tratan en 90 días',
-      crecimiento: 'piezas y comentarios por día de los últimos 30 días contra los 60 anteriores; y el peso del ángulo hace un año contra hoy, entre las mismas cuentas',
+      crecimiento: 'piezas por día y comentarios sobre vistas de los últimos 30 días contra los 60 anteriores (el volumen de comentarios se muestra pero no decide: en YouTube un video junta comentarios por meses); y el peso del ángulo hace un año contra hoy, entre las mismas cuentas',
     },
     puntaje: 'de 0 a 100: el percentil del ángulo dentro de su sector en contagio, en interacción y en insistencia, promediados (si no hay vistas, las otras dos)',
     estados: {
       'Nuevo': 'aparece por primera vez en los últimos 60 días (contando el año anterior) y ya tiene 2 piezas o más en los últimos 30',
-      'En crecimiento': 'los comentarios por día de los últimos 30 días son 1,3 veces o más los de los 60 anteriores, y se publica igual o más',
-      'En baja': 'las piezas o los comentarios por día cayeron por debajo de 0,7 veces',
-      'Saturado': 'se publica parejo y los comentarios no crecen: muchos lo dicen y ya no sorprende',
+      'En crecimiento': 'la interacción (comentarios sobre vistas) de los últimos 30 días es 1,3 veces o más la de los 60 anteriores y se publica igual o más; o se publica 1,5 veces más sin que la interacción caiga',
+      'En baja': 'se publica menos de 0,7 veces lo de antes, o la interacción cayó por debajo de 0,7 veces sin que se publique más',
+      'Saturado': 'se publica igual o más pero cada pieza engancha menos (o parejo): muchos lo dicen y ya no sorprende',
       'desempate': 'si los 30 días no dicen nada claro, decide el año: el peso del ángulo entre las mismas cuentas se duplicó (crece) o se partió a la mitad (baja)',
     },
     ventana: '90 días; cada cuenta se corta en su última medición',
@@ -79,7 +79,7 @@ for (const s of sectores) {
     const x = a.senales;
     const ins = x.insistencia.quien ? `${x.insistencia.porcentaje} % (${x.insistencia.quien}: ${x.insistencia.piezas} de ${x.insistencia.deSusPiezas})` : '—';
     const inter = x.interaccion.comentariosPorMil != null ? `${fmt(x.interaccion.comentariosPorMil)} c/1.000 (sector ${fmt(x.interaccion.comentariosPorMilDelSector)})` : '—';
-    const cre = [`${x.crecimiento.piezas30} contra ${x.crecimiento.piezas60} piezas`, x.crecimiento.ritmoComentarios != null ? `comentarios ${veces(x.crecimiento.ritmoComentarios)}` : null,
+    const cre = [`${x.crecimiento.piezas30} contra ${x.crecimiento.piezas60} piezas`, x.crecimiento.ritmoInteraccion != null ? `interacción ${veces(x.crecimiento.ritmoInteraccion)}` : x.crecimiento.ritmoComentarios != null ? `comentarios ${veces(x.crecimiento.ritmoComentarios)}` : null,
       x.crecimiento.pesoHaceUnAno != null && x.crecimiento.pesoHoy != null ? `año: ${fmt(x.crecimiento.pesoHaceUnAno)} % → ${fmt(x.crecimiento.pesoHoy)} %` : null].filter(Boolean).join(' · ');
     const uso = a.comoUsarla ? `${a.comoUsarla.gancho}${a.comoUsarla.cta ? ` CTA: **${a.comoUsarla.cta}**` : ''}` : '—';
     md += `| ${a.puesto} | ${a.subsector ? `${a.subsector}: ` : ''}**${a.nombre}**${a.llegaDelIngles ? ' (llega del inglés)' : ''} | ${a.estado} | ${a.puntaje ?? '—'} | ${ins} | ${inter} | ${x.contagio.referentes}${x.contagio.enIngles?.length ? ` (+${x.contagio.enIngles.length} en inglés)` : ''} | ${cre} | ${uso} |\n`;

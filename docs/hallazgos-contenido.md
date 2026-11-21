@@ -43,9 +43,16 @@ Martín: «tenemos que detectar patrones de lo que me gustaría llamar tendencia
   medición), y el peso del ángulo hace un año contra hoy entre las mismas cuentas.
 - **Puntaje (0 a 100):** el percentil del ángulo dentro de su sector en contagio, en interacción y en insistencia, promediados (sin
   vistas, las otras dos). El crecimiento no entra: va en el estado.
-- **Estado, en este orden:** Nuevo (primera vez hace 60 días o menos, contando el año anterior, y 2 piezas o más en 30 días) ·
-  En crecimiento (comentarios por día ×1,3 o más sin bajar las piezas) · En baja (piezas o comentarios por debajo de ×0,7) ·
-  si no, Saturado. Si los 30 días no dicen nada claro, decide el año (peso duplicado → crece; partido a la mitad → baja).
+- **Estado, en este orden** (P = ritmo de piezas, la oferta; I = ritmo de interacción, comentarios sobre vistas, la demanda):
+  Nuevo (primera vez hace 60 días o menos, contando el año anterior, y 2 piezas o más en 30 días) · En crecimiento (I ×1,3 o más
+  con P ×1 o más; o P ×1,5 o más sin que I caiga de ×0,85) · Saturado (P ×1 o más con I por debajo de ×0,85: más gente lo dice y
+  cada pieza engancha menos) · En baja (P por debajo de ×0,7, o I por debajo de ×0,7 sin publicar más). Si nada de eso decide,
+  el año (peso duplicado → crece; partido a la mitad → baja); si no, Saturado.
+- **El diagnóstico obvio era el equivocado, dos veces:** (1) el VOLUMEN de comentarios no sirve para decidir el estado en YouTube:
+  un video junta comentarios por meses y el de hace 80 días casi siempre le gana al de hace 20 (Anuncios salía «En baja» entero);
+  la interacción (comentarios sobre vistas) crece pareja con la edad. (2) «Más piezas y menos interacción por vista» no es «En
+  baja»: «Claude como empleado» pasó de ×3,5 piezas con ×0,7 de interacción, y del 0,2 % al 4,1 % de lo publicado en un año. Es
+  saturación.
 - **Para MaKo:** el usuario ya tiene sus competidores en el Spy (`spy_competidores` / `spy_piezas`). Con la misma clasificación
   (un modelo leyendo cada pieza contra una lista de temas por sector) y estas tres señales, el Spy le puede mostrar sus ángulos
   ganadores. Dos trampas que el producto tiene que resolver antes: `spy_piezas` mide cada pieza una sola vez (hay que volver a

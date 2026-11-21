@@ -108,6 +108,12 @@ for (const g of Object.values(grupos)) {
   // Sin al menos 2 piezas maduras en cada ventana, el ritmo de comentarios es «no se sabe» (null), nunca 0: una ventana reciente
   // sin piezas maduras daba «En baja» a temas que sí tenían comentarios (reels de prueba, 21/11).
   const ritmoPiezas = ritmo(rec.length, ant.length), ritmoCom = mRec.length >= 2 && mAnt.length >= 2 ? ritmo(suma(mRec), suma(mAnt)) : null;
+  // ⚠️ En YouTube un video sigue juntando comentarios por meses: el de hace 80 días casi siempre suma más que el de hace 20, y el
+  // volumen daba «En baja» a casi todo Anuncios (21/11). El estado se decide con la INTERACCIÓN (comentarios sobre vistas de cada
+  // ventana), que crece pareja con la edad; el volumen se sigue mostrando.
+  const cv = (L) => { const V = L.filter((p) => p.vistas >= 500); const v = V.reduce((a, p) => a + p.vistas, 0); return V.length >= 2 && v ? V.reduce((a, p) => a + (p.comTope ?? 0), 0) / v : null; };
+  const ritmoInteraccion = cv(mRec) != null && cv(mAnt) ? cv(mRec) / cv(mAnt) : null;
+  const ritmoDecide = ritmoInteraccion ?? ritmoCom;
   const muestra = P.flatMap((p) => (p.muestra || []).map((m) => ({ ...m, cta: p.cta, corte: corteDe[p.clave] })));
   const conv = muestra.length >= 10 ? muestra.filter((m) => !esPalabra(m.texto, m.cta)).length / muestra.length : null;
   const recientes = muestra.filter((m) => m.fecha).length >= 10 ? muestra.filter((m) => m.fecha && D(m.corte, m.fecha) <= 30).length / muestra.filter((m) => m.fecha).length : null;
@@ -128,8 +134,12 @@ for (const g of Object.values(grupos)) {
   if (!ES.length) estado = refsEN.length >= 2 && EN.length >= 4 && !hT?.n ? 'Nuevo' : null; // todavía no llegó al español: «Nuevo» con llegaDelIngles
   else if (edad <= 60 && rec.length >= 2) estado = 'Nuevo';
   else if (pocas) estado = null;
-  else if (ritmoCom != null && ritmoCom >= 1.3 && (ritmoPiezas ?? 0) >= 1) estado = 'En crecimiento';
-  else if ((ritmoPiezas != null && ritmoPiezas < 0.7) || (ritmoCom != null && ritmoCom < 0.7)) estado = 'En baja';
+  // P = ritmo de piezas (oferta), I = ritmo de interacción (demanda). Más piezas con menos interacción por vista es SATURADO
+  // («Claude como empleado»: ×3,5 piezas, ×0,7 interacción), no «En baja»: muchos lo dicen y la gente ya no se sorprende.
+  else if (ritmoDecide != null && ritmoDecide >= 1.3 && (ritmoPiezas ?? 0) >= 1) estado = 'En crecimiento';
+  else if ((ritmoPiezas ?? 0) >= 1.5 && (ritmoDecide == null || ritmoDecide >= 0.85)) estado = 'En crecimiento';
+  else if ((ritmoPiezas ?? 0) >= 1 && ritmoDecide != null && ritmoDecide < 0.85) estado = 'Saturado';
+  else if ((ritmoPiezas != null && ritmoPiezas < 0.7) || (ritmoDecide != null && ritmoDecide < 0.7)) estado = 'En baja';
   else if (anual === 'sube') estado = 'En crecimiento';
   else if (anual === 'baja') estado = 'En baja';
   else estado = 'Saturado';
@@ -154,7 +164,7 @@ for (const g of Object.values(grupos)) {
     referentesQueInsisten: insisten, meGustaPorMil: r1(mgk),
     referentes: refsES.length, quienes: refsES, referentesIngles: refsEN.length, quienesIngles: refsEN,
     piezas: P.length, piezas30: rec.length, piezas60: ant.length, ritmoPiezas: r1(ritmoPiezas),
-    comentarios30: suma(mRec), comentarios60: suma(mAnt), ritmoComentarios: r1(ritmoCom),
+    comentarios30: suma(mRec), comentarios60: suma(mAnt), ritmoComentarios: r1(ritmoCom), ritmoInteraccion: r1(ritmoInteraccion),
     comentariosPorMil: r1(med(P.map(ck))), comentariosPorMilSector: r1(ckSector[g.sector]),
     conversacion: conv == null ? null : Math.round(conv * 100), comentariosRecientes: recientes == null ? null : Math.round(recientes * 100),
     nxMediana: r1(med(P.map((p) => p.nx))), primeraVez: primera, edadDias: edad,

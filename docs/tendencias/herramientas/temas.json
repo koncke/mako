@@ -34,7 +34,11 @@
     "medicion-y-atribucion": "qué anuncio trajo la venta, CAPI, píxel, métricas",
     "ganchos-de-anuncio": "plantillas y ganchos para anuncios",
     "organico-y-pago-juntos": "cómo se combinan orgánico y anuncios; cuándo empezar a pagar",
-    "cuentas-bloqueadas": "rechazos de anuncios y cuentas bloqueadas"
+    "cuentas-bloqueadas": "rechazos de anuncios y cuentas bloqueadas",
+    "algoritmo-de-meta": "cambios y ajustes de Meta (Andromeda, configuración, lo que premia hoy)",
+    "campanas-paso-a-paso": "montar una campaña desde cero, tutoriales paso a paso, campañas de temporada",
+    "automatizar-anuncios-con-ia": "crear y optimizar anuncios con IA o software (SaleADS, Claude Code)",
+    "anuncios-en-chatgpt": "anuncios dentro de ChatGPT y otros canales nuevos"
   },
   "Closing y ventas": {
     "llamada-de-cierre": "guion y estructura de la llamada de venta, preguntas, tono",
