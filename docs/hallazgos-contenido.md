@@ -58,6 +58,28 @@ Martín: «tenemos que detectar patrones de lo que me gustaría llamar tendencia
   ganadores. Dos trampas que el producto tiene que resolver antes: `spy_piezas` mide cada pieza una sola vez (hay que volver a
   medir, o cortar por cuenta y exigir 7 días de madurez como acá), y el texto de los comentarios no se guarda.
 
+## Sub-ángulos: de la pieza a la AFIRMACIÓN (21/11/2026)
+
+Martín: «la venta se cae en el cierre podría ser un montón de cosas… sé más específico». Un ángulo que sirve para producir es una
+AFIRMACIÓN discutible que se dice en una frase, no un tema. Circuito: `docs/tendencias/herramientas/sub/` (instrucciones) y
+`sub-afirmaciones.mjs` / `sub-senales.mjs`; resultado en `docs/tendencias/subangulos.json`, `mapa-angulos.json` (el filtro) y
+`catalogo-angulos.json`.
+- **Dos pasos con agentes, no uno:** primero cada pieza da su afirmación y una etiqueta (lotes de ~105, sonnet, 5 minutos), después
+  un agente por grupo de sectores junta las que dicen lo mismo (Opus, 15 a 17 minutos por ~350 afirmaciones). Pedirlo todo de una
+  vez da temas, no afirmaciones.
+- **De 918 piezas de Spy, 709 defienden una idea y salen 424 sub-ángulos; 260 tienen UNA sola pieza.** Lo que se repite es poco
+  (102 con 2 o más en español): un mercado que «dice lo mismo» lo dice con afirmaciones distintas. El ranking sólo tiene sentido
+  sobre los que se repiten.
+- **El diagnóstico obvio era el equivocado:** medir la interacción en comentarios cada 1.000 vistas ponía arriba todo lo de Collado
+  y Víctor, que piden «comenta X» en casi todo. Se mide contra la mediana de comentarios de la MISMA cuenta
+  (`comentariosContraSuCuenta`): así una cuenta que comenta poco no pierde por costumbre.
+- **El estado de un sub-ángulo es débil en Spy:** la colección no es una muestra pareja en el tiempo (de Víctor hay piezas de 2022,
+  de Ramiro sólo de los últimos 70 días). «En baja» ahí muchas veces es «nadie de los relevados lo dijo en 90 días».
+- Los cinco que nombró Martín se parten así: la IA por PUESTO (editor, setter, media buyer, copywriter, guionista, con sus
+  contrarios: «escribe tú el guion»); el cierre en diagnóstico (antes de la llamada), asistencia, preparación con contenido y cada
+  objeción suelta; los reels de prueba en «modifica, no resubas igual» (9 piezas), «repetir te penaliza», «seguidores
+  calificados» y tres posturas en contra.
+
 ## Mapa de tendencias por sector (21/11/2026, chat «tendencias»)
 
 El método y las herramientas están en `docs/tendencias/` (`herramientas/`: lista de referentes, armado de piezas, lotes,
