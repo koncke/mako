@@ -248,8 +248,9 @@ test('19. OD-09, desde el 20/11: la llegada ES el primer mensaje del chat del re
   const { chatPresentaReto, elChatPresentaElReto } = await import('../app/_ui/tutorial/store');
   chatPresentaReto(true); assert.equal(elChatPresentaElReto(), true); chatPresentaReto(false); assert.equal(elChatPresentaElReto(), false);
   const m = sinComentarios(leer('app/second-brain/reto/MarcaAlReto.tsx'));
-  assert.match(m, /if \(!listo \|\| empezo \|\| marcado\.current \|\| senal \|\| presenta \|\| opsVisto !== true\) return;/);
-  assert.match(m, /if \(senalAhora\(\) \|\| elChatPresentaElReto\(\) \|\| marcado\.current\) return;/);
+  // 21/11 (producción): además, una vez por pestaña y nunca con otro chat elegido (tests/recorrido-no-persigue.test.ts).
+  assert.match(m, /if \(!listo \|\| empezo \|\| marcado\.current \|\| enOtroLado \|\| yaSeMarco\(\) \|\| senal \|\| presenta \|\| opsVisto !== true\) return;/);
+  assert.match(m, /if \(senalAhora\(\) \|\| elChatPresentaElReto\(\) \|\| marcado\.current \|\| yaSeMarco\(\)\) return;/);
 });
 
 test('20. OD-10: sin video, el Second Brain y la flecha del recorrido esperan el clic, y el clic pasa al paso siguiente', async () => {

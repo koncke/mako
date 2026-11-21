@@ -46,6 +46,14 @@ export type Senal =
       pasar?: boolean };
 
 let actual: Senal | null = null;
+
+/** El paso del tutorial que muestra el motor (su índice), o null: lo lee «Ir a un paso» para seguir el recorrido (21/11). */
+let pasoMotor: number | null = null;
+const oyentesPaso = new Set<() => void>();
+export function anotarPasoDelMotor(i: number | null): void { if (pasoMotor === i) return; pasoMotor = i; for (const f of oyentesPaso) f(); }
+export function usePasoDelMotor(): number | null {
+  return useSyncExternalStore((f) => { oyentesPaso.add(f); return () => { oyentesPaso.delete(f); }; }, () => pasoMotor, () => null);
+}
 let n = 0;
 const oyentes = new Set<() => void>();
 const avisar = () => { for (const f of oyentes) f(); };

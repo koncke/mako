@@ -17,7 +17,9 @@ export type LoQueSabe = { nombre: string; negocio: string; whatsapp: boolean; or
 export type Hecho = { k: string; v: string; area: string };
 
 /** A los 1,2 s de abrirse empieza a apagarse (la maqueta, `programarBrain`). */
-export const DEMORA_FASE_MS = 1200;
+// 21/11/2026, Martín en producción: «primero aparece un Second Brain chiquito (el original) y recién al segundo arranca la animación»:
+// arranca DIRECTO. Lo justo para que el navegador pinte el cuadro de partida y la transición corra (sin eso, salta al final).
+export const DEMORA_FASE_MS = 60;
 
 /** Hasta 3 cosas para resolver primero, como el onboarding. */
 const MAX_INTERESES = 3;

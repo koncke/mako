@@ -15,7 +15,7 @@ import { ImpersonationBanner } from '@/app/_components/ImpersonationBanner';
 import { BrainDelRecorrido } from '@/app/second-brain/BrainDelRecorrido';
 import { LlegadaAlReto } from '@/app/second-brain/LlegadaAlReto';
 import { ModoDelUsuario } from '@/app/_components/ModoDelUsuario';
-import { cerrarTutorial, mostrarTutorial, senalAhora } from '@/app/_ui/tutorial/store';
+import { anotarPasoDelMotor, cerrarTutorial, mostrarTutorial, senalAhora } from '@/app/_ui/tutorial/store';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { etapaDeArranqueV2, mensajesDeArranqueV2, type EstadoArranque, type HechosArranque } from '@/lib/onboarding-arranque';
 import { vistaDelWhatsappSimulado } from '@/lib/onboarding-v2/whatsapp-simulado';
@@ -48,7 +48,7 @@ function responder(ruta: string, metodo: string, cuerpo: unknown): unknown {
   if (ruta === '/api/onboarding/arranque' && (cuerpo as { action?: string } | null)?.action === 'whatsapp' && vistaVerificada) return { ok: true, vista: vistaVerificada };
   if (ruta === '/api/auth/me') return { ok: true, impersonando: true, clienteNombre: 'Cliente de Prueba', modoAgencia: false, salida: '/admin', agencia: null };
   if (ruta === '/api/admin/negocio-de-prueba') return { ok: true, disponible: false };
-  if (ruta === '/api/admin/saltar-onboarding') return metodo === 'GET' ? { ok: true, puede: true, pasos: PASOS_DE_REVISION } : { ok: true, destino: '/second-brain?reto=1', vistos: [], salto: null, avisos: [] };
+  if (ruta === '/api/admin/saltar-onboarding') return metodo === 'GET' ? { ok: true, puede: true, pasos: PASOS_DE_REVISION, actual: 'origen' } : { ok: true, destino: '/second-brain?reto=1', vistos: [], salto: null, avisos: [] };
   if (ruta === '/api/onboarding/arranque') return { ok: true, vista: vistaActual };
   if (ruta === '/api/plan-dictado') return { ok: true, texto: 'Valentina' };
   if (ruta === '/api/recorridos') return metodo === 'GET' ? { ok: true, guardado: true, vistos: [], quien: 'a1b2c3d4e5f60718' } : { ok: true };
@@ -92,7 +92,8 @@ if (p === 'videos') {
     <div style={{ height: '100vh', paddingTop: 52, boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}><ChatArranqueV2 inicial={vistaActual} ejemplos persona={{ nombre: '', email: 'prueba@ejemplo.test' }} /></div>
   </>);
 } else if (p === 'brain') {
-  w.__banco = { recorrido: () => mostrarTutorial(TUTORIAL_RECORRIDO), cerrar: () => cerrarTutorial(), senal: () => senalAhora()?.tipo ?? null };
+  const iGrafo = TUTORIAL_RECORRIDO.pasos.findIndex((x) => x.sel.includes('sb-grafo'));
+  w.__banco = { recorrido: () => { mostrarTutorial(TUTORIAL_RECORRIDO); anotarPasoDelMotor(iGrafo); }, flecha: () => anotarPasoDelMotor(iGrafo + 1), grafo: () => anotarPasoDelMotor(iGrafo), cerrar: () => { anotarPasoDelMotor(null); cerrarTutorial(); }, senal: () => senalAhora()?.tipo ?? null };
   raiz.render(<>
     <div className="cbg-marco" data-recorrido="sb-grafo" style={{ position: 'relative', width: 900, height: 600, margin: 20, background: '#1b1b1b', borderRadius: 12, overflow: 'hidden' }}>
       <div className="cbg-barra" style={{ position: 'absolute', top: 10, left: 10, right: 10, zIndex: 3, height: 40, background: '#444', borderRadius: 10 }}>
@@ -117,6 +118,23 @@ if (p === 'videos') {
   raiz.render(<>
     <MotorTutorial revision={false} />
     <div className="co-hilo" style={{ height: '100vh', overflow: 'auto', padding: 24, boxSizing: 'border-box' }}><LlegadaAlReto nombre="Valentina" listo /></div>
+  </>);
+} else if (p === 'recuadro') {
+  // El recuadro sobre un video con el chat SCROLLEADO (21/11, producción: «Offer Coach: dale play» se marcaba por arriba del video, sobre
+  // la cabecera): una cabecera, un hilo con scroll y el video metido a medias debajo de la cabecera.
+  w.__bancoRuta = '/banco';
+  const t = { pestana: 'banco-recuadro', nombre: 'Banco', ruta: '/banco', pasos: [{ sel: '#objetivo-video', titulo: 'Offer Coach', texto: 'Dale play al video.', clic: true, haz: 'Haz clic en el video' }] } as unknown as TutorialPestana;
+  w.__banco = { tutorial: () => mostrarTutorial(t) };
+  raiz.render(<>
+    <MotorTutorial revision={false} />
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <header data-banco="cabecera" style={{ height: 64, flex: 'none', background: '#333', color: '#fff', padding: 16 }}>Offer Coach</header>
+      <div className="co-hilo" data-banco="hilo" style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ height: 600 }} />
+        <div id="objetivo-video" style={{ width: 360, height: 200, background: '#000', margin: '0 24px' }} />
+        <div style={{ height: 900 }} />
+      </div>
+    </div>
   </>);
 } else if (p === 'marca') {
   w.__bancoRuta = '/banco';

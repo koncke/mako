@@ -28,7 +28,8 @@ test('2. la llegada es una pieza para el chat del reto: espera el hilo cargado, 
   // ops-center-2: arranca con el hilo cargado, y se vuelve a medir cuando el hilo cambia o se mueve.
   assert.match(l, /if \(fase !== 'espera' \|\| !sabe \|\| !listo\) return;/);
   assert.match(l, /const hiloDe = fila\.current\?\.closest\('\.co-hilo'\) \?\? null;/);
-  assert.match(l, /hiloDe\?\.addEventListener\('scroll', medir, \{ passive: true \}\);/);
+  // 21/11 (producción, el hueco arriba a la izquierda): con CUALQUIER scroll, no sólo el del hilo (tests/recuadro-visible.test.ts).
+  assert.match(l, /document\.addEventListener\('scroll', medir, \{ capture: true, passive: true \}\);/);
   // onboarding-4: los puntitos, los de la cola de salida (no 1,8 s fijos).
   assert.match(l, /window\.setTimeout\(\(\) => setFase\('listo'\), msEscribiendo\(textoLlegada\(nombre\)\)\)/);
   assert.doesNotMatch(l, /MS_ESCRIBE_LLEGADA|1800/);

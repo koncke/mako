@@ -28,9 +28,9 @@ import { createPortal } from 'react-dom';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Button } from '../Button';
 import { cssRecorrido, useRecorrido } from '../Recorrido';
-import { Z_PISO_RECORRIDO, necesitaScroll, posicionTarjeta, recorteDe, type Caja, type Medida, type PosicionTarjeta } from '@/lib/recorridos';
+import { Z_PISO_RECORRIDO, cajaVisible, necesitaScroll, posicionTarjeta, recorteDe, seVeEntero, type Caja, type Medida, type PosicionTarjeta } from '@/lib/recorridos';
 import { pasosPara, tutorialDeRuta, type PasoTutorial, type TutorialPestana } from '@/lib/tutoriales';
-import { anotarRevision, elChatPresentaElRecorrido, motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
+import { anotarPasoDelMotor, anotarRevision, elChatPresentaElRecorrido, motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
 import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
 import { barrer, tocaIris } from './iris';
 import { VideoEnLaEsquina } from './VideoEnLaEsquina';
@@ -67,6 +67,16 @@ const cajaDe = (r: DOMRect): Caja => ({ x: r.left, y: r.top, ancho: r.width, alt
 const menosMovimiento = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /** Lo marcado por un selector libre: el primero que tiene cajas. Un selector inválido es «no está». */
+/** Las cajas de los contenedores que recortan a `el` (un hilo con scroll, una tarjeta con `overflow`): lo que queda afuera no se ve. */
+function contenedoresDe(el: HTMLElement): Caja[] {
+  const out: Caja[] = [];
+  for (let p = el.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+    const cs = getComputedStyle(p);
+    if (/(auto|scroll|hidden|clip)/.test(`${cs.overflowX} ${cs.overflowY}`)) out.push(cajaDe(p.getBoundingClientRect()));
+  }
+  return out;
+}
+
 function lugarDe(sel: string): HTMLElement | null {
   try {
     for (const el of Array.from(document.querySelectorAll<HTMLElement>(sel))) if (el.getClientRects().length > 0) return el;
@@ -352,6 +362,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   const pasos: PasoTutorial[] = useMemo(() => (senal.tipo === 'tutorial' ? pasosPara(senal.tutorial, telefono) : [senal.paso]), [senal, telefono]);
   // -1 = la presentación de la pestaña (su `intro`), antes del primer paso. Una marca va directo a su lugar.
   const [i, setI] = useState(senal.tipo === 'tutorial' && senal.desde ? senal.desde : senal.tipo === 'tutorial' && senal.tutorial.intro ? -1 : 0);
+  useEffect(() => () => anotarPasoDelMotor(null), []);
   const [el, setEl] = useState<HTMLElement | null>(null);
   const [geo, setGeo] = useState<Geo>({ hueco: null, tarjeta: null });
   const [videoArriba, setVideoArriba] = useState(false);
@@ -361,7 +372,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   const videoPedido = useVideoTutorial(senal.tipo === 'tutorial' ? senal.video ?? null : null);
   const videoPropio = useVideoTutorial(senal.tipo === 'tutorial' ? senal.tutorial.pestana : null);
   const videoAlgun = videoPedido ?? videoPropio;
-  const video = senal.tipo === 'tutorial' && senal.desde ? null : videoAlgun && senal.tipo === 'tutorial' && VIDEO_FIEL.has(senal.tutorial.pestana) && !sigueLosPasos(videoAlgun.frases ?? [], senal.tutorial.pasos) ? null : videoAlgun;
+  const video = videoAlgun && senal.tipo === 'tutorial' && VIDEO_FIEL.has(senal.tutorial.pestana) && !sigueLosPasos(videoAlgun.frases ?? [], senal.tutorial.pasos) ? null : videoAlgun;
   // Con otro video que el de la pestaña (el recorrido), su cierre es SU último lugar marcado («toca aquí, en Reto de 7 días»), no el
   // último paso del tutorial de la pestaña.
   const conVideoPedido = !!videoPedido;
@@ -529,6 +540,29 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   // nunca más en ningún lugar de ninguna tab… muy, muy, muy molesto»). Todo tutorial arranca solo: con un video que trae sus frases,
   // el video manda apenas está; sin él, el primer paso. Para saltearlo, se cierra el video del costado (`VideoChico` → `fin`).
   useEffect(() => { if (conFrases && !modoVideo && i === -1 && vidRef.current) siguiente(); }, [conFrases, modoVideo, i, siguiente]);
+  // DESDE UN PASO DEL MEDIO, CON SU VIDEO (21/11/2026, Martín: «quise ir de vuelta para atrás en el paso del second brain… ahora el video
+  // ya no se reproduce»): con «Ir a un paso» o «Atrás», el video arranca en la frase que marca ESE paso y el motor sigue sus frases desde
+  // ahí. Sin una frase para ese paso, el paso va con su tarjeta (y sin el cartel falso de «todavía no está grabado»).
+  const tDesde = senal.tipo === 'tutorial' && senal.desde ? frases.find((f) => f.sel && mismoLugar(f.sel, pasos[senal.desde ?? 0]?.sel ?? ''))?.t_inicio ?? null : null;
+  const arrancoDesde = useRef(false);
+  // En qué paso va, para «Ir a un paso» (21/11): el desplegable sigue al recorrido. En el MODO VIDEO los pasos los mandan las frases e
+  // `i` queda en -1 (producción: en «Tu panel» el desplegable decía «¿Qué hacemos ahora?»): el de la frase que se muestra; entre frase y
+  // frase, el último.
+  const pasoAnotado = useRef<number | null>(null);
+  const iMostrado = modoVideo ? (pasoFrase ? pasos.findIndex((p) => mismoLugar(p.sel, pasoFrase.sel)) : null) : i;
+  useEffect(() => {
+    if (senal.tipo !== 'tutorial') { anotarPasoDelMotor(null); return; }
+    if (iMostrado != null && iMostrado >= 0) pasoAnotado.current = iMostrado;
+    anotarPasoDelMotor(pasoAnotado.current);
+  }, [senal, iMostrado]);
+  useEffect(() => {
+    if (senal.tipo !== 'tutorial' || !senal.desde || tDesde == null || modoVideo || arrancoDesde.current || !vidRef.current) return;
+    arrancoDesde.current = true;
+    const v = vidRef.current;
+    setModoVideo(true);
+    v.muted = false; v.currentTime = tDesde;
+    void v.play().catch(() => { v.muted = true; void v.play().catch(() => {}); });
+  }, [senal, tDesde, modoVideo]);
   useEffect(() => {
     if (i !== -1 || conFrases || modoVideo) return;
     const t = window.setTimeout(() => { setEl(null); setGeo({ hueco: null, tarjeta: null }); setI(0); }, ESPERA_VIDEO_MS);
@@ -673,13 +707,19 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   }, [paso, senal.tipo, siguiente, modoVideo]);
 
   // 2. Medir el recorte y la tarjeta; de nuevo con el scroll, el tamaño y los cambios de la página.
+  const llevado = useRef<HTMLElement | null>(null);
   const medir = useCallback(() => {
     const v = ventanaActual();
     const t = tarjetaRef.current?.getBoundingClientRect();
     const tam = { ancho: t?.width || 340, alto: t?.height || 170 };
     if (!paso) { setGeo({ hueco: null, tarjeta: { x: Math.max(12, (v.ancho - tam.ancho) / 2), y: Math.max(12, (v.alto - tam.alto) / 2), lado: 'abajo', flecha: null } }); return; }
     if (!el || !el.isConnected || !el.getClientRects().length) { setGeo({ hueco: null, tarjeta: null }); if (el) setEl(lugarDe(paso.sel)); return; }
-    const hueco = recorteDe(cajaDe(el.getBoundingClientRect()), v);
+    // LO QUE SE VE, no la caja entera (21/11, producción): un video metido debajo de la cabecera del chat se marcaba sobre la cabecera.
+    // Y si el contenedor lo tapa, primero se lleva a la vista (una vez por lugar): la ventana sola no lo detecta.
+    const entera = cajaDe(el.getBoundingClientRect());
+    const visible = cajaVisible(entera, contenedoresDe(el));
+    if (!seVeEntero(entera, visible) && llevado.current !== el) { llevado.current = el; el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' }); }
+    const hueco = recorteDe(visible.alto > 0 ? visible : entera, v);
     setGeo({ hueco, tarjeta: posicionTarjeta({ objetivo: hueco, tarjeta: tam, ventana: v, lado: paso.lado }) });
   }, [paso, el]);
   useLayoutEffect(() => {
@@ -792,7 +832,9 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   return createPortal(
     <div ref={capaRef} className="mk-rec mk-tuto" data-tutorial={senal.tipo === 'tutorial' ? senal.tutorial.pestana : 'marca'} style={{ zIndex: z }}>
       <style>{cssRecorrido() + CSS_TUTORIAL}</style>
-      {senal.tipo === 'tutorial' && (
+      {/* Desde un salto («Ir a un paso», «Atrás» a un paso del medio) el recorrido corre con sus tarjetas, sin el video: nunca el cartel
+          falso de «todavía no está grabado» (21/11, Martín: «eso no tiene sentido… estás haciendo que no me funcione»). */}
+      {senal.tipo === 'tutorial' && (!senal.desde || tDesde != null) && (
         <VideoChico tutorial={senal.tutorial} video={video} vidRef={vidRef} autoplay={!conFrases}
           sub={paso?.sub ?? senal.tutorial.intro} revision={revision} arriba={videoArriba} lugar={senal.lugar}
           onCerrar={() => fin('omitido')} />

@@ -10,6 +10,8 @@
 import { NextResponse } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import { OWNER_WS } from '@/lib/auth-session';
+import { vaciarChatsDePrueba, type ChatsVaciados } from '@/lib/reset-chats-prueba';
+import { seVacianLosChats } from '@/lib/reset-chats-prueba-reglas';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { reiniciarOnboarding } from '@/lib/reiniciar-onboarding-server';
 
@@ -24,7 +26,12 @@ export async function POST(req: Request) {
   try {
     // El respaldo (lo de antes, con el perfil entero) no viaja al navegador: lo guarda el script.
     const { resultado } = await reiniciarOnboarding(ws, { aplicar: body.aplicar === true });
-    return NextResponse.json({ ok: true, ws, ...resultado });
+    // En un espacio de PRUEBA, RESET deja los chats como en una cuenta recién creada (21/11/2026, Martín: «le di a reset y comenzamos de
+    // cero»; quedaban «Image Editor» y Offer Coach con mensajes de «Ayer»). En un cliente real no se toca nada de lo suyo.
+    let chats: ChatsVaciados | null = null;
+    // Sólo en la lista CERRADA (3 y 4): en el 9 (el espacio de Martín) y en cualquier otro, RESET reinicia el recorrido y no borra nada.
+    if (body.aplicar === true && seVacianLosChats(ws)) chats = await vaciarChatsDePrueba(ws);
+    return NextResponse.json({ ok: true, ws, ...resultado, ...(chats ? { chats } : {}) });
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     console.error(`[api:reiniciar-onboarding] ws=${ws}: ${error}`);
