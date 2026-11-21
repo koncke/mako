@@ -90,6 +90,9 @@ export function BotonEmojis({ campo, valor, onValor, apagado }: {
   const [cat, setCat] = useState('caras');
   const [recientes, setRecientes] = useState<string[]>([]);
   const caja = useRef<HTMLDivElement>(null);
+  // Con la caja apagada (mientras se transcribe una nota, o en el cierre), el panel se cierra (20/11/2026, el inventario de botones):
+  // abierto, se podía poner un emoji en un campo apagado, que después pisaba el texto de la nota.
+  useEffect(() => { if (apagado) setAbierto(false); }, [apagado]);
   // Su lugar, medido antes de pintarse (useLayoutEffect): nunca se ve un cuadro recortado.
   const [lugar, setLugar] = useState<CSSProperties | undefined>(undefined);
   useLayoutEffect(() => {

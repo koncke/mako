@@ -96,7 +96,10 @@ export function ImpersonationBanner({ inicial = null }: { inicial?: VistaDeOtro 
     if (!modoAgencia && wsUrl) { window.location.href = salida; return; }
     setSaliendo(true);
     try {
-      await fetch(modoAgencia ? '/api/agencia/entrar' : '/api/admin/impersonate', { method: 'DELETE' });
+      // Sólo si el servidor sacó la cookie (20/11/2026, el inventario de botones): con un 401 o un 500 navegaba igual, la cookie quedaba
+      // y la barra volvía sola, «indistinguible de un botón roto». Así el botón vuelve y se puede reintentar.
+      const r = await fetch(modoAgencia ? '/api/agencia/entrar' : '/api/admin/impersonate', { method: 'DELETE' });
+      if (!r.ok) { setSaliendo(false); return; }
       window.location.href = salida;
     } catch { setSaliendo(false); }
   };
