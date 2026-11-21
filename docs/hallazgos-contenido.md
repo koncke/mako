@@ -728,6 +728,17 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
 13. **El filtro, con caras y sin «Como vienen»** (21/11, noche). Martín pidió los creadores con su nombre completo y su caricatura,
     y que el orden por defecto sea el N×, dicho en palabras: «Los que más superaron a su cuenta», con un «?» que lo explica.
     Se sumó «Los más comentados», para los videos de ventas con palabra CTA, y cada tarjeta muestra el número del orden elegido.
+14. **Un panel con tres pestañas, del ancho de las dos piezas** (21/11, noche). Comentarios y ficha lado a lado no servía: el
+    panel quedaba con un bloque blanco debajo de la barra de escribir y no se veía que había algo más abajo. Quedó así:
+    - el escenario baja a ~60vh, para que en la primera pantalla ya asome el borde del panel;
+    - UN panel con «Comentarios · Guion · Guion técnico», de borde a borde de las dos piezas (se mide con JS);
+    - la decisión sube a la barra de arriba, al lado de «‹ Todas»;
+    - la barra de escribir queda pegada al fondo del panel, que tiene alto fijo (500 px), y el hilo hace scroll adentro;
+    - «Guion» va en dos columnas: el original, por bloques, contra el nuestro. En carruseles es lámina por lámina;
+    - «Guion técnico» va en dos columnas: lo que se ve en la referencia (con sus tiempos) contra lo que hacemos nosotros, con lo
+      que cambia marcado.
+    - **Trampa:** con el panel del navegador escondido, `requestAnimationFrame` no corre. Medir el panel en un rAF lo dejaba sin
+      ajustar en la vista local, así que se mide al pintar.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
@@ -781,6 +792,8 @@ conservan su id anterior.
   },
   "agregado": "2026-11-21T07:00:00Z",
   "por": "chat-competencia",
+  "estructura": [{ "de": 0, "a": 11, "que": "gancho IA: el Papa busca a Ramiro" }],   // opcional: el guion técnico de la referencia, en segundos
+  "guion_original": "",                                          // opcional: la transcripción en inglés si «guion» está traducido
   "nuestro": { "imagen": null, "gancho": null, "guion": [] },   // opcional: lo completa Content Machine al producir
   "costo": { "seg_avatar": 0, "usd": 0 },                        // opcional
   "tema": "", "orden": 0                                         // opcional
