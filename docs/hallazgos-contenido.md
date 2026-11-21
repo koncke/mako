@@ -833,6 +833,25 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - En el teléfono va debajo de la referencia, a lo ancho y con su proporción, con tope de 62 % del alto de la pantalla.
     - **Regla:** la acción principal de una vista va en el lugar donde va a aparecer su resultado, no en un botón suelto.
     - Al guardar, el texto cambia en la `<b>` del botón, no en todo el botón: con `textContent` sobre el botón se borraba el «＋».
+23. **Tres tipos: Avatar IA · Animación · Carrusel; «A cámara» no es un tipo** (21/11). Martín: «no entiendo la diferencia
+    entre a cámara y avatar IA». Él no se graba: todo lo que tiene una persona se hace con su avatar.
+    - «A cámara» pasa a ser Avatar IA con `escena: "a-camara"`. El resto de Avatar IA es `escena: "sketch"`. En el filtro,
+      «Escena: Sketch · Habla a cámara» aparece debajo de Tipo sólo cuando está elegido Avatar IA. Si se saca Avatar IA, la
+      escena se borra sola. Las piezas de otro tipo no se filtran por escena: su `de()` devuelve `null` y `cumple()` las deja pasar.
+    - La página normaliza al cargar (`tipo: "camara"` → avatar con escena), así sirve con los datos viejos y con los migrados.
+    - **Las 68 referencias de la galería de animaciones están en Spy** como piezas `anim-ref-<formato>` de tipo animación. Su
+      creador sale del campo `origen` del formato (HeyGen HyperFrames, Joseph, Tyler Mommsen, MoSidd…). 57 no tienen `origen`
+      y quedan como «Biblioteca de formatos». Las arma `armar-cm.mjs`, no la base. Cuando llega la colección `spy`, la página
+      las vuelve a sumar, porque si no la base las pisaría. En el detalle llevan «Nuestro formato →» al formato que salió de ellas.
+    - **Trampa:** la referencia de un formato es una imagen, no un video (57 en 4:5 y 11 en 16:9). Sin `video`, la tarjeta no
+      lleva `data-video` ni botón de reproducir, y el detalle muestra la imagen.
+    - **«Hacer mi versión» con método:** dentro del recuadro, «con avatar IA» y «animado», con la opción del tipo marcada.
+      Se guarda en `produccion.metodo` (`avatar`, `anim` o `carrusel`).
+    - **Trampa:** un botón no puede llevar otros botones adentro. El recuadro pasó a ser un `div` con un botón transparente
+      que lo cubre entero (`.cubre`) y las opciones encima, con `pointer-events` sólo en ellas.
+    - **Trampa:** con la línea de contexto dentro de la columna de la referencia, las dos columnas quedaban a distinta altura
+      (centradas). Va `align-items: start`. En el teléfono, el gancho sin salto de línea ensanchaba la columna: va en 2 líneas.
+    - Las tarjetas medían 491 o 495 según si toda la fila tenía títulos de un renglón: el título lleva `min-height: 2lh`.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
@@ -905,6 +924,9 @@ conservan su id anterior.
 - **`produccion/<id>`** (la escribe la página, no el chat de la competencia): `{ "pieza": "<id>", "tipo": "avatar|carrusel",
   "cuenta": "@...", "estado": "en-preparacion", "por": "<id de usuario>", "cuando": "<ISO>" }`. Es la cola de lo que se va a
   producir: lo que está ahí sale en Reels o Carruseles. El id del documento es el mismo de la pieza de `spy`.
+  Desde el 21/11 lleva también `metodo`: `avatar`, `anim` o `carrusel`. Una pieza con avatar se puede hacer animada.
+- **Tipos en `spy` desde el 21/11:** `avatar-ia` (con `escena: "sketch"` o `"a-camara"`), `animacion` y `carrusel`. Si un
+  documento viejo trae `a-camara` como tipo, la página lo lee como avatar con escena «a-camara».
 - **Cómo se escribe:** `ArtifactData` → `batch` con `{op: "set", collection: "spy", doc_id, file_path}`, hasta 50 por llamada, con
   cada documento en un `.json` local. Para cambiar una pieza que ya existe, se lee primero y se escribe con su `if_version`.
 - **Qué hace la página:** filtra por «Tipo» y por creador, con sus caricaturas. Ordena por «Los que más superaron a su cuenta» (`nx`,
