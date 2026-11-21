@@ -4271,3 +4271,41 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
   - «Ir a un paso» ya tiene «El código por WhatsApp» (21/11): deja el estado esperando el código, con la simulación y un código que pone
     el server.
 - tests/revision-whatsapp-simulado.test.ts (roto de a una rotura, 4).
+
+## Los tests que TOCAN: el banco del onboarding, sin sesión y sin producción (21/11/2026, chat «onboarding-v2», claude5)
+
+- **La regla** (el Cerebro): en un navegador automático NO se usan las cookies, la sesión ni la contraseña de nadie, y no hay previews de
+  Vercel. Los tests que tocan van contra los componentes REALES dibujados en local: scripts/banco-onboarding (como los otros
+  scripts/banco-*). build.mjs compila con esbuild y stubs de Next; entrada.tsx monta cada escenario y contesta /api con datos inventados;
+  probar.mjs usa Playwright headless, toca cada control y deja capturas. 48 chequeos en cinco escenarios:
+  - dos videos en el hilo, con el motor;
+  - el WhatsApp simulado;
+  - la barra (RESET, «Autocompletar», «Ir a un paso»);
+  - el Second Brain del recorrido;
+  - un paso con clic y otro sin.
+- **Trampa 1: el Chromium de Playwright no reproduce H.264.** Un mp4 de public/ no arranca nunca. El banco genera un webm VP8/Opus con
+  ffmpeg. El servidor contesta `Range` (206): sin eso, Chromium a veces no arranca ni deja saltar.
+- **Trampa 2: la regla de «un video a la vez» mira sólo los videos con sonido.** Un video `muted` no la prueba. El navegador va con
+  `--mute-audio`: no suena nada y el `<video>` sigue sin `muted`.
+- **Trampa 3: `location.assign` no se puede pisar** (es `[LegacyUnforgeable]`). Las navegaciones del RESET y de «Ir a un paso» se atajan
+  con `page.route` y se contestan con una página vacía del mismo origen (el sessionStorage del salto sobrevive). Las llamadas a /api, con
+  un `window.fetch` de la página que las anota.
+- **Trampa 4: 48 de 48 a la primera no prueba nada.** Se rompieron cinco puntos del código de verdad:
+  - sin soltar lo que flota;
+  - «Abrir WhatsApp» con el link real;
+  - «Siguiente» en el paso de clic;
+  - la capa encima de la barra;
+  - el botón con «Reiniciar onboarding».
+  Cada uno cayó en su escenario.
+- Los cuadros negros de los videos en las capturas son del Chromium headless con el video de prueba, no de la app.
+- **Lo que el banco NO ve (lo mira el Cerebro en producción, con la sesión de Martín en el navegador de la app, silenciado):**
+  - el panel de emojis a 375 dentro del Ops Center;
+  - el micrófono y la transcripción;
+  - «Guardar contacto» en el teléfono;
+  - «Entrar a MaKo» hasta la app;
+  - el recorrido marcando el Ops Center de verdad, con la capa del Second Brain sobre el grafo real;
+  - «Ir a un paso» aterrizando en una marca del medio de otra pestaña;
+  - el WhatsApp simulado contra la ruta de verdad, hasta «¿Guardaste…?»;
+  - el reto: «¿Qué hacemos ahora?», el desplegable de días, el catálogo y las marcas de las tareas;
+  - el formato de los globos.
+- Uso: `node scripts/banco-onboarding/build.mjs && node scripts/banco-onboarding/probar.mjs [--solo videos,whatsapp,barra,brain,marca]`.
