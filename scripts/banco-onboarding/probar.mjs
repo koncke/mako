@@ -119,6 +119,7 @@ const ESCENARIOS = {
       const sel = 'select[aria-label="Ir a un paso del onboarding o del reto"]';
       const n = await pg.waitForSelector(sel, { timeout: 8000 }).then(() => pg.$$eval(`${sel} option`, (xs) => xs.length)).catch(() => 0);
       chequear('barra', '«Ir a un paso» con todos los pasos (más de 60)', n > 60, `opciones: ${n}`);
+      chequear('barra', '«Ir a un paso» muestra el paso en el que está', (await pg.inputValue(sel).catch(() => '')) === 'origen', await pg.inputValue(sel).catch(() => ''));
       const grupos = await pg.$$eval(`${sel} optgroup`, (xs) => xs.map((x) => x.getAttribute('label'))).catch(() => []);
       chequear('barra', 'agrupados: Onboarding, Ops Center, el reto y cada día', ['Onboarding', 'Ops Center', 'Día 1', 'Día 7'].every((g) => grupos.includes(g)), grupos.join(', '));
       await pg.screenshot({ path: path.join(CAPT, 'barra.png') });

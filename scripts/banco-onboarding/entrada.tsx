@@ -48,7 +48,7 @@ function responder(ruta: string, metodo: string, cuerpo: unknown): unknown {
   if (ruta === '/api/onboarding/arranque' && (cuerpo as { action?: string } | null)?.action === 'whatsapp' && vistaVerificada) return { ok: true, vista: vistaVerificada };
   if (ruta === '/api/auth/me') return { ok: true, impersonando: true, clienteNombre: 'Cliente de Prueba', modoAgencia: false, salida: '/admin', agencia: null };
   if (ruta === '/api/admin/negocio-de-prueba') return { ok: true, disponible: false };
-  if (ruta === '/api/admin/saltar-onboarding') return metodo === 'GET' ? { ok: true, puede: true, pasos: PASOS_DE_REVISION } : { ok: true, destino: '/second-brain?reto=1', vistos: [], salto: null, avisos: [] };
+  if (ruta === '/api/admin/saltar-onboarding') return metodo === 'GET' ? { ok: true, puede: true, pasos: PASOS_DE_REVISION, actual: 'origen' } : { ok: true, destino: '/second-brain?reto=1', vistos: [], salto: null, avisos: [] };
   if (ruta === '/api/onboarding/arranque') return { ok: true, vista: vistaActual };
   if (ruta === '/api/plan-dictado') return { ok: true, texto: 'Valentina' };
   if (ruta === '/api/recorridos') return metodo === 'GET' ? { ok: true, guardado: true, vistos: [], quien: 'a1b2c3d4e5f60718' } : { ok: true };

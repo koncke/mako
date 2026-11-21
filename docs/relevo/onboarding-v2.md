@@ -26,6 +26,11 @@ Lo pidió el Cerebro con las 3 capturas de Martín (ws 3, Nutri Vale). Despliegu
 - **8. El recorrido no persigue** (commit «El recorrido no persigue»): MarcaAlReto una vez por pestaña (sessionStorage), nunca con un
   coach, un grupo o un gurú abiertos, y con «Lo hago después». Falta, si Martín lo pide, un chip «Seguir el recorrido» para retomarlo.
 
+- **URGENTE: el borrado del RESET, lista CERRADA [3, 4]** (806a57cd2): nunca el 9 (el espacio de Martín) ni el 11 (Leila).
+- **2. «Ir a un paso» sigue el paso** (commit «Ir a un paso sigue solo»): el server dice el paso del estado guardado
+  (lib/onboarding-v2/paso-actual.ts, con las máquinas de verdad) y el desplegable lo muestra; se pone al día cada 5 s y al cambiar de
+  pantalla; mientras corre el recorrido, la marca en la que va (el motor la anota en el store: `anotarPasoDelMotor`).
+
 ## Falta (con por dónde empezar)
 1. **El recuadro del recorrido mal ubicado** (/second-brain?reto=1: el hueco sobre los «…» de MaKo escribiendo, arriba a la izquierda,
    en vez de la fila del reto). Mirar `lugarDe(sel)` en app/_ui/tutorial/MotorTutorial.tsx (toma el PRIMER elemento visible del selector)

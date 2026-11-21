@@ -88,7 +88,7 @@ test('5. «Ir a un paso» reinicia el recorrido entero: la base, el navegador de
   const iVa = s.indexOf('window.location.assign(conWs(j.destino, ws));');
   assert.ok(iCierra > 0 && iCierra < iVa, 'cierra el tutorial y el video flotante antes de ir');
   assert.ok(iLimpia > 0 && iLimpia < iVa, 'limpia el navegador de quien mira antes de ir');
-  assert.match(s, /import \{ cerrarTutorial \} from '@\/app\/_ui\/tutorial\/store';/);
+  assert.match(s, /import \{ cerrarTutorial[^}]*\} from '@\/app\/_ui\/tutorial\/store';/);
   assert.match(s, /if \(j\.avisos\?\.length\)/, 'lo que no pudo dejar listo (el recorrido sin ver) se dice, no se traga');
 });
 

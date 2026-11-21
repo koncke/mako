@@ -13,6 +13,10 @@ import { getSesionAdmin } from '@/lib/auth';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { PASOS_DE_REVISION, esPasoDeRevision, puedeVerLaRevision } from '@/lib/onboarding-v2/saltar';
 import { saltarAlPaso } from '@/lib/onboarding-v2/saltar-server';
+import { pasoActualDe } from '@/lib/onboarding-v2/paso-actual';
+import { getSetting } from '@/lib/settings';
+import { estadoDeLoGuardado } from '@/lib/onboarding-contrato';
+import { CLAVE_RETO } from '@/lib/reto/dias';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +24,11 @@ export async function GET() {
   const admin = !!(await getSesionAdmin());
   const ws = await getWorkspaceActual();
   if (!puedeVerLaRevision({ ws, admin })) return NextResponse.json({ ok: false, puede: false }, { status: 403 });
-  return NextResponse.json({ ok: true, puede: true, ws, pasos: PASOS_DE_REVISION });
+  // El paso en el que está (21/11, Martín: «debería ir avanzando automáticamente… si no, me pierdo»): del estado guardado.
+  const leer = async (k: string) => { try { return JSON.parse((await getSetting(k)) ?? 'null'); } catch { return null; } };
+  const [arranque, reto, st] = await Promise.all([leer('onboarding.arranque'), leer(CLAVE_RETO), getSetting('onboarding.state').catch(() => null)]);
+  const actual = pasoActualDe({ arranque, terminado: estadoDeLoGuardado(st).status === 'done', reto, ahora: Date.now() });
+  return NextResponse.json({ ok: true, puede: true, ws, pasos: PASOS_DE_REVISION, actual });
 }
 
 export async function POST(req: Request) {

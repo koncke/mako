@@ -30,7 +30,7 @@ import { Button } from '../Button';
 import { cssRecorrido, useRecorrido } from '../Recorrido';
 import { Z_PISO_RECORRIDO, cajaVisible, necesitaScroll, posicionTarjeta, recorteDe, seVeEntero, type Caja, type Medida, type PosicionTarjeta } from '@/lib/recorridos';
 import { pasosPara, tutorialDeRuta, type PasoTutorial, type TutorialPestana } from '@/lib/tutoriales';
-import { anotarRevision, elChatPresentaElRecorrido, motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
+import { anotarPasoDelMotor, anotarRevision, elChatPresentaElRecorrido, motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
 import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
 import { barrer, tocaIris } from './iris';
 import { VideoEnLaEsquina } from './VideoEnLaEsquina';
@@ -362,6 +362,9 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   const pasos: PasoTutorial[] = useMemo(() => (senal.tipo === 'tutorial' ? pasosPara(senal.tutorial, telefono) : [senal.paso]), [senal, telefono]);
   // -1 = la presentación de la pestaña (su `intro`), antes del primer paso. Una marca va directo a su lugar.
   const [i, setI] = useState(senal.tipo === 'tutorial' && senal.desde ? senal.desde : senal.tipo === 'tutorial' && senal.tutorial.intro ? -1 : 0);
+  // En qué paso va, para «Ir a un paso» (21/11): el desplegable sigue al recorrido.
+  useEffect(() => { anotarPasoDelMotor(senal.tipo === 'tutorial' ? i : null); }, [senal, i]);
+  useEffect(() => () => anotarPasoDelMotor(null), []);
   const [el, setEl] = useState<HTMLElement | null>(null);
   const [geo, setGeo] = useState<Geo>({ hueco: null, tarjeta: null });
   const [videoArriba, setVideoArriba] = useState(false);

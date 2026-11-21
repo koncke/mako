@@ -15,7 +15,8 @@ import { limpiarClavesDelOnboarding } from '@/lib/reinicio-en-el-navegador';
 import type { PASOS_DE_REVISION, SaltoPendiente } from '@/lib/onboarding-v2/saltar';
 import { anotarSalto } from '@/lib/onboarding-v2/salto-pendiente';
 import { AvisoFlotante } from './AvisoFlotante';
-import { cerrarTutorial } from '@/app/_ui/tutorial/store';
+import { cerrarTutorial, usePasoDelMotor, useSenal } from '@/app/_ui/tutorial/store';
+import { usePathname } from 'next/navigation';
 
 const MONO = "'Geist Mono', monospace";
 const caja: CSSProperties = {
@@ -31,14 +32,27 @@ export function SaltarAPaso() {
   const [puede, setPuede] = useState(false);
   const [yendo, setYendo] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  // EL PASO EN EL QUE ESTÁ (21/11/2026, Martín: «debería ir avanzando automáticamente… si no, me pierdo»): el del estado guardado lo
+  // dice el server (se pregunta al cambiar de pantalla y cada 5 s, con la pestaña a la vista); el del recorrido, el motor.
+  const [actual, setActual] = useState<string | null>(null);
+  const ruta = usePathname();
   useEffect(() => {
     let vivo = true;
-    fetch(conWs('/api/admin/saltar-onboarding', ws), { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: { puede?: boolean; pasos?: readonly Paso[] } | null) => { if (vivo && j?.puede && j.pasos) { setPasos(j.pasos); setPuede(true); } })
-      .catch(() => { /* sin el sí del server, no se dibuja */ });
-    return () => { vivo = false; };
-  }, [ws]);
+    const pedir = () => {
+      if (document.hidden) return;
+      fetch(conWs('/api/admin/saltar-onboarding', ws), { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j: { puede?: boolean; pasos?: readonly Paso[]; actual?: string | null } | null) => { if (vivo && j?.puede && j.pasos) { setPasos(j.pasos); setPuede(true); setActual(j.actual ?? null); } })
+        .catch(() => { /* sin el sí del server, no se dibuja */ });
+    };
+    pedir();
+    const t = window.setInterval(pedir, 5000);
+    return () => { vivo = false; window.clearInterval(t); };
+  }, [ws, ruta]);
+  const senal = useSenal();
+  const pasoMotor = usePasoDelMotor();
+  const delRecorrido = senal?.tipo === 'tutorial' && senal.tutorial.pestana === 'recorrido' && pasoMotor != null && pasoMotor >= 0 ? `recorrido-${pasoMotor + 1}` : null;
+  const valor = delRecorrido ?? actual ?? '';
   if (!puede) return null;
   const ir = async (paso: string) => {
     if (!paso || yendo) return;
@@ -69,7 +83,7 @@ export function SaltarAPaso() {
     <>
       <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none' }}>
         <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Ir a un paso del onboarding o del reto</span>
-        <select value="" disabled={yendo} onChange={(e) => void ir(e.target.value)} style={caja} aria-label="Ir a un paso del onboarding o del reto">
+        <select value={valor} disabled={yendo} onChange={(e) => void ir(e.target.value)} style={caja} aria-label="Ir a un paso del onboarding o del reto">
           <option value="" style={{ color: '#171511' }}>{yendo ? 'Yendo…' : 'Ir a un paso'}</option>
           {[...new Set((pasos ?? []).map((p) => p.grupo))].map((g) => (
             <optgroup key={g} label={g} style={{ color: '#171511' }}>
