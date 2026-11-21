@@ -808,6 +808,23 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
       su `[hidden] { display: none !important }`.
     - En el teléfono las tres pestañas (Comentarios, Guion, Guion técnico) entran en una fila de 326 px con letra de 13,5 px y
       9 px de relleno. «Aprobado» baja a su propia fila, a la derecha.
+21. **El carrusel se desliza dentro de la tarjeta de Spy, sin abrir el detalle** (21/11). Martín: «así como lo tenemos en
+    MaKo… desplazar los carruseles para ver las otras láminas». Es una copia de `Laminas()` en
+    `app/image-editor/carruseles/ExplorarCarruseles.tsx`:
+    - una pista con `scroll-snap-type: x mandatory`, que se desliza con el dedo;
+    - flechas ‹ › que aparecen al pasar el cursor y quedan a la vista sin mouse (`@media (hover: none)`). Se esconden en la
+      primera y en la última lámina. El clic en la flecha frena la propagación: no abre el detalle;
+    - puntitos con la lámina actual (con más de 10 láminas va «3/12»);
+    - se cargan la portada y la siguiente. Las demás llevan `data-src` y se cargan al llegar, junto con la que sigue;
+    - un carrusel con sólo la portada no lleva flechas, sino el sello «Portada · las láminas llegan al elegirlo».
+    - **Trampa:** el evento `scroll` no sube al contenedor. Para escuchar todas las pistas de la galería con un solo
+      listener, va en fase de captura: `addEventListener('scroll', fn, true)`.
+    - **Trampa:** declaré una `const pasarLamina` y ya había otra con ese nombre en el mismo bloque. El `SyntaxError` tumba el
+      script entero: la galería quedó con 0 piezas y sin ningún aviso en la página. El chequeo de `armar-cm.mjs` no lo vio.
+      Antes de publicar, mirar la consola de la vista local.
+    - **Para probarlo en la vista local:** los carruseles de Carrizo sólo están en la base, y la vista local no la tiene. Se arma
+      una copia de prueba (`pub/vista-prueba.html`) con una pieza pasada a carrusel con láminas locales y otra con sólo la
+      portada. Nunca se publica esa copia.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
