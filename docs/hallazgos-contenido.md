@@ -1018,6 +1018,11 @@ elegido en otra lámina, el filtro lo escondía.
   encuentra, muestra la miniatura y, al tocarla, abre la pieza en Spy. Si no, dice «Todavía no está en Spy»: pasa con
   Dakota, que no está en la colección.
 - Pendiente (pedido para más adelante): etiquetar cada pieza de Spy con su ángulo y filtrar por ángulo.
+- **21/11, más tarde:** Martín rechazó esa propuesta («súper genéricos»). La pestaña muestra «Ángulos en investigación»
+  (`ANG_EN_INVESTIGACION = true`). Las tarjetas y `ANG` quedan guardadas para la versión nueva.
+- **Trampa (ya corregida):** `contar()` usa `S[sec]`, y con `sec = 'angulos'` fallaba. La pestaña quedaba en blanco si se
+  abría directo con `#angulos` (pasó en v49 y v50). Ahora se cuenta antes de cambiar de sección. Toda sección que no está en
+  `S` tiene que evitar las funciones que leen `S[sec]`.
 
 **Cuando el chat de carruseles termina una pieza** (21/11, «9 agentes de IA»): se trae la página de su artefacto
 (`Artifact read`, `path: index.html`) a `content-machine/carruseles/index.html` y se rearma. Al publicar se pasan en `files`
