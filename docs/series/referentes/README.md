@@ -9,12 +9,11 @@ de cada una está en su relevo:
 - [victor.md](victor.md) — Víctor Heras, 35 reels
 - [hormozi.md](hormozi.md) — Alex Hormozi, 48 reels
 
-**Para elegir:** el artefacto «Serie con avatar IA» (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz), con 20 temas propuestos
-(`propuestas-temas.json`), sus ganchos, el formato, el costo en ApiMart y cómo lo hace cada referente. Lo que Martín marca queda
-en la colección `votos` del artefacto (se lee con la herramienta ArtifactData). Nada se genera con IA antes de eso.
-
-La página donde Martín elige se alimenta de `C:/dev/referentes-videos/artefacto-datos.json` (fuera del repo, junto a los
-`reels.json`), armado por script con los mismos números que este documento.
+**Para elegir:** el artefacto «Serie con avatar IA» (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz), rehecho el 21/11: una
+galería con el reel de referencia de cada uno de los 20 temas (`propuestas-temas.json`) y, al tocarlo, la referencia y nuestra
+versión lado a lado, con los dos guiones. Lo que Martín marca queda en la colección `votos` del artefacto, un documento por tema con
+`estado` «si» o «no» (se lee con la herramienta ArtifactData). Nada se genera con IA antes de eso. Ver «La serie con avatar de IA»,
+abajo.
 
 ## Cómo se relevó
 
@@ -137,3 +136,42 @@ mediana propia y con el sketch entero y el animado con código como comparación
   afuera la metáfora de animales; en Víctor, la pregunta incómoda a quien mira).
 - **Ajuste por edad de Víctor** (×2,4 del sketch): es el del relevo verificado; el script de este documento no lo reproduce
   exacto (da ×2,3 con una regresión simple). El método de los 6 vecinos sí da igual (×1,28 y ×1,09).
+
+## La serie con avatar de IA (21/11/2026)
+
+**Cuentas que se sumaron el 21/11:** [Heras Media](heras-media.md) (@herasmedia, la segunda cuenta de Víctor; 246 reels, 26 entran). En cola, con el usuario ya confirmado: Juan Carrizo (@juanxcarrizo), Francisco Doglio (@franciscodoglio) y Guille Collado (@guille.colladomk).
+
+Cada tema tiene UN reel de referencia: el que se calca, no siempre el de más vistas. La página se arma fuera del repo, en
+`C:/dev/referentes-videos/artefacto/serie/`:
+- `armar-fichas.mjs` → `fichas.json`: la referencia elegida para cada tema, con sus números y su transcripción.
+- `comprimir.sh`: los 20 reels a 480 px para la página, un póster y un fotograma grande por reel.
+- `guiones.json`: nuestra adaptación de cada uno (gancho de 10 a 15 s con el avatar y después Martín a cámara).
+- `generar-imagenes.mts`: nuestra versión de la escena (Nano Banana Pro por ApiMart; frase por tema adentro).
+- `armar-pagina.mjs` + `plantilla.html`: la página que se publica en la misma URL.
+
+Cómo está hecho cada reel de referencia (de `<cuenta>/reels.json`; «persona real desde» = cuándo aparece filmada la persona
+real, «nunca» en un sketch entero con avatar; el N× es contra la mediana de su cuenta y «nuevo» si tenía menos de 48 h):
+
+| Tema | Referencia | Forma | Dura | Gancho hasta | Persona real desde | Cortes/min | Fondo | CTA |
+|---|---|---|---|---|---|---|---|---|
+| ¿Qué video te trajo al cliente que te pagó? | Rama · [Dfi5E4sioYt](https://www.instagram.com/reel/Dfi5E4sioYt/) · 4,7× | sketch entero con IA | 138 s | 11 s | nunca | 15,6 | constante | comenta CRM (126,9 s) |
+| La agenda llena de gente que no puede pagar | Rama · [Df6GECpzVY8](https://www.instagram.com/reel/Df6GECpzVY8/) · nuevo | gancho con IA + persona | 101 s | 31 s | 0 s | 13 | constante | comenta BALLENA (89,9 s) |
+| Un mes de contenido con IA sin grabarte todos los días | Rama · [Dfk06zNGQZo](https://www.instagram.com/reel/Dfk06zNGQZo/) · 6,3× | animado (motion graphics) | 39 s | 3,8 s | nunca | 0 | constante | comenta EDITAR (32,2 s) |
+| El lead que se enfría | Rama · [DfhuBAPFHzF](https://www.instagram.com/reel/DfhuBAPFHzF/) · 0,9× | a cámara (selfie) | 101 s | 9,1 s | 0 s | 1,2 | constante | sin CTA |
+| ¿Reemplazar al setter con IA? | Rama · [Df4kgp-Trlk](https://www.instagram.com/reel/Df4kgp-Trlk/) · nuevo | gancho con IA + persona | 90 s | 23,4 s | 0 s | 5,3 | constante | comenta SOP (76,3 s) |
+| Muchos seguidores, poca plata | Víctor · [DW4OVoLkUH5](https://www.instagram.com/reel/DW4OVoLkUH5/) · 1× | efecto visual con contador | 28 s | 19,3 s | 19,3 s | 0 | silencio entre frases | comenta RETO (19,3 s) |
+| Viral, pero sólo para tu nicho | Víctor · [DXzUw8jthB3](https://www.instagram.com/reel/DXzUw8jthB3/) · 22,3× | sketch: falso noticiero + persecución | 69 s | 11 s | 36,3 s | 11,4 | constante | comenta CLASE (36,3 s) |
+| Copia lo que ya le funcionó a tu competencia | Rama · [DfzylOtE57v](https://www.instagram.com/reel/DfzylOtE57v/) · 0,7× | recorte de llamada | 41 s | 4,5 s | 0 s | 0 | constante | sin CTA |
+| Anuncios que terminan en una conversación | Rama · [DflOHziDDVV](https://www.instagram.com/reel/DflOHziDDVV/) · 1,4× | pantalla dividida (pizarra + Ramiro) | 167 s | 12,8 s | 0 s | 0,4 | constante | comenta SOP (158,8 s) |
+| Dónde se te escapa la plata en el embudo | Rama · [DfvwqMQDDyi](https://www.instagram.com/reel/DfvwqMQDDyi/) · 1,8× | sketch entero con IA | 91 s | 12,6 s | nunca | 17,8 | constante | comenta NVIDIA (83,9 s) |
+| Facturas mucho y te queda poco | Rama · [DfbMdVPTRu8](https://www.instagram.com/reel/DfbMdVPTRu8/) · 1,6× | sketch entero con IA | 99 s | 19 s | nunca | 5,5 | constante | comenta CURSO (86,8 s) |
+| Pagas siete herramientas que no se hablan entre sí | Rama · [DfuQ4RLjYc9](https://www.instagram.com/reel/DfuQ4RLjYc9/) · 1,6× | gancho actuado sin IA + a cámara | 80 s | 14,9 s | 0 s | 0 | constante | comenta SISTEMA (73,2 s) |
+| Tu negocio no puede depender de ti | Rama · [DfvY9_NJcdn](https://www.instagram.com/reel/DfvY9_NJcdn/) · 1,2× | pantalla dividida (pizarra + Ramiro) | 103 s | 6,6 s | 0 s | 0,6 | constante | comenta SOP (91,5 s) |
+| Lo que no publicas por miedo te cuesta clientes | Víctor · [Dd9pHdwPaC9](https://www.instagram.com/reel/Dd9pHdwPaC9/) · 1,1× | a cámara selfie en el coche | 77 s | 12,4 s | 0 s | 5,5 | constante | sin CTA |
+| La mentoría que no te dio resultados | Rama · [Dfm3xDWiV0Z](https://www.instagram.com/reel/Dfm3xDWiV0Z/) · 0,8× | gancho actuado sin IA + a cámara | 93 s | 7,1 s | 0 s | 2,6 | constante | sin CTA |
+| Sube el precio | Hormozi · [Dfpk7PcTfsK](https://www.instagram.com/reel/Dfpk7PcTfsK/) · 1,8× | a cámara en estudio blanco | 104 s | 4,3 s | 0 s | 3,5 | silencio entre frases | comenta TEAMS (101 s) |
+| Una oferta que da vergüenza rechazar | Hormozi · [DfXyDVPopFX](https://www.instagram.com/reel/DfXyDVPopFX/) · 0,8× | a cámara en estudio blanco | 41 s | 3,8 s | 0 s | 5,8 | silencio entre frases | comenta SALES (36 s) |
+| «Lo tengo que pensar» | Hormozi · [DfaawJpoCve](https://www.instagram.com/reel/DfaawJpoCve/) · 0,9× | a cámara en estudio blanco | 80 s | 6,2 s | 0 s | 1,5 | silencio entre frases | comenta SALES (72,5 s) |
+| Haces diez cosas y ninguna vende | Hormozi · [DfLtZLvo7Cc](https://www.instagram.com/reel/DfLtZLvo7Cc/) · 4,8× | selfie con el teléfono | 31 s | 3,4 s | 0 s | 0 | constante | sin CTA |
+| «No me alcanzan los clientes»: el caso real de la semana | Hormozi · [DfLELOsIJHF](https://www.instagram.com/reel/DfLELOsIJHF/) · 3,8× | taller en vivo: pregunta del público | 110 s | 6,03 s | 0 s | 25,6 | silencio entre frases | sin CTA |
+

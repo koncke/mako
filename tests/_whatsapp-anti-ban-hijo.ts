@@ -135,12 +135,12 @@ async function main() {
   arrancar();
   db.app_settings.push({ workspace_id: NUEVO, key: 'mako.contacto.verificacion', value: JSON.stringify({ telefono: DUENO, destino: DUENO, codigo: '123456', expira: Date.now() + 60_000, verificado: false, nombre: 'Nueva' }) });
   out.deAntes = await g.verificarCodigoContacto(NUEVO, '123456');
-  // El de antes, si el grupo no sale: no queda verificado (el mismo código sirve para reintentar).
+  // El de antes, con un WhatsApp que no crearía el grupo: desde el 20/11/2026 no se intenta crear, así que queda verificado igual.
   arrancar(); grupoRoto = true;
   db.app_settings.push({ workspace_id: NUEVO, key: 'mako.contacto.verificacion', value: JSON.stringify({ telefono: DUENO, destino: DUENO, codigo: '123456', expira: Date.now() + 60_000, verificado: false, nombre: 'Nueva' }) });
   out.deAntesSinGrupo = { res: await g.verificarCodigoContacto(NUEVO, '123456'), verificado: verif(NUEVO)?.verificado };
   grupoRoto = false;
-  // Sin el nombre del negocio todavía (el WhatsApp va primero): el grupo nace con el nombre del workspace, no «MaKo <> tu negocio».
+  // Sin el nombre del negocio todavía (el WhatsApp va primero): antes el grupo nacía con el nombre del workspace; desde el 20/11/2026 no nace ninguno.
   arrancar(); pedidos = [];
   await g.pedirMensajeDeVerificacion(NUEVO, DUENO, '');
   const sinNombre = await g.confirmarPorMensajeEntrante(LINEA_MAKO, llega(DUENO, textoParaMandar(codigoDe(NUEVO))));

@@ -78,12 +78,38 @@ leads, 13 o 14 cumplían» y el inmobiliario los marcaba no calificados). La ref
   puntúan. Medido con el ordenador real: con «reglas del formulario…» salen 1.º a 5.º de 126; con «¿cuántos leads entraron esta
   semana?», del 64 al 99. **La regla:** una operación nueva del CRM se escribe sin las raíces de los pedidos de todos los días y se
   corre contra tests/ops-center-bateria y tests/doer-hilo ANTES de subir.
+- **Escape con un desplegable abierto cerraba el modal ENTERO, y la ✕ perdía el borrador sin preguntar** (21/11/2026, visto en la
+  verificación del ws 4). Lo del Escape es del desplegable y del modal de la casa, y está en
+  [hallazgos-ui.md](hallazgos-ui.md) («Un Escape cerraba el panel Y LA FICHA ENTERA», el agregado del 21/11). Lo del CRM: «Volver» y
+  «Cancelar» ya preguntaban «¿Salir sin guardar las reglas?», pero la ✕, Escape y el clic afuera iban derecho al `onCerrar` de
+  `CrmBoard`. **La regla:** un modal con borrador no le pasa el `onCerrar` de afuera directo al `<Modal>`: todas las salidas pasan
+  por la misma pregunta (`salirSinGuardar`, `app/crm/FuentesModal.tsx`; tests/desplegable-escape-en-modal.test.ts).
+- **«Mandar a la papelera» «no reaccionaba al primer clic», y el diagnóstico obvio era el equivocado** (21/11/2026, ws 3, en
+  `/crm/<id>`). Parecía que el primer clic se perdía (un doble render, un estado pisado) y que el segundo lo hacía. Reconstruido del
+  registro de la verificación: el primero SÍ entró; el segundo no hizo nada, porque el tacho ya estaba apagado; lo que se vio fue el
+  primero terminando. Tres cosas juntas: (1) el cartel se cerraba en el acto y lo único que cambiaba era el tacho del fondo, gris;
+  (2) el borrado era una server action, y Next las despacha DE A UNA (`dispatchAction` de
+  `next/dist/client/components/app-router-instance.js`, Next 16.2.6): esperaba detrás de las que la ficha manda al abrir —medido en
+  el ws 4: cinco en serie entre los 4,9 y los 9,3 s, otra a los 13 s; en una cuenta grande como la del ws 3 cada una tarda más—, y
+  el lead seguía en la base varios segundos después del clic; (3) con `redirect`, la respuesta traía el tablero entero dibujado
+  antes de que cambiara la pantalla. Arreglo: las dos fichas (la de página completa y el pop-up) van por una RUTA,
+  `app/api/crm/papelera/route.ts` (misma puerta `exigirSesion`, misma escritura `mandarLeadsAPapelera`), que sale en el acto y en
+  paralelo; la de página completa navega después con `router.push`, que en la fila de Next pasa ADELANTE de lo que espera; y el
+  cartel queda abierto con su spinner hasta que la pantalla cambia (tests/papelera-ficha-primer-toque.test.ts). Las server actions
+  `deleteLeadAction`/`deleteLeadInlineAction` siguen (la API de MaKo y sus tests las nombran). **La regla:** un cartel de confirmación
+  se cierra cuando la acción TERMINÓ, no cuando empezó; y una escritura que tiene que sentirse en el acto desde una pantalla con
+  lecturas por server action en vuelo va por una ruta.
 
 **Sin hacer** (y dónde iría): el lead que YA existía y llena otro formulario de Meta no se califica al llegar
 (`alNacerLeadDeMeta` corre sólo al crear; `lib/leads.ts`, rama `existing`); el opt-in que queda como propuesta (duplicado ambiguo)
 tampoco (`app/api/track/optin/route.ts`, `crearPropuesta`); la barra de lote de campañas (tildar varias y «Asignar a este funnel»)
 se reemplazó por un interruptor por fila, y `app/crm/CampanasModal.tsx` + `FuentesWebGenerator.tsx` quedan para la puerta de
-`CampanasDelProducto.tsx`, que no monta nadie hoy: borrarlos es otra tanda.
+`CampanasDelProducto.tsx`, que no monta nadie hoy: borrarlos es otra tanda. Apagar una página externa en «Formularios» deja su fila
+en `landing.config` sin funnel y sigue listada como fuente (`alternarFormulario`, rama `web:`, `lib/fuentes-crm-server.ts`). El
+«Recorrido del lead» de la ficha dice «No era buen fit» en vez del motivo de la regla (`lib/journey.ts`; el motivo sí está en
+«Motivo de salida»). Las otras escrituras de la ficha que van por server action (mover de etapa, etiquetas, pagos) hacen la misma
+fila detrás de las lecturas: no medido si se nota; y el «Mandar a la papelera» de la tarjeta del tablero (`eliminarLeadsAction`,
+`app/crm/CrmBoard.tsx`) cierra su cartel antes de terminar, aunque avisa al final.
 
 ## `buscar_leads` era literal: «Carolina Casab» no encontraba a «Carolina Cassab» (ticket #121, 20/11/2026, ws 13)
 

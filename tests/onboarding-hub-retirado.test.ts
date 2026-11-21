@@ -45,7 +45,6 @@ const sinComentarios = (src: string) => src
 const AL_WIZARD: ReadonlyArray<{ archivo: string; por: string }> = [
   { archivo: 'lib/tab-access.ts', por: 'el guard manda al wizard mientras el onboarding esté pendiente' },
   { archivo: 'app/inicio/page.tsx', por: 'la portada manda al wizard mientras esté pendiente' },
-  { archivo: 'app/_components/PanelAgencia.tsx', por: 'el reset deja el onboarding pendiente y va derecho al wizard' },
   { archivo: 'app/m/configurar/page.tsx', por: 'sólo se dibuja con el onboarding pendiente: abre el wizard' },
   { archivo: 'lib/movil-rutas.ts', por: 'el respaldo de escritorio de /configurar, que es el wizard' },
   { archivo: 'lib/movil-desvio.ts', por: 'la lista de rutas que el teléfono abre igual (el wizard)' },
@@ -53,6 +52,7 @@ const AL_WIZARD: ReadonlyArray<{ archivo: string; por: string }> = [
   { archivo: 'lib/onboarding-guardia-server.ts', por: 'el aviso de bloqueo lleva al super admin al wizard del cliente, donde está «Desbloquear» (17/10)' },
   { archivo: 'app/_ui/Link.tsx', por: '`enElOnboarding` (20/11): nombra /onboarding para PREGUNTAR si la página es el onboarding (ahí no se prefetchea la app: el bucle de «Entrar a MaKo»); no navega hacia ahí' },
   { archivo: 'app/_components/ReiniciarOnboarding.tsx', por: '«Reiniciar onboarding» (20/11): después de reiniciar, lleva al wizard del negocio que se reinició' },
+  { archivo: 'lib/onboarding-v2/saltar.ts', por: '«Ir a un paso» de la revisión (20/11; desde el 21/11 el destino lo dice `destinoDelPaso`): saltar a un paso del onboarding V2 lleva al wizard, donde está ese paso' },
   { archivo: 'lib/seguir-en-pc.ts', por: 'RUTA_SEGUIR_EN_PC: «Sigamos en tu computadora» se dibuja en /onboarding (20/11, OA-10); el guard del teléfono y el Ops Center abierto en un teléfono mandan por la constante' },
 ];
 

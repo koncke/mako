@@ -26,7 +26,7 @@ import { linksConWs, partesConLinksDeWs } from './links-con-ws';
 import { APP_BASE_URL } from './app-url';
 import { reclamarEspaciado, salioReciente } from './espaciado';
 import { reclamarContactoLinea, SIN_CUPO_ALTAS_LINEA, SIN_CUPO_LINEA, TOPE_ALTAS_DIA_LINEA, TOPE_ALTAS_POR_LINEA, VENTANA_ALTAS_DIA_LINEA_MIN, VENTANA_ALTAS_LINEA_MIN, VENTANA_LINEA_MIN, type AlmacenTope } from './mako-linea-tope';
-import { ALTAS_FRENADAS, AUTOMATICO_APAGADO, KEY_ALTAS_EN_GRUPOS, KEY_GRUPOS_AUTOMATICO, SIN_INVITACION, altasFrenadas, automaticoPrendido } from './altas-en-grupos';
+import { ALTAS_FRENADAS, AUTOMATICO_APAGADO, KEY_ALTAS_EN_GRUPOS, KEY_GRUPOS_AUTOMATICO, SE_CREAN_GRUPOS, SIN_GRUPOS_NUEVOS, SIN_INVITACION, altasFrenadas, automaticoPrendido } from './altas-en-grupos';
 import { getSupabaseServer } from './supabase';
 import { agenciasAprobadasDe } from './agencia';
 import { KEY_VOZ_INSTANCIA } from './linea-plataforma';
@@ -291,6 +291,28 @@ async function ponerDescripcion(jid: string, description: string): Promise<void>
   });
 }
 
+/**
+ * ⛔ EL ÚNICO LUGAR QUE CREA UN GRUPO DE WHATSAPP (20/11/2026). Desde «Sólo no crear más» (Martín), corta ANTES de todo —el freno, el cupo de la
+ * línea, WhatsApp—: `SE_CREAN_GRUPOS` (lib/altas-en-grupos.ts). Lo llaman `asegurarGrupoMaKo` (Notificaciones, la verificación del onboarding, el
+ * admin) y `crearGrupoSuelto` (los avisos de prueba). Un camino nuevo que quiera crear un grupo pasa por acá: tests/altas-en-grupos.test.ts exige
+ * que `/group/create` aparezca UNA sola vez en el repo, adentro de esta función y después del corte. Sumar a alguien al crear es un alta más
+ * (`cupoAltaDeLinea`); quien vino por `setNumeroDuenoYSync` ya está contado y no gasta otra vez.
+ */
+async function crearGrupoEnLaVoz(subject: string, description: string, participants: string[]): Promise<{ ok: true; jid: string } | { ok: false; error: string }> {
+  if (!SE_CREAN_GRUPOS) return { ok: false, error: SIN_GRUPOS_NUEVOS };
+  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS };
+  for (const p of participants) {
+    const cupo = await cupoAltaDeLinea(p);
+    if (!cupo.ok) return cupo;
+  }
+  const r = await ev(`/group/create/${await instanciaVoz()}`, { method: 'POST', body: JSON.stringify({ subject, description, participants }) });
+  if (!r.ok) return { ok: false, error: `Evolution ${r.status}: ${typeof r.body === 'string' ? r.body : JSON.stringify(r.body).slice(0, 200)}` };
+  const jid = extraerJid(r.body);
+  if (!jid) return { ok: false, error: 'grupo creado pero sin JID en la respuesta' };
+  await ponerFoto(jid, 'gold');
+  return { ok: true, jid };
+}
+
 export type AsegurarResult =
   | { ok: true; jid: string; creado: boolean }
   | { ok: false; error: string };
@@ -322,23 +344,11 @@ export async function asegurarGrupoMaKo(
     return { ok: true, jid, creado: false };
   }
 
-  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS };
-
-  // Crear el grupo desde la voz de MaKo.
+  // Crear el grupo desde la voz de MaKo: por el ÚNICO punto que crea (`crearGrupoEnLaVoz`, cortado desde el 20/11/2026).
   const participants = (opts.participantes ?? []).map(soloDigitos).filter(Boolean);
-  // Sumar a alguien al crear el grupo es un alta más. Quien vino por `setNumeroDuenoYSync` ya está contado y no gasta otra vez.
-  for (const p of participants) {
-    const cupo = await cupoAltaDeLinea(p);
-    if (!cupo.ok) return cupo;
-  }
-  const r = await ev(`/group/create/${await instanciaVoz()}`, {
-    method: 'POST',
-    body: JSON.stringify({ subject, description: desc, participants }),
-  });
-  if (!r.ok) return { ok: false, error: `Evolution ${r.status}: ${typeof r.body === 'string' ? r.body : JSON.stringify(r.body).slice(0, 200)}` };
-  jid = extraerJid(r.body);
-  if (!jid) return { ok: false, error: 'grupo creado pero sin JID en la respuesta' };
-  await ponerFoto(jid, 'gold');
+  const creado = await crearGrupoEnLaVoz(subject, desc, participants);
+  if (!creado.ok) return creado;
+  jid = creado.jid;
   await guardarGrupoJid(ws, jid);
   // El cliente de una agencia: su equipo entra al grupo que acaba de nacer (nunca tira: el grupo ya está creado y es del cliente).
   const equipo = await sumarEquipoDeAgenciaAlGrupo(ws, jid, { adentro: participants, cliente: opts.nombre });
@@ -792,7 +802,7 @@ async function guardarNumeroDueno(ws: number, numero: string): Promise<void> {
  */
 export async function setNumeroDuenoYSync(
   ws: number, numero: string, nombreCliente: string,
-): Promise<{ ok: true; accion: 'grupo_creado' | 'numero_agregado' | 'sin_cambios'; jid?: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; accion: 'grupo_creado' | 'numero_agregado' | 'sin_cambios' | 'sin_grupo'; jid?: string } | { ok: false; error: string }> {
   const crudo = soloDigitos(numero);
   if (!crudo) return { ok: false, error: 'número inválido' };
   const anterior = soloDigitos((await getNumeroDueno(ws)) ?? '');
@@ -811,6 +821,8 @@ export async function setNumeroDuenoYSync(
     // sus números en Notificaciones lo armaba igual. Sólo se guarda el número del dueño.
     if (await esNegocioDelV2(ws)) return { ok: true, accion: 'sin_cambios' };
     const r = await asegurarGrupoMaKo(ws, { nombre: nombreCliente, participantes: [c.num] });
+    // MaKo no crea grupos nuevos (20/11/2026): el número quedó guardado y los avisos van por el chat privado. No es un error.
+    if (!r.ok && r.error === SIN_GRUPOS_NUEVOS) return { ok: true, accion: 'sin_grupo' };
     return r.ok ? { ok: true, accion: 'grupo_creado', jid: r.jid } : { ok: false, error: r.error };
   }
   // Tipeado distinto, pero WhatsApp dice que es el mismo de antes.
@@ -1263,21 +1275,8 @@ async function anotarEnLaMemoriaDelSuperAdmin(jid: string | null, texto: string,
 export async function crearGrupoSuelto(
   subject: string, participantes: string[], descripcion?: string,
 ): Promise<{ ok: true; jid: string } | { ok: false; error: string }> {
-  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS };
   if (!grupoConfigurado()) return { ok: false, error: 'Evolution no configurado' };
-  const participants = (participantes ?? []).map(soloDigitos).filter(Boolean);
-  for (const p of participants) {
-    const cupo = await cupoAltaDeLinea(p);
-    if (!cupo.ok) return cupo;
-  }
-  const r = await ev(`/group/create/${await instanciaVoz()}`, {
-    method: 'POST', body: JSON.stringify({ subject, description: descripcion ?? '', participants }),
-  });
-  if (!r.ok) return { ok: false, error: `Evolution ${r.status}: ${typeof r.body === 'string' ? r.body : JSON.stringify(r.body).slice(0, 200)}` };
-  const jid = extraerJid(r.body);
-  if (!jid) return { ok: false, error: 'grupo creado pero sin JID en la respuesta' };
-  await ponerFoto(jid, 'gold');
-  return { ok: true, jid };
+  return crearGrupoEnLaVoz(subject, descripcion ?? '', (participantes ?? []).map(soloDigitos).filter(Boolean));
 }
 
 /**

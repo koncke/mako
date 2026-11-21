@@ -23,10 +23,11 @@
 // marcar» (punto 9). Era la tercera vez que esta ruta se quedaba con la versión anterior de algo que
 // cambió en el pop-up; con una sola pieza, no puede.
 
-import { useState, useTransition, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
-import { deleteLeadAction, type LeadFullData } from '../actions';
+import { type LeadFullData } from '../actions';
+import { mandarAPapeleraDesdeFicha } from '../papelera-ficha';
 import { preguntaDePapelera } from '@/lib/leads-papelera-reglas';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { deriveStageKey, stageMetaOpt } from '@/lib/pipeline';
@@ -98,7 +99,7 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
   const [moverDirecto, setMoverDirecto] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [delErr, setDelErr] = useState<string | null>(null);
-  const [borrando, startBorrar] = useTransition();
+  const [borrando, setBorrando] = useState(false);
   // En qué productos está y cuál se mira. Acá no hace falta releer nada si cambia la casa: el
   // `router.refresh()` que hace la ficha después de cada cambio le trae el lead de nuevo.
   const fichaProd = useProductosDeLaFicha({ leadId: lead.id, casa: lead.funnel_id, foto: productos });
@@ -149,15 +150,23 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
   // campo no está en la ficha, y para el deep-link `?solucionar=1`.
 
 
-  const borrar = () => {
-    setConfirmDelete(false);
-    startBorrar(async () => {
-      // `deleteLeadAction` redirige al tablero: acá la ficha ES la pantalla, así que
-      // quedarse mirando un lead borrado no es una opción. (El modal usa la versión
-      // que no redirige, porque ahí la pantalla de atrás sigue viva.)
-      try { await deleteLeadAction(lead.id); }
-      catch (e) { setDelErr(e instanceof Error ? e.message : 'No se pudo mandar a la papelera. Reintenta.'); }
-    });
+  // ⚠️ EL CARTEL QUEDA ABIERTO, CON SU SPINNER, HASTA QUE LA PANTALLA CAMBIA (21/11/2026). Antes se cerraba en el acto y
+  // el borrado iba por una server action con `redirect`: esperaba en la fila de actions de la ficha y después dibujaba el
+  // tablero entero, y en todo ese rato lo único que cambiaba era el tacho del fondo, apagado. Se leía como «no reacciona al
+  // primer clic» (visto en el ws 3). Ahora va por la ruta (app/crm/papelera-ficha.ts) y, hecho, se navega: acá la ficha ES
+  // la pantalla, quedarse mirando un lead borrado no es una opción. `borrando` no se apaga en el éxito: la página se va.
+  const borrar = async () => {
+    if (borrando) return;
+    setBorrando(true);
+    setDelErr(null);
+    try {
+      await mandarAPapeleraDesdeFicha(lead.id);
+      router.push('/crm');
+    } catch (e) {
+      setBorrando(false);
+      setConfirmDelete(false);
+      setDelErr(e instanceof Error ? e.message : 'No se pudo mandar a la papelera. Reintenta.');
+    }
   };
 
   // Elegir otra etapa de la CASA mueve (08-T22), como soltar una card en el tablero: las etapas de
@@ -228,8 +237,9 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
           title={preguntaDePapelera(1, nombre).titulo}
           message={preguntaDePapelera(1, nombre).mensaje}
           confirmLabel="Mandar a la papelera"
-          onConfirm={borrar}
+          onConfirm={() => void borrar()}
           onCancel={() => setConfirmDelete(false)}
+          loading={borrando}
           zIndex={130}
         />
       )}
