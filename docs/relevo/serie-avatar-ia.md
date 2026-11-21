@@ -23,7 +23,7 @@ Actualizado: 21/11/2026 ~06:00 UTC, cuenta claude5.
 | Heras Media (@herasmedia) | 246, todo | 20 pasan, 50 en duda (6 más pasan; 15 no se pudieron bajar) | los 26; relevo en docs/series/referentes/heras-media.md |
 | Víctor (@victorherasemprendedor) | 225, hasta 12/2021 | 190 nuevos: 6 pasan, 22 en duda (4 más pasan) | los 10 |
 | Hormozi | no (casi no tiene escenas) | — | — |
-| Juan Carrizo (@juanxcarrizo), Francisco Doglio (@franciscodoglio), Guille Collado (@guille.colladomk) | EN COLA, usuario confirmado | — | — |
+| Juan Carrizo (@juanxcarrizo), Francisco Doglio (@franciscodoglio), Guille Collado (@guille.colladomk) | 87, 168 y 52 | la hoja más nueva y la más vieja: 0 pasan; textos: 0 señales. No entran en avatar IA (todo a cámara) | — |
 | Julián Alborna | EN ESPERA: Martín tiene que pasar el usuario (las únicas son de un artista visual sin reels) | — | — |
 
 ## Pendiente

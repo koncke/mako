@@ -2669,7 +2669,9 @@ ffmpeg) están en [hallazgos-contenido.md](hallazgos-contenido.md) → «Las her
 
 ### Lo que quedó sin hacer
 
-- **Carrizo, Doglio y Collado:** ya están listados y con hojas en `C:/dev/referentes-videos/<cuenta>/ampliado/`. Falta
-  clasificarlos (primero una hoja, por la regla de arriba), bajar lo que pasa y sumarlo a la página.
+- **Carrizo, Doglio y Collado no entran en la serie con avatar IA** (21/11, con la regla de una hoja). Se miró la hoja más nueva y
+  la más vieja de cada uno, y en las dos ninguna portada pasaba: todo es a cámara, vlog, pantalla o pizarra. Además, en los textos
+  de sus 307 reels no hay ninguna señal de escena con IA. No se clasificó el resto, lo que ahorró unos 240 mil tokens. Si Martín
+  los quiere para la serie de Martín a cámara, las hojas están en `C:/dev/referentes-videos/<cuenta>/ampliado/`.
 - **Hormozi:** no se amplió; en 48 reels tenía un solo sketch.
 - **Julián Alborna:** espera que Martín pase el usuario o el link.
