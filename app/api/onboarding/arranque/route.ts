@@ -18,6 +18,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { wsDelOnboarding } from '@/lib/onboarding-guard';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
+import { puedeVerLaRevision } from '@/lib/onboarding-v2/saltar';
+import { codigoSimulado, decidirCodigoSimulado } from '@/lib/onboarding-v2/whatsapp-simulado';
 import { desbloquearOnboarding, frenoDeArranque } from '@/lib/onboarding-guardia-server';
 import { borrarSettingSi, cambiarSettingSi, getSettingEstricto } from '@/lib/settings';
 import { getContactoReportes, getPerfil, setContactoReportes } from '@/lib/perfil';
@@ -81,11 +83,20 @@ export async function POST(req: NextRequest) {
   // Quién escribe, SÓLO para la guardia (la ráfaga por usuario): nunca para los datos del negocio (el contacto de los
   // reportes es el del negocio, ver 'telefono').
   const usuarioGuardia = (await getUsuarioActual().catch(() => null))?.email ?? null;
+  // LA REVISIÓN (21/11/2026, Martín: «Yo quiero ver exactamente igual lo que recibe el usuario»): con la puerta (alguien de MaKo en el
+  // negocio de prueba), el paso del WhatsApp es el de un número NUEVO y simulado (lib/onboarding-v2/whatsapp-simulado.ts).
+  const enRevision = async () => puedeVerLaRevision({ ws: g.ws, admin: !!(await getSesionAdmin().catch(() => null)) });
   // Prepara el pedido para el WhatsApp que dio (desde su tarjeta o escrito en la caja del chat): la persona le escribe a MaKo, MaKo no le escribe.
   const pedirCodigo = async (e: EstadoArranque, h: Awaited<ReturnType<typeof hechosDelArranque>>, confirmado: Awaited<ReturnType<typeof hechosConfirmados>>, digitos: string, escribioAt?: number, visto?: string) => {
     // El contacto de los reportes es el del NEGOCIO: lo que ya tenía guardado, o el email del admin
     // del negocio (el perfil que se está mirando). Nunca el de quien está logueado: el super admin o
     // una agencia que hacen el arranque mirando al cliente se quedaban con sus reportes.
+    // La revisión: nada a WhatsApp ni a la verificación (ni al contacto de los reportes) de verdad; el código, en el estado del onboarding.
+    if (h.v2 && (await enRevision())) {
+      await guardarEstadoArranque({ telefono: 'codigo', telefonoNumero: `+${digitos}`, telefonoVisto: visto, telefonoEntrante: true, telefonoYa: undefined, simulacion: { codigo: codigoSimulado() } });
+      await anotarRespuesta(e, h, visto ?? `+${digitos}`, confirmado);
+      return listo();
+    }
     const [previo, perfil] = await Promise.all([getContactoReportes().catch(() => null), getPerfil().catch(() => null)]);
     await setContactoReportes({
       // El nombre del PERFIL si es uno de verdad (sexta revisión, 21/10: lo leído sin toque, «Cómo Estás», llegaba a los
@@ -144,6 +155,17 @@ export async function POST(req: NextRequest) {
         // entero. Un teléfono no es un código: sigue como cualquier respuesta. La caja VACÍA o sin números va igual (wa-12, el chat de
         // WhatsApp): «Todavía no tienes el código…» si MaKo no se lo mandó; si ya lo mandó, que lo escriba (decidirCodigoV2).
         const codigoEscrito = h.v2 && etapa === 'codigo' && opcion === undefined && texto !== undefined ? (codigoEnLaCaja(texto) ?? (telefonoEscrito(texto) ? null : '')) : null;
+        if (codigoEscrito !== null && e.simulacion) {
+          // El código del WhatsApp simulado (la revisión), contra el simulado y con la puerta; sin ella, no vale.
+          if (e.simulacion && (await enRevision())) {
+            const d = decidirCodigoSimulado(codigoEscrito, e.simulacion);
+            if (!d.ok) return no(422, d.error);
+            await guardarEstadoArranque({ telefono: 'verificado', simulacion: undefined });
+            await anotarRespuesta(e, h, CODIGO_CARGADO, confirmado);
+            return listo();
+          }
+          return no(403, 'Ese código era de una prueba.');
+        }
         if (codigoEscrito !== null) {
           const r = await verificarCodigoV2(g.ws, codigoEscrito);
           if (!r.ok) return no(422, r.error);
@@ -233,6 +255,7 @@ export async function POST(req: NextRequest) {
         const h = await hechosDelArranque(e);
         const confirmado = await hechosConfirmados(h);
         // «Pedir otro» desde la tarjeta del mensaje (venció, o no se pudo armar): otro código para el mismo número, sin anotar otra respuesta.
+        if (etapaDeArranque(e, h) === 'codigo' && e.telefonoEntrante && e.telefonoNumero && e.simulacion) return listo();
         if (etapaDeArranque(e, h) === 'codigo' && e.telefonoEntrante && e.telefonoNumero) {
           const r = h.v2
             ? await pedirConfirmacionV2(g.ws, e.telefonoNumero.replace(/\D/g, ''), e.nombre ? primerNombre(e.nombre) : '')
@@ -269,7 +292,7 @@ export async function POST(req: NextRequest) {
         if (!otro) return no(409, 'Ya no veo otro número. Toca «Abrir WhatsApp» y mándame el mensaje desde tu WhatsApp.');
         const malo = errorDelTelefono(otro);
         if (malo) return no(422, malo);
-        await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined });
+        await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined, simulacion: undefined });
         const e2 = await estadoEstricto();
         const h2 = await hechosDelArranque(e2);
         if (etapaDeArranque(e2, h2) !== 'telefono') return no(409, 'Ahora no estoy esperando tu teléfono.');
@@ -284,9 +307,11 @@ export async function POST(req: NextRequest) {
         const h = await hechosDelArranque(e);
         if (!h.v2 || etapaDeArranque(e, h) !== 'codigo') return no(409, 'Ahora no estoy esperando tu código.');
         if (body.action === 'cambiar-numero') {
-          await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined });
+          await guardarEstadoArranque({ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined, simulacion: undefined });
           return listo();
         }
+        // Simulado (la revisión): el modal ya tiene el código; nada sale por WhatsApp.
+        if (e.simulacion) return listo();
         const r = await reenviarCodigoV2(g.ws);
         if (!r.ok) return no(422, r.error);
         return listo({ aviso: 'Te lo volví a mandar por WhatsApp.' });

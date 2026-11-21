@@ -28,9 +28,11 @@ export function useVideoQueFlota(ref: RefObject<HTMLVideoElement | null>, clave:
     const flotar = () => {
       if (v.paused || v.ended) return;
       const t = v.currentTime;
+      // Se pausa SÓLO si pasó a la esquina (20/11/2026): con una tarea o un recorrido en el motor no pasa, y antes quedaba pausado en el
+      // chat y en ningún lado. Así sigue donde está.
+      if (!reproducirFlotante(clave, titulo, t, (m) => aviso.current?.(m))) return;
       v.dataset[BANDERA_FLOTA] = '1';
       v.pause();
-      reproducirFlotante(clave, titulo, t, (m) => aviso.current?.(m));
     };
     const io = typeof IntersectionObserver !== 'undefined'
       // Al volver a verse, si estaba flotando, vuelve al chat desde el segundo en que iba (20/11, F2).

@@ -275,12 +275,7 @@ test('datos-6: los clonadores copian el catálogo de etiquetas ANTES y traducen 
   assert.match(prep, /if \(!\(col in r\)\) delete fila\[col\]/, 'escribir una columna sin su migración es un PGRST204 que deja la copia en 0 filas');
   assert.match(prep, /disparadores: cron\.disparadores,/, 'la lista cruda lleva los ids del dueño adentro: viaja la traducida');
   assert.match(cc, /await leerOrigen\(sb, t, avisos\)/, 'el select tiene que tolerar la columna que falta, o la copia entera queda en 0 filas');
-  const dm = sinComentarios(leer('lib/datos-mau.ts'));
-  const setting = bloque(dm, '  setting: {', "\n    nota: 'Los audios");
-  assert.ok(setting.indexOf("tabla: 'crm_etiquetas'") >= 0 && setting.indexOf("tabla: 'crm_etiquetas'") < setting.indexOf("tabla: 'nutricion_secuencias'"));
-  assert.match(setting, /normalizarDedup: claveNombre/);
-  assert.match(setting, /remapEtiquetas: true/);
-  assert.match(bloque(dm, 'async function copiarTabla(', '\n}\n'), /traducirEtiquetasEnSecuencia\(f\.pasos, f\.etiqueta_id,/);
+  // La copia de «Datos de Mau» (lib/datos-mau.ts) se borró el 21/11: queda la de clonar la configuración.
 });
 
 test('etiquetas-2: «Se le puso una etiqueta» no se guarda sin la etiqueta (/email, su ruta y la API de MaKo)', () => {

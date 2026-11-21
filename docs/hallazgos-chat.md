@@ -5,6 +5,47 @@ para todos los chats de MaKo. Lo que sabe cada pantalla de su chat (su motor, su
 es lo que muerde al montarlas. Qué caja ofrece qué, y la excepción con su porqué: `lib/cajas-de-chat.ts` (el barrido,
 `tests/cajas-de-chat-unificadas.test.ts`). Lo del Ops Center en particular: [hallazgos-operaciones.md](hallazgos-operaciones.md).
 
+## Formato en los mensajes de MaKo: el reto, la llegada y el arranque ponían el texto crudo (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Síntoma** (Martín, en producción): «Me dijiste que lo primero que quieres es hacer tus videos con IA, espiar a tu competencia y
+  armar tus guiones…» era un bloque largo. Pidió negritas, cursivas, subrayado, viñetas y números.
+- **Lo que había:** el parser compartido (app/_components/Markdown.tsx, sin HTML crudo) ya hacía negrita, cursiva, viñetas y números,
+  y los coaches lo usaban (HiloMako). Pero los globos del reto, la llegada y el arranque ponían su texto en un `<p>`: un `**` se hubiera
+  visto crudo. El subrayado no existía.
+- **Ahora:** el parser suma `++subrayado++`, sólo si el texto lo trae: lo demás conserva el DOM de siempre, y los tests que comparan el
+  dibujo no cambian. Los globos del reto, la llegada y el arranque dibujan su texto con él. «Me dijiste que…» va con las cosas en viñetas
+  y lo clave en negrita.
+- **Trampa:** el texto del día del reto (`dia.mensaje`) va también en el CORREO, que es texto plano: no lleva marcas, o se verían
+  crudas ahí. Un texto que sale por más de un lado lleva formato sólo si TODOS sus lados lo dibujan.
+- tests/formato-en-los-globos.test.ts (roto de a una rotura, 4).
+
+## Un globo con un video era más ancho que su video (20/11/2026, chat «onboarding-v2», claude5)
+
+- **Síntoma** (Martín, en producción): en la llegada al reto, el texto de abajo («Te doy la bienvenida a tu Ops Center…») ensanchaba
+  el globo y el video quedaba más angosto que su recuadro.
+- **Causa:** el globo (`.co-el__cuerpo`) toma el ancho de lo que tiene adentro, hasta `min(82%, 900px)`. El reproductor mide 400 px
+  (`.mk-vmom`), y un párrafo largo lo pasa.
+- **Ahora:** un globo con un video (`:has(.mk-vmom)`) mide `min(100%, 420px)`: los 400 del reproductor y los 10 + 10 de su padding, con
+  `box-sizing: border-box`. El texto se acomoda debajo. En una fila más angosta (375), el globo es la fila y el video (con
+  `max-width: 100%`) ocupa el ancho de adentro, igual que el texto.
+- tests/video-en-el-chat.test.ts, el 4: compara el ancho del globo con el del reproductor y su padding, leídos de su CSS. Medido con
+  números, no mirado.
+
+## El panel de emojis salía recortado contra el borde del chat (20/11/2026, chat «onboarding-v2», claude5)
+
+- **Síntoma** (Martín, probando el onboarding en producción, ws 3): el desplegable se abría a la izquierda de la carita y se veía
+  media columna de caritas, con la grilla cortada.
+- **Causa:** el panel (app/admin/operaciones/Emojis.tsx, el de TODAS las cajas por CajaChat) era `position: absolute` con
+  `left: -46px` fijo. Con la carita cerca del borde izquierdo, el recuadro del chat (un antepasado con `overflow`) lo cortaba. Un
+  `absolute` nunca sale de un antepasado que recorta, y a 375 lo cortaba además la pantalla.
+- **Ahora:** al abrirse (y al cambiar el tamaño) se mide el botón y lo que lo recorta: la pantalla y cada antepasado con `overflow`
+  que no es `visible` (`limiteDe`). El panel se acomoda adentro (`lugarDelPanel`, puro): corre su `left`, achica el ancho a un
+  recuadro angosto y acorta el alto si no hay lugar arriba (la grilla se achica con él). Se mide en `useLayoutEffect`: nunca se pinta
+  un cuadro recortado. Con lugar, queda como siempre (46 px antes del botón, 340 de ancho).
+- **Regla:** un desplegable `absolute` dentro de un chat no lleva un corrimiento fijo. Se mide contra lo que lo recorta.
+- tests/emojis-dentro-del-chat.test.ts (a 1440, a 375, un recuadro de 300 y un barrido; roto de a una rotura, 4). Medido con números,
+  no mirado: lo mira el Cerebro en producción.
+
 ## Mirando un negocio como administrador, los chats son los del DUEÑO; escribir, sólo en los de prueba (20/11/2026, chat «onboarding-v2», claude5)
 
 La llamada con Leila: «en los chats de acá no está el chat de onboarding» (Martín, mirando el ws 3). La lista del Ops Center se arma con

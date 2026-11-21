@@ -77,6 +77,8 @@ export function mostrarEnSuPestana(t: TutorialPestana, o: { texto: string; alTer
       // primera vez se abre solo (MotorTutorial → PrimeraVez), encontraba el motor libre y volvía a correr encima.
       if (o.volver !== false) volverAlReto();
     } });
-  });
+  // Con salida (20/11/2026, el inventario de botones): sin `alOmitir` la marca no tenía «Lo hago después» ni Escape, y sus tapas tapaban
+  // todo alrededor: obligaba a ir a la pestaña.
+  }, { alOmitir: () => {} });
   return true;
 }
