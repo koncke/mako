@@ -15,12 +15,13 @@ import { haptico } from '@/lib/haptico';
 import { PAISES, DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
 import { emailValido, telefonoValido, type Destinatarios } from '@/lib/notif-catalogo';
 import { paraLeer } from '@/app/perfil/DestinatariosLista';
+import { SIN_GRUPOS_NUEVOS } from '@/lib/altas-en-grupos';
 import { ErrorM, FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, SkeletonFilas, useToastM } from '@/app/m/_ui';
 import { copiarTexto } from '@/app/m/copywriting/api';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Canal = 'whatsapp' | 'email';
-type Guardado = { ok: boolean; error?: string; destinatarios?: Destinatarios; noAgregados?: { telefono: string; motivo: string }[]; linkGrupo?: string | null; salidaGrupo?: Salida };
+type Guardado = { ok: boolean; error?: string; destinatarios?: Destinatarios; grupo?: string; aviso?: string; noAgregados?: { telefono: string; motivo: string }[]; linkGrupo?: string | null; salidaGrupo?: Salida };
 /** Quién del negocio lo puede sumar a mano (19/11/2026, lib/participantes-grupo.ts `salidaSinAlta`). */
 type Salida = { hacerAdmin?: string; yaPuedeSumar?: string };
 
@@ -64,9 +65,10 @@ export function NotificacionesNegocioM({ iniciales }: { iniciales: { destinatari
       })).json()) as Guardado;
       if (!j.ok || !j.destinatarios) { setDest(antes); haptico('error'); toast(j.error ?? 'No se pudo guardar'); return false; }
       setDest(j.destinatarios);
-      if (j.destinatarios.telefonos.length > 0) setTieneGrupo(true);
+      // Sólo un grupo que nació ahora prende «Al grupo de MaKo» (20/11/2026: MaKo ya no crea grupos; guardar un número no arma ninguno).
+      if (j.grupo === 'creado') setTieneGrupo(true);
       if (j.noAgregados?.length) { setFaltaGrupo({ noAgregados: j.noAgregados, link: j.linkGrupo ?? null, salida: j.salidaGrupo ?? null }); setAdminListo('no'); haptico('error'); return true; }
-      haptico('success'); toast('Guardado');
+      haptico('success'); toast(j.aviso ? `Guardado. ${j.aviso}` : 'Guardado');
       return true;
     } catch {
       setDest(antes); haptico('error'); toast('No se pudo guardar');
@@ -125,6 +127,8 @@ export function NotificacionesNegocioM({ iniciales }: { iniciales: { destinatari
           ))}
           <FilaM navegacion icono="plus" titulo="Agregar un número" chevron={false} onClick={() => setAgregar('whatsapp')} />
         </ListaM>
+        {/* Sin grupo (20/11/2026, Martín: «Sólo no crear más»): donde antes se armaba el grupo, se dice por dónde llegan los avisos. */}
+        {!tieneGrupo && dest.telefonos.length > 0 && <p className="m-configuraciones-aviso" role="status">{SIN_GRUPOS_NUEVOS}</p>}
       </SeccionM>
       <SeccionM titulo="Email">
         <ListaM>

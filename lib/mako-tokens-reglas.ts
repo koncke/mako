@@ -28,7 +28,7 @@
 
 // El único import, y es a propósito: el costo del video lo fija el modelo (el Omni), y el modelo vive en el catálogo.
 // ./apimart-reglas.ts no importa nada, así que no arma ningún ciclo (ver la nota de imports de ./economia-unitaria.ts).
-import { MODELOS_VIDEO, MODELO_OMNI } from './apimart-reglas';
+import { MODELOS_IMAGEN, MODELOS_VIDEO, MODELO_OMNI, type IdModeloImagen, type ModeloImagen } from './apimart-reglas';
 
 /** 1.000 MaKo Tokens = US$1 de costo real de IA. */
 export const MT_POR_USD = 1000;
@@ -346,4 +346,13 @@ export function alcanzaParaVideo(
     };
   }
   return alcanzaElSaldo(saldo, cuesta);
+}
+
+/**
+ * Lo que cuesta UNA imagen de un modelo de ApiMart en MaKo Tokens (21/11/2026, el replicador de carruseles con IA): el balde de su
+ * calidad y nunca menos de lo que cobra ApiMart. Vive acá y no en ./apimart-reglas.ts, que no importa nada (ver arriba).
+ */
+export function mtDeImagenDe(modelo: IdModeloImagen): number {
+  const m: ModeloImagen = MODELOS_IMAGEN[modelo];
+  return Math.max(MT_POR_IMAGEN[m.calidad], mtDeUsd(m.usdPorImagen));
 }

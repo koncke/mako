@@ -28,7 +28,7 @@ import 'server-only';
 import { upsertLeadFromMeta, logLeadEvent } from './leads';
 import { sendMetaCAPIEvent } from './meta-capi';
 import { eventIdLeadCrudo } from './meta-capi-payload';
-import { alNacerLeadDeMeta } from './meta-lead-nuevo';
+import { alNacerLeadDeMeta, calificarLeadDeMeta } from './meta-lead-nuevo';
 import { reintentoSinAnunciar } from './meta-anuncio';
 import { getWorkspaceActual } from './workspace';
 import { queHacerConElLead, type LeadDeZernio } from './zernio-lead';
@@ -62,6 +62,8 @@ export async function cargarLeadDeZernio(l: LeadDeZernio, ahora: Date = new Date
     telefono: l.telefono,
     empresa: l.empresa,
     meta_lead_id: l.leadgenId,
+    // El formulario, que gana a la campaña si está asignado (20/11/2026, lib/formulario-meta-funnel.ts).
+    meta_form_id: l.formularioId,
     // Los ids deciden el producto (lib/campana-funnel.ts). Los nombres NO viajan en este evento: quedan vacíos.
     meta_ad_id: l.anuncioId,
     meta_campaign_id: l.campanaId,
@@ -93,10 +95,12 @@ export async function cargarLeadDeZernio(l: LeadDeZernio, ahora: Date = new Date
  */
 export async function alNacerLeadDeZernio(ws: number, c: LeadCargado, l: LeadDeZernio): Promise<void> {
   if (c.conversion) await conversionDelLead(ws, c, l);
+  // Uno creado que no se anuncia (un rescate viejo) igual se CALIFICA (20/11/2026): ubicarlo no le escribe a nadie.
+  if (c.creado && !c.nuevo) await calificarLeadDeMeta(c.leadId, l.formularioId, l.fieldData.length ? l.fieldData : null);
   if (!c.nuevo) return;
   try {
     await alNacerLeadDeMeta(ws, { id: c.leadId, nombre: c.nombre, telefono: c.telefono }, {
-      fieldData: l.fieldData.length ? l.fieldData : null, campana: null,
+      fieldData: l.fieldData.length ? l.fieldData : null, campana: null, formId: l.formularioId,
     }, { esReintento: c.reintento });
   } catch (e) {
     // `alNacerLeadDeMeta` ya atrapa cada parte; esto es por si falla su carga.

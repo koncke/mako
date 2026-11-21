@@ -9,12 +9,13 @@
 // el DEAL, con su entrada en la tab Pagos. Los movimientos del Kanban que exigen
 // datos usan su propio pop-up chico (StageMoveDialog), no esta ficha.
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { deriveStageKey, stageMeta, type Stage } from '@/lib/pipeline';
 import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';
 import type { StepId } from '@/lib/stage-requirements';
-import { deleteLeadInlineAction, getLeadFullAction, type LeadFullData } from './actions';
+import { getLeadFullAction, type LeadFullData } from './actions';
+import { mandarAPapeleraDesdeFicha } from './papelera-ficha';
 import { preguntaDePapelera } from '@/lib/leads-papelera-reglas';
 import { StageMoveDialog, type MoveLeadInfo } from './StageMoveDialog';
 import { MoverEtapaConfirm } from './MoverEtapaConfirm';
@@ -56,7 +57,7 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
   const vigente = fresca && fresca.lead.id === data.lead.id ? fresca : data;
   const { lead, stages, pagos, faltantes, datos, equipo, productos, fotoEmail } = vigente;
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [borrando, setBorrando] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [delErr, setDelErr] = useState<string | null>(null);
   // En qué productos está y cuál se mira (ver lead-view/ProductoDelLead.tsx). La etapa de la fila
@@ -121,12 +122,24 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
     if (pideWizardAlElegir(stages, k, reuniones)) setMoveTo(k); else setMoverDirecto(k);
   };
 
-  const doDelete = () => {
-    setConfirmDelete(false);
-    startTransition(async () => {
-      try { await deleteLeadInlineAction(lead.id); router.refresh(); onClose(); }
-      catch (e) { setDelErr(e instanceof Error ? e.message : 'No se pudo mandar a la papelera. Reintenta.'); }
-    });
+  // ⚠️ EL CARTEL QUEDA ABIERTO, CON SU SPINNER, HASTA QUE TERMINA (21/11/2026), y el borrado va por la RUTA, no por una
+  // server action: la acción esperaba en la fila de las que manda la ficha al abrir, con el cartel ya cerrado y sin nada
+  // que se viera. Por qué, en app/api/crm/papelera/route.ts.
+  const doDelete = async () => {
+    if (borrando) return;
+    setBorrando(true);
+    setDelErr(null);
+    try {
+      await mandarAPapeleraDesdeFicha(lead.id);
+      setConfirmDelete(false);
+      router.refresh();
+      onClose();
+    } catch (e) {
+      setConfirmDelete(false);
+      setDelErr(e instanceof Error ? e.message : 'No se pudo mandar a la papelera. Reintenta.');
+    } finally {
+      setBorrando(false);
+    }
   };
 
   // ⚠️ «SOLUCIONAR» SE RESUELVE ACÁ ADENTRO, sin salir de la ficha. Pedido textual de
@@ -237,7 +250,7 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
             con pantalla propia es el DEAL, y su entrada está en la tab Pagos. */}
         {delErr && <div style={{ padding: '8px clamp(16px,4vw,24px)', color: 'var(--bad)', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>{delErr}</div>}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14, padding: '12px clamp(16px,4vw,24px)', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-          <BotonBorrar texto="Borrar lead" title={`Borrar a ${lead.nombre || 'este lead'}`} onClick={() => setConfirmDelete(true)} disabled={pending} />
+          <BotonBorrar texto="Borrar lead" title={`Borrar a ${lead.nombre || 'este lead'}`} onClick={() => setConfirmDelete(true)} disabled={borrando} />
         </div>
       </div>
 
@@ -298,8 +311,9 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
           title={preguntaDePapelera(1, lead.nombre).titulo}
           message={preguntaDePapelera(1, lead.nombre).mensaje}
           confirmLabel="Mandar a la papelera"
-          onConfirm={doDelete}
+          onConfirm={() => void doDelete()}
           onCancel={() => setConfirmDelete(false)}
+          loading={borrando}
           zIndex={120}
         />
       )}
