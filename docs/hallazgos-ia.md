@@ -4,6 +4,26 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## Sin IA propia, ninguna caja con micrófono escuchaba una nota de voz (20/11/2026, chat «onboarding-v2», claude5)
+
+- **Síntoma** (Martín, probando el onboarding en producción, ws 3): en «Tu nombre», grabar y mandar un audio daba «Para escuchar tu
+  nota de voz necesito una IA conectada. Conecta la tuya o escríbemelo.» (SIN_OIDO, lib/dictado-error.ts).
+- **Causa:** una nota de voz es un dato de un cliente (`pii`), así que `transcribirAudio` salta la red GRATIS (el Gemini gratis entrena
+  con lo que recibe). Desde el 15/11 lo normal es NO tener claves propias (todo gasta MaKo Tokens), así que la cascada quedaba vacía:
+  «ninguna IA pudo». Pasaba en todas las cajas: /api/plan-dictado (onboarding, coaches, reto, pestañas) y la nota del chat de MaKo
+  (lib/mako-turno-app.ts). La regla de `pii` es del 21-22/10, de cuando cada negocio pagaba su IA. El 15/11 se dio vuelta quién paga, y
+  la nota de voz quedó sin nadie que la escuche.
+- **Ahora:** después de las claves del negocio, el Whisper de MaKo (el Groq de la plataforma, el mismo que escucha PRIMERO las notas
+  del grupo de WhatsApp: no entrena con lo que recibe). La decisión es pura (`escuchaElDeMaKoAlFinal`, lib/nota-de-voz-de-mako.ts):
+  sólo una nota (`pii`, no `sinGroq`), no la del grupo (ésa ya lo probó primero), nunca con D6b. La paga el cupo de MaKo Tokens: la
+  cascada corre adentro del medidor, que cobra lo que no paga una clave del negocio.
+- **Trampa del mensaje:** con el Whisper de MaKo en la cascada, «ninguna IA pudo» ya no quiere decir «no hay con quién». Sus errores
+  van con `MARCA_EL_DE_MAKO`, y con esa marca la persona lee «grábala de nuevo», no «conecta la tuya». Sin MaKo Tokens, lee lo que dice
+  el medidor, con sus dos salidas (antes, «grábala de nuevo»).
+- **Sin hacer:** la nota del chat de MaKo en el teléfono (lib/mako-turno-app.ts) arma su mensaje con `errorDeCascada` sobre los
+  errores DEL NEGOCIO. Si el Whisper de MaKo falla, o se acaba el saldo, lo que lee no lo cuida esta tanda. Sin mirar en producción.
+  tests/nota-de-voz-con-mako.test.ts (roto de a una rotura, 6).
+
 ## El prompt empujaba a [[no-pude]] sin probar la otra pista (ticket #121, 20/11/2026, ws 13)
 
 **Vive en:** `lib/mako-doer-in.ts` (`bloqueDeLaClase`, `VOZ_DE_LA_CONSULTA`, y la regla «UN NOMBRE QUE NO APARECE» en `DOER_WA_TOOLS`) ·

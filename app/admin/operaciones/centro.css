@@ -1768,7 +1768,9 @@ a.co-link:hover { color: var(--primary-strong); }
   display: flex; flex-direction: column; border-radius: var(--r-xl); background: var(--surface); overflow: hidden;
   box-shadow: 0 0 0 1px var(--border-strong), 0 10px 30px rgba(18, 21, 27, .16);
 }
-.co-emojis__grilla { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 232px; overflow-y: auto; padding: 8px; overscroll-behavior: contain; }
+/* `left`, `width` y `max-height` los pone Emojis.tsx al abrirse (`lugarDelPanel`): siempre adentro del chat y de la pantalla. La
+   grilla se achica con el panel cuando hay poco lugar arriba. */
+.co-emojis__grilla { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 232px; overflow-y: auto; padding: 8px; overscroll-behavior: contain; flex: 1 1 auto; min-height: 0; }
 .co-emojis__emoji { aspect-ratio: 1; padding: 0; border: 0; border-radius: 8px; background: none; font-size: 24px; line-height: 1; cursor: pointer; }
 .co-emojis__emoji:hover, .co-emojis__emoji:active { background: var(--velo-hover); }
 .co-emojis__vacio { grid-column: 1 / -1; margin: 12px 4px; font-size: var(--fs-sm); color: var(--faint); text-align: center; }

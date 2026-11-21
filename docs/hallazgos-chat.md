@@ -5,6 +5,21 @@ para todos los chats de MaKo. Lo que sabe cada pantalla de su chat (su motor, su
 es lo que muerde al montarlas. Qué caja ofrece qué, y la excepción con su porqué: `lib/cajas-de-chat.ts` (el barrido,
 `tests/cajas-de-chat-unificadas.test.ts`). Lo del Ops Center en particular: [hallazgos-operaciones.md](hallazgos-operaciones.md).
 
+## El panel de emojis salía recortado contra el borde del chat (20/11/2026, chat «onboarding-v2», claude5)
+
+- **Síntoma** (Martín, probando el onboarding en producción, ws 3): el desplegable se abría a la izquierda de la carita y se veía
+  media columna de caritas, con la grilla cortada.
+- **Causa:** el panel (app/admin/operaciones/Emojis.tsx, el de TODAS las cajas por CajaChat) era `position: absolute` con
+  `left: -46px` fijo. Con la carita cerca del borde izquierdo, el recuadro del chat (un antepasado con `overflow`) lo cortaba. Un
+  `absolute` nunca sale de un antepasado que recorta, y a 375 lo cortaba además la pantalla.
+- **Ahora:** al abrirse (y al cambiar el tamaño) se mide el botón y lo que lo recorta: la pantalla y cada antepasado con `overflow`
+  que no es `visible` (`limiteDe`). El panel se acomoda adentro (`lugarDelPanel`, puro): corre su `left`, achica el ancho a un
+  recuadro angosto y acorta el alto si no hay lugar arriba (la grilla se achica con él). Se mide en `useLayoutEffect`: nunca se pinta
+  un cuadro recortado. Con lugar, queda como siempre (46 px antes del botón, 340 de ancho).
+- **Regla:** un desplegable `absolute` dentro de un chat no lleva un corrimiento fijo. Se mide contra lo que lo recorta.
+- tests/emojis-dentro-del-chat.test.ts (a 1440, a 375, un recuadro de 300 y un barrido; roto de a una rotura, 4). Medido con números,
+  no mirado: lo mira el Cerebro en producción.
+
 ## Mirando un negocio como administrador, los chats son los del DUEÑO; escribir, sólo en los de prueba (20/11/2026, chat «onboarding-v2», claude5)
 
 La llamada con Leila: «en los chats de acá no está el chat de onboarding» (Martín, mirando el ws 3). La lista del Ops Center se arma con

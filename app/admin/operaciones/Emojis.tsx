@@ -10,7 +10,7 @@
 // Un set corto a propósito (no las 3.600 del estándar): los que se usan en un chat de trabajo. En el teléfono el teclado
 // trae todos.
 
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 
 const CATEGORIAS: ReadonlyArray<{ id: string; nombre: string; icono: string; emojis: readonly string[] }> = [
   { id: 'caras', nombre: 'Caras', icono: '😀', emojis: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '🙂', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😋', '😜', '🤪', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😬', '😮‍💨', '😌', '😴', '😷', '🤯', '🥳', '😎', '🤓', '🧐', '😕', '😟', '😮', '😲', '😳', '🥺', '😢', '😭', '😤', '😡', '🤬', '😱', '😓', '🫠', '🫡', '🤗', '🤫', '🤐', '🙃', '💀'] },
@@ -38,6 +38,47 @@ export function conEmoji(texto: string, ini: number | null | undefined, fin: num
   return { texto: texto.slice(0, a) + emoji + texto.slice(b), cursor: a + emoji.length };
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// EL PANEL, SIEMPRE ADENTRO DE LA PANTALLA Y DEL RECUADRO DEL CHAT (20/11/2026, Martín probando el onboarding en producción)
+// ─────────────────────────────────────────────────────────────────────
+// Era `position: absolute` con `left: -46px` fijo (centro.css): con la carita cerca del borde, el recuadro del chat (su `overflow`)
+// lo cortaba —media columna de caritas y la grilla cortada—, y a 375 la pantalla. Al abrirse se mide el botón y lo que lo recorta, y
+// el panel se acomoda adentro (tests/emojis-dentro-del-chat.test.ts).
+export const ANCHO_PANEL = 340;
+/** La grilla (232) y las pestañas. */
+export const ALTO_PANEL = 290;
+export const MARGEN_PANEL = 8;
+/** Entre el botón y el panel, que abre hacia arriba. */
+const SEPARACION = 8;
+type Caja = { left: number; top: number; right: number; bottom: number };
+
+/**
+ * Dónde va el panel: `left` RELATIVO al botón (el panel es `absolute` dentro de `.co-emojis`, que empieza en el botón), su ancho y su
+ * alto máximo, para que quede adentro de `limite` (lo que recorta al botón: el recuadro del chat y la pantalla) con su margen. Con
+ * lugar, como siempre: 46 px antes del botón, 340 de ancho y su alto entero.
+ */
+export function lugarDelPanel(o: { boton: Caja; limite: Caja }): { left: number; ancho: number; altoMax: number } {
+  const { boton, limite } = o;
+  const ancho = Math.max(0, Math.min(ANCHO_PANEL, limite.right - limite.left - 2 * MARGEN_PANEL));
+  const desde = limite.left + MARGEN_PANEL;
+  const hasta = limite.right - MARGEN_PANEL - ancho;
+  const izq = Math.min(Math.max(boton.left - 46, desde), Math.max(desde, hasta));
+  const altoMax = Math.max(0, Math.min(ALTO_PANEL, boton.top - SEPARACION - (limite.top + MARGEN_PANEL)));
+  return { left: izq - boton.left, ancho, altoMax };
+}
+
+/** Lo que recorta a `el`: la pantalla y cada antepasado con `overflow` que no es `visible` (el recuadro del chat, el panel lateral…). */
+function limiteDe(el: HTMLElement): Caja {
+  let left = 0, top = 0, right = window.innerWidth, bottom = window.innerHeight;
+  for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+    const s = getComputedStyle(a);
+    if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
+    const k = a.getBoundingClientRect();
+    left = Math.max(left, k.left); top = Math.max(top, k.top); right = Math.min(right, k.right); bottom = Math.min(bottom, k.bottom);
+  }
+  return { left, top, right, bottom };
+}
+
 export function BotonEmojis({ campo, valor, onValor, apagado }: {
   /** El <textarea> de la caja: el emoji va donde está su cursor. */
   campo: RefObject<HTMLTextAreaElement | null>;
@@ -49,6 +90,20 @@ export function BotonEmojis({ campo, valor, onValor, apagado }: {
   const [cat, setCat] = useState('caras');
   const [recientes, setRecientes] = useState<string[]>([]);
   const caja = useRef<HTMLDivElement>(null);
+  // Su lugar, medido antes de pintarse (useLayoutEffect): nunca se ve un cuadro recortado.
+  const [lugar, setLugar] = useState<CSSProperties | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (!abierto) return;
+    const medir = () => {
+      const w = caja.current;
+      if (!w) return;
+      const l = lugarDelPanel({ boton: w.getBoundingClientRect(), limite: limiteDe(w) });
+      setLugar({ left: l.left, width: l.ancho, maxHeight: l.altoMax });
+    };
+    medir();
+    window.addEventListener('resize', medir);
+    return () => window.removeEventListener('resize', medir);
+  }, [abierto]);
   // Dónde estaba el cursor al abrir: tocar el panel le saca el foco al campo.
   const sel = useRef<{ ini: number; fin: number } | null>(null);
   useEffect(() => {
@@ -83,7 +138,7 @@ export function BotonEmojis({ campo, valor, onValor, apagado }: {
         <Carita />
       </button>
       {abierto && (
-        <div className="co-emojis__panel" role="dialog" aria-label="Emojis">
+        <div className="co-emojis__panel" role="dialog" aria-label="Emojis" style={lugar}>
           <div className="co-emojis__grilla" role="listbox" aria-label={cat === 'recientes' ? 'Recientes' : CATEGORIAS.find((c) => c.id === cat)?.nombre}>
             {lista.map((e) => (
               <button key={e} type="button" role="option" aria-selected={false} className="co-emojis__emoji" onPointerDown={(ev) => ev.preventDefault()} onClick={() => poner(e)}>{e}</button>
