@@ -187,7 +187,7 @@ test('lo tocado durante el video del día cuenta como hecho: la tarea cuya últi
   assert.doesNotMatch(chat, /accion: 'hecha'/, 'el chat del reto nunca marca «hecha» por un toque');
   // 20/11 (D1-03, d24-09 y R57-12): nada se marca solo a los 0,9 s; lo que falta, al terminar o cerrar el video del día.
   assert.ok(!chat.includes('}, 900)'), 'sin la marca automática a los 900 ms');
-  assert.ok(chat.includes('alTerminar: () => o.alTerminar?.()') && chat.includes('{ alTocar: onTocado, alTerminar: onFin }') && chat.includes('onTermina={alFin} onTerminaFuera={alFin}'), 'la marca de lo que falta sale al terminar el video (también en la esquina: D1-03)');
+  assert.ok(chat.includes('alTerminar: () => avisos.alTerminar?.()') && chat.includes('{ alTocar: onTocado, alTerminar: onFin }') && chat.includes('onTermina={alFin} onTerminaFuera={alFin}'), 'la marca de lo que falta sale al terminar el video (también en la esquina: D1-03)');
   assert.ok(chat.includes("marcarTarea(marcasDeLaTarea(t), dejaParaDespues(t) ? dejar : () => { void leer(); }, n === 1 ? undefined : dejar);"), 'el día 1 sin «Lo hago después» (F1)');
   assert.match(chat, /¡Hiciste todo lo del día \{dia\.n\}!/, 'con todo hecho, la felicita y pasa a WhatsApp');
 });

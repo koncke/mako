@@ -11,18 +11,35 @@
 export type ResultadoTranscripcion = { ok: true; texto: string } | { ok: false; error: string };
 
 /**
+ * La señal del pedido: corta al pasar `ms` (como «La transcripción tardó demasiado», con su `TimeoutError`) o cuando la persona CANCELA
+ * (`corte`; 21/11/2026, el inventario de botones: no había cómo cancelar mientras se transcribía). Sin AbortSignal.timeout ni .any, que
+ * un Safari de antes del 16 no tiene (lib/senal-con-tope.ts).
+ */
+export function senalDeCorte(ms: number, corte?: AbortSignal): AbortSignal | undefined {
+  try {
+    const c = new AbortController();
+    const reloj = setTimeout(() => c.abort(new DOMException('La transcripción tardó demasiado', 'TimeoutError')), ms);
+    const cortar = () => { clearTimeout(reloj); c.abort(); };
+    if (corte?.aborted) cortar(); else corte?.addEventListener('abort', cortar, { once: true });
+    return c.signal;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Sube una nota de voz a /api/plan-dictado y devuelve el texto. No tira: todo fallo vuelve como `{ ok:false, error }` con una
  * frase para la persona. `para`: 'chat' es la nota de voz de una caja de chat, que el gasto de IA anota aparte del dictado de
  * una tarea.
  */
-export async function transcribirNota(blob: Blob, timeoutMs = 300_000, para?: 'chat'): Promise<ResultadoTranscripcion> {
+export async function transcribirNota(blob: Blob, timeoutMs = 300_000, para?: 'chat', corte?: AbortSignal): Promise<ResultadoTranscripcion> {
   try {
     const fd = new FormData();
     fd.append('audio', blob, blob.type.includes('mpeg') ? 'nota.mp3' : blob.type.includes('mp4') ? 'nota.mp4' : 'nota.webm');
     if (para) fd.append('para', para);
     // ⚠️ CON SEÑAL DE CORTE (AGENTS.md): un `fetch` sin `signal` con la conexión caída no
-    // resuelve NUNCA, y el botón quedaba deshabilitado para siempre.
-    const r = await fetch('/api/plan-dictado', { method: 'POST', body: fd, signal: AbortSignal.timeout(timeoutMs) });
+    // resuelve NUNCA, y el botón quedaba deshabilitado para siempre. Y `corte`: la persona la CANCELA (21/11/2026).
+    const r = await fetch('/api/plan-dictado', { method: 'POST', body: fd, signal: senalDeCorte(timeoutMs, corte) });
     // ⚠️ SE LEE COMO TEXTO ANTES DE PARSEAR (27/10/2026, Martín: «Acabo de enviar un audio y no se envía y me dijo un
     // unexpected error JSON»). Lo que corta Vercel antes de la ruta no es JSON: el 413 de un cuerpo de más de 4,5 MB es
     // «Request Entity Too Large» y el 504 de una función que pasó su tiempo es «An error occurred… FUNCTION_INVOCATION_TIMEOUT».

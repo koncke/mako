@@ -51,6 +51,7 @@ import { useColaDeSalida, type FilaDeCola } from '@/app/_chat/useColaDeSalida';
 import { MOMENTO_AGENDADO, MOMENTO_CODIGO, MOMENTO_NOMBRE } from '@/lib/onboarding-v2/momentos';
 import { ejemploDe } from '@/lib/onboarding-v2/saltar';
 import { senalConTope } from '@/lib/senal-con-tope';
+import { useNotaConEspera } from '@/app/_chat/useNotaConEspera';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean; whatsapp?: VistaArranque['whatsapp'] };
 
@@ -207,12 +208,19 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, ejemplos 
 
   // La respuesta de ejemplo de la pregunta que se escribe (el nombre, el negocio), sólo en la revisión: un toque la manda.
   const ejemplo = ejemplos ? ejemploDe(etapa) : null;
-  const mandarEjemplo = (t: string) => {
-    if (ocupado || etapa === 'listo' || etapa === 'cierre') return;
+  // Un texto que no viene de la caja (la respuesta de ejemplo, la nota de voz ya transcrita): sale como si se hubiera escrito, y si
+  // falla queda en la caja.
+  const mandarEste = (t: string) => {
+    if (!t.trim() || ocupado || etapa === 'listo' || etapa === 'cierre') return;
     primeroListo();
     cola.mostrarYa([MOMENTO_NOMBRE.mensaje]);
-    void responder({ texto: t }, t);
+    void responder({ texto: t }, t).then((ok) => { if (!ok) setTexto(t); });
   };
+  const mandarEjemplo = mandarEste;
+  // LA NOTA DE VOZ CON `voz`, COMO LAS DEMÁS CAJAS (21/11/2026, el inventario de botones): no se graba mientras MaKo contesta
+  // (`apagada`), se puede cancelar mientras se transcribe, y una que falla queda en la barra para volver a mandarla o borrarla
+  // (app/_chat/useNotaConEspera.ts). Antes la caja la transcribía sola, con el micrófono prendido mientras MaKo contestaba.
+  const nota = useNotaConEspera({ onTexto: mandarEste, onError: (m) => setError(m) });
 
   const mandarTexto = () => {
     const t = texto.trim();
@@ -520,7 +528,8 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, ejemplos 
             {/* La caja del Ops Center, la de una línea (Martín, 19/11: «la barra de chat abajo… está como muy alta»). */}
             <div className={`co-caja${etapa === 'listo' && enTelefono ? ' arr-v2__caja--dos' : ''}`} onFocusCapture={soltarPrimero} onPointerDownCapture={soltarPrimero}>
               <CajaChat texto={texto} onTexto={(v) => { setError(null); setTexto(v); }} onMandar={mandarTexto} placeholder={placeholder} enterManda
-                ocupado={ocupado} apagado={fase !== 'chat' || etapa === 'listo' || etapa === 'cierre'} sinAdjuntos onErrorMic={(m) => setError(m)} />
+                ocupado={ocupado} apagado={fase !== 'chat' || etapa === 'listo' || etapa === 'cierre'} sinAdjuntos onErrorMic={(m) => setError(m)}
+                voz={{ onAudio: nota.onAudio, onError: (m) => setError(m), rotuloEnviar: 'Enviar audio', apagada: ocupado || nota.enCurso, pendiente: nota.pendiente }} />
             </div>
           </div>
         </div>

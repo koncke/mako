@@ -31,14 +31,19 @@ lo toca el Cerebro en producción. Lo que fallaba se arregló en las tandas 367a
 | Ícono de videos | El catálogo; elegir un video lo muestra | A medias: elegir y después play (dos toques) | reto-dias |
 | Barra del administrador | RESET, «Reiniciar onboarding», «Ir a un paso», «Salir de la vista» | Sí. RESET dejaba el onboarding en el navegador y «Salir» navegaba aunque fallara: arreglados. «Ir a un paso», nuevo | reiniciar-onboarding, inventario-onboarding-flujo «1», «2», revision-saltar-y-ejemplos |
 
-**Lo que quedó sin hacer** (con dónde vive):
-- Se puede grabar una nota mientras MaKo contesta: el V2 no le pasa `voz` a la caja (app/onboarding/ChatArranqueV2.tsx, CajaChat). La nota sale después, como respuesta a la pregunta siguiente.
-- No hay cancelar mientras se transcribe, y una nota que falla al transcribir se pierde (app/_components/VoiceRecorder.tsx: `enviar` vacía antes de entregar).
-- «Guardar contacto» en el teléfono descarga el .vcf en vez de abrir la libreta (app/onboarding/TarjetaContactoMako.tsx). Es una decisión: sin ella, queda así.
-- Desde el desplegable o el pin, el video de los días 2 a 7 corre sin `alTocar` ni `alTerminar` (ChatDelReto.tsx, `verVideoDelDia`): lo tocado no cuenta y al terminar no se marca lo que falta.
-- El catálogo de videos pide dos toques (app/second-brain/reto/CatalogoTutoriales.tsx).
-- La barra de avance no se arrastra ni se maneja con el teclado (VideoDelMomento.tsx, BarraDelVideo.tsx).
-- Sin tests de COMPORTAMIENTO (que toquen) para play, avance, velocidad, «Listo», elegir un día o un video: los de hoy leen el código. Lo que se miró, se miró con números y con las máquinas de verdad (`etapaDeArranqueV2`, `diaAbierto`), no tocando.
+**Lo que quedó sin hacer, y lo que decidió el Cerebro** (21/11/2026, tanda E):
+- HECHO: el V2 pasa `voz` a la caja como las demás (no se graba mientras MaKo contesta: `apagada`). La nota de voz se cancela
+  mientras se transcribe y, si falla, queda en la barra para volver a mandarla o borrarla (app/_chat/useNotaConEspera.ts; la señal,
+  `senalDeCorte` en app/_components/transcribir-nota.ts). **Trampa:** el camino viejo (`useNotaQueSeManda`, sin `voz`) transcribía
+  solo, y por eso el micrófono no tenía cómo apagarse en el V2.
+- HECHO: los días 2 a 7 abiertos desde el desplegable o el pin cuentan lo tocado y marcan lo que falta al terminar, como desde el hilo
+  (`avisosDelDia`, ChatDelReto.tsx: lo anota el mensaje del día al dibujarse).
+- HECHO: el catálogo de videos en un toque (`arrancar` en VideoDelMomento) y la barra del video con arrastre y teclado (±5 s, Inicio,
+  Fin; app/_ui/tutorial/pista.ts), en el reproductor del chat y en el del motor.
+- NO SE HACE (el Cerebro): «Guardar contacto» en el teléfono descarga el .vcf, que abre «Agregar contacto»: es lo esperable.
+- DESPUÉS, aparte: los tests que TOCAN de verdad (Playwright contra el ws 3), cuando la tanda E esté en producción. Los de hoy leen el
+  código; lo que se miró, se miró con números y con las máquinas de verdad (`etapaDeArranqueV2`, `diaAbierto`), no tocando.
+- tests/inventario-tanda-e.test.ts (5/0, roto de a una rotura: 9).
 
 **Trampa del inventario:** los tres lectores leyeron código, no tocaron. Encontraron fallas de lógica y de cableado, no de dibujo: un panel
 recortado o un video más chico que su globo los vio Martín, no el inventario. Lo que se ve, lo mira el Cerebro en producción a 1440 y 375.
