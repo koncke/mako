@@ -29,4 +29,18 @@ Lo pidió el Cerebro con las 3 capturas de Martín (ws 3, Nutri Vale). Despliegu
    en los espacios de PRUEBA, RESET borra todos los chats creados menos los fijos (Ops Center, Reto, Offer Coach, Funnel Coach, el grupo
    de avisos). Va en lib/reiniciar-onboarding-server.ts, sólo con `esClienteDePrueba(ws)`, con su test (chats sueltos creados antes).
 
+## Sumado después (Martín, /second-brain?ws=3&coach=offer, 2 capturas)
+8. **El recorrido no puede perseguirlo.** Si se va a otro chat por su cuenta (Offer Coach), hoy le vuelve a salir «Tu reto de 7 días ·
+   Haz clic en Reto de 7 días» en cada pantalla. Mirar quién lo marca: app/second-brain/reto/useVueltaAlReto.ts (MARCA_VUELTA, cada
+   CADA_MS_VUELTA) y la marca `tocaHoy` de ChatDelReto.tsx. Pedido: si sale del camino, el recorrido se PAUSA y queda retomable (un chip
+   «Seguir el recorrido») o se adapta a donde está; nunca un cartel que la obliga a volver. Banco: salir del recorrido a mitad.
+9. **Offer Coach con historial viejo después de RESET** («Ayer» y varios mensajes seguidos). Es el mismo pedido que el 7: RESET deja el
+   espacio de PRUEBA como una cuenta recién creada. Los coaches (Offer Coach y Funnel Coach), sin historial, con sólo su primer mensaje
+   y su video; los chats sueltos, borrados; quedan los fijos. Va en lib/reiniciar-onboarding-server.ts con `esClienteDePrueba(ws)` (y
+   cambiar TEXTO_REINICIAR, que hoy promete no borrar conversaciones). Banco/test: chats sueltos e historial en los coaches antes del RESET.
+10. **El recuadro de «Offer Coach: dale play» desplazado** (se dibuja más arriba que el video y se sale por arriba del encabezado). Mismo
+   error de anclaje que el 1: se calcula sin el scroll del contenedor del chat. Usar `getBoundingClientRect()` del elemento al dibujar,
+   volver a calcular cuando el contenedor hace scroll (el listener de scroll en captura sobre `document`, o sobre el `.co-hilo`), y
+   `scrollIntoView` del video ANTES de resaltarlo. Banco: el recuadro sobre un video con el chat scrolleado.
+
 La cosecha de todo lo de hoy está en docs/hallazgos-onboarding.md, docs/hallazgos-ui.md y docs/hallazgos-chat.md.
