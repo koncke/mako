@@ -180,6 +180,56 @@ function conIdsNuevos(o: Obj, nuevoId: () => string): Obj {
 }
 
 /**
+ * La página cuyo DISEÑO copia una lámina nueva (20/11/2026): una de CONTENIDO, ni la portada ni el cierre. La de «despues_de» si es
+ * del medio; si no (agregar al final, después del cierre), la anteúltima. Con dos páginas, la segunda; con una, ésa.
+ */
+export function paginaDeContenido<P>(paginas: readonly P[], base: P | null): P {
+  const n = paginas.length;
+  if (n <= 2) return base && n === 2 ? paginas[1] : paginas[n - 1];
+  const i = base ? paginas.indexOf(base) : -1;
+  return i > 0 && i < n - 1 ? paginas[i] : paginas[n - 2];
+}
+
+/** Lo del marco que no es del copy: el @, «02 / 06», «© 2026» o la firma. Queda como está en la lámina nueva. */
+const esDelMarcoDelDiseno = (o: Obj): boolean =>
+  o.name === 'Firma' || /^\s*(©\s*\d{4}|\d{1,2}\s*\/\s*\d{1,2}|@[\w.]+)\s*$/.test(String(o.text ?? ''));
+
+/**
+ * Los textos de una lámina copiada con los renglones DICTADOS (20/11/2026), tal cual: el primero en el texto de más arriba, y así,
+ * en orden de lectura; si hay más renglones que textos, los que sobran van juntos en el último (con «\n»); los textos que sobran
+ * se sacan. Sin renglones (`null`), la lámina queda con su diseño y sin los textos de la otra (lo que se agregue va solo). Lo del
+ * marco (el @, «02 / 06») queda. Un texto que recibe más renglones que los que tenía puede crecer hasta el de abajo; si no le
+ * alcanza, se achica (hasta el 60 % de su letra) para no montarse.
+ */
+function conLosTextos(objetos: Obj[], renglones: readonly string[] | null, altoPagina: number): Obj[] {
+  const lugares = objetos.filter((o) => tipoDe(o) === 'texto' && !esDelMarcoDelDiseno(o))
+    .map((o) => ({ o, c: cajaDe(o) }))
+    .sort((a, b) => (Math.abs(a.c.y - b.c.y) > 0.03 * altoPagina ? a.c.y - b.c.y : a.c.x - b.c.x));
+  const sacar = new Set<Obj>();
+  if (!renglones?.length) { for (const l of lugares) sacar.add(l.o); return objetos.filter((o) => !sacar.has(o)); }
+  if (!lugares.length) return objetos;
+  lugares.forEach((l, k) => {
+    if (k >= renglones.length) { sacar.add(l.o); return; }
+    const texto = k < lugares.length - 1 ? renglones[k] : renglones.slice(k).join('\n');
+    const antes = String(l.o.text ?? '').split('\n').length;
+    ponerTexto(l.o, texto);
+    // Los colores por letra eran del texto de antes.
+    l.o.styles = [];
+    const ahora = texto.split('\n').length;
+    if (ahora > antes) {
+      // Hasta dónde puede bajar: el texto de abajo que se le cruza, o el borde.
+      const abajo = lugares.slice(k + 1).filter((x) => k + 1 < renglones.length && x.c.x < l.c.x + l.c.ancho && l.c.x < x.c.x + x.c.ancho).map((x) => x.c.y);
+      const hasta = Math.min(0.94 * altoPagina, ...abajo) - l.c.y;
+      const porRenglon = l.c.alto / Math.max(1, antes);
+      const necesita = porRenglon * ahora;
+      if (necesita > hasta && hasta > 0) l.o.fontSize = r1(Math.max(num(l.o.fontSize) * 0.6, (num(l.o.fontSize) * hasta) / necesita));
+      l.o.height = r1(Math.min(necesita, Math.max(hasta, l.c.alto)) / (Math.abs(num(l.o.scaleY, 1)) || 1));
+    }
+  });
+  return objetos.filter((o) => !sacar.has(o));
+}
+
+/**
  * La foto como la guarda el motor (`createImage`, _doory/editor/engine/objects/factories.ts): `src` y `assetId` de «Subidos» y
  * la escala PAREJA, para que nunca se deforme. Sin medidas, en un cuadrado de la mitad del lado corto, como `photoBox` del motor.
  * Con «cubrir» llena la caja y corta lo que sobra por igual de cada lado (`cropX`/`cropY`, en píxeles de la foto).
@@ -486,16 +536,33 @@ export function aplicarOperaciones(p: {
         const i = base ? doc.pages.indexOf(base) + 1 : doc.pages.length;
         // Como el motor: la copia lleva «(copia)» en el nombre; la en blanco, el tamaño de la de antes (`newPageSize`).
         const antes = base ?? doc.pages[doc.pages.length - 1];
-        const nueva: Pagina = op.duplicar && base
-          ? { ...clonar(base), id: p.nuevoId(), objects: base.objects.map((o) => conIdsNuevos(o, p.nuevoId)), ...(typeof base.name === 'string' && base.name ? { name: `${base.name} (copia)` } : {}) }
-          : {
-            id: p.nuevoId(), background: { type: 'solid', color: '#ffffff' }, objects: [],
+        // ⛔ NUNCA UNA LÁMINA EN BLANCO EN UN CARRUSEL (20/11/2026, la llamada con Leila: «le agregué, pero es página 9 en blanco»).
+        // Sin «duplicar», la página era BLANCA (#ffffff) y la IA le ponía los textos con la tinta crema del diseño (#f3eee2): no se
+        // veían. En un diseño de varias páginas, la nueva copia el DISEÑO de una lámina de contenido (`paginaDeContenido`) y lleva
+        // los renglones dictados en sus textos (`conLosTextos`), tal cual.
+        // Con una sola página y sin textos dictados (un flyer que suma una hoja), en blanco como antes, con el fondo de la de antes.
+        const modelo = op.duplicar && base ? base : doc.pages.length >= 2 || op.textos?.length ? paginaDeContenido(doc.pages, base) : null;
+        let nueva: Pagina;
+        if (modelo) {
+          const copia: Pagina = { ...clonar(modelo), id: p.nuevoId(), objects: modelo.objects.map((o) => conIdsNuevos(o, p.nuevoId)) };
+          if (op.duplicar && base) { if (typeof base.name === 'string' && base.name) copia.name = `${base.name} (copia)`; }
+          else {
+            delete copia.name;
+            delete copia.notes;
+            copia.objects = conLosTextos(copia.objects, op.textos ?? null, altoDe(copia));
+          }
+          nueva = copia;
+        } else {
+          nueva = {
+            id: p.nuevoId(), background: antes?.background ? clonar(antes.background) : { type: 'solid', color: '#ffffff' }, objects: [],
             ...(antes && typeof antes.width === 'number' && typeof antes.height === 'number' ? { width: antes.width, height: antes.height } : {}),
           };
+        }
         doc.pages.splice(i, 0, nueva);
         pagina = nueva.id;
         if (op.nueva) paginasNuevas.set(op.nueva, String(nueva.id));
-        hecho({ tipo: 'agrega', titulo: `Página ${i + 1}`, antes: '', despues: op.duplicar && base ? `copia de la página ${doc.pages.indexOf(base) + 1}` : 'en blanco' });
+        const de = modelo ? doc.pages.indexOf(modelo) + 1 : 0;
+        hecho({ tipo: 'agrega', titulo: `Página ${i + 1}`, antes: '', despues: op.duplicar && base ? `copia de la página ${de}` : modelo ? `con el diseño de la página ${de}${op.textos?.length ? ', con tu texto' : ''}` : 'en blanco' });
         break;
       }
       case 'borrar_pagina': {

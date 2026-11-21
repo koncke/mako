@@ -1,14 +1,17 @@
 // =============================================================================
-// pago-directo-reglas — «Transferencia o Binance» al precio de lista, y las pasarelas con +5 %, en el checkout (18/11/2026)
+// pago-directo-reglas — los datos de MaKo para cobrar por transferencia o Binance, y si el checkout de /planes los ofrece (18/11/2026)
 // =============================================================================
 // Martín (18/11): «el tema de la pasarela de pago, también deberías agregar ahí la opción de transferencia para el resto de personas,
-// incluso que no son por partners». Primero fue «5 % de descuento si pagan por eso»; a la tarde lo dio vuelta: «tiene que ser al revés… el
-// precio final que nosotros definimos. Si pagan por pasarela de pago, se le debe sumar el 5 %, no restarnos a nosotros». HOY: el precio de
-// lista es el de transferencia o Binance (US$ 97 y US$ 47; por Binance, el monto en USDT es el de lista); la pasarela cobra lista + 5 %
-// (`conRecargoDePasarela`, que lee `compra-plan.ts` en `ofertaDelPlan`: lo que se muestra es lo que se cobra).
+// incluso que no son por partners». El MISMO precio por cualquier medio: el de lista (US$ 97 y US$ 47; por Binance, el monto en USDT es el
+// de lista), lo mismo por la pasarela (`RECARGO_PASARELA` = 0 desde el 18/11 a la tarde; `conRecargoDePasarela` lo lee en `ofertaDelPlan`).
 //
-// QUÉ ES HOY: una opción más junto a las pasarelas (app/planes/[plan]/CompraPlan.tsx). Al elegirla se ven los datos de MaKo para
-// pagar, el monto exacto con el descuento y dos botones para mandar el comprobante (WhatsApp / email). Al confirmar entra por el
+// ⛔ EL CHECKOUT PÚBLICO NO LA OFRECE HASTA QUE SE PRENDA (20/11/2026, Martín: «por ahora… lo seguimos haciendo todo por pasarela y por el link
+// de pago de Mercado Pago… que salga exactamente lo mismo todo»). Los datos se cargan igual —MaKo los usa para decirle a una agencia a dónde
+// pagar su mensualidad (lib/agencia-mes-consulta.ts)—, pero /planes los muestra SÓLO con `checkoutPublico` prendido (`mediosDelCheckout`), y
+// el servidor no toma un pedido «por transferencia o Binance» con el interruptor apagado (`medioDirectoQueVale`). Apagado por defecto.
+//
+// QUÉ ES, PRENDIDA: una opción más junto a las pasarelas (app/planes/[plan]/CompraPlan.tsx). Al elegirla se ven los datos de MaKo para
+// pagar, el monto exacto de lista y dos botones para mandar el comprobante (WhatsApp / email). Al confirmar entra por el
 // flujo de «Quiero» (`pedirPlanSinPasarela`, lib/compra-plan.ts): el lead en el CRM, «Quieren entrar» y el aviso al equipo, con el
 // medio, el monto (el precio de lista) y el código de partner si vino con uno.
 // ⚠️ LA ACTIVACIÓN ES DE MARTÍN, A MANO. Todavía no se verifica la plata contra Mercado Pago ni Binance (docs/pendientes-partners-pagos-1811.md,
@@ -53,13 +56,18 @@ export type DatosDePagoDirecto = {
   /** Adónde mandar el comprobante: el WhatsApp de MaKo (sólo dígitos, con código de país) y el email de cobros. */
   whatsapp: string | null;
   email: string | null;
+  /**
+   * ¿El checkout PÚBLICO de /planes ofrece «Transferencia o Binance»? false por defecto (20/11/2026): los datos sirven igual para las agencias y
+   * para MaKo. Sólo `true` lo prende; cualquier otra cosa es false.
+   */
+  checkoutPublico: boolean;
 };
 
 /** El ajuste del negocio de la plataforma donde Martín carga sus datos (Settings › Payments). */
 export const CLAVE_PAGO_DIRECTO = 'planes.pago_directo';
 
 // ⚠️ SIN INVENTAR NADA (Cerebro, 18/11): los carga Martín. Mientras estén vacíos, la opción no aparece en el checkout.
-export const DATOS_VACIOS: DatosDePagoDirecto = { binancePayId: null, linkBinance: null, linkTransferencia: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null };
+export const DATOS_VACIOS: DatosDePagoDirecto = { binancePayId: null, linkBinance: null, linkTransferencia: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null, checkoutPublico: false };
 
 const texto = (v: unknown, max: number): string | null => {
   const t = typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '';
@@ -85,6 +93,7 @@ export function datosLimpios(v: unknown): DatosDePagoDirecto {
     titular: texto(o.titular, 120),
     whatsapp: wa.length >= 10 && wa.length <= 15 ? wa : null,
     email: email && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? email.toLowerCase() : null,
+    checkoutPublico: o.checkoutPublico === true,
   };
 }
 
@@ -94,7 +103,7 @@ export function datosDeSetting(crudo: string | null): DatosDePagoDirecto {
   try { return datosLimpios(JSON.parse(crudo)); } catch { return { ...DATOS_VACIOS }; }
 }
 
-/** Con qué se puede pagar HOY: Binance si hay Pay ID; transferencia si hay link, alias o CVU. Vacío = la opción no se muestra. */
+/** Con qué datos hay cargados: Binance si hay Pay ID o link; transferencia si hay link, alias o CVU. No dice si el checkout lo ofrece. */
 export function mediosDisponibles(d: DatosDePagoDirecto): MedioDirecto[] {
   const out: MedioDirecto[] = [];
   if (d.binancePayId || d.linkBinance) out.push('binance');
@@ -102,10 +111,23 @@ export function mediosDisponibles(d: DatosDePagoDirecto): MedioDirecto[] {
   return out;
 }
 
+/** Lo que el checkout PÚBLICO de /planes ofrece: nada con el interruptor apagado, aunque haya datos (20/11/2026). Vacío = la fila no se dibuja. */
+export function mediosDelCheckout(d: DatosDePagoDirecto): MedioDirecto[] {
+  return d.checkoutPublico ? mediosDisponibles(d) : [];
+}
+
+/**
+ * El medio de un pedido «por transferencia o Binance», si vale HOY: con el interruptor prendido y el dato de ese medio cargado. Si no (una
+ * pestaña de antes, un POST armado a mano), null: el pedido queda como un «Quiero» común, sin prometer otro medio que la pasarela.
+ */
+export function medioDirectoQueVale(medio: MedioDirecto | null | undefined, d: DatosDePagoDirecto): MedioDirecto | null {
+  return medio && mediosDelCheckout(d).includes(medio) ? medio : null;
+}
+
 const centavos = (n: number) => Math.round(n * 100) / 100;
 
 /**
- * El precio por PASARELA: el de lista + `RECARGO_PASARELA` (hoy 0: el de lista tal cual; con 5 %, en dólares a centavos 97 → 101,85; 47 → 49,35). Prendido, en pesos (ARS), al
+ * El precio por PASARELA: el de lista + `RECARGO_PASARELA` (hoy 0: el de lista tal cual; con un recargo, en dólares a centavos). Prendido, en pesos (ARS), al
  * millar HACIA ARRIBA, la regla de la casa (lib/dolar-blue-reglas.ts `pesosDelPlan`). Otra moneda local (la de una Mercado Pago de otro
  * país), a centavos. A la millonésima antes de redondear: 97 × 1,05 no debe dar 101,85000000000001.
  */

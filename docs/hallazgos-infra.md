@@ -3145,6 +3145,17 @@ abierto lo mismo para `app_settings` y las credenciales (~90 consultas por turno
   ida). Con `"regions": ["pdx1"]` cada consulta en serie bajaría a ~5 ms en TODA la app. El Cerebro dio el OK el 23/10:
   va en la rama `rendimiento-region` (a0737a635), en un tren APARTE, con tests/region-funciones.test.ts. El antes
   (19:25 UTC, últimas 3 h): /api/auth/me p50 4,9 s · /secuencias p50 12,9 s · /crm p50 1,7 s · /second-brain p50 2,1 s.
+  ⚠️ **pdx1 es EE. UU., y hay terceros que bloquean EE. UU.** (20/11/2026): Binance contesta 451 «restricted location» desde pdx1, y en
+  producción nada se verificaba (docs/hallazgos-pagos.md). La salida fue UNA función en otra región, `/api/cron/binance-pagos` (`gru1`),
+  escrita como la única excepción del guardia (tests/region-funciones.test.ts, `EXCEPCIONES`, con su porqué) y que NO toca la base: carga
+  sólo el secreto del cron y el lector directo (lib/binance-pay-directo.ts), y tests/binance-pay-region.test.ts fija sus imports. Lo que
+  consulta la base lo hace quien la llama, en pdx1. La palabra de la región no aparece en lib/ ni en un comentario: el guardia mira app/ y lib/.
+  ⛔ **La región de UNA función va en vercel.json (`functions[<ruta>].regions`), NO en `export const preferredRegion`**: con `"regions":
+  ["pdx1"]` en el proyecto, Vercel ignoró el export (21/11, request-logs: la ruta corrió en pdx1 a las 00:17 y 00:47 UTC y Binance dio 451),
+  aunque el Next 16.2.6 lo lee y lo pasa al despliegue. Para ver dónde corrió una función: que devuelva `VERCEL_REGION`, o los `logs` de cada
+  fila de `GET api.vercel.com/logs/request-logs` (el `region` no viene como campo). ⚡ **Sin secreto ni logs: el `x-vercel-id` del 401.** Una ruta del
+  cron contesta el 401 desde la función, así que `curl -sD - <ruta> | grep -i x-vercel-id` dice `<borde>::<región de la función>::<id>`: medido
+  el 21/11, la de Binance pasó de `gru1::pdx1` a `gru1::gru1` con el deploy que la movió (el borde es `gru1` desde Argentina).
 - `/api/auth/me` todavía son 5 idas y la pide el layout en cada carga: podría viajar con el primer cuadro.
 - Las pantallas que esperan en serie en el SERVER (render de página): /plan (`app/plan/page.tsx`, ~10 esperas y el
   autocompletado que ESCRIBE en el render), /dashboard (y la moneda de Meta en el render, `lib/moneda-meta.ts:81`),

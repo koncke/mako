@@ -138,9 +138,10 @@ test('la espera se vence a las 48 h', () => {
   assert.equal(seVencioLaEspera('roto', Date.parse(desde)), true);
 });
 
-test('⚠️ CLAUDE NO MUEVE PLATA: lib/binance-pay.ts llama a UN solo endpoint de Binance, de lectura, y sólo con GET', () => {
+test('⚠️ CLAUDE NO MUEVE PLATA: lib/binance-pay-directo.ts llama a UN solo endpoint de Binance, de lectura, y sólo con GET', () => {
+  // El único que habla con Binance (desde el 20/11, separado de lib/binance-pay.ts, que sólo elige el camino: tests/binance-pay-region.test.ts).
   // Sin los comentarios (la cabecera nombra lo que la clave PERMITE, para que nadie lo use).
-  const src = readFileSync(join(__dirname, '..', 'lib', 'binance-pay.ts'), 'utf8').split(/\r?\n/).filter((l) => !/^\s*(\/\/|\*|\/\*\*)/.test(l)).join('\n');
+  const src = readFileSync(join(__dirname, '..', 'lib', 'binance-pay-directo.ts'), 'utf8').split(/\r?\n/).filter((l) => !/^\s*(\/\/|\*|\/\*\*)/.test(l)).join('\n');
   const rutas = [...src.matchAll(/['"`](\/(?:sapi|api|fapi|dapi|papi|eapi)\/[^'"`?]*)/g)].map((m) => m[1]);
   assert.deepEqual([...new Set(rutas)], ['/sapi/v1/pay/transactions']);
   assert.match(src, /method:\s*'GET'/);
