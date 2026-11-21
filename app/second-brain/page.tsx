@@ -37,7 +37,7 @@ import { hiloOnboardingGuardado, hiloParaQuienYaTermino } from '@/lib/onboarding
 import { RUTA_SEGUIR_EN_PC, seguirEnPcPendiente } from '@/lib/seguir-en-pc';
 import { esTelefono } from '@/lib/movil-guard';
 import { rutaDelHilo } from '@/lib/onboarding-arranque';
-import { nombreDelReto } from '@/lib/reto/nombre';
+import { loQueSabeMaKo, nombreDelReto } from '@/lib/reto/nombre';
 import { elChatDelNegocio } from '@/lib/chat-del-negocio';
 
 export const dynamic = 'force-dynamic';
@@ -89,6 +89,8 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   // El nombre del ONBOARDING del negocio, no el de quien inició sesión (20/11, Martín como administrador en Lalaland: «¡Hola, Martin!»
   // en el negocio de «Lala»; la vista como administrador muestra lo mismo que ve el cliente). Lo usan el reto y la llegada.
   const nombrePersona = retoV2 ? await nombreDelReto(sesion?.nombre) : (sesion?.nombre ?? '').trim().split(/\s+/)[0] ?? '';
+  // Lo que MaKo sabe de la persona (su onboarding): lo dice el Second Brain del recorrido, la primera vez (app/second-brain/BrainDelRecorrido.tsx).
+  const loQueSabe = retoV2 ? await loQueSabeMaKo(nombrePersona) : null;
   // El chat «Onboarding» (sólo con el V2), para ponerlo enseguida del Ops Center en la lista (20/11, OD-08).
   const hiloOnboarding = retoV2 ? await hiloOnboardingGuardado() : null;
   // La primera vez, el reto (`alReto`, arriba): ahí está «Hola de nuevo».
@@ -97,5 +99,5 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   const { soloLectura } = await elChatDelNegocio().catch(() => ({ soloLectura: false }));
   // LA BARRA OCULTA AL RECARGAR (20/11, OD-03): la pone el layout raíz en el <html> del server (app/layout.tsx), no un <script> de
   // esta página: detrás de loading.tsx, el riel se veía hasta que llegaba la página.
-  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={qPantalla} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} soloLectura={soloLectura} />;
+  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={qPantalla} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} loQueSabe={loQueSabe} hiloOnboarding={hiloOnboarding} soloLectura={soloLectura} />;
 }

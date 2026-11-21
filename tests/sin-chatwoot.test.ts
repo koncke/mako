@@ -125,7 +125,6 @@ const PUEDEN_NOMBRARLO: Record<string, string> = {
   'lib/avisos.ts': HISTORIA,
   'lib/calendly-error.ts': 'reconoce el formato de error que tenía lib/chatwoot.ts (puede seguir en los logs)',
   'lib/clonar-config.ts': HISTORIA,
-  'lib/datos-mau.ts': 'la columna crm_etiquetas.chatwoot_label sigue en la base y no se copia',
   'lib/flujos.ts': HISTORIA,
   'lib/google-calendar.ts': HISTORIA,
   'lib/leads.ts': HISTORIA,

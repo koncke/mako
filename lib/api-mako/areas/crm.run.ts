@@ -124,6 +124,13 @@ import { listReviewPendientes } from '@/lib/review-queue';
 import { listProductos, upsertProducto } from '@/lib/productos';
 import { productosDelLead, agregarAProducto, quitarDeProducto, moverEtapaEnProducto } from '@/lib/lead-funnel';
 import { campanasParaMaKo, asignarCampanaAFunnels } from '@/lib/campana-funnel';
+// «Asignar fuentes» → Formularios y su calificación (20/11/2026): las mismas funciones que la pantalla.
+import {
+  formulariosDelFunnel, alternarFormulario, reglasDelFormulario, guardarReglasDeFormulario, reaplicarReglasDeFormulario, funnelReal,
+  type FormularioFila,
+} from '@/lib/fuentes-crm-server';
+import { claveFuenteValida } from '@/lib/fuentes-formularios';
+import { sanearReglas, minimoDe, textoCondicion } from '@/lib/calificacion-formulario';
 // El evento de agenda vinculado a una etapa de reunión (16/10/2026): las mismas funciones que la pantalla.
 import {
   listarEventosDeAgenda, prepararVinculo, vincularEvento, buscarVinculo, desvincularEvento, type AgendaDelNegocio,
@@ -176,6 +183,8 @@ const canalTxt = (ctx: Ctx): string => (ctx.canal === 'http' ? 'la API' : ctx.ca
 const origenPropuesta = (ctx: Ctx): string => (ctx.canal === 'whatsapp' ? 'whatsapp' : ctx.canal === 'http' ? 'claude' : 'app');
 const n = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 const s = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+/** Un `embudoId` de la entrada como el id real del CRM; vacío o inválido = `null`, el CRM del negocio. */
+const embudoDe = (v: unknown): number | null => { const n = Number(v); return v != null && v !== '' && Number.isSafeInteger(n) && n > 0 ? n : null; };
 const b = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v : undefined);
 const labels = (pasos: ReadonlyArray<{ label: string }>): string => pasos.map((p) => p.label).join(', ');
 const sumarDias = (iso: string, dias: number): string => new Date(Date.parse(`${iso}T12:00:00Z`) + dias * 86_400_000).toISOString().slice(0, 10);
@@ -2323,6 +2332,93 @@ export const RUNNERS: Runners = {
       );
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: r.despues ? 'Listo: sus leads nuevos entran a esos funnels.' : 'Listo: quedó sin asignar.', datos: { antes: r.antes, despues: r.despues } };
+    }),
+  },
+
+  // ── «Asignar fuentes» → Formularios y su calificación automática (20/11/2026) ──
+  // Las MISMAS funciones que la pantalla (lib/fuentes-crm-server.ts). `embudoId` vacío = el CRM del negocio.
+  listar_formularios: {
+    leer: async (input) => {
+      const r = await formulariosDelFunnel(embudoDe(input.embudoId));
+      if (!r.ok) return fallo(r.error);
+      const fila = (f: FormularioFila) => ({
+        clave: f.clave, tipo: f.tipo === 'wg' ? 'web_generator' : f.tipo === 'web' ? 'pagina_con_pixel' : 'meta', nombre: f.nombre,
+        pagina: f.pagina, leads: f.leads, ultimo: f.ultimo, entra: f.prendido, tambien_en: f.otros,
+        ...(f.califica ? { reglas: f.reglas ? { activas: f.reglas.activa, rutas: f.reglas.n } : null } : { sin_calificacion: true }),
+      });
+      return json({
+        crm: r.funnel.nombre, embudoId: r.funnel.id,
+        meta: r.meta ? r.meta.map(fila) : null, ...(r.metaError ? { meta_error: r.metaError === 'sin-meta' ? 'El negocio no conectó Meta.' : r.metaError } : {}),
+        web: r.web.map(fila),
+      });
+    },
+  },
+  elegir_embudo_de_formulario: {
+    preparar: async (input) => {
+      const clave = s(input.clave);
+      if (!claveFuenteValida(clave)) return { error: 'Esa clave no es de un formulario. Pide listar_formularios.', faltan: ['clave'] };
+      const f = await funnelReal(embudoDe(input.embudoId)).catch(() => null);
+      if (!f) return { error: 'Ese CRM no existe. Pide ver_campanas_funnels.' };
+      const prendido = input.prendido === true;
+      const nombre = s(input.nombre) || clave;
+      return {
+        payload: { clave, prendido, embudoId: f.id, nombre },
+        resumen: prendido ? `Los leads nuevos de «${nombre}» entran a «${f.nombre}».` : `Los leads de «${nombre}» dejan de entrar a «${f.nombre}».`,
+      };
+    },
+    ejecutar: (payload) => seguro('asignar el formulario', async () => {
+      const r = await alternarFormulario(Number(payload.embudoId), { clave: String(payload.clave), nombre: String(payload.nombre ?? '') }, payload.prendido === true);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: payload.prendido === true ? `Listo: sus leads nuevos entran a «${r.funnel}».` : `Listo: ya no entran a «${r.funnel}».`, datos: { clave: payload.clave, embudoId: payload.embudoId, prendido: payload.prendido === true } };
+    }),
+  },
+  ver_reglas_formulario: {
+    leer: async (input) => {
+      const r = await reglasDelFormulario(embudoDe(input.embudoId), s(input.clave) ?? '');
+      if (!r.ok) return fallo(r.error);
+      return json({ reglas: r.reglas, preguntas: r.preguntas, etapas: r.etapas.map((e) => ({ key: e.key, nombre: e.label })), entrada: r.entrada, leads_del_formulario: r.total });
+    },
+  },
+  guardar_reglas_formulario: {
+    preparar: async (input) => {
+      const clave = s(input.clave);
+      if (!claveFuenteValida(clave)) return { error: 'Esa clave no es de un formulario. Pide listar_formularios.', faltan: ['clave'] };
+      const f = await funnelReal(embudoDe(input.embudoId)).catch(() => null);
+      if (!f) return { error: 'Ese CRM no existe. Pide ver_campanas_funnels.' };
+      const etapas = await etapasDeProducto(f.id).catch(() => [] as Array<{ key: string; label: string }>);
+      const limpias = sanearReglas(input.reglas, etapas.map((e) => e.key));
+      if (!limpias) return { error: 'Las reglas no tienen la forma de ver_reglas_formulario.', faltan: ['reglas'] };
+      const nombreEtapa = (k: string | null) => (k ? etapas.find((e) => e.key === k)?.label ?? k : 'se queda donde entró');
+      const lineas = limpias.rutas.map((r, i) => `${i + 1}) ${r.condiciones.length > 1 ? `${r.modo === 'alguna' ? 'alguna de' : `al menos ${minimoDe(r)} de`} ${r.condiciones.length}: ` : ''}${r.condiciones.map(textoCondicion).join('; ')} → ${nombreEtapa(r.etapa)}`);
+      return {
+        payload: { clave, embudoId: f.id, nombre: s(input.nombre), reglas: limpias },
+        resumen: `Reglas de «${s(input.nombre) || clave}» en «${f.nombre}»${limpias.activa ? '' : ' (apagadas)'}: ${lineas.length ? lineas.join(' · ') : 'ninguna ruta'} · si no cumple ninguna: ${nombreEtapa(limpias.siNinguna)}.`,
+      };
+    },
+    ejecutar: (payload) => seguro('guardar las reglas', async () => {
+      const r = await guardarReglasDeFormulario(Number(payload.embudoId), String(payload.clave), String(payload.nombre ?? ''), payload.reglas);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: r.reglas.activa ? `Listo: los leads nuevos de ese formulario van solos a su etapa en «${r.funnel}». Para los que ya entraron, reaplicar_reglas_formulario.` : 'Listo: las reglas quedaron guardadas y apagadas.', datos: { clave: payload.clave, embudoId: payload.embudoId } };
+    }),
+  },
+  reaplicar_reglas_formulario: {
+    preparar: async (input) => {
+      const clave = s(input.clave);
+      if (!claveFuenteValida(clave)) return { error: 'Esa clave no es de un formulario. Pide listar_formularios.', faltan: ['clave'] };
+      const f = await funnelReal(embudoDe(input.embudoId)).catch(() => null);
+      if (!f) return { error: 'Ese CRM no existe. Pide ver_campanas_funnels.' };
+      const c = await reaplicarReglasDeFormulario(f.id, clave, true);
+      if (!c.ok) return { error: c.error };
+      if (!c.cambian) return { error: `Los ${c.revisados} leads de ese formulario ya están en su etapa: no hay nada que mover.`, yaEstaba: true };
+      return {
+        payload: { clave, embudoId: f.id },
+        resumen: `Mover ${c.cambian} ${c.cambian === 1 ? 'lead' : 'leads'} de «${f.nombre}»: ${c.porEtapa.map((x) => `${x.n} a «${x.label}»`).join(', ')}. Los que ya avanzaron no se tocan.`,
+      };
+    },
+    ejecutar: (payload) => seguro('reaplicar las reglas', async () => {
+      const r = await reaplicarReglasDeFormulario(Number(payload.embudoId), String(payload.clave), false);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: r.cambian ? `Listo: ${r.cambian} ${r.cambian === 1 ? 'lead movido' : 'leads movidos'} a su etapa.` : 'No hubo nada que mover.', datos: { cambian: r.cambian, porEtapa: r.porEtapa } };
     }),
   },
 

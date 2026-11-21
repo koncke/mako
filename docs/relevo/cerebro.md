@@ -1,6 +1,38 @@
 # Relevo del Cerebro
 
 
+## 21/11/2026 ~02:40 UTC — LEER PRIMERO (cuenta claude5, semanal al ~88 %)
+
+**Deploys: UNO por día, el cron de las 11:05 UTC. `desplegar-ya` sólo si Martín lo pide en ese pedido** (memoria vercel-costo-builds:
+el 20/11 se hicieron 53 builds a ~US$0,84 cada uno). Lo que espera el deploy del 21/11 11:05: un video a la vez, RESET único +
+«Autocompletar» + «Ir a un paso» que reinicia, la animación de Second Brain, el formato de los mensajes, el replicador de carruseles
+con IA (ApiMart) y el corte de grupos nuevos. **Después del deploy:** recorrerlo en el ws 3 (videos silenciados, una pestaña) y
+avisar a los clientes lo que se resolvió para ellos (memoria ticket-cerrado-siempre-se-avisa: TODO lo de un cliente termina con aviso).
+
+**Lo que se mira en producción después del deploy del 21/11 11:05 UTC** (ws 3, sesión de Martín en el navegador de la app, videos
+silenciados, UNA pestaña y cerrarla al terminar; el banco local scripts/banco-onboarding ya cubre 48 chequeos):
+1. el panel de emojis a 375 dentro del Ops Center; 2. el micrófono (grabar, transcribir, mandar, con y sin IA); 3. «Guardar contacto»
+en el teléfono; 4. «Entrar a MaKo» hasta la app; 5. el recorrido sobre el Ops Center real con la capa del Second Brain y la flecha;
+6. «Ir a un paso» a una marca del medio de otra pestaña (Día 2 · Integraciones); 7. «Ir a un paso» al código por WhatsApp (modal,
+pegar, «¿Guardaste…?»); 8. «Autocompletar» en origen e intereses; 9. el reto: «¿Qué hacemos ahora?», el desplegable de días, el
+catálogo y las marcas de las tareas; 10. el formato en los globos; 11. «Borrar todos los datos» en /admin/customers/3 (sólo cuentas
+de prueba, pide el nombre). Y un video a la vez (play a uno, después a otro: el primero se pausa y no flota).
+
+**Chats vivos y en qué están** (los ids en list_sessions linked):
+- **onboarding-v2:** los pedidos de Martín del 21/11 (memoria onboarding-16-11-decisiones, bloque 21/11): falta «Ir a un paso» con todos
+  los pasos individuales y el paso del WhatsApp igual que un cliente nuevo (con un modal que simula WhatsApp); borrar /api/datos-mau;
+  después los tests Playwright contra el ws 3.
+- **carruseles-r-plica-fiel:** el replicador regenera cada lámina con ApiMart (Nano Banana Pro) desde su referencia; rehace los 11
+  carruseles de Martín en el ws 9 (ya salió «9 AGENTES DE IA», diseño 17c8dae2) y arma el artefacto lado a lado. Al terminar,
+  avisar a Leila en su grupo (ws 11): se le prometió.
+- **fuentes-crm, wa-no-callarse, reto-tutoriales:** en pausa, todo entregado.
+
+**Hecho y avisado el 20-21/11:** tickets #120 y #121 cerrados con aviso; a Código (ws 13) el aviso de Asignar fuentes (Juanfran) y
+de los pagos; a Leila (ws 11) que el onboarding está listo. Datos de cobro cargados (planes.pago_directo, checkout público APAGADO,
+sin descuento ni recargo). Binance lee desde São Paulo (gru1) y activa sin captura. Grupos de WhatsApp: no se crean más; los que
+existen siguen (Martín: «Sólo no crear más»).
+
+
 ## 19/11/2026 ~02:30 UTC — LEER PRIMERO (cuenta claude5, semanal al 0 %; se reinicia el 24/11 a las 18:00 UTC)
 
 Martín pasó de claude2 a claude5 y escribió «Continua… Haz los artefactos, y continúa con los tutoriales del reto de 7 días

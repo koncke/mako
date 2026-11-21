@@ -280,14 +280,7 @@ test('la migración: workspace SIN default, path con su forma, RLS y revoke', ()
   assert.match(sql, /create unique index if not exists setting_adjuntos_ws_path_uk on setting_adjuntos \(workspace_id, media_path\)/);
 });
 
-test('«Completar con los datos de Mau» trae los archivos ANTES que las secuencias y les traduce el media_id', () => {
-  const mau = sinComentarios(leer('lib/datos-mau.ts'));
-  const iAdj = mau.indexOf("tabla: 'setting_adjuntos'");
-  const iSec = mau.indexOf("tabla: 'nutricion_secuencias'");
-  assert.ok(iAdj > 0 && iSec > iAdj, 'sin la copia antes no hay mapa viejo→nuevo para los pasos');
-  assert.match(mau, /\{ campo: 'pasos', clave: 'media_id', desde: 'setting_adjuntos' \}/);
-  assert.match(mau, /\{ campo: 'pasos', clave: 'audio_id', desde: 'setting_audios' \}/);
-});
+// «Completar con los datos de Mau» (lib/datos-mau.ts, que traía los archivos antes que las secuencias) se borró el 21/11.
 
 // ── La extensión del espejo ──────────────────────────────────────────────────────────────────
 

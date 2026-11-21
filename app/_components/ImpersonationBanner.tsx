@@ -10,6 +10,8 @@ import { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { PanelAgencia } from './PanelAgencia';
 import { ReiniciarOnboarding } from './ReiniciarOnboarding';
+import { SaltarAPaso } from './SaltarAPaso';
+import { Autocompletar } from './Autocompletar';
 import { WS_PARAM } from '@/lib/ws-tab';
 import type { VistaDeOtro } from '@/lib/vista-de-otro';
 
@@ -95,7 +97,10 @@ export function ImpersonationBanner({ inicial = null }: { inicial?: VistaDeOtro 
     if (!modoAgencia && wsUrl) { window.location.href = salida; return; }
     setSaliendo(true);
     try {
-      await fetch(modoAgencia ? '/api/agencia/entrar' : '/api/admin/impersonate', { method: 'DELETE' });
+      // Sólo si el servidor sacó la cookie (20/11/2026, el inventario de botones): con un 401 o un 500 navegaba igual, la cookie quedaba
+      // y la barra volvía sola, «indistinguible de un botón roto». Así el botón vuelve y se puede reintentar.
+      const r = await fetch(modoAgencia ? '/api/agencia/entrar' : '/api/admin/impersonate', { method: 'DELETE' });
+      if (!r.ok) { setSaliendo(false); return; }
       window.location.href = salida;
     } catch { setSaliendo(false); }
   };
@@ -139,16 +144,14 @@ export function ImpersonationBanner({ inicial = null }: { inicial?: VistaDeOtro 
           ? <b style={{ fontWeight: 700 }}>{cliente}</b>
           : <>Estás viendo el dashboard de <b style={{ fontWeight: 700 }}>{cliente}</b>{modoAgencia ? '.' : ' como administrador.'}</>}
       </span>
-      {/* Los controles de la agencia sobre este cliente: traer datos de Mau y
-          resetear. Van acá porque es la única barra presente en TODAS las
-          pantallas, incluido el onboarding bloqueante.
-          ⚠️ NO en modo agencia: son herramientas de la PLATAFORMA —una de ellas
-          vacía 50+ tablas y 4 buckets— y no tienen nada que hacer en la cuenta
-          del cliente de otra agencia. El server ya las cierra (`/api/datos-mau`
-          exige super-admin), así que esto no es el guard: es no pedir una
-          respuesta que va a ser 403 y no dibujar un control muerto. */}
-      {/* «Reiniciar onboarding» (20/11/2026), al lado de RESET: no borra datos, así que va en CUALQUIER cliente (RESET, sólo en el
-          de prueba). El server lo cierra igual: super admin y nunca el negocio del dueño.
+      {/* Los controles de la plataforma sobre este cliente. Van acá porque es la única barra presente en TODAS las pantallas, incluido
+          el onboarding bloqueante.
+          ⚠️ NO en modo agencia: son herramientas de la PLATAFORMA y no tienen nada que hacer en la cuenta del cliente de otra agencia.
+          El server ya las cierra (super-admin), así que esto no es el guard: es no pedir una respuesta que va a ser 403 y no dibujar un
+          control muerto. */}
+      {/* «RESET» (20/11/2026 como «Reiniciar onboarding»; el único reset de la barra desde el 21/11): no borra datos, así que va en
+          CUALQUIER cliente. El server lo cierra igual: super admin y nunca el negocio del dueño. El borrado total vive en
+          /admin/customers/<ws> («Borrar todos los datos», sólo en las cuentas de prueba).
           ⚠️ En el Cliente de Prueba a 375 px no entran los cuatro botones: «Salir de la vista» quedaba FUERA de la pantalla. Las
           herramientas se achican DESPUÉS que el texto (el texto lleva flexShrink 1000: se achica primero, hasta 0) y se deslizan de
           costado; «Salir de la vista», que va afuera de esta caja, queda siempre a la vista. Los menús van en portal: no se cortan.
@@ -156,8 +159,13 @@ export function ImpersonationBanner({ inicial = null }: { inicial?: VistaDeOtro 
           les reparte sólo esa fracción de lo que sobra, y «Salir» seguía afuera.) */}
       {!modoAgencia && (
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
-          <PanelAgencia cliente={cliente} />
+          <PanelAgencia />
+          {/* En lugar de «Datos de Mauricio» (21/11, Martín): la respuesta de ejemplo de la pregunta de ahora. Sólo si el chat la ofrece. */}
+          <Autocompletar />
+          {/* UN SOLO «RESET» (21/11, Martín): reinicia el onboarding sin borrar lo suyo. El que vaciaba todo, en /admin/customers/<ws>. */}
           <ReiniciarOnboarding cliente={cliente} />
+          {/* La revisión (20/11): ir a cualquier paso del onboarding o del reto. Se dibuja sólo si el server dice que sí (un negocio de prueba). */}
+          <SaltarAPaso />
         </div>
       )}
       {modoAgencia && <span style={{ marginLeft: 'auto' }} />}
