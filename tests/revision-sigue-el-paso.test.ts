@@ -37,7 +37,10 @@ test('2. la ruta lo devuelve, el motor dice en qué marca va, y el desplegable l
   assert.match(r, /pasos: PASOS_DE_REVISION, actual \}\)/);
   const st = sinComentarios(fuente('app/_ui/tutorial/store.ts'));
   assert.match(st, /export function anotarPasoDelMotor\(i: number \| null\): void/);
-  assert.match(sinComentarios(fuente('app/_ui/tutorial/MotorTutorial.tsx')), /useEffect\(\(\) => \{ anotarPasoDelMotor\(senal\.tipo === 'tutorial' \? i : null\); \}, \[senal, i\]\);/);
+  // 21/11 (producción): en el MODO VIDEO, el paso de la frase que se muestra (antes `i`, que ahí queda en -1).
+  const motor = sinComentarios(fuente('app/_ui/tutorial/MotorTutorial.tsx'));
+  assert.match(motor, /const iMostrado = modoVideo \? \(pasoFrase \? pasos\.findIndex\(\(p\) => mismoLugar\(p\.sel, pasoFrase\.sel\)\) : null\) : i;/);
+  assert.match(motor, /anotarPasoDelMotor\(pasoAnotado\.current\);/);
   const s = sinComentarios(fuente('app/_components/SaltarAPaso.tsx'));
   assert.match(s, /<select value=\{valor\}/, 'muestra el paso, no «Ir a un paso» fijo');
   assert.match(s, /const valor = delRecorrido \?\? actual \?\? '';/);

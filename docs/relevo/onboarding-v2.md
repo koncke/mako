@@ -37,6 +37,12 @@ Lo pidió el Cerebro con las 3 capturas de Martín (ws 3, Nutri Vale). Despliegu
   (`tDesde`, MotorTutorial) y el motor sigue sus frases desde ahí; sin una frase para el paso, va con su tarjeta. Lo mira el Cerebro en
   producción (el banco no tiene un video con frases).
 
+- **Después del recorrido del Cerebro en producción (cfcaf2bda):** RESET suma los chats de los EDITORES (image_editor_chats,
+  video_editor_chats: «Image Editor» y «Prueba · contraste sobre blur» venían de ahí, lib/chat-mako-indice.ts) y dice lo que no pudo borrar;
+  y «Ir a un paso» sigue la marca del recorrido también en el MODO VIDEO (ahí `i` queda en -1: se anota el paso de la frase). Falta ver si
+  los chats de las automatizaciones (chatsDeAutomations) también tienen que irse con el RESET. Trampa: el banco atrapó un choque de
+  nombres (`ultimoPaso`) que los tests de texto no ven y el tsc acotado no corrió: compilar el banco antes de subir.
+
 ## Falta (con por dónde empezar)
 1. **El recuadro del recorrido mal ubicado** (/second-brain?reto=1: el hueco sobre los «…» de MaKo escribiendo, arriba a la izquierda,
    en vez de la fila del reto). Mirar `lugarDe(sel)` en app/_ui/tutorial/MotorTutorial.tsx (toma el PRIMER elemento visible del selector)

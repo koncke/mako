@@ -362,8 +362,6 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   const pasos: PasoTutorial[] = useMemo(() => (senal.tipo === 'tutorial' ? pasosPara(senal.tutorial, telefono) : [senal.paso]), [senal, telefono]);
   // -1 = la presentación de la pestaña (su `intro`), antes del primer paso. Una marca va directo a su lugar.
   const [i, setI] = useState(senal.tipo === 'tutorial' && senal.desde ? senal.desde : senal.tipo === 'tutorial' && senal.tutorial.intro ? -1 : 0);
-  // En qué paso va, para «Ir a un paso» (21/11): el desplegable sigue al recorrido.
-  useEffect(() => { anotarPasoDelMotor(senal.tipo === 'tutorial' ? i : null); }, [senal, i]);
   useEffect(() => () => anotarPasoDelMotor(null), []);
   const [el, setEl] = useState<HTMLElement | null>(null);
   const [geo, setGeo] = useState<Geo>({ hueco: null, tarjeta: null });
@@ -547,6 +545,16 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   // ahí. Sin una frase para ese paso, el paso va con su tarjeta (y sin el cartel falso de «todavía no está grabado»).
   const tDesde = senal.tipo === 'tutorial' && senal.desde ? frases.find((f) => f.sel && mismoLugar(f.sel, pasos[senal.desde ?? 0]?.sel ?? ''))?.t_inicio ?? null : null;
   const arrancoDesde = useRef(false);
+  // En qué paso va, para «Ir a un paso» (21/11): el desplegable sigue al recorrido. En el MODO VIDEO los pasos los mandan las frases e
+  // `i` queda en -1 (producción: en «Tu panel» el desplegable decía «¿Qué hacemos ahora?»): el de la frase que se muestra; entre frase y
+  // frase, el último.
+  const pasoAnotado = useRef<number | null>(null);
+  const iMostrado = modoVideo ? (pasoFrase ? pasos.findIndex((p) => mismoLugar(p.sel, pasoFrase.sel)) : null) : i;
+  useEffect(() => {
+    if (senal.tipo !== 'tutorial') { anotarPasoDelMotor(null); return; }
+    if (iMostrado != null && iMostrado >= 0) pasoAnotado.current = iMostrado;
+    anotarPasoDelMotor(pasoAnotado.current);
+  }, [senal, iMostrado]);
   useEffect(() => {
     if (senal.tipo !== 'tutorial' || !senal.desde || tDesde == null || modoVideo || arrancoDesde.current || !vidRef.current) return;
     arrancoDesde.current = true;

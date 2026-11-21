@@ -96,6 +96,8 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
       const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
       if (!j.ok) { setAviso({ texto: j.error || 'No se pudo reiniciar el onboarding.', tono: 'error' }); setBusy(false); return; }
       // Lo dice el MISMO panel (a la vista, donde se tocó), y lleva al onboarding. `busy` queda prendido: no se vuelve a tocar.
+      // Lo que el RESET de prueba no pudo borrar se dice, no se traga (21/11, producción: quedaban chats y la ruta contestaba ok).
+      if (j.chats?.avisos?.length) setAviso({ texto: `Se reinició, pero no pude borrar todo: ${j.chats.avisos.join(' · ')}`, tono: 'error' });
       setHecho(true);
       // Y ESTE navegador también (el de quien mira): si no, conserva el «dale play», lo ya escrito del arranque y la llegada de ese
       // negocio, y el onboarding arrancaba con «¿cómo te llamas?» antes del video (20/11/2026, el Cerebro en producción).

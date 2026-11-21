@@ -14,8 +14,12 @@
 export const WS_SE_VACIAN_LOS_CHATS: readonly number[] = [3, 4];
 export const seVacianLosChats = (ws: number | null | undefined): boolean => typeof ws === 'number' && WS_SE_VACIAN_LOS_CHATS.includes(ws);
 
-/** Las tablas que se vacían, en orden: los mensajes antes que sus chats. */
-export const TABLAS_DE_LOS_CHATS = ['chart_chats', 'chart_sessions', 'offer_sesiones'] as const;
+/**
+ * Las tablas que se vacían, en orden: los mensajes antes que sus chats. Con los chats de los EDITORES (21/11, el Cerebro en producción:
+ * después del RESET seguían «Image Editor» y «Prueba · contraste sobre blur»): la lista lateral los junta con los demás
+ * (lib/chat-mako-indice.ts → chatsDeLosEditores), y viven en sus propias tablas.
+ */
+export const TABLAS_DE_LOS_CHATS = ['chart_chats', 'chart_sessions', 'offer_sesiones', 'image_editor_chats', 'video_editor_chats'] as const;
 
 /** Lo que los coaches recuerdan fuera de sus chats: sin esto, Offer Coach daba la oferta por hecha con el chat vacío. */
 export const SETTINGS_DE_LOS_COACHES = ['onboarding_v2.offer_coach', 'funnel_coach.plan'] as const;

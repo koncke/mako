@@ -18,7 +18,12 @@ const fuente = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
 test('1. qué se vacía: los mensajes, los chats y la conversación de Offer; y el estado de los coaches. El grupo de avisos, no', () => {
-  assert.deepEqual([...TABLAS_DE_LOS_CHATS], ['chart_chats', 'chart_sessions', 'offer_sesiones'], 'los mensajes antes que los chats');
+  assert.deepEqual([...TABLAS_DE_LOS_CHATS], ['chart_chats', 'chart_sessions', 'offer_sesiones', 'image_editor_chats', 'video_editor_chats'], 'los mensajes antes que los chats, y los de los editores');
+  // Cada tabla de la que la lista lateral junta chats de editores, adentro (21/11, producción: quedaba «Image Editor»).
+  const indice = fuente('lib/chat-mako-indice.ts');
+  for (const t of [...indice.matchAll(/tabla: '([a-z_]+_chats)'/g)].map((m) => m[1])) assert.ok((TABLAS_DE_LOS_CHATS as readonly string[]).includes(t), `RESET no vacía ${t}`);
+  // Y lo que no pudo borrar se DICE (antes la ruta contestaba ok y el botón no miraba los avisos).
+  assert.match(sinComentarios(fuente('app/_components/ReiniciarOnboarding.tsx')), /if \(j\.chats\?\.avisos\?\.length\)/);
   assert.deepEqual([...SETTINGS_DE_LOS_COACHES], ['onboarding_v2.offer_coach', 'funnel_coach.plan']);
   assert.ok(!TABLAS_DE_LOS_CHATS.some((t) => t.startsWith('grupo_')), 'el grupo de avisos queda');
 });
