@@ -1173,8 +1173,15 @@ toma de la base, así que sumar o cambiar una no requiere publicar.
     investigación anterior quedó plegada al final.
 - La paleta pasó `validate_palette.js` (aqua, azul, naranja). Avisa que el aqua tiene menos de 3:1 de contraste: por eso el
   estado siempre lleva ícono y palabra.
-- **Los datos:** hoy es el JSON de prueba (`node C:/dev/tendencias/herramientas/generar.mjs <carpeta>` →
-  `content-machine/tend/angulos.json`). Cuando el chat de tendencias avise, se copia el nuevo ahí y se rearma.
+- **Los datos:** son reales pero incompletos. Salen de la herramienta del chat de tendencias corrida sobre lo medido hasta
+  ahora (`node C:/dev/tendencias/herramientas/generar.mjs <carpeta>` → `content-machine/tend/angulos.json`). El 21/11 todavía
+  no había `docs/tendencias/angulos.json` en `punta/tendencias`.
+- **Regla (Cerebro, 21/11): nada se lee como completo si no lo está.** Cada sector muestra cuántas cuentas ya tienen datos:
+  los referentes distintos de `senales.contagio.quienes` de sus ángulos, contra `referentes` (las planeadas). Sale el chip
+  «parcial · 8 de 17 cuentas», y en el selector, «(parcial)». Un sector planeado sin ángulos (YouTube) dice «sin datos
+  todavía», sin burbujas ni ranking. Arriba: «16 de 163 referentes medidos hasta ahora».
+- **Trampa:** el `referentes` de cada sector en el JSON es lo PLANEADO (las cuentas de la cola), no lo medido. Leído
+  solo, hacía pasar un sector a medias por completo.
 - **Trampa:** una regla general de la página le pone `::after` a todo `summary`. En una fila en grilla, ese `::after` cayó
   en un renglón propio y dibujaba una flecha suelta.
 
