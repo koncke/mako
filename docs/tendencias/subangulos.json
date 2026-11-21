@@ -1,0 +1,4544 @@
+[
+ {
+  "id": "a-angulos-nuevos-no-variaciones",
+  "nombre": "Ángulos nuevos, no variaciones",
+  "afirmacion": "Diez variaciones del mismo anuncio Meta las cuenta como una sola: prueba ángulos nuevos, no otro gancho, otra edición u otra camiseta.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-DfaJDRaRvX4",
+   "dakota-DYsb_lphTpN",
+   "dakota-DPE_ArAEqPG",
+   "dakota-DeKgdrpPonl",
+   "dakota-DfXrim6xnyH",
+   "dakota-DP7HoIJkgVI",
+   "dakota-DXr6hldjwUv",
+   "dakota-DfQFbKlP7a7"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ganador-agota-su-publico",
+  "nombre": "El ganador agotó su público",
+  "afirmacion": "Tu anuncio ganador no se cansó: ya le habló a todo el segmento que podía, y Meta te cobra más por llegar al resto.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-DctuYsSRGIM",
+   "dakota-Dee2OzCRz7M",
+   "dakota-DfSn8EOR88X"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-el-copy-decide",
+  "nombre": "Todo se reduce al buen copy",
+  "afirmacion": "Un solo anuncio bien escrito sostiene la cuenta; miles de anuncios mal escritos no la arreglan.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-DQVfv88kYk9",
+   "dakota-DX2pg93ADZL"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-creativo-es-segmentacion",
+  "nombre": "El creativo es tu segmentación",
+  "afirmacion": "Ya no segmentas por intereses: lo que muestras en el anuncio (quién habla, su edad, su ropa, el lugar) decide quién lo ve.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "doglio-Dfu8hY2viwm",
+   "dakota-DeHqR_eRJov",
+   "dakota-Dfpj62mRPqZ",
+   "dakota-DfKpRWpzyu0"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-roas-cae-por-comunicacion",
+  "nombre": "Mal ROAS es mala comunicación",
+  "afirmacion": "Si tu retorno es malo o inestable, el problema no está en el administrador de anuncios: suenas como uno más y no atraes prospectos calificados.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "doglio-DPpenyXDGRf",
+   "doglio-DPy6EQ9kbqE"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-estaticos-descubren-no-escalan",
+  "nombre": "Estáticos: descubren, no escalan solos",
+  "afirmacion": "Los anuncios estáticos que nombran a tu público encuentran compradores y bolsas de audiencia rápido, pero solos casi nunca escalan.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-Db_gsUuxL_-",
+   "dakota-Df2xapONEUX"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-anuncios-de-imagen-escalan",
+  "nombre": "Los anuncios de imagen sí escalan",
+  "afirmacion": "Los anuncios de imagen también escalan y traen buenos leads: uno gastó 209.000 dólares y generó 700.000.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-DbTft-rRNGc"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-biblioteca-por-impresiones",
+  "nombre": "Biblioteca de anuncios por impresiones",
+  "afirmacion": "Ordena la biblioteca de anuncios por impresiones para ver qué anuncios de tu competencia funcionan de verdad.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-DcJTfgZAqei",
+   "dakota-DT3FeUYj452"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-anuncios-que-tu-mirarias",
+  "nombre": "Haz anuncios que tú mirarías",
+  "afirmacion": "Si tú no mirarías, comentarías ni harías clic en tu propio anuncio, nadie más lo hará.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-DOOYGeSET-l"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-probar-mensajes-sin-limite",
+  "nombre": "Hoy puedes probar mensajes sin límite",
+  "afirmacion": "No te quejes de que Meta elija a quién mostrar tu anuncio: hoy puedes probar diez mensajes con diez públicos en una semana.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-Dfu_V-9x7T1"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ideas-fuera-de-la-biblioteca",
+  "nombre": "Ideas de anuncios fuera de la biblioteca",
+  "afirmacion": "Las mejores ideas para tus anuncios no están en la biblioteca de anuncios: búscalas en productos de consumo masivo.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-Dbs_V1uA1kI"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-menos-optimizar-mas-creativos",
+  "nombre": "Toca menos la cuenta, haz más creativos",
+  "afirmacion": "La estructura de la cuenta pesa poco: deja de tocarla y sobreoptimizarla, y usa ese tiempo en hacer anuncios nuevos.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-DZI0aaVy2Xx",
+   "dakota-C_-1rXoP438",
+   "dakota-DcBgS1Dpmy9"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-testeo-creativo-constante",
+  "nombre": "Testear creativos sin parar",
+  "afirmacion": "Lo que mantiene viva una cuenta es probar creativos nuevos todo el tiempo: gana quien más prueba.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-DEfx6fuSzbp",
+   "dakota-DZFwd5bRO-0",
+   "dakota-DdwHpyfxhFB"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-nadie-predice-que-gana",
+  "nombre": "Nadie predice qué anuncio gana",
+  "afirmacion": "Hasta los más exitosos se equivocan sobre qué va a funcionar: prueba en vez de opinar.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-DdbtPCIxBeq"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-probar-en-lotes-pequenos",
+  "nombre": "Prueba creativos en lotes pequeños",
+  "afirmacion": "Prueba tus anuncios nuevos en grupos pequeños: si metes 30 en un conjunto, Meta gasta sólo en tres.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-Df5WjOEvT5l"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-nombrar-el-problema",
+  "nombre": "Ponle nombre al problema",
+  "afirmacion": "Los anuncios viejos enseñan a vender en frío: Listerine inventó la palabra «halitosis» para ponerle nombre al problema.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-DaQfvzPxorE"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-nfl-compra-audiencia",
+  "nombre": "La NFL compra audiencia con Bad Bunny",
+  "afirmacion": "El show de Bad Bunny en el Super Bowl es publicidad: la NFL gana al público latino sin perder al que ya tiene.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-DUbfiDeEsvc"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-agencias-dan-excusas",
+  "nombre": "Si la agencia da excusas, cambia",
+  "afirmacion": "Si gastas miles en anuncios sin ventas y la agencia culpa al «valor percibido» de tu oferta, prueba otro socio de anuncios.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-Cv0ArXUNfYa"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-principios-no-recetas",
+  "nombre": "Fundamentos, no recetas",
+  "afirmacion": "Nunca serás buen marketer siguiendo recetas: aprende los fundamentos y piensa por tu cuenta.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "dakota-DTvWaA6ANwC"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-reel-ganador-no-es-anuncio",
+  "nombre": "El reel ganador no es tu anuncio",
+  "afirmacion": "Que un reel haya funcionado valida el concepto, no lo convierte en tu mejor anuncio: no le pongas plata tal cual.",
+  "padre": "Anuncios|creativos-y-conceptos",
+  "piezas": [
+   "doglio-DWhW7r6P2Xn"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-advantage-va-a-tu-audiencia",
+  "nombre": "Advantage+ va primero a tus seguidores",
+  "afirmacion": "El público amplio no es frío: Meta muestra tu anuncio primero a tus seguidores y su círculo, por eso la página desde la que anuncias importa.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DeuGFq8RMuZ",
+   "dakota-DNjmXxzh8UC",
+   "dakota-DZLS0USBcDu",
+   "dakota-DZKoX9UxRE_"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-meta-puntua-todos-los-anuncios",
+  "nombre": "Todos tus anuncios compiten entre sí",
+  "afirmacion": "Meta ahora puntúa todos los anuncios elegibles y cada uno compite como un candidato: tu creativo es el currículum y algunos ni tienen oportunidad.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DfNdUHsv5Mu",
+   "dakota-DfF0edGPfz_",
+   "dakota-DfH-WR6xYR-",
+   "dakota-DfIVnJ7xTBf"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-andromeda-simplifica-diversifica",
+  "nombre": "Andromeda: simplifica y diversifica",
+  "afirmacion": "Con Andromeda olvídate del targeting manual: simplifica la cuenta, diversifica los creativos y dale a Meta datos limpios.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DPuPhNikqXQ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-landing-y-oferta-segmentan",
+  "nombre": "Tu landing también segmenta",
+  "afirmacion": "Meta lee tu oferta, tus páginas y la landing a la que mandas el anuncio para decidir a quién mostrarlo.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DbLpjCggGeu",
+   "dakota-Dfm2eo7Rppg"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-los-anuncios-si-funcionan",
+  "nombre": "Los anuncios no están muertos",
+  "afirmacion": "Todas las plataformas de anuncios funcionan: si a ti no te funcionan, el problema es tu oferta, tu mensaje o tu audiencia.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DZC6VdcRe_2",
+   "dakota-Cd6zSyZpMwI"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-meta-ads-es-facil",
+  "nombre": "Meta Ads no es tan difícil",
+  "afirmacion": "Meta Ads no es tan difícil: si entiendes un par de cosas que Meta busca, puedes tener éxito.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-Db30OiTxUjV"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-meta-no-optimiza-sola",
+  "nombre": "Meta no optimiza sola",
+  "afirmacion": "«Deja que Meta optimice» es un mito: necesitas un sistema que diga qué métricas mirar y qué cambiar en cada momento.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "doglio-DduNGkEviJL"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-meta-te-da-lo-que-pides",
+  "nombre": "Meta te da justo lo que pides",
+  "afirmacion": "Tus leads son malos porque le pides leads a Meta: optimiza a un evento más profundo (lead calificado, llamada) aunque cada lead te cueste más.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DaEDnPKyA3X",
+   "dakota-Db6QHx3xMIe",
+   "dakota-DQUp11BEriv",
+   "dakota-DfUtGL1RExG"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-evento-con-volumen",
+  "nombre": "High ticket: optimiza a un evento intermedio",
+  "afirmacion": "Si vendes caro no optimices a compra porque no tienes volumen: elige un evento intermedio que le dé a Meta suficientes datos.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DaBm6mbBDDq",
+   "dakota-DSIivAwgdL7",
+   "dakota-DfYUpvJgYo4"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-webinar-optimiza-asistentes",
+  "nombre": "Webinar: optimiza a quien asiste o compra",
+  "afirmacion": "En un webinar no busques el lead más barato: optimiza a quien asiste, se queda hasta la oferta o compra el VIP, y el costo por comprador baja.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DDFjv_4yEXz",
+   "dakota-DEaOgphujRi",
+   "dakota-DXpiVZckhki",
+   "dakota-De-cF-2AKY5"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-cpm-alto-anuncios-peores",
+  "nombre": "CPM alto: anuncios peores que tu nicho",
+  "afirmacion": "Pagas un CPM alto porque Meta cobra según la probabilidad de que respondan: si tu oferta y tus anuncios son peores que los de tu nicho, pagas más.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DfSJ8qnxBXM",
+   "dakota-DSVLGMED0lF"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-instagram-video-largo",
+  "nombre": "Instagram suma video largo",
+  "afirmacion": "Instagram prueba videos largos y eso cambia tu embudo: puedes llevar a la gente hasta la compra sin sacarla de Instagram.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DfAZGL5xshI",
+   "dakota-DffnFqHPHGp"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-instagram-sin-anuncios-de-pago",
+  "nombre": "Instagram sin anuncios cambia poco",
+  "afirmacion": "El plan pago sin anuncios de Instagram casi no cambiará nada fuera del Reino Unido y la Unión Europea.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DUB_aT7ktha"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-el-telefono-escucha",
+  "nombre": "Tu teléfono parece escucharte",
+  "afirmacion": "Tu teléfono parece escucharte: hablas de un producto sin buscarlo y al día siguiente te aparece el anuncio.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-Ch7kTVFJ3J3"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-meta-gasto-de-mas",
+  "nombre": "Meta gastó de más tras una caída",
+  "afirmacion": "Tras una caída de entrega, Meta gastó de más en muchas cuentas: revisa la tuya.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DV_ZIgSEYeC"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-meta-quita-verificadores",
+  "nombre": "Meta cambia verificadores por notas",
+  "afirmacion": "Que Meta pase de verificadores a notas de la comunidad puede cambiar la publicidad en Facebook e Instagram.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DEk7ntySUB5"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ajuste-de-audiencias",
+  "nombre": "Dile a Meta quiénes son tus clientes",
+  "afirmacion": "En los ajustes de publicidad de Meta puedes marcar tus audiencias comprometidas y tus clientes, y eso cambia tu rendimiento.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-Db8xySERGuT"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-tiktok-prohibido-va-a-reels",
+  "nombre": "Sin TikTok, la plata va a Reels",
+  "afirmacion": "Si se prohíbe TikTok, sus 15.000 millones en publicidad se irán a Shorts y Reels.",
+  "padre": "Anuncios|algoritmo-de-meta",
+  "piezas": [
+   "dakota-DEp9yp9SHgH"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-venta-en-frio-repele",
+  "nombre": "Vender en frío repele",
+  "afirmacion": "Un anuncio de venta a quien no te conoce repele: primero da valor y deja que te conozca con el orgánico.",
+  "padre": "Anuncios|organico-y-pago-juntos",
+  "piezas": [
+   "DdsZpDuTA9Z",
+   "DdvC1h3TvIl",
+   "dakota-DejzgKSxlaW"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-sin-organico-anuncios-no-escalan",
+  "nombre": "Sin orgánico, los anuncios no escalan",
+  "afirmacion": "Los anuncios sólo amplifican la confianza que ya construyó tu orgánico: sin esa base pierdes plata, y no arreglan una cuenta que no vende sola.",
+  "padre": "Anuncios|organico-y-pago-juntos",
+  "piezas": [
+   "Dd77LEnTZuL",
+   "DdK8RHozHwT",
+   "dakota-DN6jDQOkldW",
+   "doglio-DfX-YK1vdA9",
+   "DbBnb0GxDzS"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-no-seas-socio-de-meta",
+  "nombre": "No vivas de subir presupuesto",
+  "afirmacion": "Subir el presupuesto cada vez que te estancas te vuelve socio de Meta: construye una audiencia orgánica que llegue caliente.",
+  "padre": "Anuncios|organico-y-pago-juntos",
+  "piezas": [
+   "DddBgs-zZIJ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-anuncios-feos-igual-venden",
+  "nombre": "Empieza con anuncios aunque sean feos",
+  "afirmacion": "Si sólo haces orgánico, empieza a poner anuncios aunque estén mal hechos: a una marca personal le rindieron 66 veces lo invertido.",
+  "padre": "Anuncios|organico-y-pago-juntos",
+  "piezas": [
+   "carrizo-DcR8S0ztnek"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-aprende-publicidad-paga",
+  "nombre": "Publicidad paga, no likes",
+  "afirmacion": "La habilidad que más plata da es comprar publicidad: el orgánico son métricas de vanidad y te deja en festín o hambruna.",
+  "padre": "Anuncios|organico-y-pago-juntos",
+  "piezas": [
+   "dakota-CgnJtPMJnNP",
+   "dakota-CsWTH3_t9YZ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-pagina-grande-rinde-mejor",
+  "nombre": "Anuncia desde la página con más seguidores",
+  "afirmacion": "Anunciar desde una página con una audiencia que ya te quiere rinde mucho mejor que desde una página de negocio con pocos seguidores.",
+  "padre": "Anuncios|organico-y-pago-juntos",
+  "piezas": [
+   "dakota-DeSEnmLRMK8",
+   "dakota-Dej9DbDxZtc",
+   "dakota-DfcdJBADMEy"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-seguidores-coherentes",
+  "nombre": "Seguidores que sí compran",
+  "afirmacion": "Un público grande sólo ayuda a tus anuncios si lo construiste con contenido coherente con lo que vendes.",
+  "padre": "Anuncios|organico-y-pago-juntos",
+  "piezas": [
+   "dakota-DekPAPRzrNc"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-retargeting-a-quien-te-conoce",
+  "nombre": "Retargeting a quien ya te vio",
+  "afirmacion": "Nadie paga un ticket alto por verte una vez: combina buen orgánico con retargeting a quien ya te conoce.",
+  "padre": "Anuncios|organico-y-pago-juntos",
+  "piezas": [
+   "DfEChbGT2px",
+   "doglio-DUbWqEXEefd"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-problemas-fma-webinar",
+  "nombre": "Seis problemas, follow me ads y webinar",
+  "afirmacion": "Para captar clientes calificados habla siempre de los mismos seis o siete problemas, amplifícalo con follow me ads y cierra con webinars.",
+  "padre": "Anuncios|organico-y-pago-juntos",
+  "piezas": [
+   "embudo"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-webinars-si-restringen-dms",
+  "nombre": "Si te restringen los DMs, webinars",
+  "afirmacion": "Si Instagram te restringe los mensajes, sostén el negocio con webinars y anuncios de retargeting a llamada calificada.",
+  "padre": "Anuncios|organico-y-pago-juntos",
+  "piezas": [
+   "sistemas"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-mide-el-cac",
+  "nombre": "Sólo importa el costo por cliente",
+  "afirmacion": "Olvida el costo por lead, por llamada o el CTR: la única métrica que importa es cuánto te cuesta conseguir un cliente.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "dakota-Db3RPJTgzYs",
+   "dakota-Dbq3mkuxSFf",
+   "dakota-Dfsgb3oPMzd"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-no-empieces-por-los-anuncios",
+  "nombre": "No escala: no empieces por anuncios",
+  "afirmacion": "Si tu cuenta no escala, no empieces por los anuncios: revisa en orden tu costo por cliente, tu evento de optimización y dónde se fuga el embudo.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "dakota-DecbYa2xh-O",
+   "dakota-Dfp51QUAlqJ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-costo-por-mil-cuentas",
+  "nombre": "Mira el costo por mil cuentas alcanzadas",
+  "afirmacion": "Si crees que tu CPM es alto, mira el costo por mil cuentas alcanzadas: la frecuencia pesa mucho y Andromeda premia la variedad.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "dakota-DQFIUcrj4ql",
+   "dakota-DSTLx6rEgTF"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-costo-por-oferta-presentada",
+  "nombre": "Mide el costo por oferta presentada",
+  "afirmacion": "Un anuncio gana por su costo por oferta presentada, no por las ventas, porque cerrar depende del closer y no del anuncio.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "doglio-DehnXd5virH"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-roas-no-dirige-el-negocio",
+  "nombre": "El ROAS no dirige el negocio",
+  "afirmacion": "El ROAS es una métrica de anuncios, no de negocio: no incluye lo que pagas a tus vendedores ni los reembolsos.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "dakota-DZDkpY4h53t"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-capi-antes-de-escalar",
+  "nombre": "API de conversiones antes de escalar",
+  "afirmacion": "Antes de la temporada alta arregla tus datos con la API de conversiones: el píxel del navegador no te deja escalar.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "dakota-DAE1mLYyzdO"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-vista-comprometida-un-dia",
+  "nombre": "La nueva atribución baja tus ventas",
+  "afirmacion": "La atribución de «una vista comprometida de un día» separa clics y vistas, y puede hacer que tus ventas se vean más bajas en Meta que en tu CRM.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "dakota-DWbyqK3kdJP"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-caida-vistas-de-pagina",
+  "nombre": "Cayeron las vistas de página en Meta",
+  "afirmacion": "Desde el 6 de enero las vistas de página en Meta cayeron casi a la mitad respecto a los clics en muchas cuentas a la vez.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "dakota-DTd8_kWEm7N"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-el-gran-error-de-las-cuentas",
+  "nombre": "Un solo error hunde las cuentas",
+  "afirmacion": "Tras auditar miles de cuentas de anuncios, un solo error enorme explica los malos resultados y hasta el cierre de negocios.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "dakota-DABbwjNvKYr"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-highroas",
+  "nombre": "HighRoas para atribuir",
+  "afirmacion": "El único software de atribución que recomiendo para anuncios es HighRoas.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "dakota-DYp-XZqy4UP"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-evento-de-conversion-no-siempre",
+  "nombre": "No siempre hace falta el evento",
+  "afirmacion": "Una campaña que nunca disparó el evento de agenda consiguió llamadas más baratas que la que sí lo disparaba, y cerraron igual.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "dakota-DfnxaotlAZJ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-desglose-por-ubicacion",
+  "nombre": "Revisa el desglose por ubicación",
+  "afirmacion": "Revisa el desglose por ubicación: Meta puede gastarte el presupuesto en Reels de Facebook con clics inflados y leads basura.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "dakota-DQpwgkBknHX"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-youtube-ads-leads-falsos",
+  "nombre": "YouTube Ads trae leads falsos",
+  "afirmacion": "Los anuncios de YouTube están trayendo leads falsos que agendan llamadas y te gastan el presupuesto.",
+  "padre": "Anuncios|medicion-y-atribucion",
+  "piezas": [
+   "dakota-Cs39YFeLXvb"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-abo-cbo-donde-va-el-presupuesto",
+  "nombre": "ABO o CBO: sólo cambia el presupuesto",
+  "afirmacion": "La única diferencia entre ABO y CBO es dónde pones el presupuesto; en muchas cuentas la campaña que más gasta es la de pruebas.",
+  "padre": "Anuncios|escalar-presupuesto",
+  "piezas": [
+   "dakota-Df0QDcgH_2y",
+   "dakota-DfkNhH8xp56"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-minimos-de-gasto-cbo",
+  "nombre": "Mínimos de gasto en CBO",
+  "afirmacion": "Con los mínimos de gasto en CBO tienes parte del control del ABO sin salir de una sola campaña.",
+  "padre": "Anuncios|escalar-presupuesto",
+  "piezas": [
+   "dakota-Df0ElSGRWpo"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-un-anuncio-por-abo-no-escala",
+  "nombre": "Un anuncio por ABO no escala",
+  "afirmacion": "Probar cada anuncio en su propio ABO para que se sostenga solo no sirve para escalar la mayoría de las cuentas.",
+  "padre": "Anuncios|escalar-presupuesto",
+  "piezas": [
+   "dakota-DflMoWTAQHg"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-abo-para-testear",
+  "nombre": "Una ABO para testear ganchos y ángulos",
+  "afirmacion": "Para testear ganchos y ángulos usa una campaña ABO con un presupuesto fijo por conjunto.",
+  "padre": "Anuncios|campanas-paso-a-paso",
+  "piezas": [
+   "dakota-DP9eOSAD1X2"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-embudo-con-techo",
+  "nombre": "Cada embudo tiene techo",
+  "afirmacion": "Si al subir el presupuesto el costo se dispara es porque tu embudo sólo convence a un círculo chico que ya te conoce: suma otro embudo para crecer.",
+  "padre": "Anuncios|escalar-presupuesto",
+  "piezas": [
+   "dakota-DfVW3--PoZ1",
+   "dakota-DYFjoMnRCHG",
+   "dakota-DfdgniSAQIi"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-andromeda-para-grandes",
+  "nombre": "Andromeda es para quien gasta mucho",
+  "afirmacion": "Si no gastas 10.000 dólares al día en Meta, deja de hablar de Andromeda: su manual es para quien gasta de 10.000 a 50.000 diarios.",
+  "padre": "Anuncios|escalar-presupuesto",
+  "piezas": [
+   "dakota-DXpKAPWETQz"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-gasta-tres-veces-el-kpi",
+  "nombre": "Tres veces el KPI antes de apagar",
+  "afirmacion": "Gasta tres veces tu costo objetivo antes de apagar un anuncio: casi todos los matan demasiado pronto.",
+  "padre": "Anuncios|escalar-presupuesto",
+  "piezas": [
+   "dakota-DZI8UUSg21j"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-no-apagues-los-favoritos",
+  "nombre": "No apagues los favoritos de Meta",
+  "afirmacion": "Si apagas los anuncios que más gastan para darle presupuesto a los que parecen mejores, los resultados caen: Meta sabe a quién mostrar cada uno.",
+  "padre": "Anuncios|escalar-presupuesto",
+  "piezas": [
+   "dakota-Df-dxNavduJ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ltv-cac-decide-el-gasto",
+  "nombre": "Cuánto gastas lo decide LTV contra CAC",
+  "afirmacion": "Quien gasta más que tú en Meta no tiene mejores métricas de entrada: puede gastar más porque cada cliente le deja más de lo que le cuesta.",
+  "padre": "Anuncios|escalar-presupuesto",
+  "piezas": [
+   "dakota-DfhsjOBRWjT"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-presupuesto-velocidad-de-datos",
+  "nombre": "El presupuesto es velocidad de datos",
+  "afirmacion": "Tu presupuesto diario depende de cuánto pagas por conversión: si cada registro cuesta 10 y gastas 10 al día, aprendes con un dato por día.",
+  "padre": "Anuncios|escalar-presupuesto",
+  "piezas": [
+   "dakota-CmPbHbLDKpi"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-tiempo-hasta-la-compra",
+  "nombre": "Escala según cuánto tardan en comprar",
+  "afirmacion": "Lo que define si puedes escalar los anuncios no es el ROAS sino cuánto tardan en comprarte desde que te conocen.",
+  "padre": "Anuncios|escalar-presupuesto",
+  "piezas": [
+   "doglio-DT_B_-uEVy0"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-vsl-funnel-ya-no-funciona",
+  "nombre": "El VSL funnel ya no funciona",
+  "afirmacion": "Anuncio, VSL y agenda ya no funciona como hace unos años: cada vez convierte peor y tienes que cultivar al lead con retargeting antes de pedirle la llamada.",
+  "padre": "Anuncios|vsl-y-embudo-pago",
+  "piezas": [
+   "dakota-C3aotfhOLwu",
+   "doglio-DPhhGExDPhI",
+   "doglio-DPm-ySfjIoG",
+   "doglio-DRZ0493kf_5"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-webinar-embudo-mas-rentable",
+  "nombre": "El webinar en vivo rinde más",
+  "afirmacion": "El webinar en vivo es el embudo más rentable cuando todavía no tienes todo lo demás, aunque sea el más exigente.",
+  "padre": "Anuncios|vsl-y-embudo-pago",
+  "piezas": [
+   "dakota-DfqWOE4lfDH"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-quiz-funnel",
+  "nombre": "El quiz funnel para high ticket",
+  "afirmacion": "El quiz funnel (preguntas y un recurso personalizado) es el embudo más rentable si vendes caro y tienes más seguidores que agendas.",
+  "padre": "Anuncios|vsl-y-embudo-pago",
+  "piezas": [
+   "doglio-DdKjt29viaU",
+   "doglio-DbmGy_6vQCp"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-anuncios-largos-retargeting",
+  "nombre": "Retargeting largo y aburrido",
+  "afirmacion": "Anuncios de retargeting de 5 a 25 minutos, aburridos y para gente inteligente, devuelven 7 dólares por cada dólar.",
+  "padre": "Anuncios|vsl-y-embudo-pago",
+  "piezas": [
+   "doglio-DUtcSwgEjrF"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-retargeting-por-email",
+  "nombre": "El email trae hasta un 30%",
+  "afirmacion": "El retargeting por email es básico: entre el 10% y el 30% de lo que facturan los clientes viene de ahí.",
+  "padre": "Anuncios|vsl-y-embudo-pago",
+  "piezas": [
+   "doglio-DLLPSCmgR4P"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-vsl-con-ia",
+  "nombre": "La IA te hace la VSL",
+  "afirmacion": "Una VSL que tomaba semanas hoy la hace la IA: el guion en 20 minutos y las diapositivas con un solo prompt.",
+  "padre": "Anuncios|vsl-y-embudo-pago",
+  "piezas": [
+   "doglio-DfHpKhQxJFm",
+   "dakota-DU_YCIsgSph"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-anuncios-de-nicho-al-perfil",
+  "nombre": "Anuncios de nicho al perfil venden",
+  "afirmacion": "Anuncios de nicho que traen seguidores calificados a tu perfil, con contenido aburrido y nichado, venden decenas de miles con poca inversión.",
+  "padre": "Anuncios|follow-me-ads",
+  "piezas": [
+   "doglio-DR-XCqlknhz",
+   "doglio-DOJakAskSso",
+   "doglio-DSLDOsdkS2u",
+   "doglio-DSfslBhkVZc"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-fma-solo-contenido-de-problema",
+  "nombre": "Follow me ads sólo al problema",
+  "afirmacion": "Los follow me ads se corren sólo a contenido ultra nicho de problema, nunca a contenido viral, porque te llenan el perfil de seguidores malos.",
+  "padre": "Anuncios|follow-me-ads",
+  "piezas": [
+   "anuncios",
+   "Des2UFQT_FU"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-fma-al-grano",
+  "nombre": "Follow me ads que van al grano",
+  "afirmacion": "Un video que se va por las ramas rinde peor en follow me ads: para traer gente al perfil tiene que ir al grano con un gancho de texto.",
+  "padre": "Anuncios|follow-me-ads",
+  "piezas": [
+   "espiar"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-reciclar-el-reel",
+  "nombre": "Recicla el reel que funcionó",
+  "afirmacion": "Si un reel funciona mejor que el promedio, vuelve a distribuirlo para que siga trayendo alcance durante meses.",
+  "padre": "Anuncios|follow-me-ads",
+  "piezas": [
+   "doglio-DVvxrbDRHZC"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-no-te-encojas-en-temporada-dificil",
+  "nombre": "No recortes cuando otros se encogen",
+  "afirmacion": "Cuando todos recortan (fin de año, aranceles), no bajes el gasto: ajusta el mensaje y empuja fuerte.",
+  "padre": "Anuncios|campanas-paso-a-paso",
+  "piezas": [
+   "dakota-DDIWWdEzXfi",
+   "dakota-DGyjKdey5vo"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-publico-y-embudo-antes",
+  "nombre": "Público y embudo antes de anunciar",
+  "afirmacion": "Nunca corras un anuncio sin saber a quién le hablas, y mándalo a un embudo, no a tu perfil.",
+  "padre": "Anuncios|campanas-paso-a-paso",
+  "piezas": [
+   "dakota-DAY1wMIyate"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-investiga-competidores",
+  "nombre": "Investiga a la competencia antes de lanzar",
+  "afirmacion": "Nunca lances un anuncio sin investigar antes a tus competidores y cada paso de su embudo.",
+  "padre": "Anuncios|campanas-paso-a-paso",
+  "piezas": [
+   "dakota-DEIOVAbvCfW"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-consultoria-de-mil",
+  "nombre": "Una consultoría de mil que rinde",
+  "afirmacion": "Una consultoría de mil dólares sobre la estructura de un lanzamiento le sirvió a quien iba a gastar 22.000 en anuncios.",
+  "padre": "Anuncios|campanas-paso-a-paso",
+  "piezas": [
+   "dakota-DYfFyD1x29u"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-lookalike-de-clientes",
+  "nombre": "Empieza con un lookalike de clientes",
+  "afirmacion": "Para tráfico frío empieza con un público similar al 1% de tu lista de clientes.",
+  "padre": "Anuncios|campanas-paso-a-paso",
+  "piezas": [
+   "dakota-CjGP3dHjGPP"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-x-nivel-d",
+  "nombre": "X no sirve para anunciar info",
+  "afirmacion": "Para un negocio de info, X es una plataforma de anuncios pésima: gasta rápido y su píxel no encuentra a la gente correcta.",
+  "padre": "Anuncios|campanas-paso-a-paso",
+  "piezas": [
+   "dakota-DT5izeYEXek"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-gancho-filtra",
+  "nombre": "El gancho también filtra",
+  "afirmacion": "Un buen gancho de anuncio aleja a quien nunca iba a comprar: nombrar a tu público es fricción útil y el píxel encuentra más gente como ellos.",
+  "padre": "Anuncios|ganchos-de-anuncio",
+  "piezas": [
+   "dakota-Dfa_Zd2A2Ec",
+   "dakota-DPefWjUEfjO",
+   "dakota-DSnHJu_EZJx"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-matriz-de-copy",
+  "nombre": "Matriz de deseos y conciencia",
+  "afirmacion": "Cruzar los ocho deseos básicos con los niveles de conciencia te da una matriz para escribir anuncios.",
+  "padre": "Anuncios|ganchos-de-anuncio",
+  "piezas": [
+   "dakota-DZ5cS2uxwj5"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-termino-del-nicho-mas-desafio",
+  "nombre": "Término del nicho más un desafío",
+  "afirmacion": "Un buen gancho tiene un término común de tu nicho y un desafío a ese término.",
+  "padre": "Anuncios|ganchos-de-anuncio",
+  "piezas": [
+   "doglio-DfSZBpHxSHQ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-imagenes-ia-en-anuncios",
+  "nombre": "Las imágenes de IA sí rinden",
+  "afirmacion": "Las imágenes hechas con IA funcionan en tus anuncios si le das contexto al prompt: ya no tienes excusa para no captar la atención.",
+  "padre": "Anuncios|ugc-y-creativos-ia",
+  "piezas": [
+   "dakota-DNrBNygZEqz",
+   "dakota-DWZpseDEkbn",
+   "dakota-DbbJel2Rjgt"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ia-escribe-anuncios",
+  "nombre": "La IA te escribe los anuncios",
+  "afirmacion": "La IA escribe tus anuncios en minutos y hasta mejor que tú: cientos de combinaciones de gancho, cuerpo y llamado a la acción.",
+  "padre": "Anuncios|automatizar-anuncios-con-ia",
+  "piezas": [
+   "doglio-Df99IijRBTF",
+   "dakota-CoImfBdDYTB"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ia-reporta-tus-anuncios",
+  "nombre": "La IA reporta tus anuncios",
+  "afirmacion": "La IA te arma el reporte de tus anuncios en minutos y cada mañana, mejor que muchos media buyers: antes te llevaba medio día.",
+  "padre": "Anuncios|automatizar-anuncios-con-ia",
+  "piezas": [
+   "dakota-DZs_czahyGk",
+   "dakota-DWUUQwpD9AV",
+   "dakota-DU_pPxAknDt"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ia-maneja-tus-campanas",
+  "nombre": "La IA conectada maneja tus campañas",
+  "afirmacion": "Conectada a tu cuenta de Meta, la IA lee tus datos, te dice qué hacer y hasta arma y cambia tus campañas.",
+  "padre": "Anuncios|automatizar-anuncios-con-ia",
+  "piezas": [
+   "doglio-DflMW11xjeK",
+   "dakota-DfAP6wwR2ot",
+   "dakota-DfAWMbelbrE"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-anuncios-a-seguidores-de-competidores",
+  "nombre": "Anuncia a los seguidores de tu competencia",
+  "afirmacion": "Con una skill de Claude sacas los emails de los seguidores de tus competidores para correrles anuncios.",
+  "padre": "Anuncios|automatizar-anuncios-con-ia",
+  "piezas": [
+   "doglio-DfsV1ILxfej"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-subir-anuncios-en-masa",
+  "nombre": "Sube anuncios en masa",
+  "afirmacion": "Con un cargador masivo subes todos tus creativos usando un anuncio como plantilla, sin duplicar a mano.",
+  "padre": "Anuncios|automatizar-anuncios-con-ia",
+  "piezas": [
+   "dakota-DfC56_cREC-"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-herramienta-propia-espiar",
+  "nombre": "Herramienta propia para espiar anuncios",
+  "afirmacion": "La biblioteca de anuncios no alcanza: arma una herramienta que rastree y guarde los anuncios de tu competencia.",
+  "padre": "Anuncios|automatizar-anuncios-con-ia",
+  "piezas": [
+   "dakota-DdCS89qxGg8"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-chatgpt-anuncios-conversiones",
+  "nombre": "Anuncios en ChatGPT a conversiones",
+  "afirmacion": "Los anuncios de ChatGPT ya se pueden optimizar a conversiones con un píxel en tu web.",
+  "padre": "Anuncios|anuncios-en-chatgpt",
+  "piezas": [
+   "dakota-DcB_N_1REaJ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-chatgpt-mete-anuncios",
+  "nombre": "ChatGPT mostrará anuncios",
+  "afirmacion": "ChatGPT empezará a mostrar anuncios relacionados con lo que conversas en su plan gratis.",
+  "padre": "Anuncios|anuncios-en-chatgpt",
+  "piezas": [
+   "dakota-DToLdTGEhvE"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-desaprobaciones-fin-de-ano",
+  "nombre": "Fin de año: Meta desaprueba más",
+  "afirmacion": "A fin de año Meta endurece su umbral de riesgo y desaprueba anuncios que llevaban meses corriendo: ajústalos antes.",
+  "padre": "Anuncios|cuentas-bloqueadas",
+  "piezas": [
+   "dakota-Ddl_4xIxWcC"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-cierre-no-es-el-closer",
+  "nombre": "Se cierra antes de la llamada",
+  "afirmacion": "Si cierras poco, a tu closer no le faltan técnicas: el problema está entre que agendan y llegan, en cómo te perciben antes de la llamada.",
+  "padre": "Closing y ventas|llamada-de-cierre",
+  "piezas": [
+   "carrizo-DVHvKc-Db5g",
+   "carrizo-DWW5_ojCTDy",
+   "carrizo-DeQKhNZNJMI"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-contenido-prepara-la-llamada",
+  "nombre": "Tu contenido rebate objeciones antes",
+  "afirmacion": "Reels, historias y anuncios sueltos no alcanzan: necesitas un ecosistema de contenido que responda las objeciones para que lleguen listos a la llamada.",
+  "padre": "Closing y ventas|llamada-de-cierre",
+  "piezas": [
+   "doglio-DSQOD0OEUnd",
+   "doglio-DP17iJeEUBZ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-loom-antes-de-la-llamada",
+  "nombre": "Un video personal antes de la llamada",
+  "afirmacion": "Mandar un video de Loom antes de la llamada sube muchísimo el cierre y además sirve para agendarla.",
+  "padre": "Closing y ventas|llamada-de-cierre",
+  "piezas": [
+   "doglio-DcbyqeJhxSJ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-closers-nuevos-bajan-roas",
+  "nombre": "Closers nuevos te bajan el retorno",
+  "afirmacion": "Lo que te frena para gastar más en anuncios es lo que cierra cada vendedor: los nuevos cierran menos y te bajan el retorno.",
+  "padre": "Closing y ventas|equipo-comercial",
+  "piezas": [
+   "dakota-DAqvcSHPk7A"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-contrata-a-tus-clientes",
+  "nombre": "Contrata a tus clientes como vendedores",
+  "afirmacion": "No contrates a los vendedores famosos: contrata a tus propios clientes para vender tu producto.",
+  "padre": "Closing y ventas|equipo-comercial",
+  "piezas": [
+   "carrizo-DNSCCwZt0jb"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-cobrar-despues-del-cierre",
+  "nombre": "Se cobra más después del cierre",
+  "afirmacion": "Con las mismas llamadas y cierres puedes cobrar un 30% más si el closer sigue generando confianza después de cerrar.",
+  "padre": "Closing y ventas|seguimiento",
+  "piezas": [
+   "doglio-DSDLbhGkfva"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-audio-en-setting",
+  "nombre": "Audio, no texto, con prospectos",
+  "afirmacion": "Un guion de setting por texto no funciona: con audios a quien no responde ganas cerca de un 10% más de respuestas.",
+  "padre": "Closing y ventas|setting-y-agenda",
+  "piezas": [
+   "doglio-Dfsj7Kmv93E",
+   "doglio-DdfOMJPP8Wl"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-velocidad-al-lead",
+  "nombre": "Al lead calificado, rápido",
+  "afirmacion": "Atiende en minutos al lead que puede comprar y descarta al resto, porque el bueno se enfría mientras pierdes tiempo con curiosos.",
+  "padre": "Closing y ventas|setting-y-agenda",
+  "piezas": [
+   "Dex_kXzTZb6",
+   "doglio-Df5f7OYP-u0",
+   "DfHo6IehxiH"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-calificar-antes",
+  "nombre": "Califica presupuesto, decisión y urgencia",
+  "afirmacion": "Una venta mejora si antes calificas presupuesto, quién decide, necesidad y urgencia, y das más prueba a quien duda.",
+  "padre": "Closing y ventas|setting-y-agenda",
+  "piezas": [
+   "oferta"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-asistencia-es-confianza",
+  "nombre": "No asisten por falta de confianza",
+  "afirmacion": "Si agendan y no llegan o cancelan, no se arregla con más anuncios ni otra landing: investigaron, no confían en ti y les faltó reputación.",
+  "padre": "Closing y ventas|asistencia-a-llamadas",
+  "piezas": [
+   "doglio-DPsF4b8DIsk",
+   "dakota-DN_IVXZkUCu",
+   "doglio-DPhhGExDPhI"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-pagina-post-agenda",
+  "nombre": "Página post-agenda sube la asistencia",
+  "afirmacion": "Una página después de agendar, con videos que resuelven objeciones, testimonios y preguntas de preparación, sube la asistencia del 30% al 75%.",
+  "padre": "Closing y ventas|asistencia-a-llamadas",
+  "piezas": [
+   "doglio-DcZNznLhe5d",
+   "doglio-Dd2MNw_v41P"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-intencion-decide-asistencia",
+  "nombre": "La intención decide quién asiste",
+  "afirmacion": "Que alguien llegue a la llamada depende de la intención con la que agendó.",
+  "padre": "Closing y ventas|asistencia-a-llamadas",
+  "piezas": [
+   "dakota-DNWXIibyHaf"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-cada-objecion-su-respuesta",
+  "nombre": "Cada objeción pide su respuesta",
+  "afirmacion": "Cada cosa que pide el prospecto tiene su respuesta: claridad se responde con un plan, garantía con certeza, descuento con más valor y testimonios con confianza.",
+  "padre": "Closing y ventas|objeciones",
+  "piezas": [
+   "doglio-DOO7xFBkk-p"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-cuotas-contra-no-puedo-pagar",
+  "nombre": "Cuotas contra «no puedo pagarlo»",
+  "afirmacion": "Ofrecer el pago en 6 o 12 cuotas resuelve el «me encanta pero no puedo pagarlo» de la llamada.",
+  "padre": "Closing y ventas|objeciones",
+  "piezas": [
+   "doglio-DRzqJpMka7J"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-nunca-bajes-el-precio",
+  "nombre": "Nunca bajes el precio: reencuádralo",
+  "afirmacion": "Ante «es caro» nunca bajes el precio: reencuadra, achica la promesa o pregunta si lo harías gratis para mostrar que no es la plata.",
+  "padre": "Closing y ventas|objeciones",
+  "piezas": [
+   "precio"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-objecion-de-la-pareja",
+  "nombre": "«Lo hablo con mi pareja» se desarma",
+  "afirmacion": "Si dicen «lo tengo que hablar con mi pareja», pregunta qué parte aprobaría y qué no, y cierra sobre eso.",
+  "padre": "Closing y ventas|objeciones",
+  "piezas": [
+   "cierre"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-lo-tengo-que-pensar",
+  "nombre": "Un sistema contra «lo tengo que pensar»",
+  "afirmacion": "Hay un sistema que elimina a los prospectos que te dicen «me lo tengo que pensar» o «es muy caro».",
+  "padre": "Closing y ventas|objeciones",
+  "piezas": [
+   "doglio-DO_8mG1kXw2"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-urgencia",
+  "nombre": "Sin urgencia nadie compra hoy",
+  "afirmacion": "Si no das una razón para comprar ahora, nadie te compra: da lo mismo hoy que mañana.",
+  "padre": "Closing y ventas|psicologia-de-venta",
+  "piezas": [
+   "doglio-DLOO-xxvvyv"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-anuncios-mas-ia-cambian-comprador",
+  "nombre": "Anuncio más ChatGPT convence",
+  "afirmacion": "El comprador cambió: un anuncio que lo persigue más una consulta a ChatGPT lo pasan de «no lo necesito» a «quizá sí».",
+  "padre": "Closing y ventas|psicologia-de-venta",
+  "piezas": [
+   "dakota-DcJoBUlxL42"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-confianza-mas-alla-de-testimonios",
+  "nombre": "Los testimonios no bastan",
+  "afirmacion": "Mostrar resultados de clientes no alcanza para generar confianza: hacen falta otros pilares para que dejen de comparar por precio.",
+  "padre": "Closing y ventas|psicologia-de-venta",
+  "piezas": [
+   "doglio-DOhC_MyESb9"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-experiencia-antes-de-pagar",
+  "nombre": "Dales la experiencia antes de que paguen",
+  "afirmacion": "Pregúntate cuánto pagarías por comprarte a ti mismo y mejora la experiencia antes de que paguen: la mayoría te compra en menos de un mes.",
+  "padre": "Closing y ventas|psicologia-de-venta",
+  "piezas": [
+   "carrizo-DR22Y2siZgM"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-efecto-ikea",
+  "nombre": "Efecto IKEA: que el cliente participe",
+  "afirmacion": "Valoras más lo que ayudaste a crear: haz que tu cliente participe en la creación de tu producto.",
+  "padre": "Closing y ventas|psicologia-de-venta",
+  "piezas": [
+   "CaabmvvI7O8"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-enemigo-comun",
+  "nombre": "Un enemigo común vende",
+  "afirmacion": "Culpar a un enemigo común hace que tu mensaje cale más que explicar razones técnicas.",
+  "padre": "Closing y ventas|psicologia-de-venta",
+  "piezas": [
+   "CZsLJbbI3tE"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-tribu",
+  "nombre": "Una tribu retiene clientes",
+  "afirmacion": "Como en el fútbol, el sentido de pertenencia retiene: crea una tribu alrededor de tu producto.",
+  "padre": "Closing y ventas|psicologia-de-venta",
+  "piezas": [
+   "CZfP89FIuib"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-marketers-que-vendieron",
+  "nombre": "Los mejores marketers vendieron antes",
+  "afirmacion": "Los mejores marketers alguna vez vendieron cara a cara: eso enseña a vender mejor.",
+  "padre": "Closing y ventas|psicologia-de-venta",
+  "piezas": [
+   "dakota-DOCHzBTEk3K"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-lo-que-te-trajo-no-te-lleva",
+  "nombre": "Lo que te trajo no alcanza",
+  "afirmacion": "Lo que te llevó a tu facturación actual no te lleva al siguiente nivel: tiene que cambiar el contenido, la oferta o quién hace el trabajo.",
+  "padre": "High ticket|escalar-el-negocio",
+  "piezas": [
+   "doglio-DcWo-DvhFv1",
+   "doglio-DO6y97CkRta"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-delega-para-tener-negocio",
+  "nombre": "Sin delegar no tienes un negocio",
+  "afirmacion": "Mientras lo hagas todo tú no tienes un negocio real: empieza a delegar y arma equipo.",
+  "padre": "High ticket|escalar-el-negocio",
+  "piezas": [
+   "doglio-Dd11wF8vREw",
+   "doglio-DO6y97CkRta"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-invertir-en-mentores",
+  "nombre": "Pagar mentores te hace escalar",
+  "afirmacion": "Invertir en mentores y pedir ayuda, aunque dé miedo no recuperarlo, escala más rápido que intentarlo solo.",
+  "padre": "High ticket|escalar-el-negocio",
+  "piezas": [
+   "doglio-DXxMFi7Bxdq",
+   "doglio-DYceEpNxBOT",
+   "doglio-DLDg5Gng5BF"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-instalar-sistemas",
+  "nombre": "Ni agencia ni mentoría: sistemas",
+  "afirmacion": "Las agencias te hacen depender y las mentorías sólo informan: lo que escala es que alguien se meta en tu negocio e instale sistemas.",
+  "padre": "High ticket|escalar-el-negocio",
+  "piezas": [
+   "doglio-DLQY4SwPE2o"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-lanzamientos-no-escalan",
+  "nombre": "Vivir de lanzamientos no escala",
+  "afirmacion": "Vivir de lanzamientos te deja en picos y en riesgo: para llegar a 50.000-100.000 al mes no sirven, necesitas algo que venda todos los meses.",
+  "padre": "High ticket|escalar-el-negocio",
+  "piezas": [
+   "DfR8J5wBtzH",
+   "carrizo-DKf2_XKNSam",
+   "doglio-DZNbnRARmaq"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-simplificar-oferta-y-proceso",
+  "nombre": "Una oferta y un proceso simple",
+  "afirmacion": "Quédate con una sola oferta y un proceso de venta simple: hacer bien lo simple escala más que sumar comunidades, emails y segundas llamadas.",
+  "padre": "High ticket|escalar-el-negocio",
+  "piezas": [
+   "carrizo-DYLQYTttsz1",
+   "doglio-DLGFsXfg3eU"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-algo-nuevo-cada-mes",
+  "nombre": "Algo grande y nuevo cada mes",
+  "afirmacion": "Hacer algo realmente nuevo y grande cada mes gana mucha más plata que optimizar un 5% tu embudo.",
+  "padre": "High ticket|escalar-el-negocio",
+  "piezas": [
+   "doglio-DdmoLxZvdmJ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-iterar-mas-rapido",
+  "nombre": "Gana quien itera más rápido",
+  "afirmacion": "Lo que separa a los negocios de info que ganan es la velocidad con la que implementan y corrigen.",
+  "padre": "High ticket|escalar-el-negocio",
+  "piezas": [
+   "dakota-DQ9iUYcEZUd"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-negocios-en-pendulos",
+  "nombre": "Los negocios van en péndulos",
+  "afirmacion": "Las estrategias van en péndulo: un día no le interesan a nadie y al otro todos las hacen, así que muévete antes.",
+  "padre": "High ticket|escalar-el-negocio",
+  "piezas": [
+   "doglio-DdHx0GHhWyx"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-subcontrata-la-demanda",
+  "nombre": "Subcontrata lo que no ofreces",
+  "afirmacion": "Si te piden algo que no ofreces, no rechaces al cliente: subcontrata a otra empresa y quédate con el margen.",
+  "padre": "High ticket|escalar-el-negocio",
+  "piezas": [
+   "CYuWiOLImJI"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-casos-de-cero-a-miles",
+  "nombre": "De cero a decenas de miles",
+  "afirmacion": "Alguien sin experiencia en negocios digitales puede pasar de cero a decenas de miles de dólares en uno o dos meses.",
+  "padre": "High ticket|casos-y-resultados",
+  "piezas": [
+   "carrizo-DGeTHsMOSIS",
+   "carrizo-DHHb76_JAg4"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-juzga-por-resultados-de-clientes",
+  "nombre": "Cuenta cuántos clientes logran resultados",
+  "afirmacion": "No mires los testimonios ni lo que factura el mentor: mira qué porcentaje de sus clientes consigue resultados.",
+  "padre": "High ticket|casos-y-resultados",
+  "piezas": [
+   "doglio-DPR-JalkVdt",
+   "doglio-DPM0k8Rkaxp"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-viralizar-famosos",
+  "nombre": "Viralizar famosos con el móvil",
+  "afirmacion": "Hacer virales a famosos con contenido grabado con el móvil te lleva de 250 euros a 650.000 en un mes.",
+  "padre": "High ticket|casos-y-resultados",
+  "piezas": [
+   "DRkbgWCjzm9"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-de-editor-a-growth",
+  "nombre": "De editor a growth en un año",
+  "afirmacion": "Un editor que ganaba 150 dólares al mes hoy lleva el crecimiento de un cliente que paga 20.000 al mes.",
+  "padre": "High ticket|casos-y-resultados",
+  "piezas": [
+   "doglio-DYXZsTdRo73"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-formula-sin-anuncios",
+  "nombre": "Multiplicar ingresos sin anuncios",
+  "afirmacion": "Hay una fórmula que multiplica tus ingresos en pocos meses sin gastar fortunas en anuncios ni lanzar cada tres meses.",
+  "padre": "High ticket|casos-y-resultados",
+  "piezas": [
+   "doglio-DJkluCDS3D2"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-facturacion-sigue-resultados",
+  "nombre": "Facturas lo que tus clientes logran",
+  "afirmacion": "Tu facturación sigue a los resultados que entregas: cumple lo que prometiste y haz que tus clientes logren lo improbable, y te vuelven a pagar.",
+  "padre": "High ticket|retener-clientes",
+  "piezas": [
+   "carrizo-DTeUaTQDYc6",
+   "carrizo-DVR-C76DYPl",
+   "carrizo-DWAetfmjZL5"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-onboarding-retiene",
+  "nombre": "Las primeras horas deciden la renovación",
+  "afirmacion": "Las primeras 24 horas del cliente definen si renueva: un buen onboarding que le dé valor casi de inmediato hace que se quede y pague más.",
+  "padre": "High ticket|retener-clientes",
+  "piezas": [
+   "carrizo-DeLKNagt8SU",
+   "doglio-Ddr3t9OP7yV",
+   "doglio-Dfp7-w-PwNJ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-resultado-no-acompanamiento",
+  "nombre": "Quieren el resultado, no acompañamiento",
+  "afirmacion": "Tu cliente quiere el resultado rápido, no más acompañamiento: darle más llamadas no le da más resultados.",
+  "padre": "High ticket|retener-clientes",
+  "piezas": [
+   "carrizo-DJp4GdhN5aI",
+   "carrizo-DQSznalDT1G"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-genericos-sin-acompanamiento",
+  "nombre": "Programas genéricos no dan resultado",
+  "afirmacion": "Los programas genéricos y sin acompañamiento no le dan resultado al cliente.",
+  "padre": "High ticket|oferta-irresistible",
+  "piezas": [
+   "doglio-DdfOMJPP8Wl"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-cliente-quiere-su-negocio",
+  "nombre": "Al cliente le importa su negocio",
+  "afirmacion": "A tu cliente no le importan tu negocio ni tus valores: sólo quiere creer que su negocio te importa tanto como a él.",
+  "padre": "High ticket|retener-clientes",
+  "piezas": [
+   "dakota-Ct_3S0axBKE"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-la-oferta-decide",
+  "nombre": "Si la oferta es mala, nada funciona",
+  "afirmacion": "La VSL y los anuncios sólo magnifican tu oferta: si el retorno está plano, el problema es la oferta, no los anuncios.",
+  "padre": "High ticket|oferta-irresistible",
+  "piezas": [
+   "dakota-DC4PjMXPJlY",
+   "dakota-DKVm9-YS94g",
+   "dakota-Db_AXV-gi_2"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-oferta-punto-medio",
+  "nombre": "Una oferta en el punto medio",
+  "afirmacion": "Tu oferta debe estar entre un curso grabado barato y llamadas 1 a 1 semanales que te comen el tiempo.",
+  "padre": "High ticket|oferta-irresistible",
+  "piezas": [
+   "doglio-DLIqhsMgkTA"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-cobrar-por-porcentaje",
+  "nombre": "Cobra alineado a la meta del cliente",
+  "afirmacion": "Como anunciante cobra por porcentaje del gasto, de la ganancia o un fijo, según lo que busca el dueño.",
+  "padre": "High ticket|oferta-irresistible",
+  "piezas": [
+   "dakota-Chnd7AJDutS"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-mentores-sin-resultados",
+  "nombre": "Mentores high ticket que no saben",
+  "afirmacion": "La industria high ticket está llena de mentores que cobran miles de dólares sin saber, y lo que venden no funciona.",
+  "padre": "High ticket|oferta-irresistible",
+  "piezas": [
+   "doglio-DcYyZk1hPl6"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-sube-tus-precios",
+  "nombre": "Estás cobrando de menos",
+  "afirmacion": "Estás cobrando de menos: duplicar tus precios sube tu facturación al instante, aunque creas que tus clientes no pueden pagarlo.",
+  "padre": "High ticket|cobrar-caro",
+  "piezas": [
+   "doglio-DMJCXJSA9S2",
+   "pregunta-cliente"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-precio-incomodo-mejora-contenido",
+  "nombre": "Precio incómodo, mejor contenido",
+  "afirmacion": "Tu contenido no mejora mientras tu precio no te incomode: al duplicarlo, el contenido mejora porque tiene que estar a la altura.",
+  "padre": "High ticket|cobrar-caro",
+  "piezas": [
+   "carrizo-DaGljAhtD28"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-precio-que-duele",
+  "nombre": "Precio que duele pero se paga",
+  "afirmacion": "Tu precio tiene que dolerle a la persona pero poder pagarlo si se esfuerza, según lo que gana hoy.",
+  "padre": "High ticket|cobrar-caro",
+  "piezas": [
+   "doglio-DfaXf3FPtXM"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-subida-de-precio-como-promo",
+  "nombre": "Anunciar una subida de precio vende",
+  "afirmacion": "Cuando todos hacen descuentos a fin de año, anunciar que subes el precio es la promo que mejor funciona.",
+  "padre": "High ticket|cobrar-caro",
+  "piezas": [
+   "dakota-DPZpWEHgWca"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-high-ticket-sin-vuelta",
+  "nombre": "Del high ticket no se vuelve",
+  "afirmacion": "No hace falta matar tu producto barato para vender caro, pero quien prueba lo rentable del high ticket no vuelve atrás.",
+  "padre": "High ticket|cobrar-caro",
+  "piezas": [
+   "doglio-DOzEmWGkeB1"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-el-mejor-o-el-mas-barato",
+  "nombre": "El mejor o el más barato",
+  "afirmacion": "Véndele caro a quien valora lo caro: o eres el mejor o eres el más barato, nunca el del medio.",
+  "padre": "High ticket|cobrar-caro",
+  "piezas": [
+   "foco"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-deja-de-vender-tu-hora",
+  "nombre": "Deja de vender tu hora",
+  "afirmacion": "Tu techo es que vendes tu tiempo: deja el servicio hecho por ti y empaqueta tu conocimiento en una oferta que no dependa de tus horas.",
+  "padre": "High ticket|dejar-de-vender-horas",
+  "piezas": [
+   "De3AhO5TXmI",
+   "doglio-DePODeTRb09",
+   "carrizo-DJDTe8Ft5T4",
+   "doglio-DdurAHfzQ3m"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-llamadas-1-1-cortas",
+  "nombre": "Llamadas 1 a 1 cortas y claras",
+  "afirmacion": "Tus llamadas 1 a 1 son tu cuello de botella: con una entrada y una salida claras son cortas y el cliente no pide otra.",
+  "padre": "High ticket|dejar-de-vender-horas",
+  "piezas": [
+   "carrizo-DerYU7FRu1J"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-adaptar-oferta-b2b",
+  "nombre": "B2B: oferta adaptada a cada negocio",
+  "afirmacion": "En B2B no te compran por tus casos ni tu autoridad: vendes adaptando la oferta al problema de cada negocio.",
+  "padre": "High ticket|agencia-y-servicios",
+  "piezas": [
+   "carrizo-DGoupPpoPjM"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-agencia-desde-50k",
+  "nombre": "Agencia sólo si gastas 50.000 al mes",
+  "afirmacion": "No contrates una agencia de marketing si gastas menos de 50.000 dólares al mes en anuncios.",
+  "padre": "High ticket|agencia-y-servicios",
+  "piezas": [
+   "dakota-CsZBIhiN9gE"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-modelo-de-agencia-malo",
+  "nombre": "El modelo de agencia es malo",
+  "afirmacion": "Casi todas las agencias mueren antes de facturar 10.000 al mes no por falta de clientes sino porque el modelo es malo.",
+  "padre": "High ticket|agencia-y-servicios",
+  "piezas": [
+   "carrizo-DHrqTCOJGr6"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-eres-tu-ultimo-cliente",
+  "nombre": "Eres tu último cliente",
+  "afirmacion": "Aunque hagas facturar a tus clientes, dedica días fijos a conseguir los tuyos.",
+  "padre": "High ticket|agencia-y-servicios",
+  "piezas": [
+   "doglio-DeNLqc8v_bo"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-atraes-lo-que-eres",
+  "nombre": "Atraes los leads que tú eres",
+  "afirmacion": "Te llegan leads malos porque tú compras mal: pides información, postergas y no actúas, y atraes lo que eres.",
+  "padre": "High ticket|clientes-que-pagan",
+  "piezas": [
+   "seguimiento"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-lenguaje-delata",
+  "nombre": "El lenguaje delata quién puede pagar",
+  "afirmacion": "Puedes filtrar a quien no tiene plata por cómo habla: está cansado, harto y frustrado.",
+  "padre": "High ticket|clientes-que-pagan",
+  "piezas": [
+   "DeYP6Zez9Zh"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-confianza-mas-rapida",
+  "nombre": "Vende quien genera confianza más rápido",
+  "afirmacion": "Si tu agenda se llena de gente sin plata ni urgencia, falta confianza: vende más quien la genera más rápido.",
+  "padre": "High ticket|clientes-que-pagan",
+  "piezas": [
+   "doglio-DPFGItpEV62"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-buen-socio",
+  "nombre": "Un buen socio vale más que todo",
+  "afirmacion": "Un buen socio de negocio puede importar más que casi cualquier otra cosa.",
+  "padre": "High ticket|alianzas-y-afiliados",
+  "piezas": [
+   "dakota-C3lFkMrx7wi"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-equipo-chico-mas-margen",
+  "nombre": "Menos equipo, más margen",
+  "afirmacion": "Sumar setters, closers y editores no te hace ganar más: con un equipo chico facturas igual o más y te queda mucho más margen.",
+  "padre": "Operaciones|equipo-chico",
+  "piezas": [
+   "carrizo-DOULQAPidD3",
+   "carrizo-DPhyj4QDTCA",
+   "doglio-Df8Gl-LPOCJ",
+   "margen"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-menos-acciones-mas-facturacion",
+  "nombre": "Con menos acciones facturas más",
+  "afirmacion": "Para escalar no sumes acciones: con un par de reels por semana, pocos o ningún anuncio y sin lanzamientos se factura más.",
+  "padre": "Operaciones|equipo-chico",
+  "piezas": [
+   "carrizo-DPZ2RntjQZv",
+   "carrizo-DKf2_XKNSam",
+   "doglio-DaRBJlbPlms"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-trabajar-mas-no-es-ganar-mas",
+  "nombre": "Trabajar más no es ganar más",
+  "afirmacion": "Estar ocupado no es ganar más: no crece por hacer más tareas ni más rápido, sino por dejar de trabajar en lo que no mueve el negocio.",
+  "padre": "Operaciones|tiempo-del-dueno",
+  "piezas": [
+   "carrizo-DYqMChdoDpM",
+   "carrizo-DdkMHBRp73f",
+   "carrizo-DVMH3kmESqO"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-semana-en-tres-tipos-de-dia",
+  "nombre": "La semana en tres tipos de día",
+  "afirmacion": "Organiza la semana en días operativos, creativos y de reuniones.",
+  "padre": "Operaciones|tiempo-del-dueno",
+  "piezas": [
+   "carrizo-De-hqHuNH6I"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-mensajes-en-dos-bloques",
+  "nombre": "Mensajes en dos bloques al día",
+  "afirmacion": "Revisa los mensajes sólo en dos bloques del día y arma un servicio que no dependa de tu tiempo.",
+  "padre": "Operaciones|tiempo-del-dueno",
+  "piezas": [
+   "doglio-DdurAHfzQ3m"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-chef-privado",
+  "nombre": "Compra tiempo: un chef privado",
+  "afirmacion": "Contratar un chef privado te compra el tiempo que una persona normal pierde cada día comprando, cocinando y limpiando.",
+  "padre": "Operaciones|tiempo-del-dueno",
+  "piezas": [
+   "doglio-DeAINPaP8tI"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-desconectar",
+  "nombre": "Desconéctate al terminar el día",
+  "afirmacion": "Cuando terminas el día, no mires email ni Slack: descansar te hace rendir más al día siguiente.",
+  "padre": "Operaciones|tiempo-del-dueno",
+  "piezas": [
+   "dakota-CjQ9GpIDCRA"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-documentar-procesos",
+  "nombre": "Documenta cada proceso",
+  "afirmacion": "Detrás de un negocio que crece hay cada proceso documentado (SOPs del webinar, los guiones, las campañas): eso lo sostiene y te deja delegar.",
+  "padre": "Operaciones|procesos-y-sops",
+  "piezas": [
+   "doglio-DcUEMkahnFh",
+   "doglio-DdMm57nhsQJ",
+   "carrizo-DMeATryptIN",
+   "carrizo-DYA1uDwJkSf",
+   "carrizo-DRnUYQPCYDM"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-detalle-minimo",
+  "nombre": "El detalle mínimo sostiene el estándar",
+  "afirmacion": "Las metas se alcanzan cuidando los detalles mínimos, como el chef que exige etiquetar cada recipiente.",
+  "padre": "Operaciones|procesos-y-sops",
+  "piezas": [
+   "dakota-C1sYb_RRE3Y"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-sistemas-que-ejecutan",
+  "nombre": "Sistemas que ejecutan por ti",
+  "afirmacion": "Con sistemas y procesos el negocio funciona sin caos aunque seas procrastinador: tú sólo diriges marketing y ventas.",
+  "padre": "Operaciones|negocio-sin-ti",
+  "piezas": [
+   "carrizo-DU1TCuyCSUm",
+   "carrizo-DWFdW_UjT4V"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-equipo-que-corre-solo",
+  "nombre": "Un equipo que actúa como dueño",
+  "afirmacion": "Arma un equipo de confianza que piense como dueño y corra solo, y el negocio crece con pocas horas tuyas.",
+  "padre": "Operaciones|negocio-sin-ti",
+  "piezas": [
+   "carrizo-DTGQ7oZCUik",
+   "dakota-C2vBTILORTE"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-compromiso-no-sueldo",
+  "nombre": "Por tu visión, no por plata",
+  "afirmacion": "No retengas a tu equipo con plata: busca gente comprometida con tu visión, porque al que viene por el sueldo se lo lleva una oferta mejor.",
+  "padre": "Operaciones|liderar-el-equipo",
+  "piezas": [
+   "doglio-DfVMEdFPsjw",
+   "doglio-Dd6-sFOPtpl"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-cuida-a-tus-media-buyers",
+  "nombre": "Cuida a tus media buyers",
+  "afirmacion": "Revisa cómo están tus media buyers: viven reaccionando todo el día entre mensajes y notificaciones.",
+  "padre": "Operaciones|liderar-el-equipo",
+  "piezas": [
+   "dakota-DeSMXuLRxjS"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-energia-antes-que-tiempo",
+  "nombre": "Energía del equipo antes que tiempo",
+  "afirmacion": "Crece más el negocio que usa la energía de su gente y no sólo su tiempo.",
+  "padre": "Operaciones|liderar-el-equipo",
+  "piezas": [
+   "carrizo-Db_zc0up4hg"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-capacitar-al-equipo",
+  "nombre": "Invertir en capacitar es confianza",
+  "afirmacion": "Pagar miles por capacitar a alguien del equipo es confianza, y sin ella no creces el equipo.",
+  "padre": "Operaciones|liderar-el-equipo",
+  "piezas": [
+   "carrizo-DfItOYfoTrI"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-equipos-remotos",
+  "nombre": "Remoto sin conocerse en persona",
+  "afirmacion": "Trabajar en remoto es bonito hasta que notas que no conoces en persona a quienes ves ocho horas al día.",
+  "padre": "Operaciones|liderar-el-equipo",
+  "piezas": [
+   "dakota-Dc9lWj7kXwd"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-notas-de-voz",
+  "nombre": "Las notas de voz faltan al respeto",
+  "afirmacion": "Mandar notas de voz en vez de escribir dice que tu tiempo vale más que el del otro.",
+  "padre": "Operaciones|liderar-el-equipo",
+  "piezas": [
+   "dakota-C3GdAC3OJLJ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-equipos-sin-ego",
+  "nombre": "Los equipos sin ego escalan",
+  "afirmacion": "Lo que mata a los equipos de marketing y ventas es el ego: los que escalan sólo quieren ganar, no importa quién lo logró.",
+  "padre": "Operaciones|liderar-el-equipo",
+  "piezas": [
+   "dakota-DewmOIYRGj0"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-test-de-mecanografia",
+  "nombre": "Que tu equipo sepa teclear",
+  "afirmacion": "Si tu equipo pasa ocho horas en un teclado, mide cuántas palabras por minuto escribe.",
+  "padre": "Operaciones|liderar-el-equipo",
+  "piezas": [
+   "dakota-C3A3XNrOvw_"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-test-de-personalidad",
+  "nombre": "Tests de personalidad para liderar",
+  "afirmacion": "Los tests de personalidad te enseñan cómo te perciben y cómo hablarle a cada persona del equipo.",
+  "padre": "Operaciones|liderar-el-equipo",
+  "piezas": [
+   "dakota-Cs_uk9Dtycv"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-tus-tareas-vs-equipo",
+  "nombre": "Tus tareas no son las del equipo",
+  "afirmacion": "Si confundes tus tareas con las de tu equipo, todos reman sin saber si van en la dirección correcta.",
+  "padre": "Operaciones|liderar-el-equipo",
+  "piezas": [
+   "carrizo-DexgbWmRfjM"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-valores-vividos",
+  "nombre": "Valores vividos, no escritos",
+  "afirmacion": "Lo que distingue a un equipo no son sus valores escritos sino que los vive.",
+  "padre": "Operaciones|liderar-el-equipo",
+  "piezas": [
+   "dakota-DBrGoNgvQXY"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-visionario-integrador",
+  "nombre": "Visionario contra integrador",
+  "afirmacion": "Hay visionarios que inventan e integradores que ven si la idea es viable y la sacan adelante.",
+  "padre": "Operaciones|liderar-el-equipo",
+  "piezas": [
+   "dakota-C5Odz_TRV59"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-contrata-al-crack",
+  "nombre": "Contrata al crack aunque no tengas puesto",
+  "afirmacion": "Cuando encuentres a alguien realmente bueno, contrátalo aunque no tengas dónde ponerlo.",
+  "padre": "Operaciones|contratar-y-despedir",
+  "piezas": [
+   "doglio-DeAfx7AvYID"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-quien-reemplaza-al-dueno",
+  "nombre": "La contratación que reemplaza al dueño",
+  "afirmacion": "Si pagas anuncios, la contratación que hace o rompe tu negocio es la persona que reemplaza al dueño en el contenido y los anuncios.",
+  "padre": "Operaciones|contratar-y-despedir",
+  "piezas": [
+   "dakota-DeZjpocRHaf"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-media-buyer-interno",
+  "nombre": "Media buyer interno contra agencia",
+  "afirmacion": "Un media buyer interno cuesta de 60.000 a 120.000 al año: tienes más control que con una agencia, pero asumes el costo.",
+  "padre": "Operaciones|contratar-y-despedir",
+  "piezas": [
+   "dakota-DAWOYpbvz4k"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ia-reemplaza-trabajo-de-oficina",
+  "nombre": "La IA reemplaza el trabajo de oficina",
+  "afirmacion": "Si trabajas con la cabeza y no con las manos, la IA ya puede hacer tu trabajo: hay empresas despidiendo a miles, adóptala o te reemplazan.",
+  "padre": "IA|ia-reemplaza-equipo",
+  "piezas": [
+   "dakota-DF7919LuWyt",
+   "dakota-DFs0G-MOKfC",
+   "dakota-DGRc-UNMrOG",
+   "dakota-DVl31B9EWcI",
+   "dakota-CqthyE7scwS"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ia-edita-tus-videos",
+  "nombre": "La IA edita y publica tus videos",
+  "afirmacion": "Sin editor: la IA toma tu video, saca los recortes, los edita (y hasta hace variaciones) y los publica sola.",
+  "padre": "IA|edicion-con-ia",
+  "piezas": [
+   "doglio-Df0ZnE-vsz6",
+   "contenido-ia",
+   "doglio-Dfx9B2xPhF3"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-setter-con-claude",
+  "nombre": "Un setter con Claude rinde más",
+  "afirmacion": "Deja de depender de setters humanos, que son emocionales, duran poco y no contestan de noche: un setter con Claude rinde más.",
+  "padre": "IA|agentes-y-setters-ia",
+  "piezas": [
+   "setter-ia"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-claude-califica-leads",
+  "nombre": "Claude califica tus leads",
+  "afirmacion": "Carga a Claude tus criterios y que califique cada lead, para que tus setters no pierdan tiempo con gente sin plata.",
+  "padre": "IA|agentes-y-setters-ia",
+  "piezas": [
+   "DfHo6IehxiH"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-guionista-junior-no-convierte",
+  "nombre": "IA con tu proceso, no guionista junior",
+  "afirmacion": "Un guionista que nunca habló con tu cliente ideal no te da guiones que conviertan: usa la IA para multiplicar tu propio proceso.",
+  "padre": "IA|ia-reemplaza-equipo",
+  "piezas": [
+   "DeqRpfxzCuo"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ia-no-reemplaza-al-creativo",
+  "nombre": "La IA no reemplaza al director creativo",
+  "afirmacion": "El marketing del futuro tendrá gente que maneja IA y, encima, un director creativo humano que verifica y pone las grandes ideas.",
+  "padre": "IA|ia-reemplaza-equipo",
+  "piezas": [
+   "dakota-DOyu8m-Dz-2"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-no-le-pidas-el-guion-a-la-ia",
+  "nombre": "Escribe tú el guion, no la IA",
+  "afirmacion": "No le pidas a Claude que te escriba el copy o los guiones, porque suenan todos igual: escríbelos tú y usa la IA para investigar.",
+  "padre": "IA|trucos-de-uso",
+  "piezas": [
+   "dakota-DfnZWXjPpGy",
+   "doglio-Dfnc1ZnPRtK",
+   "doglio-DcmBE3lToOF"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-delega-a-la-ia-como-equipo",
+  "nombre": "Trata a la IA como tu equipo",
+  "afirmacion": "Usa la IA como un equipo de empleados al que delegas tareas enteras: por eso los que saben delegar la aprovechan mejor.",
+  "padre": "IA|claude-como-empleado",
+  "piezas": [
+   "doglio-DcmBE3lToOF",
+   "dakota-DWPHrSHETPZ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-clon-de-ia-da-la-cara",
+  "nombre": "Un clon de IA graba por ti",
+  "afirmacion": "Con unos clips y fotos tuyas, la IA clona tu voz y tu cara para que no tengas que grabar horas de contenido.",
+  "padre": "IA|avatar-y-video-ia",
+  "piezas": [
+   "dakota-CpAxYf_p60h",
+   "dakota-DN_Es1ZEX3a"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-analizar-reels-con-claude",
+  "nombre": "Claude analiza reels en masa",
+  "afirmacion": "Pegas el link de decenas de reels en Claude y te da gancho, tema, transcripción y estructura de cada uno para encontrar ideas.",
+  "padre": "IA|trucos-de-uso",
+  "piezas": [
+   "doglio-DdevxeAv74H",
+   "doglio-Dfim7QxsGPp",
+   "doglio-DavJtYrRwC4",
+   "doglio-Db0sdjbxTkS"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ia-ordena-lo-desordenado",
+  "nombre": "La IA resume y ordena por ti",
+  "afirmacion": "Pásale a la IA tus reuniones, notas de voz o correos desordenados y te devuelve un resumen claro con tus próximos pasos.",
+  "padre": "IA|trucos-de-uso",
+  "piezas": [
+   "dakota-C4Lw5hNOTPC",
+   "dakota-DWHdQKwj8Wk"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-chatgpt-reformatea-listas",
+  "nombre": "ChatGPT arregla tus listas para Meta",
+  "afirmacion": "ChatGPT te reformatea la lista de clientes con las reglas de Meta y corrige el error de subida por ti.",
+  "padre": "IA|trucos-de-uso",
+  "piezas": [
+   "dakota-DG0wiWrp4uf"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-claude-aprende-de-youtube",
+  "nombre": "Claude aprende mirando YouTube",
+  "afirmacion": "Con una skill, Claude mira videos de YouTube por ti y aprende cualquier habilidad.",
+  "padre": "IA|trucos-de-uso",
+  "piezas": [
+   "doglio-DfnEh19PIP4"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ia-segunda-opinion",
+  "nombre": "La IA como segunda opinión",
+  "afirmacion": "Pásale a la IA la transcripción de una entrevista y te evalúa al candidato sin sesgo.",
+  "padre": "IA|trucos-de-uso",
+  "piezas": [
+   "dakota-C8XTAUGJ8c7"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-cita-estoica",
+  "nombre": "Una cita estoica al día",
+  "afirmacion": "Con un prompt simple recibes cada día una cita estoica y cómo aplicarla.",
+  "padre": "IA|trucos-de-uso",
+  "piezas": [
+   "dakota-DF5pwJkuTqT"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-tu-propio-crm-con-ia",
+  "nombre": "Deja Calendly: crea tu CRM con IA",
+  "afirmacion": "Deja de pagar Calendly o High Level: con un par de prompts creas tu propio CRM y calendario, adaptado a tu negocio.",
+  "padre": "IA|crear-software-con-ia",
+  "piezas": [
+   "doglio-DcwcpzzvI9g",
+   "doglio-Ddj8128vgOZ",
+   "doglio-DcJfAaFRJgY"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-open-alternative",
+  "nombre": "ManyChat, Calendly y High Level gratis",
+  "afirmacion": "Con Open Alternative usas ManyChat, Calendly o Go High Level gratis con alternativas de código abierto.",
+  "padre": "IA|crear-software-con-ia",
+  "piezas": [
+   "doglio-DcCIfkavKw1",
+   "doglio-DdCoSkkh30n",
+   "doglio-DdplV2iM-oa",
+   "doglio-DeXsJliPebT",
+   "doglio-Df5D72pvOxx"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-lead-magnet-personalizado-ia",
+  "nombre": "Lead magnet personalizado con IA",
+  "afirmacion": "Con IA armas un lead magnet que escribe un informe distinto para cada persona, y de paso te da todo para venderle.",
+  "padre": "IA|crear-software-con-ia",
+  "piezas": [
+   "doglio-DXZ6HWZhZ9n",
+   "dakota-DNoCUhbv_sI"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-gamma-paginas",
+  "nombre": "Gamma diseña páginas con IA",
+  "afirmacion": "Gamma diseña sola una página web, un documento o una presentación a partir de una idea.",
+  "padre": "IA|crear-software-con-ia",
+  "piezas": [
+   "dakota-CstLee_RDb7"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-web-myspace",
+  "nombre": "Rehaz tu web en una tarde",
+  "afirmacion": "Con IA puedes rehacer tu web entera en una tarde, algo que antes no podías.",
+  "padre": "IA|crear-software-con-ia",
+  "piezas": [
+   "dakota-DVgyFuGj1vm"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-software-analiza-instagram",
+  "nombre": "Software gratis analiza tu Instagram",
+  "afirmacion": "Un software gratis se conecta a tu Instagram, analiza tu contenido, espía a tu competencia y planifica todo en un lugar.",
+  "padre": "IA|regalo-de-herramientas-ia",
+  "piezas": [
+   "doglio-DbeHXUEvkPM"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-ia-crea-posts-falsos",
+  "nombre": "Con IA es fácil engañar",
+  "afirmacion": "Es facilísimo crear con IA un post falso que engaña a miles: se hace en 30 segundos desde el celular.",
+  "padre": "IA|criterio-y-liderazgo-con-ia",
+  "piezas": [
+   "dakota-DF_MWohyEQj"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-escuela-castiga-ia",
+  "nombre": "La escuela castiga la IA que piden",
+  "afirmacion": "Las escuelas castigan el uso de IA mientras las empresas contratan a quien sabe usarla.",
+  "padre": "IA|criterio-y-liderazgo-con-ia",
+  "piezas": [
+   "dakota-Csl6OrRLJM2"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-alerta-seguridad-ia",
+  "nombre": "Alerta por la carrera a la superinteligencia",
+  "afirmacion": "Un investigador que pasó por OpenAI y Anthropic advierte que ambas corren hacia la superinteligencia sin responsabilidad.",
+  "padre": "IA|noticias-de-ia",
+  "piezas": [
+   "dakota-DdEVYmlxM-t"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-chatgpt-images",
+  "nombre": "Nuevas imágenes de ChatGPT",
+  "afirmacion": "ChatGPT Images 2.5 trae un modelo para crear y otro para editar imágenes, más nítidos y rápidos para anuncios.",
+  "padre": "IA|noticias-de-ia",
+  "piezas": [
+   "dakota-DdCeepJvxQ7"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-manus-se-separa",
+  "nombre": "Manus se separa de Meta",
+  "afirmacion": "Manus vuelve a ser independiente de Meta y te pide respaldar tus datos antes de la fecha límite.",
+  "padre": "IA|noticias-de-ia",
+  "piezas": [
+   "dakota-DcD-Ri3JdRL"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-tribe-v2",
+  "nombre": "Meta predice el cerebro con IA",
+  "afirmacion": "Meta lanzó una IA que predice casi a la perfección cómo responde un cerebro humano a texto, imagen y sonido.",
+  "padre": "IA|noticias-de-ia",
+  "piezas": [
+   "dakota-DWe-JJQEsS9"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-muse-de-meta",
+  "nombre": "Muse, el agente de Meta",
+  "afirmacion": "Muse, el agente de IA de Meta, funciona mejor de fábrica que casi cualquier asistente y ahora se conecta con tu Business Manager.",
+  "padre": "IA|noticias-de-ia",
+  "piezas": [
+   "dakota-Dd3--GXR5jI"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-voz-de-chatgpt",
+  "nombre": "La nueva voz de ChatGPT",
+  "afirmacion": "La nueva voz de ChatGPT conversa contigo y te recomienda cosas como una persona.",
+  "padre": "IA|noticias-de-ia",
+  "piezas": [
+   "dakota-DAei3HSSEgi"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-contenido-sin-demanda",
+  "nombre": "En YouTube, contenido sin demanda",
+  "afirmacion": "En YouTube el contenido sin demanda es el que más plata trae, aunque el que tiene demanda siempre saque vistas.",
+  "padre": "YouTube|youtube-para-clientes",
+  "piezas": [
+   "doglio-DdkVJ6usCg2"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-youtube-nutre-instagram-capta",
+  "nombre": "Instagram capta, YouTube nutre",
+  "afirmacion": "Instagram sirve para conseguir gente nueva y YouTube para nutrirla.",
+  "padre": "YouTube|youtube-para-clientes",
+  "piezas": [
+   "doglio-DfNPypNxJSy"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-extension-youtube",
+  "nombre": "Compara cada video con su promedio",
+  "afirmacion": "Una extensión tipo vidIQ te muestra cómo rinde cada video de un canal contra su promedio.",
+  "padre": "YouTube|miniaturas-y-titulos",
+  "piezas": [
+   "doglio-DdaKoyqsfDZ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-oferta-vip-en-gracias",
+  "nombre": "Oferta VIP en la página de gracias",
+  "afirmacion": "Pon una oferta VIP barata en la página de gracias de tu evento gratis: paga los anuncios y sube la asistencia.",
+  "padre": "Low ticket|lanzamientos",
+  "piezas": [
+   "dakota-DfXOUkRRxML",
+   "dakota-DRKsHy9AY0K"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-un-webinar-al-mes",
+  "nombre": "Un webinar al mes",
+  "afirmacion": "Si tienes audiencia y no haces al menos un webinar al mes, dejas mucha plata sobre la mesa.",
+  "padre": "Low ticket|lanzamientos",
+  "piezas": [
+   "doglio-DaG2kORvD-4",
+   "doglio-DeMm5DFxFjP"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-vender-antes-del-webinar",
+  "nombre": "Vende en privado antes del webinar",
+  "afirmacion": "Antes del webinar agenda 50 a 100 llamadas y vende en privado, no sólo en la clase en vivo.",
+  "padre": "Low ticket|lanzamientos",
+  "piezas": [
+   "doglio-DfpoTpzv5fM"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "a-proceso-de-venta",
+  "nombre": "Sin proceso de venta, cierras",
+  "afirmacion": "Un negocio sin un método para conseguir clientes cierra: necesitas un proceso de venta (masterclass, ebook o minicurso).",
+  "padre": "Low ticket|embudo-low-ticket",
+  "piezas": [
+   "CZC43gHIRQj"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-atraer-no-es-convertir",
+  "nombre": "Atraer no es convertir",
+  "afirmacion": "Lo que atrae gente a tu marca no es lo que la hace comprar: la confianza se gana mostrando cómo trabajas.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "dakota-DbWS8wgR3kY"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-viral-atrae-quebrados",
+  "nombre": "El viral atrae quebrados, el nicho compradores",
+  "afirmacion": "El contenido viral y genérico te llena de seguidores que no pagan ni 100 dólares; el de nicho, que habla de los problemas de tu cliente ideal, atrae a los que pagan miles.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "curiosos",
+   "DfPhsh1T0gu",
+   "DdIX5x5zS7_",
+   "Ddm-xrmT_Os",
+   "DdT5K3NTKZV",
+   "DfYoC6HTUHq",
+   "doglio-DOJyGaOEZBP",
+   "doglio-DObzv0FkvMd",
+   "doglio-DOWqGCKkj4S"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-experto-aburrido-vende",
+  "nombre": "El contenido aburrido de experto vende",
+  "afirmacion": "El contenido orgánico de experto, aunque sea aburrido, vende más que el VSL, lo viral o los lanzamientos.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "doglio-DSkpzJeER8g"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-comentarios-negativos-contenido",
+  "nombre": "Los comentarios negativos son contenido",
+  "afirmacion": "Si te dejan un comentario negativo, conviértelo en contenido en vez de esconderlo: respondes muchas objeciones a la vez.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "dakota-DXcuWgIEiJe"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-movimiento-no-contenido",
+  "nombre": "Crea un movimiento, no contenido",
+  "afirmacion": "Deja de crear contenido suelto y crea un movimiento: cada pieza es un mensaje y juntas cuentan una historia que la gente sigue.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "carrizo-DUrOWUWjZ3U",
+   "carrizo-DcCvKBvtDzE"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-negocio-vale-tu-contenido",
+  "nombre": "Tu negocio vale lo que tu contenido",
+  "afirmacion": "Tu negocio factura lo que vale tu contenido: si tu contenido vale 10.000 al mes, tu negocio hace 10.000 al mes.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "carrizo-DczYzWbt6qj"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-embudo-viral-nutrir-murio",
+  "nombre": "El embudo viral, nutrir y vender murió",
+  "afirmacion": "El embudo de hacer contenido viral, después nutrir y después vender ya no funciona con el algoritmo de hoy.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "doglio-DRVHAccEtY7"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-contenido-atrae-quien-paga",
+  "nombre": "Contenido que atrae a quien puede pagar",
+  "afirmacion": "Con la estrategia de contenido correcta te escribe gente que sí puede pagar.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "DeM35oCTkg8"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-horas-detras",
+  "nombre": "Miles de horas detrás del contenido",
+  "afirmacion": "Detrás de cada reel, historia y anuncio que vende hay miles de horas de trabajo que no ves.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "doglio-DSGbu07kVdr"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-contenido-sale-de-llamadas",
+  "nombre": "Tu contenido sale de tus llamadas",
+  "afirmacion": "Las mejores ideas de contenido ya están en tus llamadas de venta: las objeciones que se repiten y lo que el mercado dice de ti son tus próximos videos.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "carrizo-DfF-R3Yp_KJ",
+   "carrizo-DRdpDm8jB4d",
+   "carrizo-De0IiPRtmRb"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-lo-que-no-sabian-que-necesitaban",
+  "nombre": "Muestra lo que no sabían que necesitaban",
+  "afirmacion": "En vez de consejos paso a paso, muéstrale a tu audiencia lo que no sabía que necesitaba y cambia sus creencias.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "doglio-DMiyUQPSzJW",
+   "doglio-DMYfK1GSD6W"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-resultados-de-clientes",
+  "nombre": "Los resultados de tus clientes venden",
+  "afirmacion": "Los videos que más venden muestran a tus clientes con resultados, no tu modelo de negocio.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "carrizo-DGl1cGLpsla",
+   "carrizo-DVua20GDRAr"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-organico-filtra-mejor-que-anuncios",
+  "nombre": "El orgánico filtra mejor que los anuncios",
+  "afirmacion": "El contenido orgánico con ángulos ganadores trae llamadas más calificadas que los anuncios, gastando mucho menos.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "DdFuQGUhbeK"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-referidos-no-escalan",
+  "nombre": "Los referidos no escalan",
+  "afirmacion": "Un negocio que vive de referidos termina muriendo: necesitas un sistema para conseguir clientes con contenido orgánico.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "DdDKDFpzdpc"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-instagram-en-serio",
+  "nombre": "Tómate Instagram en serio",
+  "afirmacion": "Si te tomas Instagram en serio y entiendes qué estructuras hacen que te compren, puedes llegar a 170.000 dólares al mes.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "carrizo-Db67J0VN3TD"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-valor-gratis-no-vende",
+  "nombre": "El contenido de valor no vende",
+  "afirmacion": "El contenido de valor educativo te da likes y agradecimientos, no ventas: tus seguidores lo toman como consejo gratis y terminan comprándole a otro.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "doglio-DMdoyuxy0f4",
+   "doglio-DMn7-CpSDHG",
+   "doglio-DMOL_gqSuC3",
+   "doglio-DMyKqX6Ssyq",
+   "doglio-DMTVlwxSc6c"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-vender-no-satura",
+  "nombre": "Vender no satura a tu audiencia",
+  "afirmacion": "Ofrecer tu servicio no satura a tus seguidores: si es bueno, a la gente le encanta comprar.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "doglio-DLS9qqaAiLn"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-desconfia-mentor-viral",
+  "nombre": "Desconfía del mentor que promete viralidad",
+  "afirmacion": "Para elegir mentor, desconfía del gurú de anuncios, del que lo logró una sola vez y del que promete viralidad: busca a quien enseña contenido de nicho.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "DdfoDvfTAVZ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-visible-no-es-rentable",
+  "nombre": "Ser visible no es ser rentable",
+  "afirmacion": "Un video viral que no se adelanta a las objeciones de tu cliente no vende: ser visible y ser rentable son cosas distintas.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "doglio-DMLi2L7SWUP"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-metodo-2022-no-alcanza",
+  "nombre": "Lo de 2022 ya no alcanza",
+  "afirmacion": "Con más competencia, más desconfianza y anuncios más caros, lo que funcionaba en 2022 ya no alcanza.",
+  "padre": "Orgánico de nicho|contenido-que-vende",
+  "piezas": [
+   "doglio-DLVieLaA67s"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-vender-sin-mostrar-lujo",
+  "nombre": "Vender sin mostrar lujo",
+  "afirmacion": "No necesitas mostrar autos ni relojes para vender: no hacerlo puede ser justo lo que te diferencia, y lo que luce es tu equipo y tus clientes.",
+  "padre": "Lifestyle|lujo-y-resultados",
+  "piezas": [
+   "Dd0IEaOTdYz",
+   "doglio-Ddz3kvisVGv",
+   "dakota-DXhcMulEb5g"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-audio-en-posts",
+  "nombre": "Los posts con audio llegan más",
+  "afirmacion": "Instagram le da más alcance a los posts que llevan audio.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-DbGxyGPiBtL"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-carrusel-gana-al-reel",
+  "nombre": "Hoy el carrusel le gana al reel",
+  "afirmacion": "En 2026 el carrusel es el formato que Instagram más empuja, por encima del reel: lo prueban las funciones nuevas que le da.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-DTa3--DCJDc",
+   "collado-DTLaO-7iCP0",
+   "collado-DZ-fZAziGxQ",
+   "collado-DZ5YTjVCPVU"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-novedades-instagram-primero",
+  "nombre": "Usa primero las novedades de Instagram",
+  "afirmacion": "Instagram empuja a quien usa primero sus funciones nuevas: aprovechar las novedades del mes es una máquina de ganar seguidores.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-DIzGTgRN6xO",
+   "collado-DO6lOV5iFJf",
+   "collado-DQJamy7CKfL",
+   "collado-DU8sIZBCCdv",
+   "collado-DUljbcHiGv8",
+   "collado-DW4RyyiiDN_",
+   "collado-DfnMqJdiBsS"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-crecer-con-contenido-ajeno",
+  "nombre": "Crecer subiendo contenido de otros",
+  "afirmacion": "Puedes crecer, y hasta facturar, sin crear contenido propio: con reposts o subiendo contenido de otros.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-DNTiiAUIvXV",
+   "DAbI31guc6R"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-darle-al-algoritmo",
+  "nombre": "Dale al algoritmo lo que quiere",
+  "afirmacion": "Para hackear el algoritmo primero tienes que darle lo que quiere.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-C3VoFw0tgGS"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-mitos-del-algoritmo",
+  "nombre": "Lo del algoritmo es mito",
+  "afirmacion": "Casi todo lo que se dice del algoritmo es mentira: entiende cómo reparte el alcance de verdad.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-C6CLOqTNPry",
+   "DWMWXBbxxTV"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-video-horizontal-vuelve",
+  "nombre": "Vuelve el video horizontal",
+  "afirmacion": "Instagram vuelve al video horizontal y largo, y te deja pasar de un formato largo a uno corto.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-DPO_-JPiK33",
+   "collado-DfDJWNjCMmk"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-seo-da-alcance",
+  "nombre": "El SEO te da alcance",
+  "afirmacion": "Trabaja el SEO en redes: que te encuentren por búsqueda, también en Google, te da vistas sin depender del gancho ni del algoritmo.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-DMI39yWo1NK",
+   "collado-C7uUJYRtXXo"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-instagram-tv",
+  "nombre": "Instagram llega a la TV",
+  "afirmacion": "Los reels no están muertos: Instagram llega a la TV y es el mayor cambio de su historia.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-DSX9OKbCCuL"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-instagram-plus",
+  "nombre": "Instagram Plus potencia tus historias",
+  "afirmacion": "Instagram Plus (2,99 € al mes) trae funciones para historias que te dan ventaja sobre tu competencia.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-DXuZJm7CKEL",
+   "collado-DZp9Km-oJVA",
+   "collado-DZX9KKXoCVD"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-cuentas-chicas-mismas-chances",
+  "nombre": "Las cuentas chicas tienen las mismas chances",
+  "afirmacion": "Instagram muestra tus videos primero a quienes no te siguen: con 100 o con 100.000 seguidores tienes las mismas oportunidades.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-C64TD3aN0Hu",
+   "DQr5qfJEfqS",
+   "doglio-DL3D9Ayy4jW"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-links-instagram",
+  "nombre": "La función de links te da alcance",
+  "afirmacion": "Bien usada, la función de links de Instagram sube tu retención y el algoritmo te muestra mucho más.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-DTyI-ifCHLQ",
+   "collado-DUTkGltCJYk"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-compartidos-mas-que-likes",
+  "nombre": "Lo compartido pesa más que los likes",
+  "afirmacion": "Para crecer importa más que te compartan por mensaje y en historias que los likes.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-DCfAilAtLV6"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-retencion-manda",
+  "nombre": "La retención es la métrica que manda",
+  "afirmacion": "Lo que más pesa para el algoritmo es que vean tu video completo, no los primeros segundos ni los intereses.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "DMD0lXixDYL",
+   "collado-DVZBI08CM8P"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-skip-rate",
+  "nombre": "Los 3 primeros segundos mandan",
+  "afirmacion": "La métrica número uno ahora es el skip rate: que la gente se quede después de los tres primeros segundos.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "collado-Da0iUJXCP-w"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-threads",
+  "nombre": "Threads arranca con tu público de Instagram",
+  "afirmacion": "Threads puede matar a Instagram porque desde el primer día te trae a todo tu público.",
+  "padre": "Orgánico viral|algoritmo-cambio",
+  "piezas": [
+   "dakota-CuUvoRCMk9Y"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-primeras-horas-reel-ganador",
+  "nombre": "Las primeras horas anticipan al ganador",
+  "afirmacion": "En las primeras horas sabes si un video va a funcionar: compara su velocidad de vistas con el promedio de tu cuenta.",
+  "padre": "Orgánico viral|reels-de-prueba",
+  "piezas": [
+   "doglio-DV1QIcdRmX2",
+   "DJFPvzdxpOj"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-probar-y-mirar-datos",
+  "nombre": "Prueba sin miedo y mira tus datos",
+  "afirmacion": "Cada video te da datos: prueba sin miedo, mira los patrones de tus mejores reels y quédate con lo que funciona.",
+  "padre": "Orgánico viral|reels-de-prueba",
+  "piezas": [
+   "carrizo-DRTBuicDfxs",
+   "carrizo-DdU7AhxN6Ds",
+   "carrizo-DLqb9wCpP2b"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-reels-prueba-no-predicen",
+  "nombre": "El reel de prueba no predice",
+  "afirmacion": "Que un video vaya mal en reels de prueba no quiere decir que vaya a ir mal: publícalo igual.",
+  "padre": "Orgánico viral|reels-de-prueba",
+  "piezas": [
+   "dakota-Dfh-KVKxLDt"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-reels-prueba-modificar",
+  "nombre": "Reels de prueba: modifica, no resubas igual",
+  "afirmacion": "Los reels de prueba ya no funcionan si resubes tal cual el video que ya te funcionó: modifícalo antes, por ejemplo con Instagram Edits.",
+  "padre": "Orgánico viral|reels-de-prueba",
+  "piezas": [
+   "doglio-DdcLaR2vC4O",
+   "doglio-DdCVdFHPRWV",
+   "doglio-Dee2Vkaxy_e",
+   "doglio-Df2Qux8Rca9",
+   "doglio-Df7R1dERgH1",
+   "doglio-DfxtfX8vsLE",
+   "doglio-DUGVQMbkcPO",
+   "doglio-DUUIsvKjKl9",
+   "doglio-DUVrDnLkdS2"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-reels-prueba-seguidores-calificados",
+  "nombre": "Reels de prueba para seguidores calificados",
+  "afirmacion": "Los reels de prueba, que sólo ven quienes no te siguen, son la forma más infravalorada de ganar seguidores calificados.",
+  "padre": "Orgánico viral|reels-de-prueba",
+  "piezas": [
+   "doglio-DeVDmSLP-iP",
+   "doglio-Df7lcFKPULr",
+   "doglio-DYK_Ha1vJdU",
+   "doglio-DZvedbOmQFu"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-reels-prueba-siempre",
+  "nombre": "Sube cada reel también de prueba",
+  "afirmacion": "No subas ningún reel sin pasarlo también por reels de prueba: si publicas a diario y no los usas, pierdes plata.",
+  "padre": "Orgánico viral|reels-de-prueba",
+  "piezas": [
+   "doglio-DU_IVpBkUPS",
+   "doglio-Daf75qrxfIj"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-reels-prueba-repetir-penaliza",
+  "nombre": "Repetir un video en prueba te penaliza",
+  "afirmacion": "Subir a reels de prueba un video duplicado, o uno que ya funcionó en orgánico, marca tu cuenta y te penaliza.",
+  "padre": "Orgánico viral|reels-de-prueba",
+  "piezas": [
+   "doglio-Daf75qrxfIj",
+   "collado-DU8sIZBCCdv",
+   "collado-DUljbcHiGv8"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-reels-prueba-variaciones",
+  "nombre": "Prueba versiones del mismo video",
+  "afirmacion": "Los reels de prueba te dejan probar cada día versiones del mismo video (letra, música, colores) y sumar visitas sin quemar tu perfil.",
+  "padre": "Orgánico viral|reels-de-prueba",
+  "piezas": [
+   "doglio-DbG2F8Lsa30",
+   "collado-DfnMqJdiBsS"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-reels-prueba-no-viralizan",
+  "nombre": "Los reels de prueba no viralizan",
+  "afirmacion": "Los reels de prueba no te hacen viral: lo que importa es entender cómo el algoritmo reparte el alcance.",
+  "padre": "Orgánico viral|reels-de-prueba",
+  "piezas": [
+   "DWMWXBbxxTV"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-repetir-tus-virales",
+  "nombre": "Repite tus videos más virales",
+  "afirmacion": "Para crecer, vuelve a hacer dos veces tus tres videos más virales de los últimos 60 días en vez de inventar ideas nuevas.",
+  "padre": "Orgánico viral|reels-de-prueba",
+  "piezas": [
+   "DVg2CdVEfb5"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-alegrate-exito-ajeno",
+  "nombre": "Alégrate del éxito ajeno",
+  "afirmacion": "Celebra lo que logran los demás, incluso tus rivales: la envidia es ego y no te deja enfocarte en ti.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-CoNNEwBpf8q",
+   "dakota-CzEoWaKRQIO"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-universidad-no-rinde",
+  "nombre": "La universidad ya no rinde",
+  "afirmacion": "La universidad ya no rinde lo que cuesta: la mayoría elegiría otra cosa, y te conviene más aprender una habilidad.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-CwVZkbmsu9G",
+   "dakota-Ch4prXNjwic"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-competir-contra-ti",
+  "nombre": "Compite contra ti mismo",
+  "afirmacion": "No importa quién va mejor que tú: lo que cuenta es que vas mejor que el año pasado.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-CXhtPXEDGCN"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-agradecer-sin-dejar-de-crecer",
+  "nombre": "Agradece dónde estás sin dejar de crecer",
+  "afirmacion": "Contentarte con lo que tienes no es falta de ambición: agradecer frena el hábito de querer siempre más.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-DHWSrVTSwJb",
+   "dakota-CTiDvUeBQvD"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-curiosidad-equivocarte",
+  "nombre": "Curiosidad es aceptar equivocarte",
+  "afirmacion": "La curiosidad es estar bien con equivocarte, y es un arma secreta.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-DBXC9DQRsgm"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-burnout-sin-sentido",
+  "nombre": "Te quemas por un trabajo sin sentido",
+  "afirmacion": "El burnout no viene de trabajar mucho sino de hacer un trabajo que no te importa ni está alineado contigo.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-C3TGbJWRQRg",
+   "dakota-C3an2HhuhGh",
+   "dakota-C3iYsvOLOd-",
+   "dakota-CkO0xoFDnfZ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-presente-prepara-futuro",
+  "nombre": "Estar presente prepara el futuro",
+  "afirmacion": "Estar presente hoy es la mejor forma de preparar el futuro.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-DI9yBFSTwA0"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-humildad-ante-exito",
+  "nombre": "Tu éxito no es sólo tuyo",
+  "afirmacion": "En tu éxito hay suerte y privilegio: si pierdes la humildad, pierdes lo que te trajo hasta aquí.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-C2-_IJLtUDL"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-humildad-real",
+  "nombre": "Humildad real, no falsa",
+  "afirmacion": "La humildad verdadera es reconocer quién eres; la falsa te dice que todos son mejores que tú.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-C425oqXLVXA"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-motivacion-ser-bueno",
+  "nombre": "La motivación viene de ser bueno",
+  "afirmacion": "Si cada día te levantas sin ganas, no encontraste lo tuyo: el atajo es presentarte y volverte muy bueno en lo que haces.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-CvFwSLls7av"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-perspectiva",
+  "nombre": "Con perspectiva los problemas se achican",
+  "afirmacion": "Mira tus altos y bajos con perspectiva: lo que hoy te abruma en unos años no importa.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-CsqvSwQN9O9",
+   "dakota-CtjZYMnO_vc"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-tecnologia-trauma-millennial",
+  "nombre": "La tecnología es el trauma millennial",
+  "afirmacion": "Lo más traumático para los millennials no fue un hecho puntual sino la tecnología.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-C2ab9L0u5Ri"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-lo-dificil-te-construye",
+  "nombre": "Los días malos te construyen",
+  "afirmacion": "Las épocas duras te construyen: mirando atrás ves lo que ganaste y aprendes a valorar los días buenos.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-CtrvqcXM07m",
+   "doglio-DOt7A0bEVNA"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-no-todo-se-planea",
+  "nombre": "Lo importante no se puede planear",
+  "afirmacion": "Hay cosas en la vida que no se pueden planear, y toca soltar el plan.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-C3eNZL5ocRQ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-hijos-ordenan-prioridades",
+  "nombre": "Los hijos te ordenan las prioridades",
+  "afirmacion": "Tener hijos te da claridad: te obliga a priorizar, delegar y poner lo importante primero.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-DJzxtxChk1n",
+   "dakota-Dem9XzMRbJ8"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-valores-facilitan-decidir",
+  "nombre": "Con valores claros decidir es fácil",
+  "afirmacion": "No es difícil tomar decisiones cuando sabes cuáles son tus valores.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-DC1tVPwvHNK"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-hechos-no-palabras",
+  "nombre": "Tus hechos muestran lo que te importa",
+  "afirmacion": "Decir que algo te importa es fácil: si tu tiempo y tus actos no lo reflejan, no es tu prioridad.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-DBj2s1jxdF1",
+   "dakota-DblXbMGAShu"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-no-talentos-energias",
+  "nombre": "No hay talentos, sólo energías",
+  "afirmacion": "No existen los talentos, sólo energías: todos escondemos algo más grande de lo que mostramos.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "carrizo-DGofEemOibI"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-no-hace-falta-emprender",
+  "nombre": "No hace falta emprender para estar bien",
+  "afirmacion": "No tienes que dejar tu trabajo ni jugártela entera: jugar seguro y estar feliz en tu empleo también está bien.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-C2P9ixFuyd-",
+   "dakota-C2N6G3QODz5"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-hobby-sin-monetizar",
+  "nombre": "Un hobby no tiene que dar plata",
+  "afirmacion": "No metas todos tus hobbies en el molde de ganar dinero: si lo monetizas, deja de ser hobby.",
+  "padre": "Mentalidad y coaching|proposito-y-sentido",
+  "piezas": [
+   "dakota-Ci-dCuDj2nh"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-no-dejes-que-otros-decidan",
+  "nombre": "No dejes que otros decidan tu camino",
+  "afirmacion": "Tu camino no depende de la opinión de los demás: ni de los que te dicen «ya verás», ni siquiera de tus padres.",
+  "padre": "Mentalidad y coaching|entorno-y-relaciones",
+  "piezas": [
+   "collado-DbBsrA2CB5T",
+   "dakota-CzuQr50RfVa",
+   "doglio-DdpEM05vLC2"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-matriz-temas-angulos-formatos",
+  "nombre": "Temas, ángulos y formatos: ideas infinitas",
+  "afirmacion": "Con pocos temas, unos ángulos y unos formatos armas en minutos contenido para semanas, o para un año entero.",
+  "padre": "Orgánico de nicho|sistema-de-contenido",
+  "piezas": [
+   "doglio-Ddwx7RrPFSp",
+   "doglio-DaBb9byPdQW"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-historias-traen-las-ventas",
+  "nombre": "Las historias traen casi todas las ventas",
+  "afirmacion": "La mayor parte de las ventas sale de las historias: una secuencia bien armada puede traer decenas de miles de dólares en un día.",
+  "padre": "Orgánico de nicho|historias-que-venden",
+  "piezas": [
+   "doglio-DfKqtuiROfE",
+   "carrizo-Da6O0AaN2xX"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-ajuste-visitas-historias",
+  "nombre": "Un ajuste que sube tus historias",
+  "afirmacion": "Hay una configuración de Instagram que, al activarla, le da más vistas a tus historias sin ningún truco.",
+  "padre": "Orgánico de nicho|historias-que-venden",
+  "piezas": [
+   "doglio-DeUzATZvlI8"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-ciclo-7-dias-historias",
+  "nombre": "Ciclo de 7 días de historias",
+  "afirmacion": "Para tener récord de vistas y respuestas en historias, sigue un ciclo de 7 días que empieza con una historia personal.",
+  "padre": "Orgánico de nicho|historias-que-venden",
+  "piezas": [
+   "doglio-DWPkHP9P5yL"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-historias-hook-negativo",
+  "nombre": "4 historias con gancho negativo",
+  "afirmacion": "Abre una secuencia de cuatro historias con un gancho negativo («espero no arrepentirme») y te responde el 10 % de tus seguidores.",
+  "padre": "Orgánico de nicho|historias-que-venden",
+  "piezas": [
+   "doglio-DcePDRGRQZs",
+   "doglio-Dd7TGx8Plfg",
+   "doglio-Dfz6pGIvMx_",
+   "doglio-DV9SwT3vdRF",
+   "doglio-DWbmpejxfaj",
+   "doglio-DWzkl_ivaU0",
+   "doglio-DdFNF5Ih8AZ",
+   "doglio-Dc_YyfwRfr4",
+   "doglio-DecSF0wOL6h"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-historias-open-loops",
+  "nombre": "Deja preguntas abiertas en tus historias",
+  "afirmacion": "Abre tus historias con algo que deje una pregunta abierta (un open loop, un gancho de curiosidad y no de promesa) y te responden muchos más.",
+  "padre": "Orgánico de nicho|historias-que-venden",
+  "piezas": [
+   "doglio-DaTH9X6xIUB",
+   "doglio-DaYh_CxvT5e",
+   "doglio-DdFNF5Ih8AZ",
+   "doglio-DRpd74yEcdL"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-historias-hook-regalo",
+  "nombre": "Secuencia que abre con un regalo",
+  "afirmacion": "Una secuencia de historias que abre con un gancho de regalo sube las vistas y nunca falla.",
+  "padre": "Orgánico de nicho|historias-que-venden",
+  "piezas": [
+   "doglio-DdHSu3rvrIy"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-estructura-no-recurso",
+  "nombre": "La estructura, no el recurso, trae respuestas",
+  "afirmacion": "Un buen recurso no basta: sin la estructura correcta en tus historias sólo te responden los mismos diez de siempre.",
+  "padre": "Orgánico de nicho|historias-que-venden",
+  "piezas": [
+   "doglio-DfNmR2yv7gM"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-dias-sin-cta",
+  "nombre": "Mejora los días sin venta",
+  "afirmacion": "No mejores el llamado a la acción: mejora las historias de los días en que no vendes, porque antes tienen que comprarte a ti.",
+  "padre": "Orgánico de nicho|historias-que-venden",
+  "piezas": [
+   "doglio-DUoOujTEVbY"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-historias-caducar-plantilla",
+  "nombre": "Deja caducar tus historias y sube plantilla",
+  "afirmacion": "Triplicas las vistas de tus historias si las dejas caducar, esperas a la mañana siguiente y subes una plantilla.",
+  "padre": "Orgánico de nicho|historias-que-venden",
+  "piezas": [
+   "collado-Dfkkk6jtzn8"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-acostumbrarse-a-ganar",
+  "nombre": "Acostumbrarte a ganar tiene doble filo",
+  "afirmacion": "Acostumbrarte a ganar es lo mejor, porque no paras hasta ganar, y lo peor, porque nunca estás satisfecho.",
+  "padre": "Mentalidad y coaching|disciplina-y-habitos",
+  "piezas": [
+   "doglio-Dd9xAg6PL_Y"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-obsesion-numeros",
+  "nombre": "Obsesionarte con los números te quema",
+  "afirmacion": "Si creas pendiente de las vistas te vuelves esclavo de tus números, dejas de disfrutar, te quemas y no llegas.",
+  "padre": "Mentalidad y coaching|disciplina-y-habitos",
+  "piezas": [
+   "collado-DdjtA9to6RQ",
+   "collado-DeHuB2RoWeN",
+   "collado-Ddo18lHCPQF"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-habito-mas-que-talento",
+  "nombre": "La constancia pesa más que el talento",
+  "afirmacion": "No necesitas un IQ alto: lo que da resultados es la constancia y el hábito, aunque no sean divertidos.",
+  "padre": "Mentalidad y coaching|disciplina-y-habitos",
+  "piezas": [
+   "dakota-ClP0vgnDtkb",
+   "dakota-DB_ywbgvVb4"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-deep-work",
+  "nombre": "Trabajo profundo en vez de grind",
+  "afirmacion": "Unas horas de trabajo profundo y sin distracciones rinden más que doce horas de esfuerzo sin dirección.",
+  "padre": "Mentalidad y coaching|disciplina-y-habitos",
+  "piezas": [
+   "dakota-CiAgrPSjL8z",
+   "dakota-CibG_BsjGVw"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-parar-tambien-rinde",
+  "nombre": "Parar también rinde",
+  "afirmacion": "El grind permanente es una mentira: aburrirte y descansar una temporada te recarga y te muestra qué te importa.",
+  "padre": "Mentalidad y coaching|disciplina-y-habitos",
+  "piezas": [
+   "dakota-CjBfTlEp1nq",
+   "dakota-C2fgt9nOxC4"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-ventana-rota",
+  "nombre": "Un mal hábito contagia a los demás",
+  "afirmacion": "Si dejas que un mal hábito gane impulso, se contagia a otras áreas de tu vida: es el efecto ventana rota.",
+  "padre": "Mentalidad y coaching|disciplina-y-habitos",
+  "piezas": [
+   "dakota-C584fHPO4Ux"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-esfuerzo-que-otros-no-dan",
+  "nombre": "Gana con lo que otros no hacen",
+  "afirmacion": "Ganas trabajando las horas y con la obsesión que la mayoría no pone, aunque le parezca irracional.",
+  "padre": "Mentalidad y coaching|disciplina-y-habitos",
+  "piezas": [
+   "dakota-C-VqI2iRsKQ",
+   "doglio-Dd4v4duvN4Y",
+   "doglio-Df3G2wbv1a8"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-lo-dificil-es-ventaja",
+  "nombre": "Lo difícil es tu ventaja",
+  "afirmacion": "Si fuera fácil, todos lo harían y no tendrías ventaja: lo difícil es lo que vale la pena.",
+  "padre": "Mentalidad y coaching|disciplina-y-habitos",
+  "piezas": [
+   "dakota-Dak_khmtjm5"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-no-festejar",
+  "nombre": "No festejes cuando todo va bien",
+  "afirmacion": "No festejes los buenos momentos: festejarlos te hace depender de ellos.",
+  "padre": "Mentalidad y coaching|disciplina-y-habitos",
+  "piezas": [
+   "carrizo-DcKNkE4NrWv"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-sin-atajos-experiencia",
+  "nombre": "No hay atajos a la experiencia",
+  "afirmacion": "Lo que de verdad sabes lo aprendiste haciendo, no sentado en una clase.",
+  "padre": "Mentalidad y coaching|disciplina-y-habitos",
+  "piezas": [
+   "dakota-Cu-SoLcOhKb"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-siembras-cosechas",
+  "nombre": "Cosechas lo que siembras",
+  "afirmacion": "Planta maíz y cosechas maíz: lo que siembras es lo que recoges.",
+  "padre": "Mentalidad y coaching|disciplina-y-habitos",
+  "piezas": [
+   "dakota-DMBlyGih1j2"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-90-dias",
+  "nombre": "90 días para cambiar el año",
+  "afirmacion": "Con 90 días por delante puedes repetir lo mismo y terminar peor, o convertirte en una versión nueva de ti.",
+  "padre": "Mentalidad y coaching|miedo-y-accion",
+  "piezas": [
+   "miedo"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-actuar-sin-miedo-presion",
+  "nombre": "Bajo presión, actúa sin miedo",
+  "afirmacion": "En el momento de más presión, pon tu energía en algo más grande y actúa como si no tuvieras miedo.",
+  "padre": "Mentalidad y coaching|miedo-y-accion",
+  "piezas": [
+   "carrizo-DWh_Wk8jb7N"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-decide-desde-hoy",
+  "nombre": "Decide sabiendo que vas a cambiar",
+  "afirmacion": "No serás la misma persona en unos años: decide con la confianza de quien eres hoy y anímate a los riesgos grandes.",
+  "padre": "Mentalidad y coaching|miedo-y-accion",
+  "piezas": [
+   "dakota-C46BJKtOe3C",
+   "dakota-C5EgbKWOUEC"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-costo-hundido",
+  "nombre": "Lo ya invertido no decide por ti",
+  "afirmacion": "Lo que ya gastaste es un costo hundido: decide por lo que conviene ahora, aunque eso sea salir.",
+  "padre": "Mentalidad y coaching|miedo-y-accion",
+  "piezas": [
+   "dakota-C4qZ_vgOaLm",
+   "mentorias"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-saltos-que-dan-miedo",
+  "nombre": "Crecer exige saltos que dan miedo",
+  "afirmacion": "Sólo creces aceptando más de lo que puedes manejar: los grandes cambios exigen saltos que dan miedo.",
+  "padre": "Mentalidad y coaching|miedo-y-accion",
+  "piezas": [
+   "dakota-CjEFqBpjCdp",
+   "dakota-C4snzn8Okxz"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-exito-te-frena",
+  "nombre": "El éxito te frena a arriesgar",
+  "afirmacion": "Cuando llegas a una buena cifra, la comodidad y el miedo a perder lo logrado te hacen dejar de probar y de crecer.",
+  "padre": "Mentalidad y coaching|miedo-y-accion",
+  "piezas": [
+   "carrizo-DZbI_b3tCiC",
+   "carrizo-DVcLuCLjVCs",
+   "carrizo-DdC3M6BtUa2"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-emprender-tolerancia-riesgo",
+  "nombre": "Emprender es tolerar el riesgo",
+  "afirmacion": "Los emprendedores no son especiales ni más trabajadores: tienen tolerancia al riesgo, y cualquiera con un 9 a 5 puede.",
+  "padre": "Mentalidad y coaching|miedo-y-accion",
+  "piezas": [
+   "dakota-CsoRqwCL0aR"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-hacer-no-contar",
+  "nombre": "Hazlo y cuéntalo después",
+  "afirmacion": "No hables de lo que estás haciendo: hazlo, y habla cuando lo termines.",
+  "padre": "Mentalidad y coaching|miedo-y-accion",
+  "piezas": [
+   "dakota-DDr8ni6vCkk"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-lanzar-en-bruto",
+  "nombre": "Lanza en bruto, sin perfección",
+  "afirmacion": "Si esperas a que tu primer video sea perfecto nunca lo sacas: lánzalo en bruto.",
+  "padre": "Mentalidad y coaching|miedo-y-accion",
+  "piezas": [
+   "collado-C2h6FzaiHaL"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-lo-que-evitas",
+  "nombre": "Lo que evitas trae la lección",
+  "afirmacion": "Lo que evitas trae la lección que necesitas: adelantarte por miedo a lo que puede pasar es lo que te atrasa.",
+  "padre": "Mentalidad y coaching|miedo-y-accion",
+  "piezas": [
+   "carrizo-DfQcFCzJs0p"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-actua-rapido-senales",
+  "nombre": "Cuando aparece el momento, actúa rápido",
+  "afirmacion": "Si crees que no es el momento o que no lo mereces, lo postergas: cuando el momento aparece, actúa rápido.",
+  "padre": "Mentalidad y coaching|miedo-y-accion",
+  "piezas": [
+   "carrizo-DVzkzYeDfFe"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-sindrome-impostor",
+  "nombre": "Todos sienten el síndrome del impostor",
+  "afirmacion": "La mayoría está tan insegura como tú: todos sienten el síndrome del impostor, incluso quienes parecen tenerlo todo.",
+  "padre": "Mentalidad y coaching|miedo-y-accion",
+  "piezas": [
+   "dakota-CqqrsNTrF7l"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-apunta-mas-alto",
+  "nombre": "Apunta mucho más alto",
+  "afirmacion": "Si vas a jugar, juega a ser el número uno: cuando 100.000 al mes te parezca poco, recién ahí lo harás.",
+  "padre": "Mentalidad y coaching|dinero-y-abundancia",
+  "piezas": [
+   "doglio-DdxNjC-P3mC",
+   "carrizo-DWpbDw6DdrX"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-bucle-de-cursos",
+  "nombre": "El bucle de comprar cursos",
+  "afirmacion": "Quien quiere emprender cae en comprar un curso tras otro (dropshipping, cripto, Facebook) y pierde dinero.",
+  "padre": "Mentalidad y coaching|dinero-y-abundancia",
+  "piezas": [
+   "CYzfrZloY9Q"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-programa-caro-buen-alumno",
+  "nombre": "Programa caro sirve si eres buen alumno",
+  "afirmacion": "Un programa caro te cambia la vida sólo si eres buen cliente y sabes adaptar los consejos.",
+  "padre": "Mentalidad y coaching|dinero-y-abundancia",
+  "piezas": [
+   "doglio-Dbtdzr4vjbe"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-programa-caro-retorno-mensual",
+  "nombre": "Mide un programa caro por mes",
+  "afirmacion": "Para saber si un programa caro vale la pena, pregúntate cuánto tardas en recuperarlo y si te hace ganar más cada mes, no una vez.",
+  "padre": "Mentalidad y coaching|dinero-y-abundancia",
+  "piezas": [
+   "doglio-Dc_8k_0hELR"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-reprogramar-la-mente",
+  "nombre": "Reprograma tu mente y facturas más",
+  "afirmacion": "Saber qué hacer no alcanza: si reprogramas tu subconsciente, con hipnosis o un sistema diario, ejecutas y facturas más.",
+  "padre": "Mentalidad y coaching|dinero-y-abundancia",
+  "piezas": [
+   "doglio-DeM_STZvmXs",
+   "doglio-DdzYDpLTptf",
+   "carrizo-DaQ0v_IJkYU",
+   "carrizo-DdFfx_LtRuJ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-creetelo-antes",
+  "nombre": "Créetelo antes de que sea real",
+  "afirmacion": "Lo que te lleva a la cifra es creértelo antes de tenerla: repítete la historia que quieres y tu cerebro la confirma.",
+  "padre": "Mentalidad y coaching|dinero-y-abundancia",
+  "piezas": [
+   "carrizo-DN14M9h2ibU",
+   "carrizo-DRsx8_4DRZa",
+   "carrizo-DekebwuJuZm"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-merecer-la-cifra",
+  "nombre": "Sentirte merecedor va antes que la cifra",
+  "afirmacion": "Hasta que no te sientas merecedor de una cifra no la vas a ganar: si no llegas, es que todavía no te la crees.",
+  "padre": "Mentalidad y coaching|dinero-y-abundancia",
+  "piezas": [
+   "carrizo-DIe7KDLp_c9",
+   "carrizo-DIxVeaMozIv"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-desapego-y-fe",
+  "nombre": "Desapego y fe traen el resultado",
+  "afirmacion": "Lo que te trae lo que quieres es soltar las ganas de tenerlo y tener fe en el peor momento.",
+  "padre": "Mentalidad y coaching|dinero-y-abundancia",
+  "piezas": [
+   "carrizo-DJAfvW5Ni13"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-internet-riqueza",
+  "nombre": "Internet abrió la riqueza",
+  "afirmacion": "Hoy es más fácil que hace diez años salir de la pobreza y generar riqueza, porque internet abrió puertas.",
+  "padre": "Mentalidad y coaching|dinero-y-abundancia",
+  "piezas": [
+   "dakota-CuPl6LOOU7J"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-invierte-en-habilidad",
+  "nombre": "Invierte en una habilidad, no en acciones",
+  "afirmacion": "En vez de acciones o cripto, invierte en una habilidad que puedas cobrar o con la que montar un negocio.",
+  "padre": "Mentalidad y coaching|dinero-y-abundancia",
+  "piezas": [
+   "dakota-CiiYKouJxmI",
+   "dakota-CkyolJeDR9p",
+   "dakota-Ch4prXNjwic"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-socio-como-pareja",
+  "nombre": "Elegir socio es como elegir pareja",
+  "afirmacion": "Encontrar un buen socio de negocios es tan difícil como encontrar un buen cónyuge, quizá más.",
+  "padre": "Mentalidad y coaching|entorno-y-relaciones",
+  "piezas": [
+   "dakota-DbvcJf4xAl0"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-rodeate-de-quien-te-mejora",
+  "nombre": "La gente que te rodea te define",
+  "afirmacion": "Te moldea más la gente que te rodea que el lugar donde vives: rodéate de quienes sacan tu mejor versión y te muestran lo posible.",
+  "padre": "Mentalidad y coaching|entorno-y-relaciones",
+  "piezas": [
+   "dakota-C4xtZMpOcVu",
+   "dakota-CrUm3hAr5yY",
+   "carrizo-DH7ISouMLCh",
+   "dakota-C8U06DkP_xG"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-casate-con-quien-te-conoce",
+  "nombre": "Cásate con quien te conoce a fondo",
+  "afirmacion": "Cásate cuando sepas que es la persona: alguien que te conoce a fondo y está de tu lado te da toda la confianza que necesitas.",
+  "padre": "Mentalidad y coaching|entorno-y-relaciones",
+  "piezas": [
+   "dakota-C33UddEx9o3"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-casate-y-crecen-juntos",
+  "nombre": "Cásate con alguien con quien crecer",
+  "afirmacion": "No hace falta saber quién eres antes de casarte: la clave es encontrar a alguien con quien crecer.",
+  "padre": "Mentalidad y coaching|entorno-y-relaciones",
+  "piezas": [
+   "dakota-C3s_j5FRFmw",
+   "dakota-DChTy0MOoe3"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-lugar-de-trabajo",
+  "nombre": "Dónde trabajas cambia cómo trabajas",
+  "afirmacion": "Dónde trabajas cambia cómo trabajas.",
+  "padre": "Mentalidad y coaching|entorno-y-relaciones",
+  "piezas": [
+   "dakota-C3YsQGwx1-T"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-elogia-en-publico",
+  "nombre": "Elogia en público, corrige en privado",
+  "afirmacion": "Elogia en público y corrige en privado, también en tu pareja: uno bueno esconde tus debilidades, uno malo tus fortalezas.",
+  "padre": "Mentalidad y coaching|entorno-y-relaciones",
+  "piezas": [
+   "dakota-DO1MFjQEfd3"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-familia-ahora",
+  "nombre": "No dejes a tu familia para después",
+  "afirmacion": "Mientras construyes tu negocio no postergues a tu familia: «es sólo una temporada» es mentira, y tu negocio puede crecer sin ti.",
+  "padre": "Mentalidad y coaching|entorno-y-relaciones",
+  "piezas": [
+   "dakota-DEGEz88SEp8",
+   "dakota-DBJg6elvll0",
+   "dakota-DGWDhmqScAU"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-historias-no-son-amistad",
+  "nombre": "Hablar por historias no es amistad",
+  "afirmacion": "Si sólo se comunican respondiendo historias, no son amigos.",
+  "padre": "Mentalidad y coaching|entorno-y-relaciones",
+  "piezas": [
+   "dakota-DCzc6X-SyE-"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-redes-separan",
+  "nombre": "Las redes nos separan",
+  "afirmacion": "Las redes empujan a cada uno a encerrarse en su postura y separan a la gente.",
+  "padre": "Mentalidad y coaching|entorno-y-relaciones",
+  "piezas": [
+   "dakota-C9czvTvOoZk"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-angulo-por-arquetipo",
+  "nombre": "Un ángulo de dolor por cliente",
+  "afirmacion": "Para dejar de atraer prospectos malos, define tipos de cliente ideal y arma ángulos de dolor propios para cada uno.",
+  "padre": "Orgánico de nicho|angulo-y-mensaje",
+  "piezas": [
+   "DedcrXvzapy"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-sin-angulo-no-escalas",
+  "nombre": "Sin ángulo ganador no escalas",
+  "afirmacion": "Si no pasas de 30.000 o 100.000 al mes es porque no tienes claro tu ángulo de comunicación, no porque te falte un funnel de moda.",
+  "padre": "Orgánico de nicho|angulo-y-mensaje",
+  "piezas": [
+   "DdHikVPzPiY",
+   "Df_PiQQtdTY",
+   "Dd_4dPszPIG"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-leads-malos-angulo",
+  "nombre": "Leads malos: tu ángulo no está claro",
+  "afirmacion": "Si te llegan leads malos es porque no tienes claros tus ángulos ganadores: cambiar tu comunicación es lo único que los califica.",
+  "padre": "Orgánico de nicho|angulo-y-mensaje",
+  "piezas": [
+   "DeTE62YTL3d",
+   "Dd-YuKwTBGU"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-no-cierras-no-es-el-closer",
+  "nombre": "Si no cierras, no es el closer",
+  "afirmacion": "Si tienes llamadas y no cierras, el problema es tu contenido y tu oferta (a quién atraes y qué le prometes), no tus setters ni tus closers.",
+  "padre": "Orgánico de nicho|angulo-y-mensaje",
+  "piezas": [
+   "DfLft4EzhzR",
+   "carrizo-Dadpv8-pwhA",
+   "DeaUa0rTDzu"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-cinco-llamadas-por-dia",
+  "nombre": "Menos de 5 llamadas diarias: algo falla",
+  "afirmacion": "Si tu Instagram agenda menos de cinco llamadas por día, o atraes a quien no califica (trabaja tus ángulos) o no generas tráfico (haz contenido de descubrimiento).",
+  "padre": "Orgánico de nicho|angulo-y-mensaje",
+  "piezas": [
+   "Dd4IoLfzjhq",
+   "DdadBXfTPHj"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-descalificar-en-el-gancho",
+  "nombre": "Descalifica en el gancho",
+  "afirmacion": "En vez de ganchos que llamen la atención de todos, usa ganchos que descalifiquen a quien no es de tu nicho.",
+  "padre": "Orgánico de nicho|angulo-y-mensaje",
+  "piezas": [
+   "doglio-DT8ecQPkfBx"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-problema-del-cliente-no-empresa",
+  "nombre": "Habla del problema, no de tu empresa",
+  "afirmacion": "Los videos sobre la historia de tu empresa no atraen audiencia: habla del problema de tu cliente.",
+  "padre": "Orgánico de nicho|angulo-y-mensaje",
+  "piezas": [
+   "DfxY_jQzAlD"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-niveles-de-conciencia",
+  "nombre": "Entiende los niveles de conciencia",
+  "afirmacion": "Si no entiendes los niveles de conciencia, tu contenido le habla a gente que todavía no sabe que tiene el problema que resuelves.",
+  "padre": "Orgánico de nicho|angulo-y-mensaje",
+  "piezas": [
+   "DehsTdwTTyN"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-repetir-angulo-ganador",
+  "nombre": "Repite tu ángulo hasta el hartazgo",
+  "afirmacion": "Para vender con orgánico repite tus ángulos ganadores hasta que te den asco, y deja que la respuesta automática filtre antes de que hable el setter.",
+  "padre": "Orgánico de nicho|angulo-y-mensaje",
+  "piezas": [
+   "Deikp8yTWyN"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-biografia",
+  "nombre": "Una biografía que convierte",
+  "afirmacion": "La biografía perfecta tiene tres partes y es lo que convierte vistas en seguidores.",
+  "padre": "Orgánico de nicho|marca-personal-autoridad",
+  "piezas": [
+   "collado-C8kdYgVN-uB"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-cercano-no-experto",
+  "nombre": "Cercano le gana a experto",
+  "afirmacion": "Te compran si se sienten cerca de ti: muéstrate como persona y cuenta tu historia, no como el experto perfecto.",
+  "padre": "Orgánico de nicho|marca-personal-autoridad",
+  "piezas": [
+   "doglio-DOoxYyFkRyo",
+   "collado-DHWkNcZgMPH",
+   "collado-DSkxz2TiG6n"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-el-nicho-eres-tu",
+  "nombre": "El nicho eres tú",
+  "afirmacion": "Deja de intentar encajar en un nicho: el nicho eres tú.",
+  "padre": "Orgánico de nicho|marca-personal-autoridad",
+  "piezas": [
+   "collado-DfaJu7viHZJ",
+   "collado-DSkxz2TiG6n"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-cinco-claves-imagen",
+  "nombre": "Cinco claves de imagen de marca",
+  "afirmacion": "La marca personal se trabaja con cinco claves de imagen, empezando por la tipografía.",
+  "padre": "Orgánico de nicho|marca-personal-autoridad",
+  "piezas": [
+   "collado-C4gX5NYNqeU"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-escucha-a-quien-lo-hace",
+  "nombre": "Escucha sólo a quien ya lo hace",
+  "afirmacion": "Escucha sólo a quien ya vive del modelo de negocio que te quiere enseñar.",
+  "padre": "Orgánico de nicho|marca-personal-autoridad",
+  "piezas": [
+   "carrizo-DGUM7vVucJx"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-confianza-vende-sin-anuncios",
+  "nombre": "La confianza vende sin anuncios",
+  "afirmacion": "Un lanzamiento sorpresa sin anuncios funciona cuando tu audiencia confía en que vas a cumplir.",
+  "padre": "Orgánico de nicho|marca-personal-autoridad",
+  "piezas": [
+   "dakota-DDAIC6VO0w-"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-cuatro-p",
+  "nombre": "El método de las cuatro P",
+  "afirmacion": "Personaje, producto, personalidad y posicionamiento: las cuatro P son la lección más importante para llegar a 100.000 seguidores.",
+  "padre": "Orgánico de nicho|marca-personal-autoridad",
+  "piezas": [
+   "collado-C3DduIGtOJR"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-no-hablar-mal-competencia",
+  "nombre": "No hables mal de tu competencia",
+  "afirmacion": "Nunca le tires piedras a tu competencia: eleva tu marca hasta no tener que mencionar a nadie.",
+  "padre": "Orgánico de nicho|marca-personal-autoridad",
+  "piezas": [
+   "doglio-Df-r72Tva3N"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-personaje-de-marca",
+  "nombre": "Conviértete en un personaje de marca",
+  "afirmacion": "Lo que te hace pasar de 30.000 a 85.000 al mes no es más volumen sino usar a propósito tu personaje de marca (ropa, personalidad).",
+  "padre": "Orgánico de nicho|marca-personal-autoridad",
+  "piezas": [
+   "doglio-DfP3UKaP4NG",
+   "doglio-DVMQNFajxWw"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-contrario-a-competidores",
+  "nombre": "Sé lo contrario a tu competencia",
+  "afirmacion": "No uses a tu competencia de referencia: estúdiala para ser exactamente lo contrario.",
+  "padre": "Orgánico de nicho|marca-personal-autoridad",
+  "piezas": [
+   "doglio-De-OcQ8vQ6e"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-adaptar-no-copiar",
+  "nombre": "Adapta lo viral, no lo copies",
+  "afirmacion": "Copiar un video viral tal cual no funciona: toma la idea y la estructura y cámbialas hasta que sean tuyas.",
+  "padre": "Orgánico viral|formatos-y-edicion",
+  "piezas": [
+   "DWefUktRRId",
+   "doglio-DfIbxE3P9TE"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-composicion-plano",
+  "nombre": "La composición del plano retiene",
+  "afirmacion": "Técnicas de composición como las líneas guía o el encuadre en tus planos suben la retención de tus reels.",
+  "padre": "Orgánico viral|formatos-y-edicion",
+  "piezas": [
+   "collado-DBuE18vND3h"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-reel-prolijo-murio",
+  "nombre": "El reel prolijo ya no funciona",
+  "afirmacion": "El video prolijo del medio quedó viejo: funciona lo crudo a cámara (cuanto peor grabado, mejor) o lo hecho con IA que obliga a frenar.",
+  "padre": "Orgánico viral|formatos-y-edicion",
+  "piezas": [
+   "Deo9wHDTZ_O",
+   "collado-DZIbQTzoCu-"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-portada-primer-fotograma",
+  "nombre": "La portada es el primer fotograma",
+  "afirmacion": "Al subir un reel como carrusel, Instagram usa el primer fotograma de portada: si el video empieza en negro, se sube en negro.",
+  "padre": "Orgánico viral|formatos-y-edicion",
+  "piezas": [
+   "collado-DOoeHA0CIZW"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-subirse-a-tendencia",
+  "nombre": "Súbete rápido a la tendencia",
+  "afirmacion": "Las marcas se hacen virales subiéndose rápido a una tendencia.",
+  "padre": "Orgánico viral|formatos-y-edicion",
+  "piezas": [
+   "collado-DdOqpLrEV--"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-talking-carousel",
+  "nombre": "El carrusel hablado es el más viral",
+  "afirmacion": "El carrusel hablado es el formato más viral porque la persona elige a qué ritmo consume tu mensaje.",
+  "padre": "Orgánico viral|formatos-y-edicion",
+  "piezas": [
+   "collado-DGv8pgRN9Rw",
+   "collado-DOEYezkiIK-"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-texto-detras",
+  "nombre": "Texto detrás de ti en tres clics",
+  "afirmacion": "El texto detrás de ti se hace en CapCut en tres clics, con capas una encima de otra.",
+  "padre": "Orgánico viral|formatos-y-edicion",
+  "piezas": [
+   "collado-DJpUVHNNQTC"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-transiciones-movimiento",
+  "nombre": "Las transiciones de movimiento retienen",
+  "afirmacion": "Las transiciones con movimiento (girar la cabeza, sentarte, abrir el ordenador) hacen que vean el video hasta el final.",
+  "padre": "Orgánico viral|formatos-y-edicion",
+  "piezas": [
+   "collado-DWhDoMXCNUv"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-zona-segura",
+  "nombre": "Respeta la zona segura",
+  "afirmacion": "Pon lo importante dentro de la zona segura: lo que queda afuera lo tapan los likes, los comentarios y los botones.",
+  "padre": "Orgánico viral|formatos-y-edicion",
+  "piezas": [
+   "collado-DRxZsq_iGv5",
+   "collado-DVgt3ZRCKAK",
+   "collado-DXe3BAviOtD"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-gancho-necesidad-valor",
+  "nombre": "Gancho y valor ya no alcanzan",
+  "afirmacion": "La estructura gancho, cuerpo y llamado a la acción ya no viraliza: falta un paso, como crear la necesidad antes de dar el valor.",
+  "padre": "Orgánico viral|guiones-y-storytelling",
+  "piezas": [
+   "collado-C3s0fOrNWIZ",
+   "collado-DPjiCAQiLC0"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-contexto-primera-linea",
+  "nombre": "Contexto en la primera línea",
+  "afirmacion": "Un guion que dice en la primera línea de qué va el video y por qué te debería importar es imposible de ignorar.",
+  "padre": "Orgánico viral|guiones-y-storytelling",
+  "piezas": [
+   "Das3elmRg4h"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-guion-es-estructura",
+  "nombre": "Hacer virales es estructura, no arte",
+  "afirmacion": "Hacer videos virales no es arte ni suerte, es estructura: un experto con mucho para dar no es escuchado si no la sabe.",
+  "padre": "Orgánico viral|guiones-y-storytelling",
+  "piezas": [
+   "DbQ5A3dxNZ-",
+   "DJUhEpARdHG",
+   "DK7rasgxp2L"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-guion-planear-mas",
+  "nombre": "Planea más de lo que escribes",
+  "afirmacion": "Un buen guion viral se reparte así: 40 % del tiempo planeando, 35 % revisando y sólo 25 % escribiendo.",
+  "padre": "Orgánico viral|guiones-y-storytelling",
+  "piezas": [
+   "collado-C-QnztetYGk"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-emocion-hace-compartir",
+  "nombre": "La emoción hace compartir",
+  "afirmacion": "La gente comparte un video por la emoción que le despierta, no por el contenido.",
+  "padre": "Orgánico viral|guiones-y-storytelling",
+  "piezas": [
+   "collado-DDFtnlottT9"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-reel-viral-7-pasos",
+  "nombre": "Un reel viral en 7 pasos",
+  "afirmacion": "Un reel viral se arma en siete pasos, empezando por elegir el tema que te pide tu audiencia y el audio antes de grabar.",
+  "padre": "Orgánico viral|guiones-y-storytelling",
+  "piezas": [
+   "collado-C__W1DmNgKo"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-un-video-un-mensaje",
+  "nombre": "Un video, un mensaje",
+  "afirmacion": "Un guion viral comunica un solo mensaje: un video, un mensaje, porque lo que viraliza es la retención.",
+  "padre": "Orgánico viral|guiones-y-storytelling",
+  "piezas": [
+   "collado-C_Gu2_tNZOj"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-videos-amplios",
+  "nombre": "Videos amplios, no súper nichados",
+  "afirmacion": "Lo súper nichado no lo recomienda el algoritmo: háblale al seguidor ideal con videos amplios que entienda casi cualquiera.",
+  "padre": "Orgánico viral|viral-en-el-nicho",
+  "piezas": [
+   "doglio-DfFkwlSPtsi",
+   "DLIoCAUxAV7",
+   "DB61uDXN5bB"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-4-reels-al-mes",
+  "nombre": "Cuatro reels al mes bastan",
+  "afirmacion": "Más contenido no escala tu negocio: cuatro reels bien pensados al mes rinden más que uno por día.",
+  "padre": "Orgánico de nicho|frecuencia-y-mitos",
+  "piezas": [
+   "carrizo-DdIF8y8tlPl",
+   "carrizo-DZ0uMZVtvVf",
+   "doglio-DPkS0QBjGt5"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-hashtags-indexan",
+  "nombre": "Los hashtags indexan, no viralizan",
+  "afirmacion": "Un hashtag no te hace viral, te indexa: usa sólo los que tienen que ver con tu video.",
+  "padre": "Orgánico de nicho|frecuencia-y-mitos",
+  "piezas": [
+   "collado-DF3UrbbtudM"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-hora-hashtags-no-importan",
+  "nombre": "La hora y los hashtags no importan",
+  "afirmacion": "La hora, los hashtags y la frecuencia casi no importan: importa la idea y mirar qué videos funcionan.",
+  "padre": "Orgánico de nicho|frecuencia-y-mitos",
+  "piezas": [
+   "DKplc9xRUq-",
+   "DLF1iZTxWK8"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-no-postear-a-diario",
+  "nombre": "Crecer sin publicar a diario",
+  "afirmacion": "Puedes llegar a 100.000 seguidores sin publicar todos los días: menos videos, mejor trabajados.",
+  "padre": "Orgánico de nicho|frecuencia-y-mitos",
+  "piezas": [
+   "collado-C4Gpvxzt7Nq",
+   "collado-C5MSWwzvwx8",
+   "collado-C9fsclkN7wq"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-primero-mas-luego-mejor",
+  "nombre": "Primero más, después mejor",
+  "afirmacion": "El orden es más, mejor y distinto: primero sube volumen, después mejóralo y recién ahí haz algo distinto.",
+  "padre": "Orgánico de nicho|frecuencia-y-mitos",
+  "piezas": [
+   "doglio-DcO6qJiBcbl"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-datos-miles-de-piezas",
+  "nombre": "Datos de miles de piezas ahorran volumen",
+  "afirmacion": "Con los datos de miles de piezas en muchos nichos sabes qué funciona y te alcanza con publicar unos pocos reels al mes.",
+  "padre": "Orgánico de nicho|trazabilidad",
+  "piezas": [
+   "doglio-DVUIY3IkgAb"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-ventas-por-pieza",
+  "nombre": "Mide ventas por pieza, no vistas",
+  "afirmacion": "No mires vistas: conecta cada pieza, y cada tema, con las conversaciones, las llamadas y el cash que trajo.",
+  "padre": "Orgánico de nicho|trazabilidad",
+  "piezas": [
+   "trazabilidad",
+   "DeaUa0rTDzu",
+   "doglio-DPXHwmQkTvb",
+   "carrizo-DX7rxx4Jj2g",
+   "doglio-DVgrWXCRcQa",
+   "doglio-DVJuxeGkYv5",
+   "DeRqoL2zKHf"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-siete-numeros",
+  "nombre": "Mide sólo siete números",
+  "afirmacion": "Mide sólo chats, conversaciones, agendas, llamadas, cierres y cash: te dicen qué botón tocar para ganar más.",
+  "padre": "Orgánico de nicho|trazabilidad",
+  "piezas": [
+   "carrizo-DfLFS-vonPs"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-trackear-todo",
+  "nombre": "Registra todo lo de tu cuenta",
+  "afirmacion": "Crecer en seguidores y en ventas en un mes viene de registrar todo lo que pasa en tu cuenta de Instagram.",
+  "padre": "Orgánico de nicho|trazabilidad",
+  "piezas": [
+   "doglio-DWuJQe0Pxzk"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-el-gancho-lo-es-todo",
+  "nombre": "El gancho es lo que más importa",
+  "afirmacion": "Lo que más importa en un video es el gancho: ahí va el 80 % del esfuerzo, no en aportar valor ni en el storytelling.",
+  "padre": "Orgánico viral|ganchos",
+  "piezas": [
+   "DUycEmIEYEw",
+   "DdPGV9ZRPwg"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-base-de-referencias",
+  "nombre": "Arma una base de referencias que funcionan",
+  "afirmacion": "Una base con los ganchos, formatos y cuentas que ya funcionan te muestra cada semana qué hacer.",
+  "padre": "Orgánico viral|viral-en-el-nicho",
+  "piezas": [
+   "doglio-DdhwEl7s6Dc",
+   "DelLy4FTsEP",
+   "DeLT9flT_Ag"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-gancho-detiene-angulo-filtra",
+  "nombre": "El gancho detiene, el ángulo filtra",
+  "afirmacion": "Si no pasas de mil vistas es por ganchos aburridos: el gancho detiene, el ángulo filtra y la oferta convierte.",
+  "padre": "Orgánico viral|ganchos",
+  "piezas": [
+   "DeVvuyAz6SH"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-gancho-tambien-visual",
+  "nombre": "El gancho también es visual",
+  "afirmacion": "El gancho también es lo que se ve y cómo suena: en los primeros tres segundos tiene que pasar algo visual.",
+  "padre": "Orgánico viral|ganchos",
+  "piezas": [
+   "Dd5Tb2tTCg8",
+   "Def1jARBg_r",
+   "DevbHYFsMvV"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-estimulo-minimo",
+  "nombre": "El estímulo mínimo que frena el scroll",
+  "afirmacion": "Instagram no va de esfuerzo sino de estímulo: genera el estímulo mínimo que haga frenar a la persona.",
+  "padre": "Orgánico viral|ganchos",
+  "piezas": [
+   "C--xhAcNfII"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-romper-patron",
+  "nombre": "Rompe el patrón al empezar",
+  "afirmacion": "Se puede llegar a casi un millón de seguidores en una semana sin editar ni subtitular, rompiendo el patrón al empezar el video.",
+  "padre": "Orgánico viral|ganchos",
+  "piezas": [
+   "collado-DcRT6LtoWsB"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-termino-nicho-desafio",
+  "nombre": "Gancho con palabra del nicho y desafío",
+  "afirmacion": "Un gancho que usa una palabra de tu nicho y la desafía mantiene más de mil comentarios por video.",
+  "padre": "Orgánico viral|ganchos",
+  "piezas": [
+   "doglio-DXo0eUpxq--"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-cada-formato-una-funcion",
+  "nombre": "Cada pieza cumple una función",
+  "afirmacion": "Subir contenido no es una estrategia: cada formato y cada ángulo cumple una función dentro de un conjunto.",
+  "padre": "Orgánico de nicho|sistema-de-contenido",
+  "piezas": [
+   "carrizo-DNrkbi4Wk6m",
+   "DeBIEJlzmpQ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-improvisar-trae-prospectos-malos",
+  "nombre": "Improvisar trae prospectos malos",
+  "afirmacion": "Improvisar el contenido te llena de prospectos malos: necesitas un calendario armado con tus ángulos ganadores.",
+  "padre": "Orgánico de nicho|sistema-de-contenido",
+  "piezas": [
+   "Ddp48kET9HA",
+   "DfThgBpNSEx"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-no-delegar-a-agencia",
+  "nombre": "No dejes tu contenido a una agencia",
+  "afirmacion": "Una agencia que hace contenido con IA para cientos de clientes te hace sonar igual que todos: necesitas un sistema propio que conozca a tu cliente.",
+  "padre": "Orgánico de nicho|sistema-de-contenido",
+  "piezas": [
+   "herramientas"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-preguntas-frecuentes",
+  "nombre": "Las preguntas frecuentes son tus ideas",
+  "afirmacion": "Hay una página que te da cientos de preguntas frecuentes sobre tu tema para que nunca te falten ideas de contenido.",
+  "padre": "Orgánico de nicho|sistema-de-contenido",
+  "piezas": [
+   "doglio-DfvT7C2vCDo"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-sistema-2-al-dia",
+  "nombre": "Dos piezas diarias y semana fija",
+  "afirmacion": "Para escalar copia un sistema: dos piezas al día (cámara, pizarrón y documentado) y una semana fija de historias.",
+  "padre": "Orgánico de nicho|sistema-de-contenido",
+  "piezas": [
+   "doglio-Dd4eGDpviu_"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-descubrimiento-en-el-nicho",
+  "nombre": "Descubrimiento dentro de tu nicho",
+  "afirmacion": "El contenido de nicho vende, pero si nadie te descubre nadie lo ve: súmale contenido de descubrimiento que se haga viral dentro de tu nicho, no genérico.",
+  "padre": "Orgánico viral|viral-en-el-nicho",
+  "piezas": [
+   "DeDsOLyz_3n",
+   "DeaxC_szwJz",
+   "De0nbS8TQCD",
+   "DeLT9flT_Ag"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-valor-y-copiar-no-escala",
+  "nombre": "Dar valor y copiar no escala",
+  "afirmacion": "Aportar valor a tu cliente ideal y copiar videos de otros te deja en mil vistas y mil dólares al mes.",
+  "padre": "Orgánico viral|viral-en-el-nicho",
+  "piezas": [
+   "Ddt9zNfRsSF"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-100k-seguidores-en-un-mes",
+  "nombre": "100.000 seguidores en un mes",
+  "afirmacion": "Con el método correcto se pueden ganar 100.000 seguidores en un mes, y se demuestra en vivo.",
+  "padre": "Orgánico viral|caso-de-crecimiento",
+  "piezas": [
+   "DJ984GKRjwI",
+   "DLAxyB-RfrW",
+   "seguidores",
+   "viral-nicho"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-de-cero-a-100k",
+  "nombre": "De cero a 100.000 con método",
+  "afirmacion": "Llegar de cero a 100.000 seguidores no es tan difícil si sabes cómo, y se demuestra con una cuenta nueva.",
+  "padre": "Orgánico viral|caso-de-crecimiento",
+  "piezas": [
+   "collado-C2p1KxUL9U-",
+   "collado-DFVwiOVtgUW"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-comenta-gear",
+  "nombre": "El equipo con el que grabas todo",
+  "afirmacion": "Con una cámara, un objetivo, un filtro y unos micrófonos grabas todo tu contenido, y hay alternativas más baratas.",
+  "padre": "Orgánico de nicho|palabra-clave-dm",
+  "piezas": [
+   "collado-DdRsQsdEVIT"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-comenta-libros",
+  "nombre": "Cinco libros para tu creatividad",
+  "afirmacion": "Cinco libros sobre creatividad te forman como creador.",
+  "padre": "Orgánico de nicho|palabra-clave-dm",
+  "piezas": [
+   "collado-DeM71OLiO6-"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-comenta-palabra-da-alcance",
+  "nombre": "«Comenta esta palabra» te da alcance",
+  "afirmacion": "El «comenta esta palabra y te mando el recurso» le dice al algoritmo a quién le interesa tu video y deja la conversación dentro de Instagram: por eso se hace viral y vende.",
+  "padre": "Orgánico de nicho|palabra-clave-dm",
+  "piezas": [
+   "collado-DctnotlI34U",
+   "collado-DRSX2voiO3B",
+   "collado-DVMKV4NiNaR",
+   "collado-DSDU68aiGXj"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-dm-automatico-entrega-solo",
+  "nombre": "El mensaje automático entrega por ti",
+  "afirmacion": "Con una respuesta automática, quien comenta la palabra recibe tu recurso por mensaje mientras tú haces otra cosa.",
+  "padre": "Orgánico de nicho|palabra-clave-dm",
+  "piezas": [
+   "collado-DVy5a33CBIL"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-email-a-tu-lista",
+  "nombre": "El email a tu lista agenda llamadas",
+  "afirmacion": "Escríbele a tu lista seguido, hasta dos veces al día: los emails a toda la lista agendan llamadas.",
+  "padre": "Orgánico de nicho|audiencia-propia",
+  "piezas": [
+   "dakota-DQKOe2mD383",
+   "dakota-Cu4pBQqsPC7"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-lead-magnet-promesa",
+  "nombre": "Un lead magnet que parezca de pago",
+  "afirmacion": "Un lead magnet funciona si su promesa es tan buena que la gente piensa que debería pagar por él.",
+  "padre": "Orgánico de nicho|audiencia-propia",
+  "piezas": [
+   "doglio-DcGzfo-Ri83",
+   "doglio-Ddm-nOBsX0Q"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-no-depender-de-plataforma",
+  "nombre": "No dependas de una sola plataforma",
+  "afirmacion": "Para que un cierre o un baneo no te hunda, no puedes depender de una sola plataforma.",
+  "padre": "Orgánico de nicho|audiencia-propia",
+  "piezas": [
+   "collado-DE5kcn4tsLp"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-hora-de-irte-del-empleo",
+  "nombre": "Sin futuro en tu empleo, vete",
+  "afirmacion": "Si el sueldo no te alcanza o ves tu futuro en el puesto de tu jefe y no lo quieres, es hora de irte.",
+  "padre": "Lifestyle|renunciar-al-trabajo",
+  "piezas": [
+   "dakota-C2kwGCLOqwx",
+   "dakota-CwN5GmyMS5u"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-temporada-de-hustle",
+  "nombre": "Una temporada de esfuerzo para irte",
+  "afirmacion": "Para cambiar tu vida tienes que trabajar duro fuera de tu 9 a 5 durante una temporada, aunque odies esos meses.",
+  "padre": "Lifestyle|renunciar-al-trabajo",
+  "piezas": [
+   "dakota-C2c77CxuSgi"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-semana-vuela",
+  "nombre": "La rutina hace volar el tiempo",
+  "afirmacion": "El tiempo vuela en la rutina y se estira en las vacaciones.",
+  "padre": "Lifestyle|libertad-de-tiempo",
+  "piezas": [
+   "dakota-CsZmwKwMxKJ"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-licencia-paternidad",
+  "nombre": "Desconectar te simplifica la vida",
+  "afirmacion": "Desconectar durante la licencia de paternidad simplifica la vida: te enfocas en lo de ahora y no en mil cosas a la vez.",
+  "padre": "Lifestyle|libertad-de-tiempo",
+  "piezas": [
+   "dakota-C2nLaQdu5PX"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-seguir-siendo-tu",
+  "nombre": "Facturar mucho y seguir siendo tú",
+  "afirmacion": "Puedes facturar casi 100.000 dólares al mes y seguir siendo tú: sin grandes lujos y sin dejar a tus amigos.",
+  "padre": "Lifestyle|dia-en-mi-vida",
+  "piezas": [
+   "carrizo-DHMefLOJZ2k"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-dia-dueno-agencia",
+  "nombre": "El día de un dueño de agencia",
+  "afirmacion": "El día de un dueño de agencia empieza revisando los resultados de ayer de cada cliente.",
+  "padre": "Lifestyle|dia-en-mi-vida",
+  "piezas": [
+   "dakota-DEiSNdRSdXR"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-documenta-tu-dia",
+  "nombre": "Graba lo que haces, no consejos",
+  "afirmacion": "Hablar a cámara dando valor ya no funciona: graba lo que haces con tus clientes y tu equipo y conviértelo en piezas.",
+  "padre": "Orgánico de nicho|documentar-tu-vida",
+  "piezas": [
+   "doglio-DYkqaefPYuF",
+   "doglio-Ddcn1gZPxwc"
+  ],
+  "es_tema": false
+ },
+ {
+  "id": "b-decir-que-no",
+  "nombre": "Decir que no te abre espacio",
+  "afirmacion": "Cada sí esconde un no: decir que no a lo que no encaja, aunque haya dinero, te devuelve tiempo y te abre puertas.",
+  "padre": "Mentalidad y coaching|limites-y-culpa",
+  "piezas": [
+   "dakota-DHZA4sLy0WK",
+   "dakota-DergLq2xOqo"
+  ],
+  "es_tema": false
+ }
+]
