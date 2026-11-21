@@ -12,7 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { SETTINGS_DE_LOS_COACHES, TABLAS_DE_LOS_CHATS } from '../lib/reset-chats-prueba-reglas';
+import { SETTINGS_DE_LOS_COACHES, TABLAS_DE_LOS_CHATS, WS_SE_VACIAN_LOS_CHATS, seVacianLosChats } from '../lib/reset-chats-prueba-reglas';
 
 const fuente = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
@@ -23,13 +23,25 @@ test('1. qué se vacía: los mensajes, los chats y la conversación de Offer; y 
   assert.ok(!TABLAS_DE_LOS_CHATS.some((t) => t.startsWith('grupo_')), 'el grupo de avisos queda');
 });
 
+// URGENTE (21/11, el Cerebro): el ws 9 es de la revisión pero es el espacio de MARTÍN (su Ops Center con los chats de Claude, su Second
+// Brain, sus leads), y el 11 es Leila, una clienta. El borrado completo, sólo en una lista CERRADA escrita en el código.
+test('0. el borrado completo NUNCA en el ws 9 (Martín) ni en el 11 (Leila): sólo en la lista cerrada, 3 y 4', () => {
+  assert.deepEqual([...WS_SE_VACIAN_LOS_CHATS], [3, 4]);
+  for (const ws of [9, 11, 1, 21, null, undefined]) assert.equal(seVacianLosChats(ws), false, `ws ${ws}`);
+  assert.equal(seVacianLosChats(3), true);
+  const s = sinComentarios(fuente('lib/reset-chats-prueba.ts'));
+  assert.doesNotMatch(s, /esClienteDePrueba|puedeVerLaRevision|WS_PRUEBA_COMO_CLIENTE/, 'ninguna lista que otro amplíe');
+  const r = sinComentarios(fuente('app/api/admin/reiniciar-onboarding/route.ts'));
+  assert.doesNotMatch(r, /esClienteDePrueba\(ws\)\) chats|puedeVerLaRevision/, 'la ruta, con la lista cerrada');
+});
+
 test('2. sólo en un espacio de PRUEBA, y siempre por el workspace', () => {
   const s = sinComentarios(fuente('lib/reset-chats-prueba.ts'));
-  assert.match(s, /if \(!esClienteDePrueba\(ws\)\) throw new Error\(/, 'tira fuera de un negocio de prueba (el cinturón que vale)');
+  assert.match(s, /if \(!seVacianLosChats\(ws\)\) throw new Error\(/, 'tira fuera de la lista cerrada (el cinturón que vale)');
   assert.match(s, /\.from\(t\)\.delete\(\{ count: 'exact' \}\)\.eq\('workspace_id', ws\)/, 'cada borrado, con el workspace a mano');
   assert.match(s, /getSupabaseServer\(\)/, 'crudo, con el .eq a mano (getTenantDb mira el workspace del pedido, no el destino)');
   const r = sinComentarios(fuente('app/api/admin/reiniciar-onboarding/route.ts'));
-  assert.match(r, /if \(body\.aplicar === true && esClienteDePrueba\(ws\)\) chats = await vaciarChatsDePrueba\(ws\);/, 'la ruta lo hace sólo en uno de prueba');
+  assert.match(r, /if \(body\.aplicar === true && seVacianLosChats\(ws\)\) chats = await vaciarChatsDePrueba\(ws\);/, 'la ruta lo hace sólo en la lista cerrada');
 });
 
 test('3. el botón lo dice: en uno de prueba «borra todo», en un cliente real «no borra nada de lo suyo»', () => {

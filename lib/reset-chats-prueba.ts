@@ -7,13 +7,13 @@
 // =============================================================================
 import 'server-only';
 import { getSupabaseServer } from './supabase';
-import { esClienteDePrueba } from './auth-session';
-import { SETTINGS_DE_LOS_COACHES, TABLAS_DE_LOS_CHATS } from './reset-chats-prueba-reglas';
+import { SETTINGS_DE_LOS_COACHES, TABLAS_DE_LOS_CHATS, seVacianLosChats } from './reset-chats-prueba-reglas';
 
 export type ChatsVaciados = { borrado: Record<string, number>; avisos: string[] };
 
 export async function vaciarChatsDePrueba(ws: number): Promise<ChatsVaciados> {
-  if (!esClienteDePrueba(ws)) throw new Error('Vaciar los chats sólo corre en un negocio de prueba.');
+  // La lista CERRADA (3 y 4): nunca el 9 (el espacio de Martín) ni el 11 (Leila). El cinturón que vale.
+  if (!seVacianLosChats(ws)) throw new Error('Vaciar los chats sólo corre en el Cliente de Prueba (3) o el de Diseño (4).');
   const db = getSupabaseServer();
   const borrado: Record<string, number> = {};
   const avisos: string[] = [];
