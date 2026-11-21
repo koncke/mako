@@ -8,6 +8,42 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## La réplica REGENERA cada lámina con IA desde su referencia, por ApiMart (21/11/2026)
+
+**El pedido** (Martín, 20/11, sobre sus 11 carruseles de ventas y los de Leila): «no salieron idénticos y tenían que salir realmente
+idénticos… eso lo tienes que hacer con inteligencia artificial, le tienes que pasar la referencia y pedirle a la IA que cambie al
+personaje o a los textos». La plancha (borrar las letras y escribir encima) no puede con un titular enorme sobre una foto ni con las
+poses; la IA de imagen sí.
+
+**El diagnóstico obvio era el equivocado: «la IA de imagen de MaKo es Flow».** Lo es (lib/flow-cola.ts, la extensión en un Chrome con
+Flow abierto), pero el 21/11 **ningún** puente andaba (ws 9, 1, 10 y 11 «sin sesión», el ws 4 sin puente) y muchos clientes no tienen
+Flow. Va por ApiMart, con la clave de la plataforma y medido en MaKo Tokens (la decisión de Martín del 7/11).
+
+**Cómo quedó:**
+- `generarImagen` y `esperarTarea` (lib/apimart.ts) con sus reglas puras (`MODELOS_IMAGEN`, `cuerpoDePedidoImagen` en
+  apimart-reglas.ts; `mtDeImagenDe` en mako-tokens-reglas.ts, que es quien importa a apimart-reglas y no al revés). Modelo:
+  **Nano Banana Pro** (`gemini-3-pro-image-preview`, 4:5, hasta 14 referencias, US$0,02); respaldo Nano Banana y Seedream 4 (sin
+  4:5: va 3:4).
+- lib/carruseles/regenerar.ts (los prompts y la revisión) y regenerar-servidor.ts: por lámina, se cobran los MaKo Tokens ANTES; la
+  BASE es la lámina original y el prompt cambia sólo los textos («original» → «nuevo»); se LEE lo que salió con la IA del negocio y,
+  si falta una palabra o una tilde, se vuelve a generar (el segundo intento, con la lista en orden: la IA principal a veces escribe el
+  texto nuevo en «original»); la persona es OTRO paso, con UNA referencia. Lo generado se copia a nuestro bucket (ApiMart lo borra a
+  las 24 h).
+- «Editar» (`replicarEjemplo`) regenera por defecto con todas las láminas a la vista y la clave; si no puede (sin MaKo Tokens, el
+  proveedor), sigue la réplica de antes y lo dice. `persona: 'original'` deja a la persona del original (Hormozi ES el gancho).
+- Un carrusel que no está en la biblioteca (`que: 'imagenes'`) y scripts/carruseles-rehacer-con-ia.mts (con `--copy`).
+- Medido: la portada de «9 YOUTUBE COURSES» salió igual, con «9 AGENTES DE IA» y sus tildes, en 37 s. El carrusel entero (11
+  láminas, con el copy de Martín), 266 s, todas bien escritas al primer intento.
+- tests/apimart-imagen.test.ts y tests/carruseles-regenerar.test.ts. tests/carruseles-editar-a-tiempo.test.ts cuenta un pedido de
+  visión más (leer el texto de la lámina regenerada).
+
+**Trampas:**
+- ⚠️ El texto queda DENTRO de la imagen (como en la referencia): ya no se edita con el editor. Fue la decisión del 21/11.
+- ⚠️ El copy decide qué va en cada lugar: con dos renglones para una lámina de tres textos, el primero cayó en la miniatura en una
+  lámina y en el título en otra. Un copy para regenerar va con un renglón por cada texto de la referencia.
+- Lo que la referencia trae adentro (las miniaturas de otros creadores en «9 YouTube courses») queda: para cambiarlo, otro paso.
+- `esDelMarco` reconoce ahora «01 of 11», «3 de 7» y «Oct ©2026»: sin eso el contador recibía un renglón del copy.
+
 ## La llamada con Leila (20/11/2026): el copy pegado se inventaba, las láminas agregadas salían «en blanco» y las fotos se repetían
 
 **El síntoma** (Fathom 205366178, 00:49:31–00:53:42): «le pegué el copy que quería… y las que salen del máximo que tenía el

@@ -102,8 +102,9 @@ export type LugarDeTexto = { rol: string; x: number; y: number; tamano?: number 
 /** Los papeles que nunca reciben el copy: la firma (el @, el nombre del negocio) es del marco. */
 const NO_RECIBE = new Set(['firma']);
 
-/** Lo del marco que es igual en cualquier lámina: «02 / 06», «© 2026», un @. */
-export const esDelMarco = (texto: string): boolean => /^\s*(©\s*\d{4}|\d{1,2}\s*\/\s*\d{1,2}|@[\w.]+)\s*$/.test(texto ?? '');
+/** Lo del marco que es igual en cualquier lámina: «02 / 06», «01 of 11», «3 de 7», «© 2026», «Oct ©2026», un @. */
+export const esDelMarco = (texto: string): boolean =>
+  /^\s*(([a-z]{3,4}\.?\s*)?©\s*\d{4}|\d{1,2}\s*(\/|of|de)\s*\d{1,2}|@[\w.]+)\s*$/i.test(texto ?? '');
 
 /** El orden de lectura: de arriba abajo y, en la misma franja (un 3 % del alto), de izquierda a derecha. */
 export function ordenDeLectura(lugares: readonly LugarDeTexto[]): number[] {
