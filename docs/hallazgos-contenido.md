@@ -24,6 +24,33 @@ para cualquier cuenta (y para llevar a MaKo):
 - **Sin hacer:** etiquetar cada pieza de Spy con su ángulo (para filtrar por ángulo en Content Machine) y decidir con Martín las cuatro
   preguntas de «Cómo seguimos» del documento.
 
+## El método de los ÁNGULOS GANADORES (21/11/2026): lo que después ve el usuario en su Competitor Spy
+
+Martín: «tenemos que detectar patrones de lo que me gustaría llamar tendencias ganadoras… le podríamos llamar, como todo el mundo,
+ángulos». Lo visible dice **ángulo**, nunca «tendencia». El código está en `docs/tendencias/herramientas/` (`analizar.mjs`,
+`generar.mjs`); el resultado, en `docs/tendencias/angulos.json` y `mapa.md`; el diseño de la pantalla, en
+`docs/tendencias/diseno-pestana-angulos.md`.
+- **Un ángulo** es un tema dentro de un sector, leído pieza por pieza por un agente con una lista de temas (`temas.json`) que
+  crece con los «nuevo:…» que propone (se funden en `alias.json`). Se clasifica la pieza, no al referente: un referente cae en
+  varios sectores.
+- **Tres señales, cada una por separado:**
+  - **Insistencia:** cuánto de lo suyo le dedica el referente que más insiste (piezas del ángulo sobre sus piezas clasificadas en
+    90 días, con 3 piezas o más). Se mide en PARTE, no en cantidad: en cantidad, la cuenta que más publica «insiste» en todo.
+  - **Interacción:** mediana de comentarios cada 1.000 vistas, sólo de piezas con 500 vistas o más y medidas con 7 días o más.
+    Los compartidos y los guardados no vienen en lo que se baja (yt-dlp, Spy): el campo existe y va null, y se dice.
+  - **Contagio:** cuántos referentes distintos lo tratan en 90 días.
+- **Crecimiento:** piezas y comentarios por día de los últimos 30 días contra los 60 anteriores (cada cuenta cortada en su última
+  medición), y el peso del ángulo hace un año contra hoy entre las mismas cuentas.
+- **Puntaje (0 a 100):** el percentil del ángulo dentro de su sector en contagio, en interacción y en insistencia, promediados (sin
+  vistas, las otras dos). El crecimiento no entra: va en el estado.
+- **Estado, en este orden:** Nuevo (primera vez hace 60 días o menos, contando el año anterior, y 2 piezas o más en 30 días) ·
+  En crecimiento (comentarios por día ×1,3 o más sin bajar las piezas) · En baja (piezas o comentarios por debajo de ×0,7) ·
+  si no, Saturado. Si los 30 días no dicen nada claro, decide el año (peso duplicado → crece; partido a la mitad → baja).
+- **Para MaKo:** el usuario ya tiene sus competidores en el Spy (`spy_competidores` / `spy_piezas`). Con la misma clasificación
+  (un modelo leyendo cada pieza contra una lista de temas por sector) y estas tres señales, el Spy le puede mostrar sus ángulos
+  ganadores. Dos trampas que el producto tiene que resolver antes: `spy_piezas` mide cada pieza una sola vez (hay que volver a
+  medir, o cortar por cuenta y exigir 7 días de madurez como acá), y el texto de los comentarios no se guarda.
+
 ## Mapa de tendencias por sector (21/11/2026, chat «tendencias»)
 
 El método y las herramientas están en `docs/tendencias/` (`herramientas/`: lista de referentes, armado de piezas, lotes,
