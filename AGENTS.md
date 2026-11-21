@@ -7428,7 +7428,11 @@ Escape de la casa viven en `document` y en captura, y `stopPropagation` frena la
 propagación a otros NODOS, nunca a los listeners hermanos del mismo. Medido el 27/09/2026
 en el selector de portada: una tecla cerraba el panel **y la ficha del cliente**, o sea que
 perdías el cliente por cerrar un selector. El de arriba de todo frena con
-`stopImmediatePropagation()`.
+`stopImmediatePropagation()`. **Y escucha en la captura de `window`, no en la de `document`**
+(21/11/2026): `stopImmediatePropagation` sólo frena a los que se registraron DESPUÉS en el
+mismo nodo, y lo que se abre encima se registra después del modal que ya estaba. Así un
+Escape para cerrar un desplegable cerraba el modal de «Asignar fuentes» con la regla a medio
+armar (tests/desplegable-escape-en-modal.test.ts).
 
 ⚠️ **Y UN EFECTO QUE MIDE UN NODO MONTADO POR UN PORTAL DEPENDE DEL ESTADO QUE MONTA EL
 PORTAL.** El patrón `const [montado, setMontado] = useState(false)` + `if (!montado) return
@@ -8945,6 +8949,15 @@ condiciones para que no mienta:
 
 ⚠️ **Y un «Cargando…» escrito no es un loader.** Un texto no dice que algo está pasando: dice
 que algo dice que está pasando. Va el giro, siempre.
+
+⚠️ **UNA ESCRITURA QUE TIENE QUE SENTIRSE EN EL ACTO NO HACE FILA DETRÁS DE LAS LECTURAS.**
+(21/11/2026) «Mandar a la papelera» en la ficha de un lead «no reaccionaba al primer clic»: el
+clic sí entraba, pero la server action esperaba detrás de las que la ficha manda al abrir
+(medido: cinco en serie en sus primeros 9 s) y el cartel ya se había cerrado. Si la pantalla
+tiene lecturas por server action en vuelo, la escritura va por una RUTA (`fetch`, en paralelo;
+`router.push` después, que en la fila de Next pasa adelante) — `app/api/crm/papelera/route.ts`.
+Y **un cartel de confirmación se cierra cuando la acción TERMINÓ, no cuando empezó**: abierto
+y con su `loading` mientras trabaja (tests/papelera-ficha-primer-toque.test.ts).
 
 # Un SQL escrito en un documento ES código, y se audita igual
 
