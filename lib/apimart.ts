@@ -31,8 +31,8 @@ import 'server-only';
 
 import { envCred } from './credenciales';
 import {
-  comoQuedo, cuerpoDePedido, usdDeVideo, MODELOS_VIDEO, MODELO_VIDEO_POR_DEFECTO,
-  type Arranque, type IdModeloVideo,
+  comoQuedo, cuerpoDePedido, cuerpoDePedidoImagen, usdDeVideo, MODELOS_VIDEO, MODELO_VIDEO_POR_DEFECTO, MODELO_IMAGEN_POR_DEFECTO,
+  type Arranque, type IdModeloImagen, type IdModeloVideo,
 } from './apimart-reglas';
 
 const API = 'https://api.apimart.ai/v1';
@@ -137,3 +137,46 @@ export const costoEstimado = (segundos: number, modelo: IdModeloVideo = MODELO_V
 
 /** Los modelos que se le pueden ofrecer, con su precio medido. Para la pantalla. */
 export const modelosDisponibles = () => Object.values(MODELOS_VIDEO);
+
+// -----------------------------------------------------------------------------
+// IMAGEN con referencia (21/11/2026): el replicador de carruseles regenera cada lámina desde su original
+// -----------------------------------------------------------------------------
+
+/**
+ * Manda a generar UNA imagen a partir de sus referencias: la primera es la BASE (la lámina original, que se conserva) y la
+ * segunda, si va, la persona que entra. El prompt dice lo único que cambia (memoria `una-referencia-prompt-simple`).
+ *
+ * El mismo `Arranque` de tres estados que el video: `desconocido` puede estar corriendo y cobrándose, y NO se reintenta solo.
+ * Quien llama cobra los MaKo Tokens ANTES (`cobrarMediosMt` con `mtDeImagenDe`): este módulo no decide si se puede.
+ */
+export async function generarImagen(p: { referencias: readonly string[]; prompt: string; formato?: string; modelo?: IdModeloImagen }): Promise<Arranque> {
+  const key = await apimartKey();
+  if (!key) return { estado: 'rechazado', porque: 'Falta configurar la clave de generación de MaKo. Avísanos y lo resolvemos.' };
+  let cuerpo: Record<string, unknown>;
+  try {
+    cuerpo = cuerpoDePedidoImagen(p.modelo ?? MODELO_IMAGEN_POR_DEFECTO, p.referencias, p.prompt, p.formato ?? '4:5');
+  } catch (e) {
+    return { estado: 'rechazado', porque: e instanceof Error ? e.message : 'No pude armar el pedido.' };
+  }
+  try {
+    const { status, cuerpo: respuesta } = await pedir('/images/generations', { method: 'POST', body: JSON.stringify(cuerpo) }, key, 60_000);
+    return comoQuedo(respuesta, status);
+  } catch (e) {
+    return { estado: 'desconocido', porque: 'Se cortó la conexión con el proveedor antes de saber si la imagen arrancó.', crudo: e instanceof Error ? e.message.slice(0, 200) : '' };
+  }
+}
+
+/**
+ * Espera a que una tarea termine, preguntando cada `cadaMs` hasta `hastaMs` (epoch). Devuelve `listo` con la URL (vence a las 24 h:
+ * hay que copiarla), `error`, o `esperando` si se acabó el plazo (la tarea puede terminar igual: no se vuelve a pedir).
+ */
+export async function esperarTarea(taskId: string, o: { hastaMs: number; cadaMs?: number }): Promise<EstadoTarea> {
+  const cada = Math.max(1000, o.cadaMs ?? 4000);
+  let ultimo: EstadoTarea = { fase: 'esperando', progreso: 0 };
+  while (Date.now() < o.hastaMs) {
+    ultimo = await estadoDeTarea(taskId);
+    if (ultimo.fase !== 'esperando') return ultimo;
+    await new Promise((ok) => setTimeout(ok, Math.min(cada, Math.max(0, o.hastaMs - Date.now()))));
+  }
+  return ultimo;
+}

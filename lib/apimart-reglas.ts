@@ -242,3 +242,82 @@ export function cuerpoDePedido(
   }
   return base;
 }
+
+// -----------------------------------------------------------------------------
+// IMAGEN con referencia (21/11/2026): el replicador de carruseles regenera cada lámina desde su original
+// -----------------------------------------------------------------------------
+// Martín, 20/11: «no salieron idénticos y tenían que salir realmente idénticos… eso lo tienes que hacer con inteligencia artificial,
+// le tienes que pasar la referencia y pedirle a la IA que cambie al personaje o a los textos». Y el 7/11: «no quiero que sólo
+// dependamos de Flow» (el puente de Flow no andaba en ningún ws el 21/11). Va por ApiMart, con la clave de la plataforma y medido en
+// MaKo Tokens. Leído de docs.apimart.ai el 21/11: POST /v1/images/generations {model, prompt, size, n, image_urls, resolution?}, la
+// misma respuesta asíncrona que el video ({data:[{task_id}]}) y GET /v1/tasks/{id} con `result.images[0].url[0]` (vence a las 24 h:
+// lo generado se copia a nuestro bucket).
+
+/** Un modelo de imagen con referencia: lo que hace falta saber ANTES de llamarlo. */
+export type ModeloImagen = {
+  readonly id: string;
+  /** Cómo lo llama la gente. */
+  readonly nombre: string;
+  /** US$ por imagen, el precio publicado (el «Gold» de apimart.ai/pricing, 21/11/2026). */
+  readonly usdPorImagen: number;
+  /** El balde de MaKo Tokens con que se cobra (lib/mako-tokens-reglas.ts → `MT_POR_IMAGEN`). */
+  readonly calidad: 'normal' | 'premium';
+  /** Los formatos que acepta `size`. */
+  readonly formatos: readonly string[];
+  readonly maxReferencias: number;
+  /** El tope del prompt en letras (el que dice la documentación; sin tope documentado, uno prudente). */
+  readonly maxPrompt: number;
+  /** `resolution` que se manda (null = el campo no va). */
+  readonly resolucion: string | null;
+};
+
+export const MODELOS_IMAGEN = {
+  // Nano Banana Pro (Gemini 3 Pro Image): el que mejor escribe el texto dentro de la imagen y respeta la referencia. 2K cuesta lo
+  // mismo que 1K, y una lámina de 1080 × 1350 la necesita.
+  'gemini-3-pro-image-preview': {
+    id: 'gemini-3-pro-image-preview', nombre: 'Nano Banana Pro', usdPorImagen: 0.02, calidad: 'premium',
+    formatos: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'], maxReferencias: 14, maxPrompt: 4000, resolucion: '2K',
+  },
+  // Nano Banana (Gemini 2.5 Flash Image): más barato, escribe peor el texto. Sólo 1K (el campo no va).
+  'gemini-2.5-flash-image-preview': {
+    id: 'gemini-2.5-flash-image-preview', nombre: 'Nano Banana', usdPorImagen: 0.008, calidad: 'normal',
+    formatos: ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'], maxReferencias: 14, maxPrompt: 1000, resolucion: null,
+  },
+  // Seedream 4: otro motor, por si los de Gemini no logran el parecido. No tiene 4:5.
+  'seedream-4.0': {
+    id: 'seedream-4.0', nombre: 'Seedream 4', usdPorImagen: 0.0195, calidad: 'normal',
+    formatos: ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', '21:9'], maxReferencias: 10, maxPrompt: 1000, resolucion: '2K',
+  },
+} as const satisfies Record<string, ModeloImagen>;
+
+export type IdModeloImagen = keyof typeof MODELOS_IMAGEN;
+export const MODELO_IMAGEN_POR_DEFECTO: IdModeloImagen = 'gemini-3-pro-image-preview';
+
+/** El formato que acepta el modelo más cercano al pedido (por la proporción): un 4:5 va como 3:4 donde no hay 4:5. */
+function formatoMasCercano(m: ModeloImagen, formato: string): string {
+  if (m.formatos.includes(formato)) return formato;
+  const valor = (f: string) => { const [a, b] = f.split(':').map(Number); return a / b; };
+  const quiero = valor(formato);
+  return [...m.formatos].sort((x, y) => Math.abs(valor(x) - quiero) - Math.abs(valor(y) - quiero))[0];
+}
+
+/**
+ * El cuerpo de un pedido de imagen. Las referencias van EN ORDEN: la primera es la BASE (la lámina original); la segunda, si va, la
+ * persona. Tira antes de gastar lo que el proveedor rechazaría: sin referencias o con de más, una que no es http(s) ni data:image,
+ * un prompt vacío o más largo que el tope del modelo.
+ */
+export function cuerpoDePedidoImagen(modelo: IdModeloImagen, referencias: readonly string[], prompt: string, formato: string): Record<string, unknown> {
+  const m: ModeloImagen = MODELOS_IMAGEN[modelo];
+  if (!referencias.length) throw new Error('Falta la imagen de referencia (la lámina original).');
+  if (referencias.length > m.maxReferencias) throw new Error(`Son ${referencias.length} referencias y ${m.nombre} acepta ${m.maxReferencias}.`);
+  for (const r of referencias) {
+    if (!/^https?:\/\//.test(r) && !/^data:image\/(png|jpe?g|webp);base64,/.test(r)) throw new Error('Cada referencia tiene que ser una URL http(s) o una imagen data:image.');
+  }
+  const texto = (prompt ?? '').trim();
+  if (!texto) throw new Error('Falta el prompt.');
+  if (Array.from(texto).length > m.maxPrompt) throw new Error(`El prompt es más largo de lo que acepta ${m.nombre} (${m.maxPrompt} letras).`);
+  return {
+    model: m.id, prompt: texto, size: formatoMasCercano(m, formato), n: 1, image_urls: [...referencias],
+    ...(m.resolucion ? { resolution: m.resolucion } : {}),
+  };
+}

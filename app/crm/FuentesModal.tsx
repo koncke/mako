@@ -80,8 +80,6 @@ export function filaDeFormulario(f: FormularioFila, ahora = Date.now()): FilaFue
 
 type Pide = { titulo: string; mensaje: ReactNode; confirmar: string; cancelar: string; hacer: () => Promise<void> };
 
-const NADA = () => {};
-
 export function FuentesModal({ funnelId, nombreProducto, onCerrar, onCambio }: {
   /** `null` = el funnel del negocio (quien monta normaliza su id numérico a `null`). */
   funnelId: number | null;
@@ -310,13 +308,16 @@ export function FuentesModal({ funnelId, nombreProducto, onCerrar, onCambio }: {
     });
   };
 
-  const volver = () => {
-    if (sucio) {
-      setPide({ titulo: '¿Salir sin guardar las reglas?', mensaje: 'Los cambios de este formulario se pierden.', confirmar: 'Salir sin guardar', cancelar: 'Seguir editando', hacer: async () => setEditando(null) });
-      return;
-    }
-    setEditando(null);
+  // ⚠️ LAS DOS SALIDAS PREGUNTAN, NO SÓLO «VOLVER» (21/11/2026). Volver y Cancelar ya preguntaban; la ✕, Escape y el clic
+  // afuera iban derecho al `onCerrar` de quien monta el modal y el borrador de las reglas se perdía sin aviso (lo vio la
+  // verificación en el ws 4, con un Escape que además era para cerrar un desplegable). Cualquier camino que saque al editor
+  // con cambios pasa por la misma pregunta.
+  const salirSinGuardar = (despues: () => void) => {
+    if (!sucio) { despues(); return; }
+    setPide({ titulo: '¿Salir sin guardar las reglas?', mensaje: 'Los cambios de este formulario se pierden.', confirmar: 'Salir sin guardar', cancelar: 'Seguir editando', hacer: async () => despues() });
   };
+  const volver = () => salirSinGuardar(() => setEditando(null));
+  const cerrar = () => salirSinGuardar(() => { setEditando(null); onCerrar?.(); });
 
   // ── Dibujo ───────────────────────────────────────────────────────────────
   const avisoCuenta = campanas?.cuentaMeta && etiquetaCuentaMeta(campanas.cuentaMeta.cuenta) ? (
@@ -376,7 +377,7 @@ export function FuentesModal({ funnelId, nombreProducto, onCerrar, onCambio }: {
 
   const ventana = (
     <Modal titulo="Asignar fuentes" encabezado={<span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Funnel · {nombreProducto}</span>}
-      onCerrar={onCerrar ?? NADA} ancho={820} alto="min(88vh, 780px)" sinFiletes completaEnCelular pie={pie}>
+      onCerrar={cerrar} ancho={820} alto="min(88vh, 780px)" sinFiletes completaEnCelular pie={pie}>
       {cuerpo}
       {pide && (
         <Confirm title={pide.titulo} message={pide.mensaje} confirmLabel={pide.confirmar} cancelLabel={pide.cancelar} tone="primary"

@@ -78,12 +78,14 @@ test('3 · armando el documento: ninguna capa de texto se pisa, y cada una guard
 
 test('4 · pantalla dividida: dos cuadros con la escena PARECIDA; la foto del negocio nunca pegada como si fuera el lugar', () => {
   const r: Replica = { proporcion: '4:5', titulo: 'X', laminas: [{ ...BASE, cuadros: [escena(0), escena(0.5)], textos: [sub('Dentro de 100 años', 0.4), sub('nadie recordará tus dudas.', 0.9)] }] };
-  const escenas = new Map([['rocky beach at sunset', playa]]);
+  // Dos fotos de la MISMA búsqueda, una por cuadro (20/11/2026: ninguna foto dos veces, tests/carruseles-copy-pegado.test.ts, 9).
+  const playa2 = { ...playa, id: 'p2', url: playa.url.replace('playa.jpg', 'playa-2.jpg') };
+  const escenas = new Map([['rocky beach at sunset', [playa, playa2]]]);
   const doc = documentoDeReplica({ replica: r, estilo, marca: { nombre: 'X', usuario: null }, foto: fotoDelNegocio, nuevoId, escenas });
   const objetos = (doc.pages as Array<Record<string, unknown>>)[0].objects as Array<Record<string, unknown>>;
   const lugares = objetos.filter((o) => o.type === 'image' && o.src !== fotoDelNegocio.url);
   assert.equal(lugares.length, 2, 'una imagen por cuadro: la pantalla dividida');
-  assert.ok(lugares.every((i) => i.src === playa.url), 'cada cuadro lleva la escena parecida');
+  assert.deepEqual(lugares.map((i) => i.src), [playa.url, playa2.url], 'cada cuadro lleva SU escena parecida, sin repetir');
   assert.deepEqual(lugares.map((i) => i.top), [0, 675], 'arriba y abajo, como el original');
   // 12/11/2026: con su cara elegida y una persona en el original, la cara ENTRA, pero aparte: un retrato redondo sobre la esquina de
   // la escena, más chico que ella. La foto del negocio sigue sin ser el lugar (tests/carruseles-replica-se-lee.test.ts, 8).

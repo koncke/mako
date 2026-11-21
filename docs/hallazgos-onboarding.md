@@ -3,6 +3,97 @@
 El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-state.ts`) y
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
+## Las marcas: el hueco corrido sobre los puntitos y «Siguiente» donde había que tocar (21/11/2026, claude5, chat «onboarding-v2»)
+
+- **El hueco corrido** (Martín, en producción, ws 3: «estoy seguro de que pasa en otros lugares»). Había dos causas, y la obvia, la
+  geometría del motor, no era. `recorteDe` ya contenía el elemento entero y centrado: el test lo mide a 1440 y a 375.
+  - **La entrada de cada día y de cada coach** (EntradaEscribiendo) armaba el hueco con la FOTO y los PUNTITOS, no con el GLOBO que los
+    tiene. El padding blanco del globo quedaba afuera, el hueco se veía corrido y la foto, encima. Ahora la foto y el globo
+    (`cajaDeLaFila`, app/_ui/tutorial/hueco-de-la-fila.ts).
+  - **Nadie volvía a medir al terminar una animación.** Un `transform` no avisa ni al ResizeObserver ni al MutationObserver: un globo que
+    entra deslizándose se medía a mitad de camino y el hueco quedaba corrido para siempre. El motor y la entrada escuchan
+    `animationend` y `transitionend`.
+- **«Siguiente» en un paso que pide clic** (Martín: «la idea es que el usuario aprenda a cliquear donde debe cliquear»). Con el video
+  mandando, «Siguiente» salía igual (`conVideo || !esperaClic`). Ahora un paso que pide clic se sigue SÓLO tocando ahí. «Siguiente»
+  sale en las marcas que explican, y «Omitir recorrido» sale siempre. Los tests de antes (tutorial-pausas «7») miraban qué HACE
+  «Siguiente», no CUÁNDO sale, y por eso no cayeron.
+- tests/marcas-centradas-y-sin-siguiente.test.ts (roto de a una rotura, 6). Medido con números, no mirado: lo mira el Cerebro.
+
+## El inventario de botones del onboarding V2, la llegada y el primer día (20/11/2026, noche, claude5, chat «onboarding-v2»)
+
+Martín: «Tienes que fijarte todas las opciones que tiene el usuario, todos los botones que puede apretar». Tres lectores de código, uno
+por zona (la caja; los videos, las marcas y el reto; el flujo y la barra del administrador). «¿Lo hace?» sale del CÓDIGO, no de tocarlo:
+lo toca el Cerebro en producción. Lo que fallaba se arregló en las tandas 367a6868d (nota de voz, emojis), 38beadae2 (el video en el chat),
+69b36ad6d (el flujo, la caja, la barra) y la tanda D (videos, marcas, reto, y la ayuda «?» encima de los emojis que vio el Cerebro).
+
+| Control | Qué tiene que hacer | ¿Lo hace? | Test que lo cuida |
+|---|---|---|---|
+| Emoji (carita y panel) | Abrir, poner el emoji en el cursor, pestañas, recientes, cerrar con Escape o afuera | Sí. Salía recortado: ahora se acomoda adentro. Se cierra con la caja apagada; abierto, esconde la ayuda «?» (a 375 la tapaba) | centro-ops5 «5», emojis-dentro-del-chat, inventario-onboarding-flujo «5» |
+| Micrófono: grabar, pausar, ✓, escuchar, mandar, 🗑 | Grabar en tramos, revisar, mandar o tirar | Sí. Sin IA propia no transcribía: ahora el Whisper de MaKo, en MaKo Tokens | whatsapp-sexta-tanda, chat-nota-de-voz, nota-de-voz-con-mako, ia16-cada-uno-su-ia |
+| Campo de texto, Enter / Shift+Enter, flecha | Escribir y mandar | Sí. En el cierre lo escrito se perdía: ahora se apaga | centro-caja, caja-voz-revision «3», inventario-onboarding-flujo «5» |
+| Sol / luna | Claro / oscuro, recordado | Sí | onboarding-v2-maqueta «6», onboarding-v2-auditoria «13» |
+| Video: play, barra, velocidad | Arrancar, saltar, 1× a 2× | Sí (la barra, sólo con clic) | ninguno de comportamiento (leen el código) |
+| Pantalla completa | Agrandar el video | **No existía**: agregada (en el iPhone, la suya) | inventario-videos-y-reto «1» |
+| Video flotante y su X | A la esquina sólo fuera de la vista; volver; cerrar | Sí. «¡Hola de nuevo!» iba a la esquina siempre, y con una marca de sus frases no flotaba: arreglados | video-en-el-chat, onboarding-v2-auditoria «15» |
+| País y «Seguir» | Elegir el país, validar, mandar | Sí. El ejemplo era argentino con México: ahora por país | onboarding-whatsapp-primero «6», onboarding-v2-auditoria «4», inventario-onboarding-flujo «3» |
+| «Guardar contacto» | Guardar a MaKo en la libreta | A medias: descarga MaKo.vcf; en el teléfono no abre la libreta | whatsapp-ya-confirmado «4» (sólo el link) |
+| Opciones y «Escribe otra cosa» | Contestar con un toque o con texto | Sí. Con opciones Y texto mandaba sólo el texto, y un envío fallido perdía lo elegido: arreglados | onboarding-v2-maqueta «2», «3», inventario-onboarding-flujo «7» |
+| «Responder» con varias | Mandar las elegidas (hasta 3) | Sí | onboarding-v2-maqueta «2» |
+| «Entrar a MaKo» | Navegación entera a la app | Sí. En un Safari viejo quedaba «Entrando…»: arreglado | onboarding-sin-ida-y-vuelta «5», inventario-onboarding-flujo «4» |
+| «dale play» y su X | Invitar al video quieto; la X cierra | Sí. Salía sobre el cuadro vacío; la X de la llegada frenaba el reto; tocar la velocidad lo cerraba: arreglados | llegada-dale-play-dibujado, tutorial-entrada, inventario-videos-y-reto «2», «3» |
+| «Omitir recorrido» y «Siguiente» | Saltear; avanzar; «Listo» al final | Sí. Con el video en el mensaje no había «Omitir»: ahora debajo del reproductor | tutorial-sin-presentacion «1», tutorial-pausas «7», video-en-el-chat «2», inventario-videos-y-reto «6» |
+| «¿Qué hacemos ahora?» | «Empezar mi día 1» o «Muéstrame {pestaña}» | Sí. La marca de «Muéstrame» no tenía salida: ahora «Lo hago después» | reto-dias, inventario-videos-y-reto «4» |
+| Desplegable «Día 1 de 7» | Los 7 días, sus tareas y su video | Sí. No se cerraba afuera ni al elegir un video: arreglado | reto-dias, inventario-videos-y-reto «5» |
+| Ícono de videos | El catálogo; elegir un video lo muestra | A medias: elegir y después play (dos toques) | reto-dias |
+| Barra del administrador | RESET, «Reiniciar onboarding», «Ir a un paso», «Salir de la vista» | Sí. RESET dejaba el onboarding en el navegador y «Salir» navegaba aunque fallara: arreglados. «Ir a un paso», nuevo | reiniciar-onboarding, inventario-onboarding-flujo «1», «2», revision-saltar-y-ejemplos |
+
+**Quién lo TOCA desde el 21/11** (el banco, scripts/banco-onboarding, sin sesión ni producción):
+- El banco toca 15 de las 18 filas: emoji, micrófono (con el de mentira de Chromium), campo y Enter/Shift+Enter, sol y luna, video
+  (play, barra, velocidad, teclado), pantalla completa, flotante y su X, país y «Seguir», «Guardar contacto», opciones y «Escribe otra
+  cosa», «Responder» con varias, «Entrar a MaKo», «dale play» y su X, «Omitir recorrido» y «Siguiente», y la barra del administrador.
+- Las tres del reto («¿Qué hacemos ahora?», el desplegable de días y el catálogo de videos) viven del estado del reto en el server: las
+  recorre el Cerebro en producción, con la sesión de Martín en el navegador de la app y silenciado. También lo de la libreta del
+  teléfono y la pantalla completa del iPhone.
+
+**Lo que quedó sin hacer, y lo que decidió el Cerebro** (21/11/2026, tanda E):
+- HECHO: el V2 pasa `voz` a la caja como las demás (no se graba mientras MaKo contesta: `apagada`). La nota de voz se cancela
+  mientras se transcribe y, si falla, queda en la barra para volver a mandarla o borrarla (app/_chat/useNotaConEspera.ts; la señal,
+  `senalDeCorte` en app/_components/transcribir-nota.ts). **Trampa:** el camino viejo (`useNotaQueSeManda`, sin `voz`) transcribía
+  solo, y por eso el micrófono no tenía cómo apagarse en el V2.
+- HECHO: los días 2 a 7 abiertos desde el desplegable o el pin cuentan lo tocado y marcan lo que falta al terminar, como desde el hilo
+  (`avisosDelDia`, ChatDelReto.tsx: lo anota el mensaje del día al dibujarse).
+- HECHO: el catálogo de videos en un toque (`arrancar` en VideoDelMomento) y la barra del video con arrastre y teclado (±5 s, Inicio,
+  Fin; app/_ui/tutorial/pista.ts), en el reproductor del chat y en el del motor.
+- NO SE HACE (el Cerebro): «Guardar contacto» en el teléfono descarga el .vcf, que abre «Agregar contacto»: es lo esperable.
+- DESPUÉS, aparte: los tests que TOCAN de verdad (Playwright contra el ws 3), cuando la tanda E esté en producción. Los de hoy leen el
+  código; lo que se miró, se miró con números y con las máquinas de verdad (`etapaDeArranqueV2`, `diaAbierto`), no tocando.
+- tests/inventario-tanda-e.test.ts (5/0, roto de a una rotura: 9).
+
+**Trampa del inventario:** los tres lectores leyeron código, no tocaron. Encontraron fallas de lógica y de cableado, no de dibujo: un panel
+recortado o un video más chico que su globo los vio Martín, no el inventario. Lo que se ve, lo mira el Cerebro en producción a 1440 y 375.
+
+## La revisión: ir a cualquier paso y respuestas de ejemplo, con el estado real (20/11/2026, noche, claude5, chat «onboarding-v2»)
+
+Martín: «viste que hay un desplegable en el artefacto que me deja ir avanzando o retrocediendo. Si no, cada vez que quiero ver algo que
+ya pasó, tengo que resetear todo». La maqueta salta REPRODUCIENDO eventos con respuestas precargadas (`flujo(ev)` + `precarga`, en
+C:/dev/artefactos-onboarding/cuerpo.html). La app guarda el estado en el server, así que acá saltar es ESCRIBIR el estado del paso.
+- **Cómo:** «Reiniciar onboarding» (el mismo del botón, ya probado: borra el estado del onboarding y del reto y olvida los tutoriales,
+  sin tocar los datos) y después el estado del paso (lib/onboarding-v2/saltar.ts, puro; lo escribe saltar-server.ts). Los del
+  arranque, con las respuestas de ejemplo de la maqueta (escenario A). La llegada, con el onboarding terminado (`status: 'done'`). Cada
+  día del reto, con el recorrido visto para el dueño, el día 1 elegido y los días hasta N adelantados, como «Adelantar al día N». Las
+  tareas de los días de antes van con «Lo hago después»: las hechas de verdad las LEE MaKo, no se escriben.
+- **Lo que no se adivina, se mide con la máquina de verdad:** el test pasa cada estado por `etapaDeArranqueV2` y `diaAbierto`. **Trampa
+  del reto:** `adelantado` no es «cuántos días adelantó» sino el día que quedó abierto (`/api/reto`, «adelantar»). Con `n - 1`, el día
+  N quedaba en N-1.
+- **Lo del navegador:** lo visto del reto va por el `inicio` del reto (`mako.reto.visto.<inicio>|…`), así que un reto nuevo arranca
+  limpio. El desplegable anota como vistos los videos de los días de antes en ESTE navegador. El del dueño no, salvo la limpieza del
+  reinicio.
+- **La puerta** (alguien de MaKo, en el 3 o el 9) va en el server: la ruta y la página que pasa `ejemplos`. Regla en AGENTS.md.
+- **Sin hacer:** el paso «código» no está en el desplegable (pide un código pendiente de verdad: se llega con «Tu WhatsApp» y
+  «Seguir»). Las preguntas de los coaches (Offer Coach y Funnel Coach) no tienen respuestas de ejemplo; sólo las que se escriben en el
+  arranque (el nombre y el negocio), porque las de opciones ya se contestan con un toque. Nada se probó contra la base: lo prueba el
+  Cerebro en producción, en el ws 3. tests/revision-saltar-y-ejemplos.test.ts (roto de a una rotura, 8).
+
 ## «¡Hola de nuevo!» se iba a la esquina sin motivo (20/11/2026, noche, claude5, chat «onboarding-v2»)
 
 - **Síntoma** (Martín, en producción, ws 3): sin scroll, con el mensaje a la vista, tocó play y el video saltó al recuadro chico de
@@ -4118,3 +4209,125 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
   - La guía CUBOS y su respuesta automática no existen (docs/series/serie-3-ventas.md:113; sin chat).
   - Carruseles: ocho fallas con archivo y línea en la lista (sin chat; prioridad 3 de Martín).
   - Partners: el panel todavía dice «27 %» (app/partners/ProgramaPartners.tsx:81).
+
+## El Second Brain del recorrido: la animación de la maqueta, sobre el grafo de verdad (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Pedido** (Martín, por el Cerebro): la animación del Second Brain de la maqueta (C:/dev/artefactos-onboarding/cuerpo.html →
+  `brainHtml`, `programarBrain`, `medirBrain` y las reglas `.mq-brain`/`.mq-g-*`), en el paso del recorrido que abre el Second Brain:
+  el cerebro de la portada entero, que se apaga de afuera hacia adentro hasta lo que MaKo sabe de la persona, y la cámara que se acerca.
+- **Dónde vive:** app/second-brain/BrainDelRecorrido.tsx (la capa) y lib/onboarding-v2/brain-del-recorrido.ts (la geometría, pura).
+  Lo que sabe sale de `loQueSabeMaKo` (lib/reto/nombre.ts): el `onboarding.arranque` del NEGOCIO, como el nombre del reto.
+- **Trampa 1: el grafo lo arma el SERVIDOR** (`mapaDelSecondBrain` da un ReactNode) y no recibe hijos. La capa entra por un portal al
+  `.cbg-marco` (la marca «Lo que MaKo sabe de ti»), que se busca hasta 6 s porque llega después que el cliente. Va por DEBAJO de la barra
+  del grafo (z-index 3): la flecha de volver es el paso que sigue y se toca.
+- **Trampa 2: el JSON de la portada pesa 107 KB.** Va en corto (app/second-brain/brain-del-recorrido.json, 28 KB, un nodo por renglón)
+  con `compactarCerebro`, el mismo corte que hace la maqueta al armarse (armar.mjs). El test compara el corto con el original: si la
+  portada cambia, queda en rojo hasta regenerarlo. Entra con next/dynamic y se pide al montar el Ops Center con el V2, así está listo al
+  tocar «Second Brain».
+- **Lo que falta no se inventa:** la maqueta ponía «…» sin origen; en la app, lo que la persona no dijo no va. «Confirmado» sólo con el
+  WhatsApp verificado.
+- **Sólo mientras corre el recorrido** (`senal.tutorial === TUTORIAL_RECORRIDO`, como LlegadaAlReto): terminado u omitido, se desvanece y
+  queda el grafo real del negocio. La nota de la maqueta («Por ahora, esto es lo que sé de ti…») no va: la dice la tarjeta del paso.
+- **Mirado** en una página suelta (sin MaKo ni sonido), a 1440 y 375, en sus tres momentos. En el teléfono, lo que queda sube para dejar
+  lugar a la tarjeta de abajo, como en la maqueta.
+- **Sin hacer:** no se miró dentro de la app con el recorrido real, porque la regla es no abrir MaKo en el navegador de la app (los
+  tutoriales suenan). Eso lo cubren los Playwright contra el ws 3, la tanda que sigue.
+- tests/brain-del-recorrido.test.ts (roto de a una rotura, 6).
+
+## «Ir a un paso» con todos los pasos: llegar a una marca del medio (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Pedido** (Martín en el ws 3): «Hoy son 16 bloques. Tiene que tener el desglose de cada uno». Ahora la lista tiene cada mensaje del
+  arranque, la llegada y cada marca del recorrido, y cada día con MaKo que escribe, su video, cada tarea y cada marca. Son más de 60
+  pasos (`PASOS_DE_REVISION`, lib/onboarding-v2/saltar.ts), armados con los datos de verdad: TUTORIAL_RECORRIDO y DIAS_RETO.
+- **Cómo se llega a la marca exacta:** el server deja la base. El navegador recibe `vistos` (lo de hoy, según el paso) y un `salto`
+  (lib/onboarding-v2/salto-pendiente.ts, en sessionStorage). Al llegar, lo toma uno solo: el motor arranca el recorrido en su paso, y
+  el chat del reto marca la tarea desde su marca.
+- **Trampa 1: una marca del medio de una tarea vive en OTRA pestaña.** Marcarla desde el chat del reto deja una marca esperando algo que
+  no está («una marca espera siempre»). Va con `marcasDesde`: las de antes van como `antes` en cadena y se tocan solas, como en el
+  motor. El link de la barra navega sin recargar y el motor, que está en el layout raíz, sigue vivo.
+- **Trampa 2: el recorrido desde su paso va SIN el video.** El video sigue los pasos desde el primero (`sigueLosPasos`); arrancarlo en el
+  medio exigiría buscar el segundo de cada frase. Con `desde`, el motor corre con las tarjetas. La flecha existe sólo con el grafo
+  abierto: su paso va a `/second-brain?panel=mapa`.
+- **Trampa 3: el salto sobrevive a la limpieza del reinicio porque su clave (`mako.v2.salto`) NO está en `CLAVES_DEL_NAVEGADOR`.** Un
+  salto ES un reinicio, y el script del layout borra esas claves al cargar. Ojo, sin probar: los `vistos` (`mako.reto.visto.…`) sí
+  están en esa lista. Hoy no se borran porque el script no corre mirando otro negocio; si alguien revisa en el negocio de prueba con su
+  PROPIA sesión, el script los borraría.
+- **El texto del recorrido se trae sólo con un salto** (import dinámico): el motor va en todas las pantallas.
+- **Sin hacer:**
+  - El código del WhatsApp entró a la lista después, con la simulación del punto 3.
+  - El recorrido arrancado por un salto no se anota visto al terminar.
+  - Las marcas del medio no se tocaron en páginas de verdad (los Playwright contra el ws 3).
+- tests/revision-pasos-individuales.test.ts (roto de a una rotura, 5).
+
+## El WhatsApp de la revisión, como el de un número nuevo y sin mandar nada (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Síntoma** (Martín en el ws 3): con el número del negocio de prueba ya verificado, el paso decía «ya está confirmado» y se salteaba
+  el código. «Yo quiero ver exactamente igual lo que recibe el usuario».
+- **El arreglo obvio era el equivocado:** «des-verificar» el negocio de prueba rompe su WhatsApp de verdad (`getVerificacion`, la
+  línea, los avisos). Ahora el código simulado vive en el ESTADO DEL ONBOARDING (`simulacion`, lib/onboarding-v2/whatsapp-simulado.ts).
+  La ruta del arranque lo usa sólo con la puerta de la revisión, al crearlo y al verificarlo; un código simulado sin la puerta da 403.
+  Nada sale por WhatsApp ni toca la verificación de verdad.
+- **Trampa: en el camino de un número nuevo, la tarjeta de MaKo y «Guárdame…» NO están en el chat de la app.** MaKo los manda por
+  WhatsApp después del código (`mandarCodigoV2`, lib/mako-grupo.ts). Por eso el modal (app/onboarding/WhatsappSimulado.tsx) muestra el
+  pedido, el código, la tarjeta y «Guárdame…», en ese orden y con los textos de verdad. Después, la app sigue con «¿Guardaste…?».
+  Sumarlos al chat de la app hubiera mostrado algo que un cliente nunca ve.
+- «Abrir WhatsApp» es el mismo botón verde y el mismo `data-abrir-whatsapp` (la marca del tutorial lo encuentra igual). «Pegar el código»
+  lo deja en la caja, y se confirma solo como al pegarlo. «Reenviar» y «Pedir otro» no hacen nada en la simulación; «Cambiar número» la
+  borra.
+- **Sin hacer:**
+  - Mirarlo en la app de verdad (los Playwright contra el ws 3).
+  - «Ir a un paso» ya tiene «El código por WhatsApp» (21/11): deja el estado esperando el código, con la simulación y un código que pone
+    el server.
+- tests/revision-whatsapp-simulado.test.ts (roto de a una rotura, 4).
+- **EN PRODUCCIÓN SE CARGABA SOLO** (21/11, 05:24 UTC, el Cerebro en el ws 3). Al tocar «Abrir WhatsApp» no salía el modal: contestaba solo
+  «Listo, ya lo cargué» y saltaba a «¿Guardaste…?». Con «Ir a un paso» desde otra página pasaba lo mismo.
+  - **El diagnóstico obvio (el estado del salto, el modal) era el equivocado.** La pantalla pregunta cada 4 s si llegó el WhatsApp
+    (`action: 'whatsapp'`), y la ruta miraba la verificación de VERDAD del negocio. En el ws 3 está verificada: daba el código por
+    cargado.
+  - **La regla:** una simulación corta TODOS los caminos que leen el estado de verdad, también las preguntas de fondo. Con la
+    simulación, la pantalla ya no pregunta, y la ruta, si le preguntan igual (una pestaña vieja), no mira.
+  - El banco contesta esa pregunta como producción (salta a «¿Guardaste…?»): con la pantalla vieja, cae.
+
+## Los tests que TOCAN: el banco del onboarding, sin sesión y sin producción (21/11/2026, chat «onboarding-v2», claude5)
+
+- **La regla** (el Cerebro): en un navegador automático NO se usan las cookies, la sesión ni la contraseña de nadie, y no hay previews de
+  Vercel. Los tests que tocan van contra los componentes REALES dibujados en local: scripts/banco-onboarding (como los otros
+  scripts/banco-*). build.mjs compila con esbuild y stubs de Next; entrada.tsx monta cada escenario y contesta /api con datos inventados;
+  probar.mjs usa Playwright headless, toca cada control y deja capturas. Primero fueron 48 chequeos en cinco escenarios; con la segunda
+  vuelta (el reproductor, la caja y las tarjetas del chat, la llegada) son más de 80:
+  - dos videos en el hilo, con el motor;
+  - el WhatsApp simulado;
+  - la barra (RESET, «Autocompletar», «Ir a un paso»);
+  - el Second Brain del recorrido;
+  - un paso con clic y otro sin.
+- **Trampa 1: el Chromium de Playwright no reproduce H.264.** Un mp4 de public/ no arranca nunca. El banco genera un webm VP8/Opus con
+  ffmpeg. El servidor contesta `Range` (206): sin eso, Chromium a veces no arranca ni deja saltar.
+- **Trampa 2: la regla de «un video a la vez» mira sólo los videos con sonido.** Un video `muted` no la prueba. El navegador va con
+  `--mute-audio`: no suena nada y el `<video>` sigue sin `muted`.
+- **Trampa 3: `location.assign` no se puede pisar** (es `[LegacyUnforgeable]`). Las navegaciones del RESET y de «Ir a un paso» se atajan
+  con `page.route` y se contestan con una página vacía del mismo origen (el sessionStorage del salto sobrevive). Las llamadas a /api, con
+  un `window.fetch` de la página que las anota.
+- **Trampa 4: 48 de 48 a la primera no prueba nada.** Se rompieron cinco puntos del código de verdad:
+  - sin soltar lo que flota;
+  - «Abrir WhatsApp» con el link real;
+  - «Siguiente» en el paso de clic;
+  - la capa encima de la barra;
+  - el botón con «Reiniciar onboarding».
+  Cada uno cayó en su escenario.
+- Los cuadros negros de los videos en las capturas son del Chromium headless con el video de prueba, no de la app.
+- **Trampa 5: «el modo no se recuerda al recargar» era del BANCO, no de la app.** El sol y la luna leen el atributo de `<html>`, y ese
+  atributo lo pone el arranque (ModoArranque antes de React, ModoDelUsuario después). El banco monta ModoDelUsuario, como la app.
+- **Trampa 6: el panel de emojis abre en «Recientes»,** vacío en un navegador nuevo. Para tocar un emoji, primero va una categoría.
+- El micrófono se prueba con `--use-fake-device-for-media-stream` y `--use-fake-ui-for-media-stream`, y la transcripción la contesta
+  la página. Se tocan grabar, terminar y mandar; pausar, escuchar y tirar no se tocaron uno por uno.
+- **Lo que el banco NO ve (lo mira el Cerebro en producción, con la sesión de Martín en el navegador de la app, silenciado):**
+  - el panel de emojis a 375 dentro del Ops Center;
+  - el micrófono y la transcripción;
+  - «Guardar contacto» en el teléfono;
+  - «Entrar a MaKo» hasta la app;
+  - el recorrido marcando el Ops Center de verdad, con la capa del Second Brain sobre el grafo real;
+  - «Ir a un paso» aterrizando en una marca del medio de otra pestaña;
+  - el WhatsApp simulado contra la ruta de verdad, hasta «¿Guardaste…?»;
+  - el reto: «¿Qué hacemos ahora?», el desplegable de días, el catálogo y las marcas de las tareas;
+  - el formato de los globos.
+- Uso: `node scripts/banco-onboarding/build.mjs && node scripts/banco-onboarding/probar.mjs [--solo videos,whatsapp,barra,brain,marca]`.

@@ -123,6 +123,9 @@ export type EstadoArranque = {
   /** V2 (20/11/2026): el WhatsApp YA estaba confirmado de antes (un «Reiniciar onboarding» con el número verificado) y no hubo código.
    *  MaKo lo dice y sigue con su contacto; nunca el mensaje del código ni «Listo, ya lo cargué.». Va y se borra con `telefonoNumero`. */
   telefonoYa?: boolean;
+  /** LA REVISIÓN (21/11/2026, Martín: «Yo quiero ver exactamente igual lo que recibe el usuario»): el código del WhatsApp SIMULADO de un
+   *  número nuevo (lib/onboarding-v2/whatsapp-simulado.ts). Sólo lo escribe la ruta con la puerta de la revisión; nada sale por WhatsApp. */
+  simulacion?: { codigo: string };
   /** La conversación de Offer donde vive la oferta (modo 'oferta'). */
   sesionId?: number;
   /** El chat «Onboarding» del Ops Center con esta conversación (20/10/2026): se crea una vez, al terminar. */
@@ -1508,7 +1511,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     return { ok: true, patch: { faseResp: propias, ...escritas }, ...(completa ? { fase: completa, ...(siguiente.canal ? { faseCanal: siguiente.canal } : {}) } : {}) };
   }
   if (etapa === 'codigo') {
-    if (opcion === CAMBIAR_NUMERO) return { ok: true, patch: { telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined } };
+    if (opcion === CAMBIAR_NUMERO) return { ok: true, patch: { telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined, simulacion: undefined } };
     if (opcion === AHORA_NO) return { ok: true, patch: { telefono: 'postergado' } };
     return { ok: false, error: e.telefonoEntrante ? 'Mándame el mensaje por WhatsApp: aquí no hace falta escribir nada.' : 'Escribe el código de 6 dígitos.' };
   }
