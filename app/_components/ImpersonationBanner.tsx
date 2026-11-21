@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { PanelAgencia } from './PanelAgencia';
 import { ReiniciarOnboarding } from './ReiniciarOnboarding';
+import { SaltarAPaso } from './SaltarAPaso';
 import { WS_PARAM } from '@/lib/ws-tab';
 import type { VistaDeOtro } from '@/lib/vista-de-otro';
 
@@ -95,7 +96,10 @@ export function ImpersonationBanner({ inicial = null }: { inicial?: VistaDeOtro 
     if (!modoAgencia && wsUrl) { window.location.href = salida; return; }
     setSaliendo(true);
     try {
-      await fetch(modoAgencia ? '/api/agencia/entrar' : '/api/admin/impersonate', { method: 'DELETE' });
+      // Sólo si el servidor sacó la cookie (20/11/2026, el inventario de botones): con un 401 o un 500 navegaba igual, la cookie quedaba
+      // y la barra volvía sola, «indistinguible de un botón roto». Así el botón vuelve y se puede reintentar.
+      const r = await fetch(modoAgencia ? '/api/agencia/entrar' : '/api/admin/impersonate', { method: 'DELETE' });
+      if (!r.ok) { setSaliendo(false); return; }
       window.location.href = salida;
     } catch { setSaliendo(false); }
   };
@@ -158,6 +162,8 @@ export function ImpersonationBanner({ inicial = null }: { inicial?: VistaDeOtro 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
           <PanelAgencia cliente={cliente} />
           <ReiniciarOnboarding cliente={cliente} />
+          {/* La revisión (20/11): ir a cualquier paso del onboarding o del reto. Se dibuja sólo si el server dice que sí (un negocio de prueba). */}
+          <SaltarAPaso />
         </div>
       )}
       {modoAgencia && <span style={{ marginLeft: 'auto' }} />}

@@ -17,7 +17,7 @@
 // portada con su play. La portada de verdad ya trae su título: la maqueta le escribía «Martín · MaKo» y el título encima porque la
 // suya era un fondo liso, y sobre la de verdad no se leían.
 // =============================================================================
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { useManifiestoListo, useVideoTutorial } from './useVideoTutorial';
 import { senalarDondeTocar, soltarSenal, useSenal, type MotivoFin } from './store';
@@ -26,6 +26,9 @@ import { fraseEnElTiempo, type FraseVideo } from '@/lib/tutoriales/videos';
 import { useDalePlay } from './useDalePlay';
 import { usePosterDibujado } from './usePosterDibujado';
 import { cerrarDalePlay } from './entrada';
+import { pantallaCompleta } from './pantalla-completa';
+import { propsDePista } from './pista';
+import { IconoCompleta } from './BarraDelVideo';
 
 type Estado = 'quieto' | 'reproduciendo' | 'pausado' | 'terminado';
 const VELOCIDADES = [1, 1.25, 1.5, 2] as const;
@@ -45,8 +48,10 @@ const conMayuscula = (s: string) => (s ? s.charAt(0).toLocaleUpperCase('es') + s
  *     chat ya bajado.
  * El fin en la esquina lo avisa `onTerminaFuera` (no `onTermina`: el reto pasa el mismo manejador a los dos).
  */
-export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, onEmpieza, onTerminaFuera, onTiempo, onError, onFrase, marcarFrases = false, dalePlay = false }: {
+export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, onEmpieza, onTerminaFuera, onTiempo, onError, onFrase, marcarFrases = false, dalePlay = false, arrancar = false }: {
   clave: string; titulo: string; revision: boolean; onTermina?: () => void; onPausa?: () => void; onEmpieza?: () => void; dalePlay?: boolean;
+  /** Arranca solo al estar (el catálogo: elegir el video ES darle play). */
+  arrancar?: boolean;
   /** Terminó (o lo cerraron con su X) en la esquina, después de salir de la vista (20/11, D1-03: el reto del día 1). */
   onTerminaFuera?: (m: MotivoFin) => void;
   onTiempo?: (t: number) => void;
@@ -71,6 +76,9 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, o
   // Recién con el póster dibujado (20/11/2026, el Cerebro): nunca sobre el cuadro negro mientras el póster viene en camino.
   const dibujado = usePosterDibujado(v?.poster);
   useDalePlay(raiz, { clave, titulo, activo: dalePlay && !!v && estado === 'quieto' && !flotando && dibujado });
+  // `arrancar` (21/11/2026, el inventario: el catálogo pedía elegir el video y después play): arranca apenas está, con el gesto del
+  // toque que lo eligió todavía vivo.
+  useEffect(() => { if (arrancar && v) reproducir(); }, [arrancar, v?.archivo]);
   // La frase que suena, y la marca de la que tiene lugar (videos-5).
   const fraseAhora = useRef<string | null>(null);
   const marca = useRef(0);
@@ -101,11 +109,6 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, o
   const video = () => ref.current;
   const reproducir = () => { const x = video(); if (!x) return; if (x.ended) x.currentTime = 0; void x.play().catch(() => {}); };
   const alternar = () => { const x = video(); if (!x) return; if (x.paused || x.ended) reproducir(); else x.pause(); };
-  const ir = (e: MouseEvent<HTMLDivElement>) => {
-    const x = video(); if (!x || !dur) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    x.currentTime = Math.min(dur, Math.max(0, ((e.clientX - r.left) / r.width) * dur));
-  };
   const cambiarVel = () => {
     const sig = VELOCIDADES[(VELOCIDADES.indexOf(vel as (typeof VELOCIDADES)[number]) + 1) % VELOCIDADES.length];
     setVel(sig);
@@ -140,10 +143,15 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, o
           <Icon name={corre ? 'pausa' : 'play'} size={16} />
         </button>
         <span className="mk-vmom__tiempo">{mmss(terminado ? dur : t)} / {mmss(dur)}</span>
-        <div className="mk-vmom__pista" role="progressbar" aria-label="Avance del video" aria-valuemin={0} aria-valuemax={Math.round(dur)} aria-valuenow={Math.round(t)} onClick={ir}>
+        {/* Con arrastre y teclado (21/11/2026, el inventario: sólo saltaba con un clic): ./pista.ts. */}
+        <div className="mk-vmom__pista" {...propsDePista({ video, dur, t: terminado ? dur : t })}>
           <span className="mk-vmom__hecho" style={{ width: `${dur ? Math.min(100, ((terminado ? dur : t) / dur) * 100) : 0}%` }} />
         </div>
         <button type="button" className="mk-vmom__vel" onClick={cambiarVel} title="Velocidad">{vel}×</button>
+        {/* Pantalla completa (20/11/2026, el inventario de botones: no había en ningún reproductor del chat). */}
+        <button type="button" className="mk-vmom__btn mk-vmom__completa" onClick={() => pantallaCompleta(ref.current)} aria-label="Pantalla completa" title="Pantalla completa">
+          <IconoCompleta />
+        </button>
       </div>
     </div>
   );

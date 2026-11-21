@@ -11,8 +11,9 @@
 // Sólo entiende lo que arma `documentoDeCarrusel`; un documento de otra plantilla no pasa por acá.
 // =============================================================================
 
-import type { CSSProperties, ReactNode } from 'react';
+import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { ALTO_CARRUSEL, ANCHO_CARRUSEL } from '@/lib/carruseles/documento';
+import { FUENTES } from '@/app/image-editor/mako/fuentes';
 
 type Obj = Record<string, unknown>;
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -61,7 +62,7 @@ function Objeto({ o, alto, ancho = ANCHO_CARRUSEL }: { o: Obj; alto: number; anc
   if (tipo === 'textbox') {
     const estilo: CSSProperties = {
       position: 'absolute', left: pctX(num(o.left)), top: pctY(num(o.top)), width: pctX(num(o.width)), margin: 0,
-      fontSize: cq(num(o.fontSize, 40)), fontWeight: num(o.fontWeight, 400), fontFamily: str(o.fontFamily, 'inherit'),
+      fontSize: cq(num(o.fontSize, 40)), fontWeight: num(o.fontWeight, 400), fontFamily: str(o.fontFamily, 'inherit'), fontStyle: o.fontStyle === 'italic' ? 'italic' : 'normal',
       lineHeight: num(o.lineHeight, 1.2), color: str(o.fill, '#111'), textAlign: (str(o.textAlign, 'left') as CSSProperties['textAlign']),
       letterSpacing: `${num(o.charSpacing) / 1000}em`, whiteSpace: 'pre-wrap', overflowWrap: 'break-word',
     };
@@ -82,9 +83,38 @@ function Objeto({ o, alto, ancho = ANCHO_CARRUSEL }: { o: Obj; alto: number; anc
     // La foto del cliente en una réplica (lib/carruseles/replica.ts): cubre su lugar como en el editor (sin deformarse).
     const w = num(o.width) * num(o.scaleX, 1); const h = num(o.height) * num(o.scaleY, 1);
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={str(o.src)} alt="" style={{ position: 'absolute', left: pctX(num(o.left)), top: pctY(num(o.top)), width: pctX(w), height: pctY(h), objectFit: 'cover', objectPosition: '50% 25%' }} />;
+    // El blur del editor (20/11/2026: la escena va desenfocada si el original lo estaba): en la vista previa, el mismo, en CSS.
+    const blur = Array.isArray(o.filters) ? num((o.filters as Obj[]).find((f) => f?.type === 'blur')?.value) : 0;
+    return <img src={str(o.src)} alt="" style={{ position: 'absolute', left: pctX(num(o.left)), top: pctY(num(o.top)), width: pctX(w), height: pctY(h), objectFit: 'cover', objectPosition: '50% 25%', ...(blur > 0 ? { filter: `blur(${(blur * 40 * 100) / ancho}cqw)` } : {}) }} />;
   }
   return null;
+}
+
+/** Las fuentes del editor ya pedidas en esta pestaña (familia|peso|estilo). */
+const pedidas = new Set<string>();
+
+/**
+ * Las fuentes de los textos, cargadas (20/11/2026): la réplica elige la familia que se parece a la del original
+ * (lib/carruseles/replica.ts → `fuenteParecida`), y sin cargarla la vista previa la mostraba con la del sistema: lo primero que se
+ * ve no era lo que se iba a abrir. Del catálogo del editor (app/image-editor/mako/fuentes.ts), el peso y el estilo más cercanos.
+ */
+function useFuentesDe(objetos: readonly Obj[]) {
+  const clave = objetos.filter((o) => str(o.type) === 'textbox').map((o) => `${str(o.fontFamily)}|${num(o.fontWeight, 400)}|${o.fontStyle === 'italic' ? 'italic' : 'normal'}`).join('·');
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof FontFace === 'undefined' || !clave) return;
+    for (const k of new Set(clave.split('·'))) {
+      if (pedidas.has(k)) continue;
+      pedidas.add(k);
+      const [pila, peso, estilo] = k.split('|');
+      const familia = pila.split(',')[0].replace(/["']/g, '').trim();
+      const f = FUENTES.find((x) => x.family === familia);
+      const vs = (f?.variants ?? []).filter((v) => v.style === estilo);
+      const v = (vs.length ? vs : f?.variants ?? []).reduce<(typeof vs)[number] | null>((a, b) => (!a || Math.abs(b.weight - Number(peso)) < Math.abs(a.weight - Number(peso)) ? b : a), null);
+      if (!v) continue;
+      const cara = new FontFace(familia, `url(${v.url})`, { weight: String(peso), style: estilo });
+      cara.load().then((c) => document.fonts.add(c)).catch(() => { pedidas.delete(k); });
+    }
+  }, [clave]);
 }
 
 /**
@@ -93,6 +123,7 @@ function Objeto({ o, alto, ancho = ANCHO_CARRUSEL }: { o: Obj; alto: number; anc
  */
 export function PaginaCarrusel({ pagina, style, etiqueta, alto = ALTO_CARRUSEL, ancho = ANCHO_CARRUSEL }: { pagina: Obj; style?: CSSProperties; etiqueta?: string; alto?: number; ancho?: number }) {
   const objetos = Array.isArray(pagina.objects) ? (pagina.objects as Obj[]) : [];
+  useFuentesDe(objetos);
   return (
     <div role="img" aria-label={etiqueta ?? str(pagina.name, 'Lámina')}
       style={{ position: 'relative', aspectRatio: `${ancho} / ${alto}`, containerType: 'inline-size', ...fondoDePagina(pagina.background), overflow: 'hidden', borderRadius: 6, ...style }}>

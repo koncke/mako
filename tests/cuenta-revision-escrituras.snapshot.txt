@@ -50,6 +50,7 @@ POST /api/admin/pedidos-ingreso → sólo admin (el rol la corta antes, también
 POST /api/admin/plantillas → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/recibos/comprobante → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/reiniciar-onboarding → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/saltar-onboarding → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/usuarios → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/workspaces → sólo admin (el rol la corta antes, también a un closer)
 POST /api/ads-analyst/analyze → cortada
@@ -145,6 +146,7 @@ POST /api/crm/ficha/armar → cortada
 POST /api/crm/importar-leads → cortada
 POST /api/crm/llamadas-grabadas → cortada
 POST /api/crm/mako → cortada
+POST /api/crm/papelera → cortada
 POST /api/cron/grupo-turno → pública (no usa la sesión)
 POST /api/cuenta/eliminar → PERMITIDA
 POST /api/datos-mau → cortada

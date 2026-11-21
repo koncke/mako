@@ -297,9 +297,12 @@ test('⚠️ el botón de editar el LEAD no existe en ninguna de las dos fichas'
 
 test('BORRAR LEAD no se fue con el botón: está en las DOS fichas, con su confirmación', () => {
   // En la ruta /crm/[id] vivía SOLO al pie del formulario. Desde el 28/10/2026 manda a la PAPELERA de 30 días (mig 0340).
+  // Desde el 21/11/2026 las dos fichas van por la RUTA (`mandarAPapeleraDesdeFicha`, app/crm/papelera-ficha.ts) y no por
+  // `deleteLeadInlineAction` / `deleteLeadAction`: la server action hacía fila detrás de las de la ficha
+  // (tests/papelera-ficha-primer-toque.test.ts).
   for (const [ruta, accion] of [
-    ['../app/crm/LeadSheet.tsx', 'deleteLeadInlineAction'],
-    ['../app/crm/[id]/LeadDetailBody.tsx', 'deleteLeadAction'],
+    ['../app/crm/LeadSheet.tsx', 'mandarAPapeleraDesdeFicha'],
+    ['../app/crm/[id]/LeadDetailBody.tsx', 'mandarAPapeleraDesdeFicha'],
   ] as const) {
     const f = leer(ruta);
     // ⚠️ SE PERSIGUE EL BOTÓN, NO LA CADENA: «Borrar lead» es también el `title` del

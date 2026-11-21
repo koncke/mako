@@ -307,7 +307,8 @@ test('la tarjeta de la hora (día 2): tocar una hora sólo la elige; se guarda c
     // El mensaje de antes de la tarjeta, desde el 20/11 en lib/reto/dias.ts (RETO_D2_HORA): también lo usa la cola de salida.
     assert.ok(c.includes(t) || fuenteSinComentarios('lib/reto/dias.ts').includes(t), `falta «${t}»`);
   }
-  assert.match(c, /const mensaje = conMensaje && <Burbuja><p>\{RETO_D2_HORA\}<\/p><\/Burbuja>;/, 'la tarjeta de la hora dice RETO_D2_HORA');
+  // (21/11: el texto del globo va por el parser, tests/formato-en-los-globos.test.ts.)
+  assert.match(c, /const mensaje = conMensaje && <Burbuja><Markdown text=\{RETO_D2_HORA\} \/><\/Burbuja>;/, 'la tarjeta de la hora dice RETO_D2_HORA');
   assert.match(c, /const link = linkWaMe\(linea, mensajeEscrito\(p, hora\)\);/, 'el mensaje escrito con la hora elegida, no con 9:00');
   assert.match(c, /window\.addEventListener\('focus', alVolver\);/, 'al volver de WhatsApp se relee');
   assert.doesNotMatch(c, /no está conectada/, 'sin número no es «la línea está caída»');
