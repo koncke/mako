@@ -13,6 +13,68 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## Toda la competencia en la tab Spy de Content Machine: lo que costó traerla (21/11/2026, chat spy-competencia)
+
+Para que Martín elija qué producir, la tab Spy de Content Machine (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz) trae TODO lo
+de siete cuentas (Carrizo, Doglio, Collado, Rama, Heras Media, Víctor y Hormozi), clasificado en avatar-ia, animacion, a-camara y
+carrusel. No es el Spy de los clientes (ese va por Apify): es el relevo a mano de los referentes, con las herramientas de
+`C:/dev/referentes-videos/tools/` (`spy.py`, `spy-lotes.py`, `ocr-windows.ps1`). El paso a paso está en
+[relevo/spy-competencia.md](relevo/spy-competencia.md). Esto se va a llevar a MaKo para los clientes, por Apify.
+
+### Carruseles: yt-dlp SÍ trae la lámina entera; la herramienta elegía mal
+- **El diagnóstico obvio era el equivocado.** El relevo del 19/11 dejó escrito que «yt-dlp baja las láminas recortadas al
+  cuadrado» y que para el tamaño real había que abrir cada publicación en el navegador. No: yt-dlp trae 14 miniaturas por
+  lámina, sin ancho ni alto, y `publicaciones.py` elegía la «más grande» por ancho × alto, que daba 0 en todas, así que se quedaba
+  con la PRIMERA: un recorte cuadrado (`stp=c0.512.3072.3072…s1080x1080`). Entre las otras está `p1080x1080`, que cabe en 1080 sin
+  recortar (1080 × 1440 o 1080 × 1350), y la que no lleva tamaño, que es la original (3072 × 4096, 1,9 MB).
+- **La regla** (`mejor_lamina` en `tools/spy.py`): primero `p1080x1080`; si no está, la más grande SIN recorte (`stp` que no
+  empieza con `c<número>`), contando como original la que no tiene tamaño. Lo de más de 1080 de ancho se achica a 1080.
+- **La segunda trampa, en las láminas de VIDEO** (Collado, Carrizo): ahí no hay `p1080` y yt-dlp sí da ancho y alto. «La primera
+  sin recorte» era la de 240 × 180. En Carrizo salieron 21 láminas de 240 a 720 px antes de verlo (`spy.py rehacer` las rehace).
+- **Del Chrome sólo sale la lista.** La salida de `javascript_tool` se corta a unos 1.500 caracteres y una URL de imagen de
+  Instagram firmada tiene unos 600: sacar las láminas desde la página era imposible. Con los códigos de la grilla, yt-dlp hace el
+  resto sin sesión.
+- **Los carruseles de una cuenta pueden no tener una sola letra.** Los 17 de Carrizo son fotos de su vida (autos, viajes, su
+  equipo): el OCR devolvió vacío y estaba bien. En esos, el guion es el texto de la publicación y la forma dice «carrusel de fotos».
+- **El texto de cada lámina lo lee el OCR de Windows** (`Windows.Media.Ocr`, español e inglés ya instalados): 156 láminas en 20 s,
+  sin tokens. RapidOCR en CPU tardaba 41 s por lámina (19/11). En PowerShell 5.1 hay que cargar `Windows.Globalization.Language`
+  como tipo de WinRT (si no, `New-Object` falla y cada lámina da vacío sin error) y pasar la ruta como `[string]`: la línea de
+  `Get-Content` trae `PSPath` y compañía, y `ConvertTo-Json` la escribe como objeto.
+
+### La grilla y la pestaña Reels no tienen lo mismo (otra vez)
+- Doglio: 168 reels en la pestaña Reels y 196 en la grilla; 29 reels viejos están SÓLO en la grilla, sin reproducciones a la vista
+  (la grilla no las muestra). Van con `metrica: "me gusta"` y su N× contra los me gusta de sus vecinos.
+- Las publicaciones (`/p/`) salen sólo en la grilla: Carrizo tiene 17 publicaciones y 87 reels; Rama, 4.112 publicaciones, casi
+  todas reels (de 312 tarjetas de la grilla, 71 carruseles). Para Rama y Hormozi se leyó la grilla hasta la fecha del último reel
+  de su lista, no entera.
+- **Las vistas ahora vienen con «mil»** («65,2 mil», «1,9 M»), no con «k». `numero()` de `ampliar.py` toma la «m» de «mil» como
+  millón: 65,2 mil sería 65 millones. En `spy.py` la regla mira «mil» antes que «m».
+- El bucle que junta la grilla tiene que entrar en 45 s por llamada (más, y `javascript_tool` corta con «renderer frozen»): de a
+  30 bajadas de 0,8 pantallas, guardando en `window.__S` entre llamadas.
+
+### Subir cientos de archivos sin llenar el chat
+- `Artifact` sube de a 25 sólo lo que está en la carpeta de trabajo o en el scratchpad de la sesión; un archivo de
+  `C:/dev/referentes-videos` va de a uno. Se copia a `<scratchpad>/sub/<cuenta>/` y se arman lotes de 25 (`spy-lotes.py preparar`).
+- No hace falta leer la página antes de subir assets: la primera subida anduvo sin `read`.
+- Cada respuesta trae «ruta → /_blob/<id>» por archivo (unos 6 KB por lote). Un subagente Sonnet sube los lotes y anota
+  «archivo id» en `assets-lineas.txt`; el chat principal sólo arma el mapa y escribe la base.
+- La base se escribe con `ArtifactData batch` de a 50, con cada documento en un `.json` local (`file_path`): no pasa por el chat.
+
+### Clasificar
+- Hojas de 10 reels × 8 cuadros sacados de la `hoja.jpg` de `procesar.py`, con un `.txt` al lado (gancho transcripto y texto de la
+  publicación). El criterio escrito está en `C:/dev/referentes-videos/spy/criterio-tipos.md`.
+- Carrizo: 86 reels en 9 hojas, un subagente Sonnet, 94 mil tokens y 33 s (unos 1.100 tokens por reel con todo). Dio 83 a cámara,
+  2 animación y 1 avatar IA («papá vs profe», que el propio subagente marcó como dudoso). Lo mismo que se vio el 21/11 con la regla
+  de una hoja: Carrizo graba todo a cámara.
+- La regla que más decide: a cámara con pantallas de apoyo de vez en cuando es a-camara («a cámara con b-roll»); es animacion sólo
+  si la pantalla o el gráfico manda en la mitad o más de los cuadros.
+
+### Lo que quedó sin hacer
+- Julián Alborna: Martín tiene que pasar el usuario.
+- Los assets viejos de las 21 láminas chicas de Carrizo quedan en el almacén sin uso (se pueden borrar por id).
+
+---
+
 ## La relectura de los formatos no era «una vez»: lo que la IA no devolvía quedaba pidiendo para siempre (18/11/2026)
 
 - **Pendiente T12** (docs/pendientes-verificados-17-11.md), refutado el 17/11 y medido en el código de `main`.
