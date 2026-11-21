@@ -40,6 +40,7 @@ import { barraEntera, mostrarLaBarra, presentaLaBarra } from './barra-oculta';
 import { useLugarALaVista } from './lugarDelVideo';
 import { BarraDelVideo, alternarVideo } from './BarraDelVideo';
 import { CSS_REPRODUCTOR } from './VideoDelMomento';
+import { instalarUnVideoALaVez } from './un-video-a-la-vez';
 import { TOPE_CADENA_MS, TOPE_CARGA_MS, alFinSinMarca, arrancaLaPrimeraVez, fraseQueSuena, retenerAlFin, comoCadena, navegaA, pasoDeLaCadena, saltarSinMarca, siguienteConMarca, soloEnComputadora, soltarRetencion, type Retencion } from './pausas';
 
 /**
@@ -168,6 +169,8 @@ function cerrarLoAbierto(): void {
 export function MotorTutorial({ revision }: { revision: boolean }) {
   // Para las placas de la revisión fuera del motor (los coaches, el reto): ./store.ts → useEsRevision.
   useEffect(() => { anotarRevision(revision); }, [revision]);
+  // UN SOLO VIDEO A LA VEZ (21/11/2026, Martín): un play pausa a los demás, y en la esquina queda sólo el último (./un-video-a-la-vez.ts).
+  useEffect(() => instalarUnVideoALaVez(document), []);
   useEffect(() => {
     motorPresente(true, (ruta) => !!tutorialDeRuta(ruta));
     return () => motorPresente(false);
@@ -750,9 +753,9 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
     <div ref={capaRef} className="mk-rec mk-tuto" data-tutorial={senal.tipo === 'tutorial' ? senal.tutorial.pestana : 'marca'} style={{ zIndex: z }}>
       <style>{cssRecorrido() + CSS_TUTORIAL}</style>
       {senal.tipo === 'tutorial' && (
-        <VideoChico tutorial={senal.tutorial} video={video} vidRef={vidRef} autoplay={!conFrases} manda={soloVideo}
+        <VideoChico tutorial={senal.tutorial} video={video} vidRef={vidRef} autoplay={!conFrases}
           sub={paso?.sub ?? senal.tutorial.intro} revision={revision} arriba={videoArriba} lugar={senal.lugar}
-          onCerrar={() => fin('omitido')} onOmitir={() => fin('omitido')} />
+          onCerrar={() => fin('omitido')} />
       )}
       {geo.hueco
         ? <>
@@ -834,12 +837,12 @@ function Pie({ senal, paso, ultimo, esperaClic, hayAnterior, conVideo, siguiente
 }
 
 /**
- * El video chico de Martín de ESTA pestaña, abajo a la derecha. Sin video, nada (en la revisión, su lugar marcado). Con frases con
- * marca, manda desde que arranca; entre frase y frase (sin tarjeta) lleva «Omitir recorrido» abajo (`manda`). Cerrarlo saltea el tutorial.
+ * El video chico de Martín de ESTA pestaña, abajo a la derecha. Sin video, nada (en la revisión, su lugar marcado). Cerrarlo (su X)
+ * saltea el tutorial. SIN «Omitir recorrido» (21/11/2026, Martín: en el video flotante la X alcanza; el «Omitir» queda en las marcas).
  */
-function VideoChico({ tutorial, video, vidRef, autoplay, manda, sub, revision, arriba, lugar, onCerrar, onOmitir }: {
-  tutorial: TutorialPestana; video: VideoTutorial | null; vidRef: RefObject<HTMLVideoElement | null>; autoplay: boolean; manda: boolean;
-  sub: string; revision: boolean; arriba: boolean; onCerrar: () => void; onOmitir: () => void;
+function VideoChico({ tutorial, video, vidRef, autoplay, sub, revision, arriba, lugar, onCerrar }: {
+  tutorial: TutorialPestana; video: VideoTutorial | null; vidRef: RefObject<HTMLVideoElement | null>; autoplay: boolean;
+  sub: string; revision: boolean; arriba: boolean; onCerrar: () => void;
   /** El lugar del mensaje donde se ve mientras está a la vista (./lugarDelVideo.ts, V4): ahí, con el reproductor de la maqueta. */
   lugar?: string;
 }) {
@@ -875,7 +878,6 @@ function VideoChico({ tutorial, video, vidRef, autoplay, manda, sub, revision, a
           </div>
           <BarraDelVideo vidRef={vidRef} archivo={video.archivo} durManifiesto={video.duracion_s ?? 0} />
         </div>
-        {manda && !enLugar && <div className="mk-tuto__vpie"><button type="button" onClick={onOmitir}>Omitir recorrido</button></div>}
       </div>
     );
   }
@@ -889,7 +891,6 @@ function VideoChico({ tutorial, video, vidRef, autoplay, manda, sub, revision, a
         ? <video ref={vidRef} className="mk-tuto__vid" src={video.archivo} poster={video.poster} controls playsInline preload="metadata" />
         : <div className="mk-tuto__lugar" role="note"><b>Tu video de esta pestaña</b><span>Todavía no está grabado: va aquí.</span></div>}
       {!video && sub && <p className="mk-tuto__sub">{sub}</p>}
-      {manda && <div className="mk-tuto__vpie"><button type="button" onClick={onOmitir}>Omitir recorrido</button></div>}
     </div>
   );
 }
@@ -918,8 +919,6 @@ const CSS_TUTORIAL = `
 .mk-tuto__vfoto { width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; background: #F2B01E; color: #1a1405; font-weight: 800; font-size: 12px; }
 .mk-tuto__vx { margin-left: auto; width: 26px; height: 26px; border: 0; border-radius: 8px; background: #E5484D; color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
 .mk-tuto__vx svg { display: block; }
-.mk-tuto__vpie { padding: 6px 10px 8px; }
-.mk-tuto__vpie button { border: 0; background: none; padding: 2px 0; color: rgba(255,255,255,.8); font: inherit; font-size: var(--fs-meta); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .mk-tuto__vid { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
 .mk-tuto__video--maqueta .mk-vmom { width: 100%; margin: 0; border-radius: 0; box-shadow: none; }
 .mk-tuto__video[data-en-lugar] { border-radius: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.12); }

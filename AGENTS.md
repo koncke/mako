@@ -2732,6 +2732,10 @@ van dos marcas en el mismo render).
   /admin/customers/<ws>, sólo para `esClienteDePrueba`, escribiendo el nombre y con `conWs` del negocio.
   tests/revision-reset-y-autocompletar.test.ts.
 
+- **Un solo video con sonido a la vez** (21/11/2026, Martín): un reproductor nuevo no coordina nada por su cuenta. El play global lo
+  maneja app/_ui/tutorial/un-video-a-la-vez.ts: pausa a los demás, y en la esquina queda sólo el último. Un video de adorno va `muted`, o
+  pausa al de verdad. tests/un-video-a-la-vez.test.ts.
+
 # Mirando un negocio como administrador, el estado del onboarding es el del DUEÑO
 
 Martín, 20/11/2026, probando en Lalaland «como administrador»: la vista como administrador muestra LO MISMO que ve el cliente. Lo que se

@@ -5818,3 +5818,23 @@ titular), no se tiñe.
 - **Sin hacer:** «Datos de Mauricio» no tiene más botón. Las acciones `completar`, `eliminar` y `todo` de /api/datos-mau siguen vivas y sin
   quien las llame (lib/datos-mau.ts). Hay que decidir si se borran o vuelven en otro lugar.
 - tests/revision-reset-y-autocompletar.test.ts (roto de a una rotura, 8).
+
+## Un solo video a la vez, y en la esquina sólo el último (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Síntoma** (Martín en el ws 3): «me reproduje un video de arriba y después estoy reproduciendo el de abajo, pero se marca abajo a la
+  derecha el video de arriba».
+- **Causa:** cada video decidía SOLO si flotaba (app/_ui/tutorial/useVideoQueFlota.ts, por IntersectionObserver). Nada coordinaba entre
+  ellos: darle play a uno no pausaba al otro. El de arriba seguía corriendo o flotando mientras corría el de abajo.
+- **Ahora** (app/_ui/tutorial/un-video-a-la-vez.ts, lo instala <MotorTutorial> una vez): un play con sonido pausa a los demás. Si lo
+  que flota en la esquina es OTRO video, deja de flotar. El de abajo, a la vista, no flota porque flotar ya exigía salir de la vista.
+  En el video flotante del motor ya no va «Omitir recorrido»: la X alcanza.
+- **Trampas:**
+  - `play` no burbujea: se oye en captura sobre el documento.
+  - Los videos MUDOS (adorno en bucle) quedan afuera. Si no, uno que arranca solo pausaba al de verdad.
+  - El `<video>` de la esquina no se suelta a sí mismo (`.mk-pip`, `.mk-tuto__video`).
+- **Decisión que queda escrita:** dejar de flotar es `terminar(…, 'omitido')`, lo mismo que su X. Avisa a quien lo pidió: el día 1
+  sigue marcando Offer Coach (D1-03). El recorrido del motor en la ESQUINA también termina como omitido (queda visto). En su mensaje, a la
+  vista, sólo se pausa.
+- **Sin hacer:** probarlo tocando, con dos videos en el hilo del reto (los Playwright contra el ws 3). Las notas de voz (`<audio>`) no
+  entran en la regla.
+- tests/un-video-a-la-vez.test.ts (roto de a una rotura, 5).
