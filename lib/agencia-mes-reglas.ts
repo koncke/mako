@@ -884,7 +884,9 @@ export function textoDeCuentasActivas(a: CuentasActivas): string {
 
 /** Lo que contesta MaKo a un comprobante del grupo, según lo que hizo. Lo arma el código, nunca un modelo. */
 export function textoDeComprobante(r:
-  | { tipo: 'cubre'; montoUsd: number; conceptos: string[]; activas?: CuentasActivas }
+  // `medio` (20/11/2026): el pago que se vio en la cuenta SIN captura en el grupo (lib/binance-sin-captura.ts) dice por dónde entró:
+  // la agencia no mandó nada, y «Recibí tu pago» a secas no dice de qué pago se habla.
+  | { tipo: 'cubre'; montoUsd: number; conceptos: string[]; activas?: CuentasActivas; medio?: string }
   | { tipo: 'parcial'; montoUsd: number; conceptos: string[]; cubiertos: string[]; faltaUsd: number; activas?: CuentasActivas }
   | { tipo: 'repetido'; numero: number | null }
   | { tipo: 'revisar' },
@@ -893,7 +895,7 @@ export function textoDeComprobante(r:
   if (r.tipo === 'revisar') return 'Recibí tu comprobante. Lo revisa el equipo de MaKo y te confirmo por aquí.';
   const activas = r.activas ? textoDeCuentasActivas(r.activas) : '';
   if (r.tipo === 'cubre') {
-    return [`Recibí tu pago de ${usd(r.montoUsd)}. Quedó pagado: ${r.conceptos.join(', ')}. Te mando el recibo.`, ...(activas ? [activas] : [])].join('\n');
+    return [`Recibí tu pago de ${usd(r.montoUsd)}${r.medio ? ` por ${r.medio}` : ''}. Quedó pagado: ${r.conceptos.join(', ')}. Te mando el recibo.`, ...(activas ? [activas] : [])].join('\n');
   }
   return [
     `Recibí ${usd(r.montoUsd)} a cuenta de ${r.conceptos.join(', ')}.`,

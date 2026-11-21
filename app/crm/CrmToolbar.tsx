@@ -44,6 +44,7 @@ import { BANDAS_KANBAN } from './filtros-guardados';
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
 import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { PasarAPro } from './PasarAPro';
+import { LogoMeta } from '@/app/_components/ServicioVisual';
 import { ancla } from '@/app/_ui/guia/ancla';
 import { createPortal } from 'react-dom';
 import { CAMPOS_LEAD, CAMPOS_LEAD_TODOS, camposAchicados, resumenCamposLead, type CampoLead } from './buscar-leads';
@@ -218,10 +219,12 @@ function MenuItem({ icon, label, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas, onNombres }: {
+export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas, onNombres, onAsignarFuentes }: {
   /** El CRM que se está mirando. Lo llevaba «Buscar prospectos» (C6, 22/10/2026), que se fue con el Leads Scraper el 25/10. */
   funnelActivo?: number | null;
   onImportar: () => void;
+  /** «Asignar fuentes» (20/11/2026): las campañas y los formularios que traen leads a este funnel (app/crm/FuentesModal.tsx). */
+  onAsignarFuentes?: () => void;
   onExportar: () => void;
   onNuevo: () => void;
   /** Abre el pop-up de etapas del funnel que el tablero está dibujando. */
@@ -272,6 +275,12 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
                 orden (`opcionesCrm`, app/crm/menu-contextual-crm.ts). */}
             <MenuItem icon={<UploadIcon size={15} />} label="Importar leads"
               onClick={() => { setOpen(false); onImportar(); }} />
+            {/* «Y que en los 3 puntos de arriba a la derecha también esté esa opción» (Martín, 20/11/2026): la MISMA de la primera
+                etapa, con el logo de Meta. Va con lo que TRAE leads, al lado de «Importar leads». */}
+            {onAsignarFuentes && (
+              <MenuItem icon={<LogoMeta size={15} />} label="Asignar fuentes"
+                onClick={() => { setOpen(false); onAsignarFuentes(); }} />
+            )}
             <MenuItem icon={<DownloadIcon size={15} />} label="Exportar leads"
               onClick={() => { setOpen(false); onExportar(); }} />
             <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />

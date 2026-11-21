@@ -110,6 +110,8 @@ type GraphLeadResponse = {
   /** Los ids que DECIDEN el producto (los nombres de arriba sólo se muestran). */
   campaign_id?: string;
   adset_id?: string;
+  /** El formulario (lead form): decide el funnel si está asignado, y sus reglas de calificación (20/11/2026). */
+  form_id?: string;
   error?: { code?: number; message?: string };
 };
 
@@ -134,7 +136,9 @@ async function fetchLeadFromGraph(leadgenId: string, ws: number): Promise<GraphL
   // `campaign_id` y `adset_id` desde el 05/10/2026: un nombre no es una clave (se
   // renombra, se repite) y con estos ids el lead nace en el tablero del PRODUCTO al que
   // esa campaña o ese conjunto están asignados (lib/campana-funnel.ts).
-  url.searchParams.set('fields', 'field_data,created_time,campaign_name,adset_name,ad_name,ad_id,campaign_id,adset_id');
+  // `form_id` desde el 20/11/2026: un formulario asignado en «Asignar fuentes» decide el funnel y sus reglas de calificación
+  // (lib/formulario-meta-funnel.ts). El payload del webhook ya lo trae; pedirlo acá cubre una entrega que no lo traiga.
+  url.searchParams.set('fields', 'field_data,created_time,campaign_name,adset_name,ad_name,ad_id,campaign_id,adset_id,form_id');
 
   const res = await fetch(url.toString());
   const body = (await res.json()) as GraphLeadResponse;
@@ -190,13 +194,14 @@ export async function POST(request: NextRequest) {
   //    de más de UNA página (distintos workspaces) en un mismo POST — resolvemos
   //    el workspace por cada uno, no asumimos uno solo. page_id viene en
   //    changes[].value.page_id y/o, como fallback, en entry[].id.
-  const items: Array<{ leadgenId: string; pageId: string | null }> = [];
+  const items: Array<{ leadgenId: string; pageId: string | null; formId: string | null }> = [];
   for (const entry of body.entry ?? []) {
     for (const change of entry.changes ?? []) {
       if (change.field === 'leadgen' && change.value?.leadgen_id) {
         items.push({
           leadgenId: change.value.leadgen_id,
           pageId: change.value.page_id ?? entry.id ?? null,
+          formId: change.value.form_id ?? null,
         });
       }
     }
@@ -221,7 +226,7 @@ export async function POST(request: NextRequest) {
   // ya pudieron correr efectos, y un reintento los salta (el cron meta-leads-poll lo rescata).
   let reintentar = false;
 
-  for (const { leadgenId, pageId } of items) {
+  for (const { leadgenId, pageId, formId: formDelPayload } of items) {
     // Fail-CLOSED: sin page_id mapeado a un workspace (webhook_routing), NO
     // ingerimos el lead. NUNCA cae al dueño (evita misrutear leads de un cliente).
     let ws: number | null;
@@ -244,8 +249,10 @@ export async function POST(request: NextRequest) {
       await runWithWorkspace(ws, async () => {
         const graphLead = await fetchLeadFromGraph(leadgenId, ws);
         const { email, nombre, telefono, empresa, noReconocidos } = parseLeadFields(graphLead.field_data);
+        const formId = formDelPayload ?? graphLead.form_id ?? null;
 
         const { created, lead } = await upsertLeadFromMeta({
+          meta_form_id: formId,
           email,
           nombre,
           telefono,
@@ -314,11 +321,11 @@ export async function POST(request: NextRequest) {
         // Y una reentrega de un lead cuyo anuncio se cayó (F117): sin la marca del anuncio, se anuncia ahora.
         if (created) {
           await alNacerLeadDeMeta(ws, { id: lead.id, nombre: lead.nombre, telefono: lead.telefono }, {
-            fieldData: graphLead.field_data ?? null, campana: graphLead.campaign_name ?? null,
+            fieldData: graphLead.field_data ?? null, campana: graphLead.campaign_name ?? null, formId,
           });
         } else if (await reintentoSinAnunciar(ws, { id: lead.id, creadoAt: lead.created_at, formCreadoEn: graphLead.created_time ?? null })) {
           await alNacerLeadDeMeta(ws, { id: lead.id, nombre: lead.nombre, telefono: lead.telefono }, {
-            fieldData: graphLead.field_data ?? null, campana: graphLead.campaign_name ?? null,
+            fieldData: graphLead.field_data ?? null, campana: graphLead.campaign_name ?? null, formId,
           }, { esReintento: true });
         }
       });
