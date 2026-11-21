@@ -695,6 +695,17 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
 8. **Todo se ve adentro.** Los 91 formatos se reproducen en la página, sin links a otro artefacto, y cada póster es su propio
    archivo, nunca una imagen con todos juntos.
 9. **La devolución por voz, en todo.** Cada reel, formato, carrusel y lámina tiene sus comentarios, escritos, dictados o con audio.
+10. **El detalle no se lee plano y tiene UNA sola zona** (21/11, tarde). El análisis, el guion y el CTA en texto corrido, más
+    «Nota para cambiar», «Comentarios» y otro cuadro de texto con la esquinita para estirar: «eso no tiene sentido». Quedó así:
+    - abajo de la comparación, tarjetas: «Por qué funciona la referencia» en puntos con título (Gancho, Estructura, Cierre,
+      Estética), el guion numerado (lámina por lámina, escena por escena o frase por frase, con la lámina que se está viendo
+      marcada), el CTA como una palabra grande y «Qué cambiamos y por qué»;
+    - UNA zona por pieza: la decisión arriba y los comentarios como un hilo, con una barra para escribir y el micrófono al lado, como
+      WhatsApp. El campo crece solo hasta un tope y después hace scroll adentro (`resize: none`). En una pantalla ancha la zona queda
+      fija a la derecha; en el teléfono va al final;
+    - lo mismo en las tres secciones.
+    Regla: nada que el usuario tenga que estirar, y un solo lugar para opinar. La nota vieja de `revision` aparece como primer
+    globo del hilo, «Nota anterior», para no perderla.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
@@ -751,6 +762,13 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
 - Para sacar de la versión archivos que la sesión no publicó (los que vinieron copiados de otro artefacto), primero hay que
   listarlos (`list` con `scope: "files"`). Si no, la publicación se niega a quitarlos.
 - Martín: **nunca juntar pósteres en una sola imagen.** Cada uno es su archivo.
+- **El análisis de cada carrusel se arma con estructura, no como texto** (`armar-cm.mjs`). El artefacto de carruseles lo trae en un
+  `<details>` con párrafos que empiezan con `<strong>` («Por qué funciona la referencia.», «Guion (MaKo).», «CTA.»). De ahí salen
+  los puntos con título, el guion numerado (la lista, con su «2–6.» al principio) y el CTA, que se parte en la flecha «→».
+  **Si el CTA dice «promete la guía» (y no «no promete»), la ficha lleva «Falta la guía».** El 21/11 eran HORMOZI y GRUPO.
+  Si el chat de carruseles cambia ese formato, la ficha queda vacía sin dar error: se mira `ficha` en los datos después de armar.
+- Al rehacer láminas, se vuelven a copiar sólo las `mako-NN.jpg`, porque las de la referencia no cambian. Se confirma por el peso
+  (`Artifact read` con `path`): la lámina 3 de Hormozi de la versión 6 pesa 45.553 bytes.
 - Los clips de las cuentas nuevas van directo al almacén. Los 93 clips de Avatar IA siguen en la versión: si hace falta lugar, se
   mudan.
 
