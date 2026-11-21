@@ -32,6 +32,7 @@ const CRONS = (JSON.parse(leer('vercel.json')) as { crons: Cron[] }).crons;
 /** Rutas de cron que a propósito no agenda Vercel, con su motivo. */
 const SIN_AGENDA: Readonly<Record<string, string>> = {
   '/api/cron/grupo-turno': 'no es un cron programado: la llama /api/grupos/[ws]/mensajes para que el turno de MaKo corra en otra invocación, sin la sesión de quien escribió. Vive acá por el secreto del cron. La red, si falla, es doer-flush',
+  '/api/cron/binance-pagos': 'no es un cron programado: lee la cuenta de Binance desde São Paulo (preferredRegion gru1), porque desde pdx1 Binance contesta 451. La llama lib/binance-pay.ts desde las otras regiones (20/11/2026). Vive acá por el secreto del cron',
 };
 
 /** Las rutas que existen: cada carpeta de app/api/cron con su route.ts. */

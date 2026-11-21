@@ -31,4 +31,13 @@ export const AUTOMATICO_APAGADO = 'El alta automática del equipo de la agencia 
 export const SIN_INVITACION = 'Pásale tú el link del grupo: MaKo no le escribe a un número que nunca le escribió.';
 
 export const altasFrenadas = (valor: string | null | undefined): boolean => valor === 'no';
+
+// ⛔ MaKo NO CREA GRUPOS NUEVOS (20/11/2026, Martín, después de la llamada con Leila: «Sólo no crear más»). Los grupos que ya existen siguen como
+// están, y también las altas de gente en ellos (por eso NO es el freno `mako.grupos.altas`, que corta las dos cosas). Lo que se corta es CREAR,
+// por cualquier camino (el pedido de una persona, Notificaciones, el admin, la verificación del onboarding, los avisos de prueba): todos pasan
+// por UN solo punto, `crearGrupoEnLaVoz` (lib/mako-grupo.ts), que pregunta esto antes de hablar con WhatsApp. Lo fija tests/altas-en-grupos.test.ts.
+// `boolean` explícito: con el literal `false`, TypeScript daría por muerto el código de crear y no lo chequearía.
+export const SE_CREAN_GRUPOS: boolean = false;
+/** Lo que se dice donde antes se creaba (o se ofrecía) un grupo. */
+export const SIN_GRUPOS_NUEVOS = 'Los avisos de MaKo llegan por su chat privado.';
 export const automaticoPrendido = (valor: string | null | undefined): boolean => valor === 'si';
