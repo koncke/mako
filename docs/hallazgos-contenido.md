@@ -876,6 +876,16 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - La fila de abajo es como la de Instagram (▷ vistas, ♡ me gusta, 💬 comentarios, «29,7 mil», «1,2 M»). Nunca se corta: si
       no entra, la fecha baja a una segunda línea, y en el teléfono todas las filas reservan dos líneas para que las tarjetas
       midan lo mismo. Van 4 tarjetas por fila a 1440 (276 px), 3 a 1024 y 2 a 375.
+26. **Tarjetas negras con el ícono de imagen rota: el dato estaba mal, pero la página no puede mostrarlo roto** (21/11).
+    Unas piezas de Collado y Doglio venían con `medios.poster: "/_blob/→"`. El chat de la competencia corrige los datos, y la
+    página se defiende sola:
+    - `medioOk()` sólo acepta una id real (`/_blob/` + 32 hex), una ruta de la versión (`vid/…`) o una `https`. Lo demás
+      queda en null al leer la base (`limpiarMedios`) y también en los datos que vienen dentro de la página.
+    - Si una imagen falla al cargar, un listener de `error` en fase de captura (el evento no sube) saca la imagen y muestra el
+      recuadro. Nunca queda el ícono roto. En un carrusel se saca esa lámina; si no queda ninguna, va el recuadro.
+    - El recuadro: un degradé suave, la cara del creador al centro y «Video en camino». Las piezas sin medios van al final
+      de cualquier orden.
+    - **Trampa:** la cara usa su propia clase (`cara-sm`). Con `.cara`, otro estilo la mandaba arriba a la izquierda.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
