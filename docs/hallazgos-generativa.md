@@ -14,6 +14,40 @@ MaKo. Corrida de 9 agentes, 2026-08-18.
 
 ---
 
+## Caricaturas de creadores: una palabra del prompt agrega lo que nombra, y la IA inventa marcas (21/11/2026)
+
+**Vive en:** fuera del repo. Las caricaturas quedan en `C:/dev/caricaturas-creadores/<cuenta>.png` (600×600) y las usa
+Content Machine (colección `creadores`). El estilo es el de `public/asesores/grandes/*.png`. Desde el 21/11, **cada creador
+nuevo del Spy lleva su caricatura** (avisa el chat del Spy).
+
+**La receta que salió (ApiMart Nano Banana Pro, 47 MaKo Tokens por imagen, cobrados al ws 9):**
+- Referencias: `[foto de la cara, public/asesores/grandes/hormozi.png]`, formato 1:1, y después se lleva a 600×600 con sharp.
+- Prompt: *«Make a portrait of the man in the first image as a realistic 3D caricature in exactly the style of the second
+  image: the same framing (head and shoulders, centered), the same soft plain colored background, the same light, shading
+  and level of realism. Keep their face, hair, skin tone, glasses and clothes recognizable. No text, and no logos or brand
+  marks on their clothes. Do not add hats, glasses or objects that are not in the photo.»*
+- Para corregir una sola cosa: UNA frase sobre esa misma imagen, sin otras referencias, más «Keep everything else in the
+  image exactly the same». Sacó la marca de tres gorras y un micrófono sin tocar las caras.
+- Si no hay cara (una marca), el logo en círculo **dibujado en SVG** (un círculo negro liso, sin degradado, porque el
+  degradado sale en franjas) sobre un fondo liso como el de las caricaturas. No conviene ampliar el avatar de 160 px.
+
+**De dónde sale la cara:**
+- La foto de perfil pública de Instagram: `curl -A "facebookexternalhit/1.1" https://www.instagram.com/<cuenta>/` trae
+  `og:image` (150×150) sin sesión. La página `/embed/captioned/` de un post **no** trae el avatar.
+- El cuadro de un video: `ffmpeg -threads 2 -ss <s>` y recortar alrededor de la cara. Hay que mirar el cuadro, porque el
+  primero que se saca suele salir con los ojos cerrados o mirando abajo.
+- Content Machine ya tiene en `creadores/<id>.foto` el avatar de cada uno (`/_blob/<id>`); se baja con el tool Artifact
+  (`read` + `path` = el id de 32 caracteres).
+
+**Las trampas:**
+- **Una palabra del prompt agrega lo que nombra.** «plain clothes and caps» le puso a MD Mukeem una gorra que en su foto no
+  tiene. Hay que prohibir («do not add hats…»), no describir.
+- **La IA inventa marcas.** Le puso «NIKE» a una gorra que en el cuadro tenía otro logo apenas visible. Una marca que la
+  persona no lleva no va (el Cerebro, 21/11), y la regla quedó en «sin logos ni marcas de ropa» para todos, también cuando
+  el logo es real (el «NY» de MoSidd salió).
+- **Se cuelan objetos del cuadro.** El micrófono del video de Joseph quedó delante del pecho. Ninguna caricatura de MaKo
+  lleva objetos.
+
 ## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
 
 **Vive en:** `lib/elevenlabs.ts` · `lib/metodo-catalogo.ts:568` · `app/video-editor/_opencut/subtitles/generar.ts`

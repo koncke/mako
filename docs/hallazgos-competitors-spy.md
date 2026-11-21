@@ -69,6 +69,19 @@ carrusel. No es el Spy de los clientes (ese va por Apify): es el relevo a mano d
 - La regla que más decide: a cámara con pantallas de apoyo de vez en cuando es a-camara («a cámara con b-roll»); es animacion sólo
   si la pantalla o el gráfico manda en la mitad o más de los cuadros.
 
+### ⛔ El almacén de archivos de un artefacto tiene 1 GB, y se llena sin avisar antes
+- **Síntoma:** subiendo Dakota, el lote 44 guardó 7 de 20 archivos y el resto falló con «Delete an asset to free up space».
+- **Lo que pesaba:** ~964 MB de este chat (Dakota 471, Doglio 211, Collado 152, Carrizo 130) más los formatos de Content Machine.
+  Por formato: recorte de 25-35 s a 480 px, ~1,2 MB; póster a 480 px, 40 KB; lámina a 1080 px, 150-350 KB.
+- **El formato nuevo** (Cerebro, 21/11): recorte de **15 s a 480 px** (corta en el final de frase más cercano a 15 s, entre 12 y
+  18), unos 500-630 KB; pósteres a 480 px y láminas a 720 px. Las piezas llevan `recorte_s: 15`, y el detalle muestra «Ver
+  completo en Instagram». Doglio pasó de 195 a 101 MB y Dakota de 387 a 224 MB.
+- **Reemplazar con el almacén lleno** (no se puede subir antes de borrar): 1) se reescribe el documento con `video: null` (queda
+  el póster, la tarjeta no se rompe); 2) se borra el video viejo (`Artifact` delete con su id: anda sin confirmación, una llamada
+  por id); 3) se sube el nuevo; 4) se reescribe con el id nuevo; 5) se comprueba que nada apunte a un id borrado.
+  `tools/spy-reemplazo.py` arma cada fase. Sólo se borra lo que subió este chat y ninguna pieza usa: nunca lo de Content Machine.
+- **Para MaKo en producción** esto no va a un artefacto: va a Supabase Storage o a lo que traiga Apify.
+
 ### ⛔ «/_blob/→» en la base: el mapeo tomaba la segunda palabra del renglón
 - **Síntoma (Martín):** muchas tarjetas negras en Spy, con el ícono de imagen rota. En 121 piezas (72 reels de Doglio y los 49 de
   Collado) `medios.poster` y `medios.video` decían literalmente `"/_blob/→"`.

@@ -21,5 +21,26 @@ export const seVacianLosChats = (ws: number | null | undefined): boolean => type
  */
 export const TABLAS_DE_LOS_CHATS = ['chart_chats', 'chart_sessions', 'offer_sesiones', 'image_editor_chats', 'video_editor_chats'] as const;
 
+/**
+ * Los chats que viven en `app_settings`, por el COMIENZO de su clave (se borran con `like 'clave%'`, por el workspace): las charlas del
+ * lienzo de cada automatización (lib/automatizacion-chat.ts → claveChat). 21/11, el Cerebro: «una cuenta nueva no tiene chats de
+ * automatizaciones». Se va la charla; la automatización en sí (nutricion_secuencias) queda. Sin `%` ni `_`: son comodines de LIKE.
+ */
+export const CLAVES_DE_LOS_CHATS = ['automatizacion.chat:'] as const;
+
+/**
+ * CADA FUENTE DE LA LISTA LATERAL (lo que pide con `${RUTA}?<fuente>=1`, app/second-brain/useChatCliente.ts) y dónde viven sus hilos: una
+ * tabla de TABLAS_DE_LOS_CHATS o un comienzo de clave de CLAVES_DE_LOS_CHATS. El test (tests/reset-prueba-sin-chats.test.ts) cae si la
+ * lista suma una fuente que no está acá, o si uno de estos lugares no se vacía: «cualquier otro tipo de hilo que la lista lateral junte con
+ * los chats» (el Cerebro, 21/11) se va con el RESET.
+ */
+export const FUENTES_DE_LA_LISTA = {
+  sesiones: ['chart_sessions', 'chart_chats'], // los chats de la persona (Ops Center, los sueltos), lib/mako-turno-app.ts
+  antes: ['chart_sessions', 'chart_chats'], // los de antes y los de las tabs (CRM, la ficha, los gurús), lib/chat-mako-indice.ts
+  offer: ['offer_sesiones'], // chatsDeOffer
+  automations: ['automatizacion.chat:'], // chatsDeAutomations → lib/automatizacion-chat-db.ts (listarChats)
+  editores: ['image_editor_chats', 'video_editor_chats'], // chatsDeLosEditores
+} as const satisfies Record<string, readonly string[]>;
+
 /** Lo que los coaches recuerdan fuera de sus chats: sin esto, Offer Coach daba la oferta por hecha con el chat vacío. */
 export const SETTINGS_DE_LOS_COACHES = ['onboarding_v2.offer_coach', 'funnel_coach.plan'] as const;
