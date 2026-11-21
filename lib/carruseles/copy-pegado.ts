@@ -247,7 +247,10 @@ export function conElCopy<R extends { laminas: L[] }, L extends { textos: T[]; n
     // En la réplica fiel, un texto sin lugar medido no se dibuja: no puede recibir el copy.
     const noRecibe = original.textos.map((t, j) => (conPlanchas && !plancha!.textos[j]) || esDelMarco(t.texto) || (!!t.original && esDelMarco(t.original) && !t.texto));
     // Lo que escribió la IA vale para la PRIMERA parte que va con esa lámina (el prompt le dio ésa); las repetidas, por código.
-    const textos = repartirEnLosTextos(parte, lugares, { escrito: base.indexOf(i) === k ? original.textos.map((t) => t.texto) : undefined, noRecibe, fijos: original.textos.map((t) => t.original || t.texto) });
+    const textos = repartirEnLosTextos(parte, lugares, { escrito: base.indexOf(i) === k ? original.textos.map((t) => t.texto) : undefined, noRecibe,
+      // ⚠️ Fijo es sólo lo que SIGUE diciendo lo mismo (el sello «01/05»). Una firma que la marca cambió no lo es: la IA a veces pone
+      // el renglón del copy en su «original», y se sacaba del reparto (21/11/2026: «Leila Fittipaldi · MetaCoach…» desaparecía).
+      fijos: original.textos.map((t) => (t.original && igualable(t.original) === igualable(t.texto) ? t.texto : null)) });
     const nueva = { ...original, textos: original.textos.map((t, j) => {
       const va = textos[j];
       if (va == null) return { ...t };
