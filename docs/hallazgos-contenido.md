@@ -51,7 +51,15 @@ clasificación y análisis); el relevo, en `docs/relevo/tendencias.md`. Lo que s
   Maria Wendt traen sólo el título: muchos «fuera» (hasta 134 de 200 en un lote).
 - **Push a la punta:** después de subir a `punta/<x>`, NO hacer `git pull --rebase origin main`: reescribe el commit ya subido y el
   siguiente push es rechazado (non-fast-forward). Se rebasa sobre `origin/punta/<x>` (el workflow de la punta le mezcla main solo).
-- **Sin hacer:** la bajada de los 71 referentes que faltan (pedido escrito en el relevo), la antigüedad de cada tema contra el
+- **Buscar referentes por sector (ronda 2, 4 agentes):** WebSearch con `site:instagram.com` o `site:youtube.com` no filtra nada
+  (devuelve blogs, Hotmart, Fiverr). Lo que rindió: buscar VIDEOS en YouTube por código (`youtube.com/results?search_query=…` y
+  leer el `ytInitialData`), agrupar por canal, y sacar el @ de Instagram del enlace del «Acerca de» del canal. Adivinar el @ da
+  homónimos casi siempre (`adriansaenz_` 553 seguidores, el real es `adrians`). Varios agentes que escriben el MISMO archivo
+  (`yt-candidatos.json`) se pisan: cada agente, su archivo, o se rehace el chequeo al final. La cifra de suscriptores que se
+  saca del HTML falla en los canales chicos (0, 3, 5).
+- ⛔ **Leer Instagram haciéndose pasar por un bot** (user agent de Googlebot o de Facebook) lo frena el clasificador de permisos
+  como acceso no autorizado: no se usa ni se le pide a un agente. Los seguidores se leen de lo que la web ya indexó.
+- **Sin hacer:** la bajada de los referentes que faltan (155 en la lista desde la ronda 2) (pedido escrito en el relevo), la antigüedad de cada tema contra el
   corpus histórico (`…/0ee425c6-…/scratchpad/afirm/corpus.json`, 10.567 piezas), el `mapa.md`, el `tendencias.json` y la pestaña.
 
 ## Serie 3 (ventas, «encontré una aplicación») — 19/11/2026

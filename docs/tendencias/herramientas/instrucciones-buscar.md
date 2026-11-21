@@ -20,3 +20,5 @@ Buscamos referentes que HOY (noviembre de 2026) publican en ESPAÑOL sobre un se
 
 **Para cada referente nuevo:** `{nombre, sector, subsector?, instagram, youtube, seguidores_ig, pais, por_que (una línea: de qué
 habla), activo (fecha del último video o publicación que viste), confianza (alta/media/baja), fuente (URL)}`.
+
+**Prohibido:** hacerse pasar por un bot (user agent de Googlebot, Facebook u otro) para leer Instagram: es acceso no autorizado.
