@@ -898,6 +898,20 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
       y con la barra de scroll escondida no se sabía que había más abajo.
     - **Trampa para probarlo:** el submenú se cierra con `resize`, y ajustar el tamaño del navegador de prueba dispara
       `resize`. La captura tiene que ir sin cambiar el tamaño entre abrirlo y fotografiarlo.
+28. **Las 68 referencias de animación llevan su creador real** (21/11; antes figuraban como «Formatos de animación»).
+    - **De dónde salió cada una:** el formato que trae `num` es una réplica del paquete de la competencia de
+      [@mdmukeem__001](https://www.instagram.com/mdmukeem__001/) («Md Mukeem»): 57 piezas. Las otras 11 traen `origen`:
+      HyperFrames de HeyGen (7, el repositorio `heygen-com/hyperframes` o su canal), Joseph | Video Editing, Tyler Mommsen y
+      MoSidd (YouTube). La del «recibo» es una idea de nuestra investigación y va a «Otros», al final de la lista y sin cara.
+    - **Trampa:** el `origen` de Joseph también nombra HyperFrames. Si la regla de HyperFrames va primero, se lo come. Las
+      reglas de un autor puntual van antes que las de la herramienta.
+    - Las fotos: los avatares de YouTube salen con `yt-dlp --flat-playlist --playlist-items 0 -J <canal>` (miniatura
+      `avatar_uncropped`). En Instagram, la dirección de la foto viene bloqueada para el script: se tomó de una captura
+      ampliada del perfil, sólo leyendo. Los cinco están en la colección `creadores` (orden 20 a 24).
+    - Estas piezas no están en la base: las arma `armar-cm.mjs` (`creadorDeRef`). Las 128 animaciones de la colección
+      `spy` son de la competencia.
+    - Con 13 creadores, el panel no alcanzaba: subió a 780 px de alto como máximo y los botones de creador se achicaron
+      (cara de 26 px). Si se suman más creadores, revisar que el último renglón (Orden) siga a la vista.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
