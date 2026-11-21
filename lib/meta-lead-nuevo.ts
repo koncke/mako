@@ -35,12 +35,31 @@ import { marcarAnunciado, reclamarAnuncio } from './meta-anuncio';
 
 export type LeadNacidoDeMeta = { id: number; nombre: string; telefono?: string | null };
 
+/**
+ * La calificación automática por lo que contestó (20/11/2026, lib/calificacion-aplicar.ts): con reglas en el funnel donde
+ * entró, el lead va a su etapa («Descalificado», «Revisión»…) con la regla escrita en su historial. Se llama ANTES de anunciar
+ * y de las automatizaciones: un descalificado no entra a la secuencia de «lead nuevo». Nunca tira.
+ */
+export async function calificarLeadDeMeta(leadId: number, formId: string | null | undefined, fieldData: MetaFieldData | null | undefined): Promise<void> {
+  if (!formId) return;
+  try {
+    const { aplicarCalificacion, respuestasDeMeta } = await import('./calificacion-aplicar');
+    const { claveMeta } = await import('./fuentes-formularios');
+    await aplicarCalificacion(leadId, [claveMeta(formId)], respuestasDeMeta(fieldData));
+  } catch (e) {
+    console.error(`[meta-lead-nuevo] calificación (lead ${leadId}): ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 export async function alNacerLeadDeMeta(
   ws: number,
   lead: LeadNacidoDeMeta,
-  form: { fieldData?: MetaFieldData | null; campana?: string | null },
+  form: { fieldData?: MetaFieldData | null; campana?: string | null; formId?: string | null },
   opc: { esReintento?: boolean } = {},
 ): Promise<void> {
+  // La calificación va primero y SIEMPRE (también si otra puerta lo anuncia): mover a su etapa es idempotente —si ya está ahí,
+  // no hace nada— y el anuncio no lo es.
+  await calificarLeadDeMeta(lead.id, form.formId, form.fieldData);
   const reclamo = await reclamarAnuncio(ws, lead.id);
   if (reclamo === false) return; // otra puerta lo anuncia
   if (reclamo === null && opc.esReintento) return; // un reintento sin su marca no anuncia: sería el segundo aviso

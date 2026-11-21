@@ -235,5 +235,8 @@ test('⛔ la foto llega al comprobante con su texto, por WhatsApp y por la app',
 test('el Pay ID sale del ajuste de cobro, nunca escrito a mano', () => {
   const srv = leer('lib/agencia-mes-consulta.ts');
   assert.match(srv, /leerDatosDePagoDirecto\(\)/);
+  // ⛔ El interruptor del checkout público de /planes (20/11/2026) NO apaga lo de la agencia: el hijo lee los datos con `checkoutPublico: false`
+  // y la consulta dice el Pay ID igual (arriba, «la consulta de verdad»).
+  assert.doesNotMatch(srv, /checkoutPublico|mediosDelCheckout|medioDirectoQueVale/, 'la agencia no depende del checkout de /planes');
   for (const p of ['lib/agencia-mes-consulta.ts', 'lib/agencia-mes-consulta-reglas.ts']) assert.doesNotMatch(leer(p).replace(/^\s*\/\/.*$/gm, ''), /\b\d{8,}\b/, `${p}: un número escrito a mano`);
 });

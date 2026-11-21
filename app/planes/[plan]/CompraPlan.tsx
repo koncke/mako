@@ -16,9 +16,10 @@
 // (Martín: «WhatsApp no debe ser opcional… no debería poder darle clic al botón… si no completé todo lo anterior»): el botón
 // queda apagado hasta que el email, el nombre, el WhatsApp y la forma de pago están, y la ruta también lo exige.
 //
-// «TRANSFERENCIA O BINANCE · 5% OFF» (18/11/2026, Martín: «la opción de transferencia para el resto de personas… un descuento si pagan
-// por eso… es el 5%»): una fila más junto a las pasarelas, para todos. Al elegirla se ven los datos de MaKo (cada uno con su «Copiar»),
-// el monto exacto con el descuento y dos botones para mandar el comprobante; al confirmar, el pedido entra por el flujo de «Quiero»
+// «TRANSFERENCIA O BINANCE» (18/11/2026, Martín: «la opción de transferencia para el resto de personas»), al MISMO precio de lista que
+// la pasarela: una fila más junto a las pasarelas, SÓLO con el interruptor `checkoutPublico` prendido (20/11/2026; apagado por defecto, lo
+// decide page.tsx con `mediosDelCheckout`). Al elegirla se ven los datos de MaKo (cada uno con su «Copiar»),
+// el monto exacto de lista y dos botones para mandar el comprobante; al confirmar, el pedido entra por el flujo de «Quiero»
 // (`pedirPlanSinPasarela`) y avisa al equipo. ⚠️ La activación es de Martín, a mano: nada de acá dice que «se activa sola». Sin datos de
 // MaKo cargados (`DATOS_DE_PAGO_DIRECTO`), la fila no se dibuja (la arma `page.tsx`: sin `directo`).
 //
@@ -60,7 +61,7 @@ const NOMBRE: Readonly<Record<Pasarela, string>> = {
  */
 // 14/11/2026 (Martín): sin «Pagas en la página segura de Stripe»; las marcas con sus LOGOS; Mercado Pago con el suyo, bien distinto.
 // La nota de Mercado Pago (el email de su cuenta) va en su fila: debajo del botón ya no hay texto.
-// 18/11/2026, tarde: el recargo del 5 % de la pasarela se APAGÓ (lib/partners-reglas.ts, `RECARGO_PASARELA` = 0): sin subtítulos otra vez.
+// 18/11/2026, tarde: el recargo de la pasarela se APAGÓ (lib/partners-reglas.ts, `RECARGO_PASARELA` = 0): sin subtítulos otra vez.
 const DETALLE: Readonly<Record<Pasarela, { sub: string | null }>> = {
   stripe: { sub: null },
   mercadopago: { sub: null },
@@ -68,7 +69,7 @@ const DETALLE: Readonly<Record<Pasarela, { sub: string | null }>> = {
 };
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-/** Lo que `page.tsx` le pasa cuando hay con qué cobrar «Transferencia o Binance»: los medios con dato cargado, su monto con el 5% y los datos. */
+/** Lo que `page.tsx` le pasa cuando el checkout ofrece «Transferencia o Binance»: los medios con dato cargado, su monto de lista y los datos. */
 export type OpcionDirecta = {
   medios: MedioDirecto[];
   montos: Partial<Record<MedioDirecto, { monto: number; moneda: 'USD' | 'ARS' }>>;
@@ -142,7 +143,7 @@ export function CompraPlan(p: {
    * con la prueba ese total es 0: quien ya la había usado veía «Suscribirme por US$ 0 al mes».
    */
   hoy?: Partial<Record<Pasarela, string>>;
-  /** «Transferencia o Binance · 5% OFF»: sin esto (sin datos de MaKo cargados) la fila no se dibuja. */
+  /** «Transferencia o Binance»: sin esto (interruptor apagado, o sin datos de MaKo cargados) la fila no se dibuja. */
   directo?: OpcionDirecta;
 }) {
   const [sinPrueba, setSinPrueba] = useState(!!p.sinPrueba);

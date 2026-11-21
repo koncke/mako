@@ -109,6 +109,9 @@ import { conversacionDelTurno } from '@/lib/conversacion';
 import { resumirDespues, type PedirResumen } from '@/lib/conversacion-resumen';
 import { bloqueDelResumen } from '@/lib/conversacion-resumen-reglas';
 import { anterioresDeLaPersona, busquedaConLoAnterior, claveDeLaApp, entradasDeLaApp, historialDeTurnos, loQueLei, marcaLeido } from '@/lib/chat-app-hilo';
+import { esSinSaldoDeMt } from '@/lib/mako-tokens-medidor';
+import { MARCA_EL_DE_MAKO } from '@/lib/nota-de-voz-de-mako';
+import { NO_PUDE_ESCUCHAR } from '@/lib/dictado-error';
 
 /** La feature registrada del doer (lib/model-catalogo.ts → Gemini). Claude está vetado. */
 const FEATURE = 'mako-doer';
@@ -414,6 +417,10 @@ export async function escucharNotaDelChat(persona: PersonaChat, sessionId: numbe
     } catch (e) {
       const delNegocio = e instanceof SttSinEscucha ? e.errores : [e instanceof Error ? e.message : String(e)];
       console.error('[mako-turno-app] nota de voz:', delNegocio.join(' | ').slice(0, 300));
+      // Sin IA propia la escucha el Whisper de MaKo y la paga el cupo (20/11/2026, lib/nota-de-voz-de-mako.ts). Sin saldo, lo que dice
+      // el medidor; y si la de MaKo probó y falló, sin errores del negocio, que la grabe de nuevo (no «no hay ninguna IA»).
+      if (esSinSaldoDeMt(e)) return { ok: false, error: e instanceof Error ? e.message : String(e), status: 424 };
+      if (e instanceof SttSinEscucha && !e.errores.length && e.erroresPlataforma.some((x) => x.startsWith(MARCA_EL_DE_MAKO))) return { ok: false, error: NO_PUDE_ESCUCHAR, status: 424 };
       return { ok: false, error: await errorDeCascada(delNegocio, 'escuchar tu audio'), status: 424 };
     }
     return texto ? { ok: true, texto } : { ok: false, error: NOTA_SIN_VOZ, status: 422 };

@@ -28,6 +28,7 @@ import { AprendeSolo } from './AprendeSolo';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import { esCoachDelOps } from '@/lib/chat-mako-reglas';
 import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
+import type { LoQueSabe } from '@/lib/onboarding-v2/brain-del-recorrido';
 import { esVistaTicketera } from '@/app/tickets/decisiones/reglas';
 // La Ticketera vive adentro de Ops Center (16/10/2026): sus hojas las importa la página (CambioVista.tsx lo explica).
 import '@/app/tickets/decisiones/mazo.css';
@@ -74,7 +75,9 @@ const enteroDe = (v: string | undefined): number | null => {
   return Number.isInteger(n) && n > 0 ? n : null;
 };
 
-export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio, retoV2 = false, dosCoaches = false, nombrePersona = '', hiloOnboarding = null, soloLectura = false }: {
+export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio, retoV2 = false, dosCoaches = false, nombrePersona = '', loQueSabe = null, hiloOnboarding = null, soloLectura = false }: {
+  /** Lo que MaKo sabe de la persona (onboarding V2): el Second Brain del recorrido (BrainDelRecorrido.tsx). */
+  loQueSabe?: LoQueSabe | null;
   /** Mirando el negocio de un cliente como administrador: la caja en lectura (lib/chat-del-negocio.ts). */
   soloLectura?: boolean;
   /** El id del chat «Onboarding» (onboarding V2): va enseguida del Ops Center en la lista (OD-08). */
@@ -102,7 +105,7 @@ export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio, retoV2 = 
       <ChatSecondBrain veMapa={veMapa} mapa={mapa} chatInicial={chat} offerInicial={enteroDe(q.offer)} antesInicial={enteroDe(q.antes)} coachInicial={esCoachDelOps(q.coach) ? q.coach : null}
         opcionArmar={OPCION_ARMAR} centro={centro}
         centroInicial={centro ? claveCentro : null} ticketeraInicial={ticketera} inicio={inicio}
-        retoV2={retoV2} dosCoaches={dosCoaches} retoInicial={q.reto === '1'} nombrePersona={nombrePersona} hiloOnboarding={hiloOnboarding} soloLectura={soloLectura} />
+        retoV2={retoV2} dosCoaches={dosCoaches} retoInicial={q.reto === '1'} nombrePersona={nombrePersona} loQueSabe={loQueSabe} hiloOnboarding={hiloOnboarding} soloLectura={soloLectura} />
     </Pagina>
   );
 }
