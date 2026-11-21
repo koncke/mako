@@ -1127,6 +1127,11 @@ toma de la base, así que sumar o cambiar una no requiere publicar.
 - **Cómo se sube:** `Artifact` publish con `asset: true` (hasta 25 por llamada) y después `ArtifactData` `batch` con
   `update` de `caricatura` en cada `creadores/<cuenta>`, pinado a la versión leída.
 
+- **Cargadas el 21/11:** dakota, mdmukeem, tyler-mommsen, mosidd, joseph y hyperframes (600 × 600 → 160 × 160 px, de 4,6 a
+  6,3 KB cada una; copias en `content-machine/caricaturas/`). `victor` lleva `cuentas: ["victor", "herasmedia"]`. Los 7
+  primeros (Ramiro, Víctor, Heras Media, Hormozi, Carrizo, Doglio, Collado) ya tenían su caricatura de MaKo en `foto`.
+  Para un creador nuevo, la caricatura la hace el chat de carruseles (`docs/hallazgos-generativa.md`, «Caricaturas de
+  creadores»).
 ### Ángulos del mercado en Content Machine (21/11/2026, v58)
 
 - **El filtro «Ángulo ›»** en Spy, Reels y Carruseles sigue el contrato `docs/tendencias/contrato-angulos-spy.md`. Lee
@@ -1150,11 +1155,6 @@ toma de la base, así que sumar o cambiar una no requiere publicar.
   `content-machine/tend/angulos.json`). Cuando el chat de tendencias avise, se copia el nuevo ahí y se rearma.
 - **Trampa:** una regla general de la página le pone `::after` a todo `summary`. En una fila en grilla, ese `::after` cayó
   en un renglón propio y dibujaba una flecha suelta.
-- **Cargadas el 21/11:** dakota, mdmukeem, tyler-mommsen, mosidd, joseph y hyperframes (600 × 600 → 160 × 160 px, de 4,6 a
-  6,3 KB cada una; copias en `content-machine/caricaturas/`). `victor` lleva `cuentas: ["victor", "herasmedia"]`. Los 7
-  primeros (Ramiro, Víctor, Heras Media, Hormozi, Carrizo, Doglio, Collado) ya tenían su caricatura de MaKo en `foto`.
-  Para un creador nuevo, la caricatura la hace el chat de carruseles (`docs/hallazgos-generativa.md`, «Caricaturas de
-  creadores»).
 
 **El reel para mentores high ticket (los pistachos) está en «Reels terminados»** (21/11). No viene de la galería de
 animaciones: va a mano en `armar-cm.mjs` (`reels.push`).
