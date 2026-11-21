@@ -4331,3 +4331,25 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
   - el reto: «¿Qué hacemos ahora?», el desplegable de días, el catálogo y las marcas de las tareas;
   - el formato de los globos.
 - Uso: `node scripts/banco-onboarding/build.mjs && node scripts/banco-onboarding/probar.mjs [--solo videos,whatsapp,barra,brain,marca]`.
+
+## RESET en un espacio de prueba: los hilos de la lista lateral viven en cinco lugares (21/11/2026, onboarding-v2)
+
+- **Síntoma:** Martín dio RESET en el ws 3 y quedaron «Image Editor», «Prueba · contraste sobre blur» y Offer Coach con mensajes de
+  «Ayer». El pedido: en un espacio de PRUEBA, RESET deja todo como una cuenta recién creada.
+- **El diagnóstico obvio era el equivocado: «los chats» no son una tabla.** La lista lateral (app/second-brain/useChatCliente.ts)
+  pide cinco fuentes, y cada una vive en otro lado:
+  - `sesiones` y `antes` → chart_sessions y chart_chats;
+  - `offer` → offer_sesiones;
+  - `editores` → image_editor_chats y video_editor_chats;
+  - `automations` → app_settings, clave `automatizacion.chat:<id>`. No es una tabla: se borra por el comienzo de la clave
+    (`like`), y se va la charla, no la automatización (nutricion_secuencias no se toca).
+  El primer arreglo vació chart_* y offer_sesiones, y los de los editores siguieron ahí.
+- **La regla:** `FUENTES_DE_LA_LISTA` (lib/reset-chats-prueba-reglas.ts) dice dónde vive cada fuente. El test
+  tests/reset-prueba-sin-chats.test.ts «4» lee las `${RUTA}?<fuente>=1` de la lista y cae si aparece una fuente sin lugar, o un
+  lugar que no se vacía. Una fuente nueva en la lista se suma ahí.
+- **Dónde:** sólo en el ws 3 y el 4, una lista cerrada escrita en el código (`WS_SE_VACIAN_LOS_CHATS`). Nunca el 9 (el espacio de
+  Martín) ni el 11 (Leila). Tampoco «los espacios de la revisión»: el 9 también es uno.
+- **Trampa:** la ruta contestaba `ok` aunque un borrado fallara; los avisos quedaban en el JSON y el botón no los miraba. Ahora el
+  botón dice lo que no pudo borrar.
+- **SIN PROBAR contra la base.** El banco no tiene base, y leer producción lo frenó el permiso. Lo mira el Cerebro en el ws 3 después
+  del despliegue del 22/11: un chat del Image Editor y uno de automatizaciones creados antes del RESET tienen que desaparecer.
