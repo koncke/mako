@@ -182,16 +182,17 @@ test('onboarding: pedir la verificación NO le escribe a nadie, y da el link a l
   assert.equal(r.pedido.estado.linea, 'mako_ws9');
 });
 
-test('onboarding: el código tipeado en la app no confirma; un pedido de antes del 4/11 sí, y sin grupo no queda verificado', () => {
+test('onboarding: el código tipeado en la app no confirma; un pedido de antes del 4/11 sí, y el grupo que ya no nace no lo traba', () => {
   const r = real();
   assert.deepEqual(r.tipeado, { ok: false, error: NO_SE_TIPEA });
   assert.deepEqual(r.deAntes, { ok: true });
-  assert.equal(r.deAntesSinGrupo.res.ok, false);
-  assert.equal(r.deAntesSinGrupo.verificado, false, 'queda verificado aunque el grupo no salga');
+  // 20/11/2026 (Martín: «Sólo no crear más»): MaKo no crea el grupo, así que un WhatsApp que no lo crearía tampoco importa: queda verificado.
+  assert.deepEqual(r.deAntesSinGrupo.res, { ok: true });
+  assert.equal(r.deAntesSinGrupo.verificado, true, 'no se crea ningún grupo: no hay grupo que esperar para verificar');
 });
 
-test('onboarding: sin el nombre del negocio todavía, el grupo nace con el del workspace', () => {
-  assert.equal(real().sinNombre, 'MaKo <> Nueva');
+test('⛔ onboarding: confirmar el teléfono ya no crea ningún grupo (20/11/2026), tenga o no el nombre del negocio', () => {
+  assert.equal(real().sinNombre, null, 'se pidió crear un grupo al confirmar el teléfono');
 });
 
 test('onboarding: desde otro número o a otra línea no se confirma, y lo de otro número queda dicho', () => {
@@ -204,14 +205,14 @@ test('onboarding: desde otro número o a otra línea no se confirma, y lo de otr
   assert.equal(r.sinCodigo, null);
 });
 
-test('onboarding: desde su número se confirma sin hablar con WhatsApp, y RECIÉN AHÍ entra al grupo', () => {
+test('onboarding: desde su número se confirma sin hablar con WhatsApp, y no crea ningún grupo (20/11/2026)', () => {
   const r = real();
   assert.equal(r.confirmado.resultado, 'ws25: confirmado');
   assert.equal(r.confirmado.estado.verificado, true);
   assert.equal(r.confirmado.vista.estado, 'verificado');
   assert.deepEqual(r.confirmado.antesDelGrupo, [], 'confirmar no le manda nada');
-  // Nunca un mensaje a la persona: el grupo nace con ella adentro y la bienvenida va al grupo.
-  assert.ok(r.confirmado.pedidos.some((p: { ruta: string }) => p.ruta === 'group/create'));
+  // Nunca un mensaje a la persona, y desde el 20/11/2026 (Martín: «Sólo no crear más») tampoco un grupo: los avisos van por el chat privado.
+  assert.ok(!r.confirmado.pedidos.some((p: { ruta: string }) => p.ruta === 'group/create'), 'confirmar el teléfono creó un grupo');
   for (const p of r.confirmado.pedidos as Array<{ ruta: string; a: string }>) {
     if (p.ruta.startsWith('message/')) assert.ok(p.a.endsWith('@g.us'), `un mensaje salió a ${p.a}`);
   }

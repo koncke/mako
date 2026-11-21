@@ -3,9 +3,19 @@
 // =============================================================================
 // Corren REALES `asegurarGrupoMaKo`, `planEquipoDeAgencia`, `aplicarEquipoDeAgencia` y la lectura de la cartera, sobre un PostgREST de
 // mentira y un Evolution en memoria. Mira lo único que importa: a quién se agregó a qué grupo y qué se dijo en él.
-// Necesita `--conditions=react-server`.
+// Necesita `--conditions=react-server` y `--experimental-test-module-mocks`.
+//
+// ⛔ CON LA CREACIÓN PRENDIDA SÓLO ACÁ (20/11/2026). Desde «Sólo no crear más» (Martín), MaKo no crea grupos nuevos (`SE_CREAN_GRUPOS`,
+// lib/altas-en-grupos.ts): el nacimiento de un grupo con el equipo de la agencia es código DORMIDO. Este hijo lo sigue probando con el corte
+// abierto por un mock, para que el día que se vuelva a prender ande; que en producción no se crea lo prueba tests/altas-en-grupos.test.ts.
 
+import { mock } from 'node:test';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import * as altasEnGrupos from '../lib/altas-en-grupos';
 import { crearPostgrest } from './_postgrest-de-mentira';
+
+mock.module(pathToFileURL(join(import.meta.dirname, '..', 'lib', 'altas-en-grupos.ts')).href, { namedExports: { ...altasEnGrupos, SE_CREAN_GRUPOS: true } });
 
 process.env.SUPABASE_URL = 'http://supa.test';
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supa.test';

@@ -8,6 +8,256 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## Todo el feedback de Martín sobre la réplica de carruseles, para llevarlo al replicador (20–21/11/2026)
+
+Lo que Martín fue diciendo de sus 11 carruseles de ventas y de los de Leila, ronda por ronda: qué se vio, por qué pasaba y qué tiene
+que hacer «Editar» (`replicarEjemplo`, lib/carruseles/replica-servidor.ts) para que no vuelva. Los arreglos de cada ronda están en
+las entradas de abajo; esto es la lista para el producto.
+
+1. **«Idénticos, y con IA, no con plantilla».** *Síntoma:* la réplica reconstruía la lámina en el editor (plancha, guías, fotos de
+   banco) y no se parecía. *Causa:* el texto se borraba de la imagen y se escribía encima; un titular enorme o una pose no se pueden
+   borrar. *Regla:* cada lámina se REGENERA con la IA de imagen y su lámina original de base, cambiando sólo lo que hay que cambiar
+   (lib/carruseles/regenerar*.ts). El gancho se calca (su fórmula y su estética), las poses se conservan y **las letras nunca tapan
+   una cara**. *Falta en el replicador:* revisar que ninguna caja de texto quede sobre una cara (hoy nadie lo mira).
+2. **El personaje y la firma correctos.** *Síntoma:* en «equipo» quedó el personaje pixelado del original en 4 de 7 láminas, en el de
+   Ramiro una mano se volvió el personaje, y sobrevivieron @albert.olgaard, @ramiro.cubria y «textura.agency». *Causa:* la persona la
+   detecta otra pregunta a la IA (`PROMPT_HAY_PERSONA`) que a veces dice que no, y el @ del creador sólo cambia si el copy lo trae.
+   *Regla:* donde haya una persona va el personaje del negocio (Martín: en cubos), haciendo lo que hace la de la referencia, y el @ y
+   la marca del creador pasan SIEMPRE a los del negocio. *Falta en el replicador:* sumar a cada pedido de texto el cambio fijo
+   «@creador → @negocio» y «marca del creador → marca del negocio» (`promptDeTextos`, lib/carruseles/regenerar.ts), aunque el copy no
+   los nombre; y revisar la persona después de generar (¿quedó alguien que no es el personaje?).
+3. **«Con criterio, no feedback específico».** *Síntoma:* el diseño estaba bien y el carrusel no decía nada nuestro. *Causa:* se
+   calcaba la referencia lámina por lámina sin pensar qué contaba. *Regla, el método de 5 pasos:* (a) entender por qué funcionó la
+   referencia (fórmula del gancho, promesa, cómo avanza, estética, qué pide al final); (b) el gancho con la misma fórmula y el tema
+   del negocio; (c) el cuerpo con el mismo diseño y contenido NUESTRO, con las mismas expresiones, tono y largo, nunca calcado; (d)
+   un CTA que dé algo real (si promete una guía, que exista); (e) autocrítica leyéndolo como en Instagram. *Falta en el replicador:*
+   el análisis y el guion ANTES de generar, a la vista del dueño (hoy se genera directo desde el copy).
+4. **«Si tapo el texto, ¿la imagen cuenta lo mismo?»** *Síntoma:* «página Hormozi» sobre la web de Auralis, «Competitor Spy» sobre
+   las ruedas de color de Instagram Edits, «Elige a Hormozi» sobre un proyecto de Claude, «lista o tips» sobre tablas de corte,
+   «Marketing · inspirado en Vilma» sobre la miniatura de un desconocido, «el asistente contesta» con unos prismáticos. *Causa:* el
+   motor cambia texto y persona; todo lo demás que se VE queda de la referencia. *Regla:* las capturas son de MaKo (nunca las de la
+   app de la referencia: Claude, Edits, Manus, Auralis, Runway, Canva); nada de «inspirado en…» en vez de mostrar a quien se nombra;
+   los cuadros muestran el tema; los íconos son los de las herramientas que nombra el texto; la acción del personaje cuenta el texto.
+   *Falta en el replicador:* un paso VISUAL por lámina: la IA lista lo que se ve (capturas, logos, fotos, íconos) y lo cambia por
+   material del negocio (sus capturas, su logo, sus páginas) con UNA referencia por lámina. El material de MaKo está hoy en
+   C:/dev/carruseles-ventas/*/img y en capturas nuevas de ws 3/9 (con los datos de personas tapados antes de mandarlas a la IA).
+5. **En español y en tuteo.** *Síntoma:* «save for later» en las siete de «equipo», «TEAM», «Comentá», «Grabá». *Causa:* lo que
+   `esDelMarco` y `NO_RECIBE` (lib/carruseles/copy-pegado.ts) dejan quieto (el pie, los botones) no se traduce, y el voseo de la
+   referencia pasa tal cual. *Regla:* un texto en otro idioma o en voseo se traduce aunque sea del marco («Guárdalo»).
+   *Falta en el replicador:* mandar también los textos del marco a la traducción, y revisar el voseo en lo leído.
+6. **Los dos bugs encontrados.** El «01/05» del copy se tomaba como marca de lámina y corría todos los renglones (arreglado:
+   `partesDelCopy` en lib/carruseles/copy-pegado.ts, test 13 de tests/carruseles-copy-pegado.test.ts). Una lámina que no se podía
+   leer pasaba como «bien escrita» y salía igual a la referencia sin aviso (arreglado: `revisar` en
+   lib/carruseles/regenerar-servidor.ts, test 8 de tests/carruseles-regenerar.test.ts).
+7. **La IA de imagen cambia lo que no se le pidió.** Contadores («02 / 06» donde decía «01 / 06»), «Grok MaKo», asteriscos literales,
+   el CTA entero si no se nombra lo que queda, y a veces no saca un elemento por más que se le pida (la planilla de Hormozi detrás de
+   «COMENTA OFERTA»: se resolvió al revés, con la pantalla de MaKo de base y la lámina como referencia del texto). *Falta en el
+   replicador:* después de cada paso, comparar el texto leído contra el pedido COMPLETO de la lámina (también contadores y firmas),
+   no sólo contra lo que se cambió.
+   ⚠️ **El caso de Leila en producción (21/11, ws 9, f37c3439c):** 10 láminas con su copy sobre @creatoearn de 7, ninguna en
+   blanco, pero quedaban textos del original que el pedido no nombraba («The hardest way to grow.», «The lesson.»), la IA dibujaba
+   las comillas del pedido («EL GIRO»), le sumaba «3.» a un título, y las láminas que reusan una base repetían su foto (la 3 y la
+   8, la 4 y la 9). La revisión no lo vio porque sólo buscaba lo que FALTA. Ahora `textoQueSobra` (lib/carruseles/regenerar.ts)
+   busca lo que SOBRA; el pedido marca cada texto con comillas RECTAS (con «» la IA las dibujaba, y chocaban con las «» del propio
+   copy de Leila) y dice que ningún otro texto queda, nombrando los que no cambian (si no, se los llevaría); y una base reusada
+   pasa por un paso aparte que cambia la foto por otra escena (`promptDeOtraFoto`, `ESCENAS_OTRA_FOTO`). ⚠️ Pedir «otra foto del
+   mismo estilo» DENTRO del paso de texto no sirvió: probado en seco, la IA conservó la escena. Test 9 de
+   tests/carruseles-regenerar.test.ts. Probado en seco con el copy de Leila: sin textos del original ni el «3.».
+   ⚠️ **Mi arreglo del «01/05» se comía la firma de Leila** («Leila Fittipaldi · MetaCoach · La Academia del Coach», última
+   lámina): la IA ponía ese renglón como «original» del texto de la firma, la marca lo cambiaba por el nombre del negocio, y el
+   reparto lo daba por puesto (`fijos`). Ahora es fijo sólo lo que SIGUE diciendo lo mismo (`conElCopy`, copy-pegado.ts). Test 14
+   de tests/carruseles-copy-pegado.test.ts. La revisión no lo veía: lo que se saca del reparto tampoco se espera.
+   ⚠️ **La letra chica no se arregla con otra pasada** (las maquetas de Ganchos 2): pedirle que corrija «reegrdo» o «cabre» en
+   un texto de 1–2 % del alto lo escribe mal de otra forma y daña otras palabras chicas («Gracles», «lagres»), y pedir «TU» sin
+   tilde le agregó la tilde. Lo que sirvió: sacar esa línea con una frase, y si tampoco sale, taparla en el propio archivo
+   estirando una franja del fondo de al lado (sharp), sin otra pasada de IA.
+
+## La réplica REGENERA cada lámina con IA desde su referencia, por ApiMart (21/11/2026)
+
+**El pedido** (Martín, 20/11, sobre sus 11 carruseles de ventas y los de Leila): «no salieron idénticos y tenían que salir realmente
+idénticos… eso lo tienes que hacer con inteligencia artificial, le tienes que pasar la referencia y pedirle a la IA que cambie al
+personaje o a los textos». La plancha (borrar las letras y escribir encima) no puede con un titular enorme sobre una foto ni con las
+poses; la IA de imagen sí.
+
+**El diagnóstico obvio era el equivocado: «la IA de imagen de MaKo es Flow».** Lo es (lib/flow-cola.ts, la extensión en un Chrome con
+Flow abierto), pero el 21/11 **ningún** puente andaba (ws 9, 1, 10 y 11 «sin sesión», el ws 4 sin puente) y muchos clientes no tienen
+Flow. Va por ApiMart, con la clave de la plataforma y medido en MaKo Tokens (la decisión de Martín del 7/11).
+
+**Cómo quedó:**
+- `generarImagen` y `esperarTarea` (lib/apimart.ts) con sus reglas puras (`MODELOS_IMAGEN`, `cuerpoDePedidoImagen` en
+  apimart-reglas.ts; `mtDeImagenDe` en mako-tokens-reglas.ts, que es quien importa a apimart-reglas y no al revés). Modelo:
+  **Nano Banana Pro** (`gemini-3-pro-image-preview`, 4:5, hasta 14 referencias, US$0,02); respaldo Nano Banana y Seedream 4 (sin
+  4:5: va 3:4).
+- lib/carruseles/regenerar.ts (los prompts y la revisión) y regenerar-servidor.ts: por lámina, se cobran los MaKo Tokens ANTES; la
+  BASE es la lámina original y el prompt cambia sólo los textos («original» → «nuevo»); se LEE lo que salió con la IA del negocio y,
+  si falta una palabra o una tilde, se vuelve a generar (el segundo intento, con la lista en orden: la IA principal a veces escribe el
+  texto nuevo en «original»); la persona es OTRO paso, con UNA referencia. Lo generado se copia a nuestro bucket (ApiMart lo borra a
+  las 24 h).
+- «Editar» (`replicarEjemplo`) regenera por defecto con todas las láminas a la vista y la clave; si no puede (sin MaKo Tokens, el
+  proveedor), sigue la réplica de antes y lo dice. `persona: 'original'` deja a la persona del original (Hormozi ES el gancho).
+- Un carrusel que no está en la biblioteca (`que: 'imagenes'`) y scripts/carruseles-rehacer-con-ia.mts (con `--copy`).
+- Medido: la portada de «9 YOUTUBE COURSES» salió igual, con «9 AGENTES DE IA» y sus tildes, en 37 s. El carrusel entero (11
+  láminas, con el copy de Martín), 266 s, todas bien escritas al primer intento.
+- tests/apimart-imagen.test.ts y tests/carruseles-regenerar.test.ts. tests/carruseles-editar-a-tiempo.test.ts cuenta un pedido de
+  visión más (leer el texto de la lámina regenerada).
+
+**Trampas:**
+- ⚠️ **Los pares «original → nuevo» no siempre dicen la verdad.** En el de Ramiro, con el copy, la IA principal escribió el texto
+  NUEVO también en «original»: ningún par cambiaba nada, las láminas se salteaban y seis de siete salieron IGUALES a la
+  referencia, sin que nada lo revisara. Ahora, sin un par que cambie algo, se LEE la original; si no dice lo esperado, va la lista
+  en orden desde el primer intento.
+- ⚠️ **A la persona no la marca la IA principal** (sus «cuadros» no la nombraron en ninguna lámina de Ramiro). Con una persona que
+  poner, se pregunta lámina por lámina (`PROMPT_HAY_PERSONA`). Sigue fallando a veces: en «equipo», cuatro láminas quedaron con el
+  personaje pixelado del original; y una MANO (la de «Zoom progresivo») cuenta como persona.
+- ⚠️ **«No pude leer» contaba como «bien escrita»** (21/11, el de Hormozi): las láminas 5 y 6 salieron IGUALES a la referencia,
+  en inglés, con el aviso vacío. `revisar` devolvía vacío también cuando la lectura fallaba, y sin pares que cambiaran algo la
+  lámina se salteaba. Ahora devuelve `null` sin lectura: sin pares se escribe igual (`escribirSinPares`) y la lámina que no se
+  pudo leer se dice (`avisoDeLaminasSinLeer`, «mírala antes de publicar»). Test 8 de tests/carruseles-regenerar.test.ts.
+- ⚠️ La revisión mira que cada texto ESTÉ, no DÓNDE: en el del caballo, «1 lista o tips» quedó en el encabezado y el título dice
+  «Oct / Graphic Design», y pasó la revisión.
+- Los once de Martín, lado a lado: https://claude.ai/artifact/VSm2NYaJj1UovnvzpMPhiY (ws 9: 17c8dae2, e95791ee, 09d8c7d4,
+  0f2e2173, 445db85e; y 301679fc, 0c0729b1, 4ca17ba2, db277d06, 0c581377, 2dc4b203). Ninguno salió idéntico de una: todos
+  necesitaron de 2 a 9 correcciones por lámina (abajo). Lo que el motor todavía no cambia: lo que la referencia trae ADENTRO
+  (capturas de Claude, logos de otras apps) y las herramientas de una lista («Claude, ChatGPT» quedaba en «VENTAS»).
+- ⚠️ El texto queda DENTRO de la imagen (como en la referencia): ya no se edita con el editor. Fue la decisión del 21/11.
+- ⚠️ El copy decide qué va en cada lugar: con dos renglones para una lámina de tres textos, el primero cayó en la miniatura en una
+  lámina y en el título en otra. Un copy para regenerar va con un renglón por cada texto de la referencia.
+- Lo que la referencia trae adentro (las miniaturas de otros creadores en «9 YouTube courses») queda: para cambiarlo, otro paso.
+- `esDelMarco` reconoce ahora «01 of 11», «3 de 7» y «Oct ©2026»: sin eso el contador recibía un renglón del copy.
+
+**«Si tapo el texto, ¿la imagen cuenta lo mismo?» (21/11/2026, segunda vuelta de los cinco).** Martín: «salieron mal en lo que
+SIGNIFICAN, aunque el diseño esté bien… quiero que tengas criterio». **El diagnóstico obvio era el equivocado**: no faltaban
+arreglos puntuales (firmas, tildes); faltaba que lo que se VE fuera nuestro. Las láminas decían «página Hormozi» sobre la web de
+Auralis, «lista o tips» sobre tablas de corte, «Marketing · inspirado en Vilma» sobre la miniatura de un desconocido.
+- Antes de generar: por qué funciona la referencia (2–3 líneas), el guion lámina por lámina adaptado a MaKo y un CTA que dé algo
+  real. Van en el artefacto al lado de cada carrusel.
+- Lo visual ajeno se cambia por lo nuestro con UNA referencia por lámina: la pantalla real del agente, la página de la que habla
+  el texto, los íconos de las herramientas que nombra (una fila de íconos armada con sharp sirve de referencia), portadas de
+  carrusel del tipo que se nombra. 40 s y 47 MaKo Tokens cada una; salió al primer intento en casi todas.
+- **Dónde están las imágenes reales de MaKo:** C:/dev/carruseles-ventas/*/img (de los HTML del 19/11: Spy, Copywriting, Video,
+  Image, CRM, Ops Center, Web Generator, Offer, Second Brain, Automations, los íconos de las apps), y las páginas de «Copiar» son
+  de «Encuentra tu siguiente OUTLIER», la galería del Web Generator (lib/landing-outliers-capturas.json).
+- ⚠️ «La misma pose y la misma acción» choca con «la imagen cuenta el texto» cuando la acción del original es de OTRO tema (los
+  prismáticos del «Scout», la alfombra roja del onboarding): gana el texto. La pose y el lugar quedan; la acción cuenta lo nuestro.
+- ⚠️ El Ops Center es la pantalla del super admin (/admin/operaciones): no es un agente para mostrarle a un cliente.
+
+**Corregir una lámina YA hecha: una frase sobre ella (21/11/2026, los cinco de Martín).** Lo que no salió idéntico se arregló
+lámina por lámina, con la lámina hecha de base y UNA frase (y UNA referencia si hace falta: su personaje en cubos, o la lámina
+original para copiar un sello): 40 s y 47 MaKo Tokens cada una. Lo que funcionó y lo que no:
+- ✅ Cambiar al personaje («Replace the pixel-art man… with the cube character from the second image, in the same pose»), un logo,
+  un @, un sello: sale al primer intento y el resto de la lámina queda igual.
+- ✅ **Si el texto quedó en el lugar equivocado, se regenera desde la REFERENCIA** con todos los pares «X → Y» en su lugar, no desde
+  la lámina mal hecha: Copiar 2–6 y Caballo 2–6 salieron con el diseño exacto.
+- ⚠️ «Cambia 'Grok Bot' por 'MaKo' y saca el «MaKo» de la izquierda» dio **«Grok MaKo»**: se pide el texto FINAL («to just 'MaKo'»).
+- ⚠️ «'lista' en itálica» dio **asteriscos literales** («*lista*»): la itálica se pide «like the first word now», sin marcar nada.
+- ⚠️ Pedir que cambien sólo los dos textitos de arriba de una lámina de CTA reemplazó también el CTA grande (Copiar 9): hay que
+  NOMBRAR lo que tiene que quedar.
+- ⚠️ **El @ y la marca del creador original quedan si el copy no los nombra** (@albert.olgaard en la 2 de Equipo, @ramiro.cubria,
+  «textura.agency»): el copy para regenerar lleva también el encabezado y el pie.
+- `.q/corregir.mts` del worktree de carruseles fue la herramienta (no está en el repo): cobra con `cobrarMediosMt` igual que el
+  motor. **Sin hacer:** «corregir esta lámina con una frase» dentro de MaKo, desde el editor.
+
+## La llamada con Leila (20/11/2026): el copy pegado se inventaba, las láminas agregadas salían «en blanco» y las fotos se repetían
+
+**El síntoma** (Fathom 205366178, 00:49:31–00:53:42): «le pegué el copy que quería… y las que salen del máximo que tenía el
+template, ya directamente hizo lo que…», «es página 9 en blanco», «te repetí dos imágenes que nada que ver». Medido en producción
+(ws 11, diseño `14331b1a`, y su hilo en `image_editor_chats`): la referencia tenía 7 láminas y su copy, 10.
+
+**El diagnóstico obvio era el equivocado.** Parecía que la IA no obedecía el copy. No le llegaba: lo escrito en la caja del guiado
+se APLANABA (`\s+` → un espacio) y se cortaba en 300 letras (`TOPE_LIBRE`, lib/carruseles/guiado.ts) antes de llegar como «tema»
+(600, `TOPE_TEMA`). La IA recibía la portada y media lámina 2 y escribía el resto. Y la «página en blanco» no estaba en blanco:
+`agregar_pagina` sin `duplicar` creaba una página BLANCA (#ffffff) y la IA le ponía los textos con la tinta crema del diseño
+(#f3eee2), contraste 1,1. Las fotos: una por búsqueda, y un cuadro sin la suya llevaba «otra escena de la réplica».
+
+**La regla que queda:** un copy pegado NO es un tema. Va TAL CUAL, una parte por lámina, y la cantidad de láminas la decide el copy.
+- `lib/carruseles/copy-pegado.ts`: `partesDelCopy` (marcas «Slide N», «Lámina N», «N/M», «---»; el pie «(abajo: …)» aparte),
+  `laminaParaCadaParte` (portada con portada, cierre con cierre, las del medio en orden y repetidas si sobran), `conElCopy` (la
+  réplica y sus planchas repartidas; un texto del copy puede bajar hasta el siguiente: `altoMax`). Lo que escribió la IA vale sólo
+  si es el copy tal cual (`repartirEnLosTextos`); si reescribió, reparte el código.
+- El guiado guarda `copy` aparte de los extras, entero (8.000) y con sus renglones; la caja queda abierta con el armado andando y
+  pegar un copy lo rehace.
+- En un carrusel, `agregar_pagina` sin `duplicar` copia el DISEÑO de una lámina de contenido (`paginaDeContenido`) y lleva los
+  renglones dictados en `textos` (`conLosTextos`). El prompt del chat ya no pide «cada página su fondo».
+- Ninguna foto dos veces: `escenasParecidas` trae tantas fotos como cuadros tiene cada búsqueda, distintas entre búsquedas, y
+  `documentoDeReplica` no repite una URL; un cuadro sin foto propia va sin foto. La búsqueda se escribe para el texto NUEVO.
+- tests/carruseles-copy-pegado.test.ts (10 casos, con el copy de Leila tal cual). Contra origin/main fallan los tres que se pueden
+  correr allá (el copy aplanado, f1/f2 repetidas, la lámina blanca).
+- En seco con la IA real: `scripts/carruseles-probar-editar.mts --ws 3 --id <id> --copy <archivo>` dice «Copy palabra por palabra:
+  N de P láminas» y cuál renglón falta en cada una.
+- ⚠️ **SIN IA el copy se perdía igual** (la prueba en producción del 21/11, ws 3 sin IA conectada): la línea de estado decía «Tu
+  copy de 9 láminas: va palabra por palabra», el botón «Generar las 7 láminas», y salieron 7 GUÍAS («Tu gancho con un número…»).
+  El camino sin IA (`conGuias` → `crearCarruselDesdeReferencia`) nunca recibía el copy. Poner un texto ya escrito no necesita IA:
+  `laminasConElCopy` arma tantas láminas como partes con el diseño de la guía que le toca (un tipo topado en 8 no corta un copy
+  de 9), y `laminasQueSalen` hace que el resumen y el botón digan las del copy. Toda pantalla que dice «llegó» tiene que tener
+  detrás un camino que lo use, también el de respaldo. Tests 11 y 12.
+- ⚠️ **Un «01/05» en el copy NO es una marca de lámina cuando hay «Slide N»** (21/11, «Páginas que venden» de Martín sobre
+  @textura.us): `partesDelCopy` lo tomaba como marca, el sello desaparecía del copy, la IA lo reescribía como contador («04 / 09»)
+  y todos los renglones de abajo corrían un lugar («Hormozi» donde iba «página», «POR QUÉ VENDE» en el titular). Ahora la fracción
+  sólo es marca sin marcas de palabra, y `repartirEnLosTextos` saca del reparto el renglón que ya dice un texto fijo (`fijos`) o
+  lo pone en el sello de su clase si trae otro valor («02/05»). Test 13.
+- **Sin hacer:** con UN lugar de más que renglones (un «textura.agency» arriba que el copy no nombra), el reparto en orden deja
+  vacío el ÚLTIMO y corre los demás. Lo que lo evita hoy es el copy: un renglón por cada texto de la referencia.
+
+**«No se lee, y le puse a aumentar contraste» (00:51:37).** «Mejora el contraste» era un pedido a la IA del chat: mira un JSON de
+colores, NO la foto, y nadie medía después. Ahora es medido y sin IA (`mejorarContraste`, app/image-editor/mako/chat/contraste.ts):
+cada página se dibuja sin sus textos (`renderPageToCanvas` a ¼), de cada texto se miran los píxeles de su caja (p15/p85 de la
+luminancia, `fondoDe`) y lib/image-editor/contraste.ts decide: blanco o casi negro si alcanza 4,5:1; si no (un blur con luces y
+sombras), blanco con un VELO oscuro detrás con la opacidad justa. Se aplica en un paso de deshacer y se VUELVE a medir lo aplicado
+para decir el contraste que quedó. Además, toda propuesta aceptada del chat se mide en las páginas que cambia y lo que queda bajo
+3:1 se arregla en el mismo paso. En el armado de respaldo de la réplica, una foto de fondo del banco lleva un velo de toda la
+lámina debajo de los textos, y si el original tenía la foto desenfocada (la plantilla «con blur»), la escena va con el mismo blur.
+
+**«La tipografía no es lo mismo» (00:51:32).** Seis categorías con una familia cada una (`LETRA_DEL_EDITOR`) no se parecen a nada.
+La IA nombra ahora la familia del editor más parecida de una lista CERRADA por estilo (`FUENTES_PARA_ELEGIR`); el código la acepta
+sólo si es de la lista y el editor la tiene (`fuenteParecida`) y le da el peso más cercano que existe (`pesoQueExiste`: DM Serif
+Display sólo tiene 400). En la plancha, esa familia reemplaza a Inter, sin «apretarla» con la tabla de anchos de otra letra.
+
+**Trampas:**
+- ⚠️ `AperturaMako` no dibuja la charla cuando no hay pregunta abierta (`if (!a) return null`): con «Editar» por defecto, lo que se
+  escribe no aparece en el hilo. Lo que llegó se dice en la línea de estado del panel.
+- ⚠️ tests/image-editor-chat.test.ts (20) exige UN solo `editor.applyDocument(` en acciones.ts: lo que aplica otra cosa (el
+  contraste) va en su propio módulo. Y el motor (`render.ts`) trae fabric, que no anda en node: se importa adentro de la función.
+- ⚠️ La vista previa del armado (`PaginaCarrusel`) dibuja con CSS: una familia que el editor carga pero la página no salía con la
+  del sistema. `useFuentesDe` la carga del catálogo (`FontFace`) antes de que se vea.
+- `elegirFuente` (./tipografia-medida.ts, comparar trazos) sigue SIN conectar: pide dibujar cada candidata en un canvas, y el
+  servidor no tiene. Lo que se conectó es la elección por lista cerrada. Comparar de verdad sería en el navegador, al abrir.
+- ⚠️ Un test que exige una línea del código palabra por palabra (tests/thumbnails-verticales.test.ts, 4) se rompe con cualquier
+  cambio de nombre: se actualizó con el nombre nuevo.
+
+**La plantilla «con blur» (00:51:03) y la réplica fiel sobre fondos que no son lisos.** Lo que no se podía borrar se TAPABA con
+el color dominante de alrededor (`taparZona`): sobre un blur, un rectángulo liso de otro tono detrás de cada renglón. Ahora, en un
+carrusel, se RELLENA desde los cuatro bordes (`rellenarZona`, la superficie de Coons, con la mediana de 3 píxeles de cada borde):
+en un degradé sintético queda a 1 nivel del fondo (el parche liso se apartaba más de 40). Tres cosas que había que saber:
+- ⚠️ **Sobre un degradé, `borrarZona` dice que «pudo»** y rellena con un color PLANO cada fila cuyos costados difieren más de 60:
+  el renglón quedaba a 65 niveles. `esDegrade` lo distingue de un ícono pegado a un costado (más allá del ícono vuelve el fondo;
+  en un degradé el color sigue alejándose) y en un carrusel el degradé va directo al relleno.
+- ⚠️ **`conSusSignos` estiraba el renglón hasta el borde de la lámina** sobre un degradé: el fondo que se aleja del dominante
+  contaba como «tinta». Ahora sólo se estira por píxeles del color de la letra.
+- ⚠️ **`pastillaDe` veía una «pastilla de contorno»** en el borde de un degradé y borraba sólo la letra de adentro. Sobre un
+  degradé no se busca pastilla.
+- tests/carruseles-plancha-blur.test.ts (3 casos). En una miniatura (sin `tapar`) el camino es el de antes.
+
+**Lo que quedó SIN hacer de la réplica fiel:**
+- **Un titular ENORME sobre una foto** («9 YOUTUBE COURSES» de @awakpenn, letras de 200 px en degradé blanco→gris): `leerLamina` no
+  lo ve como tinta (en la ventana de 3 × 3 baldosas el blanco de la letra ES lo dominante), la portada pierde su titular y el
+  carrusel entero cae al armado viejo. **El diagnóstico obvio (buscarlo por su color) era el equivocado**: se probó y encontraba
+  sólo pedazos (el gris de abajo del degradé no es «blanco») y borraba franjas sueltas, peor que el armado viejo. Se sacó. Lo fiel
+  ahí es regenerar el cuadro con IA (Flow), la misma deuda de arriba (lib/carruseles/plancha.ts, «parte 7»).
+- ⚠️ **De qué ejemplo salió un diseño SÍ se guarda: en las notas de la PRIMERA PÁGINA** (`doc.pages[0].notes`, «Diseño tomado de
+  un ejemplo de @cuenta (link)…»), no en `doc.notes`. Mirando `doc.notes` (vacío) se concluyó que no se guardaba y se le preguntó
+  al Cerebro por nada. Los de Leila (ws 11): el de la llamada (`14331b1a`, con el copy pegado) y otros dos salieron de
+  **@creatoearn** (`Dc6RTCcCH41`, biblioteca 1417: fotos a toda página con un filtro oscuro, palo seco y la bajada en itálica); el
+  de la foto desenfocada de playa, de **@beautyinc** (`De2C0ojlEfB`, biblioteca 1451). El blur se probó con un degradé sintético.
+- Para repetir una plancha sin pagar otra IA: lo que guarda `scripts/carruseles-probar-editar.mts --salida` (replica.json +
+  original-N.jpg) se replanchea con `marcarLaminas` + `planchasDeLaReplica` en seco. ⚠️ Sin el segundo pedido (`completar`), la
+  repetición pierde lo que ése agregaba (la persona de la portada, textos sin dueño): «equipo», «siete» y «ticket», fieles con la
+  IA, caen al armado viejo repetidos así. No es una regresión: es la repetición incompleta.
+
+**«Cargar tu carpeta o tu brandboard» (00:53:42).** El kit de marca ya existía (Second Brain › Marca) y nadie lo encontraba desde
+el carrusel. «Tu marca» (app/image-editor/carruseles/TuMarca.tsx), en el encabezado de «Editar», abre ESA pantalla (`MarcaView`, no
+una copia) y además sube una carpeta de piezas propias a «Subidos» (`webkitdirectory`, hasta 40). Al cerrar, el guiado vuelve a
+mirar los kits (`pedirKits`) y ofrece «Con mis colores» sin recargar.
+
 ## «Editar» se cortaba a los 4 minutos: el modelo por defecto de Gemini NO llega, y nadie medía el tiempo de la corrida (19/11/2026, ticket 119)
 
 **El síntoma** (Leila, ws 11, 17:04 UTC): «Tu IA tardó más de 4 minutos en escribir la versión y se cortó: es la demora del
