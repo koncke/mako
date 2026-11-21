@@ -685,6 +685,14 @@ export function Dropdown({
      *
      * Sólo mientras está abierto: el efecto entero sale con `if (!open) return`, así que un
      * desplegable cerrado no toca el Escape de nadie.
+     *
+     * ⚠️ Y EN `window`, NO EN `document` (21/11/2026). El modal de la casa (`app/_ui/Modal.tsx`)
+     * también escucha el Escape EN CAPTURA sobre `document`; dos escuchas en el mismo nodo y la
+     * misma fase corren en el orden en que se registraron, y el modal se registró al montarse,
+     * antes de que se abriera este menú: cerraba el modal entero y se perdía lo que había adentro
+     * (medido en «Asignar fuentes», con el editor de reglas a medio armar). La captura de `window`
+     * corre antes que la de `document` sin importar quién llegó primero — igual que `MenuFiltro`
+     * y `TarjetaKanban`. (tests/desplegable-escape-en-modal.test.ts)
      */
     const onEsc = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -710,12 +718,12 @@ export function Dropdown({
     };
     const onResize = () => place(medido.current, menuRef.current?.getBoundingClientRect().width ?? null);
     document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onEsc, true);
+    window.addEventListener('keydown', onEsc, true);
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onResize);
     return () => {
       document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onEsc, true);
+      window.removeEventListener('keydown', onEsc, true);
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onResize);
     };

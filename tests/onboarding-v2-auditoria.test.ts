@@ -198,7 +198,8 @@ test('16. OD-05 y V9: la llegada (desde el 20/11, el primer mensaje del chat del
   const b = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
   assert.match(b, /const toca = ensayo\.activo \? !vistoEnEnsayo\(ID_RECORRIDO\) : r\.visto === false;/, 'el velo, sólo mientras no vio el recorrido (también en el ensayo)');
   assert.match(b, /const alTerminar = ensayo\.activo \? \(\) => marcarVistoEnEnsayo\(ID_RECORRIDO\) : r\.onCerrar;/);
-  assert.match(b, /const empezar = \(\) => mostrarTutorial\(TUTORIAL_RECORRIDO, \{ alTerminar \}\);/, 'el play lo arranca y lo anota como visto');
+  // (20/11: con su lugar en el mensaje, tests/video-en-el-chat.test.ts.)
+  assert.match(b, /const empezar = \(\) => mostrarTutorial\(TUTORIAL_RECORRIDO, \{ alTerminar, lugar: LUGAR_VIDEO_LLEGADA \}\);/, 'el play lo arranca y lo anota como visto');
   assert.match(b, /chatPresentaRecorrido\(true\);\n\s*return \(\) => chatPresentaRecorrido\(false\);/);
   assert.match(b, /createPortal\(\n\s*<div className="sbl-capa" aria-hidden="true">/, 'el velo, en un portal');
   // El motor no lo arranca solo mientras el chat lo presenta.
@@ -247,8 +248,9 @@ test('19. OD-09, desde el 20/11: la llegada ES el primer mensaje del chat del re
   const { chatPresentaReto, elChatPresentaElReto } = await import('../app/_ui/tutorial/store');
   chatPresentaReto(true); assert.equal(elChatPresentaElReto(), true); chatPresentaReto(false); assert.equal(elChatPresentaElReto(), false);
   const m = sinComentarios(leer('app/second-brain/reto/MarcaAlReto.tsx'));
-  assert.match(m, /if \(!listo \|\| empezo \|\| marcado\.current \|\| senal \|\| presenta \|\| opsVisto !== true\) return;/);
-  assert.match(m, /if \(senalAhora\(\) \|\| elChatPresentaElReto\(\) \|\| marcado\.current\) return;/);
+  // 21/11 (producción): además, una vez por pestaña y nunca con otro chat elegido (tests/recorrido-no-persigue.test.ts).
+  assert.match(m, /if \(!listo \|\| empezo \|\| marcado\.current \|\| enOtroLado \|\| yaSeMarco\(\) \|\| senal \|\| presenta \|\| opsVisto !== true\) return;/);
+  assert.match(m, /if \(senalAhora\(\) \|\| elChatPresentaElReto\(\) \|\| marcado\.current \|\| yaSeMarco\(\)\) return;/);
 });
 
 test('20. OD-10: sin video, el Second Brain y la flecha del recorrido esperan el clic, y el clic pasa al paso siguiente', async () => {

@@ -83,8 +83,10 @@ export function DestinatariosCanal({ canal, inicial, ws, onGuardado }: {
         setSalida((j.salidaGrupo as { hacerAdmin?: string; yaPuedeSumar?: string } | undefined) ?? null);
         return;
       }
-      setFlash('Guardado ✓');
-      setTimeout(() => setFlash(null), 1800);
+      // Sin grupo (20/11/2026: MaKo no crea grupos nuevos) se dice por dónde llegan los avisos, y queda a la vista un rato más.
+      const aviso = typeof j.aviso === 'string' ? j.aviso : null;
+      setFlash(aviso ? `Guardado ✓ · ${aviso}` : 'Guardado ✓');
+      setTimeout(() => setFlash(null), aviso ? 6000 : 1800);
     } catch (e) {
       setTel(antesTel); setMail(antesMail);
       setError(e instanceof Error ? e.message : 'No se pudo guardar');

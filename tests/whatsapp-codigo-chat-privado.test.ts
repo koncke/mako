@@ -37,7 +37,7 @@ test('2. la conversación usa la línea de los hechos', () => {
 test('3. la línea de los hechos es la MISMA del link de «Abrir WhatsApp» (`numeroLinea` de la verificación)', () => {
   const srv = sinComentarios(leer('lib/onboarding-arranque-server.ts'));
   // La vista lee el pedido UNA vez, y el mensaje y la tarjeta usan lo mismo.
-  assert.match(srv, /const whatsapp = etapa === 'codigo' && e\.telefonoEntrante\n\s*\? await getWorkspaceActual\(\)\.then\(\(ws\) => \(ws == null \? null : estadoVerificacionEntrante\(ws\)\)\)/);
+  assert.match(srv, /const whatsapp = etapa === 'codigo' && e\.telefonoEntrante\n\s*\? (?:e\.simulacion \? vistaDelWhatsappSimulado\(e\) : )?await getWorkspaceActual\(\)\.then\(\(ws\) => \(ws == null \? null : estadoVerificacionEntrante\(ws\)\)\)/);
   assert.match(srv, /const \{ antes, despues \} = mensajesDeArranque\(e, \{ \.\.\.h, lineaMaKo: whatsapp\?\.numeroLinea \?\? null \}\);/);
   assert.match(srv, /\n\s*whatsapp,\n/, 'la tarjeta recibe el mismo pedido');
   assert.match(sinComentarios(leer('lib/verificacion-entrante.ts')), /link: linkWaMe\(v\.numeroLinea, /);

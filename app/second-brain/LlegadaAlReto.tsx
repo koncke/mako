@@ -24,8 +24,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRecorrido } from '@/app/_ui/Recorrido';
 import { marcarVistoEnEnsayo, useEnsayo, vistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
-import { chatPresentaRecorrido, mostrarTutorial, senalAhora } from '@/app/_ui/tutorial/store';
-import { esconderLaBarra } from '@/app/_ui/tutorial/barra-oculta';
+import { chatPresentaRecorrido, mostrarTutorial, senalAhora, terminar, useSenal } from '@/app/_ui/tutorial/store';
+import { CSS_REPRODUCTOR } from '@/app/_ui/tutorial/VideoDelMomento';
+import { esconderLaBarra, mostrarLaBarra } from '@/app/_ui/tutorial/barra-oculta';
 import { avisarMensajeNuevo } from '@/app/_chat/useBajarAlUltimo';
 import { msEscribiendo } from '@/app/_chat/useColaDeSalida';
 import { barrer } from '@/app/_ui/tutorial/iris';
@@ -36,9 +37,14 @@ import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ASPECTO_RETO } from '@/lib/centro-munecos';
 import { Icon } from '@/app/_components/icons';
+import { Markdown } from '@/app/_components/Markdown';
 import { ID_RECORRIDO, textoLlegada } from '@/lib/onboarding-v2/llegada';
 
 const menosMovimiento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/** El lugar del video del recorrido en este mensaje: el motor lo dibuja ahí mientras se ve (app/_ui/tutorial/lugarDelVideo.ts). */
+export const LUGAR_VIDEO_LLEGADA = '[data-video-lugar="recorrido"]';
+const mmss = (s: number) => { const t = Math.max(0, Math.round(s || 0)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 
 /**
  * YA SE MOSTRÓ (ops-center-3): por persona, en este navegador (`quien`, la huella que manda /api/recorridos), y en el módulo para lo que
@@ -117,9 +123,10 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
     const hiloDe = fila.current?.closest('.co-hilo') ?? null;
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
     if (hiloDe) { ro?.observe(hiloDe); for (const c of Array.from(hiloDe.children)) ro?.observe(c); }
-    hiloDe?.addEventListener('scroll', medir, { passive: true });
+    // Cualquier scroll (21/11, producción: el hueco quedaba arriba a la izquierda): el que mueve el hilo puede ser otro contenedor.
+    document.addEventListener('scroll', medir, { capture: true, passive: true });
     window.addEventListener('resize', medir);
-    return () => { ro?.disconnect(); hiloDe?.removeEventListener('scroll', medir); window.removeEventListener('resize', medir); };
+    return () => { ro?.disconnect(); document.removeEventListener('scroll', medir, { capture: true }); window.removeEventListener('resize', medir); };
   }, [fase]);
 
   // EL VELO ENTRA CON EL BARRIDO (OD-F2: la maqueta, b-entra pasa por `iris()`). El velo es la sombra de un hueco con la forma de la
@@ -147,7 +154,7 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
   // Quieto, «Tu recorrido por MaKo: dale play» (V5; la maqueta, r4-invita). Su play arranca el recorrido, que toma el motor.
   // RECIÉN CON EL VIDEO DIBUJADO (20/11/2026, el Cerebro en producción): con el arranque en frío la tarjeta salía sobre el cuadro
   // vacío, con el manifiesto o el póster en camino. Espera a que SU póster cargue (entrada.ts → videoDibujado).
-  const play = useRef<HTMLButtonElement>(null);
+  const play = useRef<HTMLDivElement>(null);
   const poster = video?.poster ?? null;
   const [posterCargado, setPosterCargado] = useState<string | null>(null);
   const imgPoster = useRef<HTMLImageElement>(null);
@@ -156,13 +163,22 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
     const el = imgPoster.current;
     if (poster && el?.complete && el.naturalWidth > 0) setPosterCargado(poster);
   }, [poster, fase]);
-  useDalePlay(play, { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado({ poster, posterCargado }) });
+  // Su X (20/11/2026, el inventario de botones): cerraba la invitación para siempre y el reto quedaba FRENADO, con el recorrido sin ver y
+  // la barra escondida. Ahora es «Omitir recorrido»: queda visto y la barra vuelve.
+  useDalePlay(play, { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado({ poster, posterCargado }),
+    alCerrar: () => { mostrarLaBarra(); alTerminar('omitido'); } });
+  // ¿Corre el recorrido? Mientras corre, su video lo dibuja el motor ENCIMA de este lugar (o en la esquina, si el mensaje no se ve).
+  const senal = useSenal();
+  const corre = senal?.tipo === 'tutorial' && senal.tutorial === TUTORIAL_RECORRIDO;
 
   if (fase === 'espera') return null;
   // El avatar del reto, no la criatura (20/11, la llamada con Leila: la criatura queda sólo para el Ops Center).
   const estrella = <span className="sbl-foto" aria-hidden="true"><Muneco titulo="MaKo" aspecto={ASPECTO_RETO} animo="despierto" size={26} /></span>;
   const puntitos = <span role="status" aria-label="MaKo está escribiendo" className="sbl-escribe"><i /><i /><i /></span>;
-  const empezar = () => mostrarTutorial(TUTORIAL_RECORRIDO, { alTerminar });
+  // EN EL CHAT (20/11/2026, Martín: «debería haberse reproducido directamente ahí en el chat»): con su `lugar`, el motor dibuja el
+  // video del recorrido encima del reproductor de este mensaje mientras se ve, y en la esquina sólo si el mensaje sale de la vista o se
+  // cambia de pantalla (el recorrido lleva a Second Brain); al volver, vuelve aquí. Sin `lugar` iba a la esquina siempre.
+  const empezar = () => mostrarTutorial(TUTORIAL_RECORRIDO, { alTerminar, lugar: LUGAR_VIDEO_LLEGADA });
   return (
     <>
       <style>{CSS}</style>
@@ -174,12 +190,29 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
         <div className="co-el-wa co-wa" data-llegada="mensaje">
           <div className="co-el">{estrella}
             <div className="co-el__cuerpo">
-              {/* El video ARRIBA y el texto debajo (F4: en la maqueta es un mensaje de video, onboarding.html b-entra). */}
-              <button ref={play} type="button" className="sbl-video" onClick={empezar} aria-label="Ver el recorrido por MaKo" data-recorrido="sb-llegada-play">
-                {poster ? <img ref={imgPoster} src={poster} alt="" onLoad={() => setPosterCargado(poster)} /> : <span className="sbl-video__vacio" />}
-                <span className="sbl-video__play" aria-hidden="true"><Icon name="play" size={28} /></span>
-              </button>
-              <div className="ch-md"><p>{textoLlegada(nombre)}</p></div>
+              {/* El video ARRIBA y el texto debajo (F4: en la maqueta es un mensaje de video, onboarding.html b-entra). Es el reproductor
+                  ENTERO (pantalla y barra, como el del día del reto): el lugar que el motor tapa con el video mientras corre. */}
+              <div ref={play} className="mk-vmom sbl-vlugar" data-video-lugar="recorrido" data-recorrido="sb-llegada-play" data-estado={corre ? 'reproduciendo' : 'quieto'}>
+                <style>{CSS_REPRODUCTOR}</style>
+                {/* El play abajo a la derecha: en el centro tapaba el título de la portada («¡Hola de nuevo!»). */}
+                <div className="mk-vmom__pantalla mk-vmom__pantalla--abajo-derecha" onClick={corre ? undefined : empezar}>
+                  {poster ? <img ref={imgPoster} className="mk-vmom__portada" src={poster} alt="" onLoad={() => setPosterCargado(poster)} /> : <span className="sbl-video__vacio" />}
+                  {!corre && (
+                    <button type="button" className="mk-vmom__play" onClick={(e) => { e.stopPropagation(); empezar(); }} aria-label="Ver el recorrido por MaKo" title="Ver el recorrido por MaKo">
+                      <Icon name="play" size={28} />
+                    </button>
+                  )}
+                </div>
+                <div className="mk-vmom__ctrl">
+                  <button type="button" className="mk-vmom__btn" onClick={empezar} disabled={corre} aria-label="Reproducir"><Icon name="play" size={16} /></button>
+                  <span className="mk-vmom__tiempo">0:00 / {mmss(video?.duracion_s ?? 0)}</span>
+                  <div className="mk-vmom__pista" aria-hidden><span className="mk-vmom__hecho" style={{ width: 0 }} /></div>
+                  <button type="button" className="mk-vmom__vel" disabled title="Velocidad">1×</button>
+                </div>
+              </div>
+              {/* Con el video en el mensaje, el motor no muestra «Omitir recorrido» entre paso y paso (sólo en la esquina): va aquí. */}
+              {corre && senal && <button type="button" className="sbl-omitir" onClick={() => terminar(senal.id, 'omitido')}>Omitir recorrido</button>}
+              <div className="ch-md"><Markdown text={textoLlegada(nombre)} /></div>
             </div>
           </div>
         </div>
@@ -215,10 +248,12 @@ const CSS = `
 .sbl-copia { position: fixed; display: flex; align-items: center; }
 .sbl-copia .co-el { display: flex; gap: 8px; align-items: flex-start; padding: 6px 12px 6px 8px; border-radius: 999px; background: var(--bg); box-shadow: 0 0 0 2px var(--ink), 0 10px 30px rgba(0, 0, 0, .25); }
 .sbl-fila { visibility: visible; }
-/* El play abajo a la derecha (20/11): en el centro tapaba el título de la portada («¡Hola de nuevo!») y abajo a la izquierda el logo
-   «MaKo» (regla: el play, sobre un espacio vacío). */
-.sbl-video { position: relative; display: grid; place-items: end end; padding: 12px; box-sizing: border-box; width: min(400px, 100%); aspect-ratio: 16 / 9; margin: 2px 0 8px; border: 0; border-radius: 12px; overflow: hidden; background: #000; cursor: pointer; }
-.sbl-video img, .sbl-video__vacio { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.sbl-video__play { position: relative; z-index: 1; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: rgba(0, 0, 0, .55); color: #fff; }
+/* El reproductor del mensaje (el de VideoDelMomento, CSS_REPRODUCTOR), quieto hasta el play: el lugar que el motor tapa con el video.
+   El play abajo a la derecha (20/11): en el centro tapaba el título de la portada y abajo a la izquierda el logo «MaKo». */
+.mk-vmom.sbl-vlugar { margin: 2px 0 8px; }
+.sbl-vlugar .mk-vmom__pantalla { cursor: pointer; }
+.sbl-vlugar .mk-vmom__btn:disabled, .sbl-vlugar .mk-vmom__vel:disabled { opacity: .6; cursor: default; }
+.sbl-video__vacio { position: absolute; inset: 0; background: #000; }
+.sbl-omitir { align-self: flex-start; margin: 0 0 6px; padding: 2px 0; border: 0; background: none; color: var(--dim); font: inherit; font-size: var(--fs-meta); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .sbl-velo, .sbl-escribe i { animation: none; } }
 `;

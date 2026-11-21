@@ -15,7 +15,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { ALTAS_FRENADAS, AUTOMATICO_APAGADO, SIN_INVITACION, altasFrenadas, automaticoPrendido } from '../lib/altas-en-grupos';
+import { readFileSync } from 'node:fs';
+import { ALTAS_FRENADAS, AUTOMATICO_APAGADO, SE_CREAN_GRUPOS, SIN_GRUPOS_NUEVOS, SIN_INVITACION, altasFrenadas, automaticoPrendido } from '../lib/altas-en-grupos';
 import { SIN_CUPO_ALTAS_LINEA } from '../lib/mako-linea-tope';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -25,10 +26,12 @@ const salida = execFileSync(process.execPath, ['--conditions=react-server', '--i
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<string, any>;
 
+// Sumar gente a un grupo que YA existe: sigue andando (20/11/2026, Martín: «Los grupos que ya existen siguen como están, también las altas»).
 const LO_PEDIDO: Array<[string, string]> = [
-  ['grupoNuevo', 'group/create'], ['grupoSuelto', 'group/create'], ['notificaciones', 'group/updateParticipant'],
-  ['duenoSinGrupo', 'group/create'], ['duenoConGrupo', 'group/updateParticipant'], ['detalleDelGrupo', 'group/updateParticipant'],
+  ['notificaciones', 'group/updateParticipant'], ['duenoConGrupo', 'group/updateParticipant'], ['detalleDelGrupo', 'group/updateParticipant'],
 ];
+// Los caminos que CREABAN un grupo: desde el 20/11/2026 ninguno crea («Sólo no crear más»).
+const CREABAN = ['grupoNuevo', 'grupoSuelto', 'duenoSinGrupo'] as const;
 
 test('sólo `no` frena, y sólo `si` prende lo automático', () => {
   assert.equal(altasFrenadas('no'), true);
@@ -48,6 +51,66 @@ for (const [camino, pedido] of LO_PEDIDO) {
     assert.equal(R.frenado[camino].res.error, ALTAS_FRENADAS);
   });
 }
+
+// ── ⛔ MaKo NO CREA GRUPOS NUEVOS (20/11/2026) ────────────────────────────────────────────────────────────────────────────────────
+
+test('⛔ el corte es de código, no un ajuste: SE_CREAN_GRUPOS está apagado y el aviso dice por dónde llegan los avisos', () => {
+  assert.equal(SE_CREAN_GRUPOS, false);
+  assert.equal(SIN_GRUPOS_NUEVOS, 'Los avisos de MaKo llegan por su chat privado.');
+});
+
+for (const camino of CREABAN) {
+  test(`⛔ ningún camino crea un grupo, con o sin el freno: ${camino}`, () => {
+    for (const r of [R.porDefecto[camino], R.frenado[camino]]) {
+      assert.ok(!r.pedidos.includes('group/create'), `${camino} le pidió a WhatsApp crear un grupo: ${JSON.stringify(r.pedidos)}`);
+      assert.ok(!r.pedidos.includes('group/updateParticipant'), 'ni sumó a nadie');
+    }
+    if (camino === 'duenoSinGrupo') {
+      // El número del dueño se guarda y no es un error: los avisos van por el privado.
+      assert.deepEqual(R.porDefecto[camino].res, { ok: true, accion: 'sin_grupo' });
+    } else {
+      assert.deepEqual(R.porDefecto[camino].res, { ok: false, error: SIN_GRUPOS_NUEVOS });
+      assert.deepEqual(R.frenado[camino].res, { ok: false, error: SIN_GRUPOS_NUEVOS }, 'el corte va antes del freno');
+    }
+  });
+}
+
+test('⛔ Notificaciones de un negocio sin grupo: guarda los números, no crea ni suma, y dice por dónde llegan los avisos', () => {
+  const p = R.pantallaSinGrupo;
+  assert.equal(p.res.ok, true);
+  assert.deepEqual(p.res.destinatarios.telefonos, ['5492230000684', '5491130000111']);
+  assert.equal(p.res.grupo, 'sin_grupo');
+  assert.equal(p.res.aviso, SIN_GRUPOS_NUEVOS);
+  assert.equal(p.res.noAgregados, undefined, 'no es una falla de nadie');
+  assert.deepEqual(p.pedidos.filter((x: string) => x.startsWith('group/')), [], 'ni crea el grupo ni suma al segundo número');
+  assert.ok(p.numero, 'el número del dueño quedó guardado');
+  assert.equal(p.grupo, null, 'ningún grupo quedó guardado');
+});
+
+test('⛔ la verificación del onboarding: queda verificado y no crea ningún grupo', () => {
+  const v = R.verificarSinGrupo;
+  assert.deepEqual(v.res, { ok: true });
+  assert.equal(v.verificado, true);
+  assert.deepEqual(v.pedidos.filter((x: string) => x.startsWith('group/')), []);
+});
+
+test('⛔ UN solo punto crea: `/group/create` aparece una vez en el código, adentro de crearGrupoEnLaVoz y después del corte', () => {
+  const lista = execFileSync('git', ['ls-files', '-co', '--exclude-standard', 'lib', 'app'], { cwd: RAIZ, encoding: 'utf8' }).split('\n').filter((f) => /\.(ts|tsx|mjs|js)$/.test(f));
+  const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const con = lista.filter((f) => { try { return sinComentarios(readFileSync(join(RAIZ, f), 'utf8')).includes('group/create'); } catch { return false; } });
+  assert.deepEqual(con, ['lib/mako-grupo.ts'], 'otro archivo crea grupos por su cuenta');
+  const g = sinComentarios(readFileSync(join(RAIZ, 'lib/mako-grupo.ts'), 'utf8'));
+  assert.equal(g.split('group/create').length - 1, 1, 'crea en más de un lugar');
+  const f = g.slice(g.indexOf('async function crearGrupoEnLaVoz('));
+  const corte = f.indexOf('if (!SE_CREAN_GRUPOS) return { ok: false, error: SIN_GRUPOS_NUEVOS };');
+  assert.ok(corte > 0 && corte < f.indexOf('group/create'), 'el corte no está antes de WhatsApp');
+  assert.ok(corte < f.indexOf('altasEnGrupos()') && corte < f.indexOf('cupoAltaDeLinea('), 'el corte va antes del freno y del cupo (no gasta un alta por un grupo que no nace)');
+  for (const quien of ['export async function asegurarGrupoMaKo(', 'export async function crearGrupoSuelto(']) {
+    const desde = g.indexOf(quien);
+    const cuerpo = g.slice(desde, g.indexOf('\n}\n', desde));
+    assert.match(cuerpo, /crearGrupoEnLaVoz\(/, `${quien} no pasa por el punto único`);
+  }
+});
 
 test('por defecto, el grupo nuevo de un cliente de agencia nace sin agregar a nadie más ni invitar', () => {
   assert.deepEqual(R.grupoNuevoSinEquipo.pedidos.filter((p: string) => p === 'group/updateParticipant' || p === 'group/sendInvite'), []);
@@ -134,8 +197,8 @@ test('el mismo número en otro grupo no gasta: si no, la mudanza a un número nu
   assert.ok(R.topeMismoNumero.pedidos.includes('group/updateParticipant'));
 });
 
-test('el grupo nuevo y el detalle del grupo también cuentan, y otra línea tiene su propio cupo', () => {
-  assert.equal(R.topeGrupoNuevo.error, SIN_CUPO_ALTAS_LINEA);
+test('el detalle del grupo también cuenta (el grupo nuevo ya no nace), y otra línea tiene su propio cupo', () => {
+  assert.equal(R.topeGrupoNuevo.error, SIN_GRUPOS_NUEVOS, 'el grupo nuevo ya no nace: ni gasta cupo');
   assert.equal(R.topeDetalle.error, SIN_CUPO_ALTAS_LINEA);
   assert.deepEqual(R.topeOtraLinea, { ok: true });
 });
@@ -177,4 +240,14 @@ test('si el negocio ya tenía el mail prendido no salen dos', () => {
 
 test('con WhatsApp apagado para ese aviso, sale el mail que eligió y nada más', () => {
   assert.equal(R.puenteSoloMail.mails, 1);
+});
+
+test('⛔ donde antes se armaba el grupo, la pantalla dice por dónde llegan los avisos; el admin recibe un 409 con el mismo aviso', () => {
+  const leer = (f: string) => readFileSync(join(RAIZ, f), 'utf8');
+  const m = leer('app/m/configuraciones/notificaciones/NotificacionesNegocioM.tsx');
+  assert.match(m, /\{!tieneGrupo && dest\.telefonos\.length > 0 && <p className="m-configuraciones-aviso" role="status">\{SIN_GRUPOS_NUEVOS\}<\/p>\}/, 'el teléfono no lo dice');
+  assert.match(m, /if \(j\.grupo === 'creado'\) setTieneGrupo\(true\);/, 'guardar un número ya no es «Al grupo de MaKo»');
+  assert.doesNotMatch(m, /telefonos\.length > 0\) setTieneGrupo\(true\)/);
+  assert.match(leer('app/perfil/DestinatariosCanal.tsx'), /setFlash\(aviso \? `Guardado ✓ · \$\{aviso\}` : 'Guardado ✓'\)/, 'la computadora no lo dice');
+  for (const f of ['app/api/admin/mako-grupo/route.ts', 'app/api/admin/avisos-demo/route.ts']) assert.match(leer(f), /=== SIN_GRUPOS_NUEVOS \? 409 : 500/, `${f}: no es una falla del servidor`);
 });
