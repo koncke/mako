@@ -4201,3 +4201,27 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
   - La guía CUBOS y su respuesta automática no existen (docs/series/serie-3-ventas.md:113; sin chat).
   - Carruseles: ocho fallas con archivo y línea en la lista (sin chat; prioridad 3 de Martín).
   - Partners: el panel todavía dice «27 %» (app/partners/ProgramaPartners.tsx:81).
+
+## El Second Brain del recorrido: la animación de la maqueta, sobre el grafo de verdad (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Pedido** (Martín, por el Cerebro): la animación del Second Brain de la maqueta (C:/dev/artefactos-onboarding/cuerpo.html →
+  `brainHtml`, `programarBrain`, `medirBrain` y las reglas `.mq-brain`/`.mq-g-*`), en el paso del recorrido que abre el Second Brain:
+  el cerebro de la portada entero, que se apaga de afuera hacia adentro hasta lo que MaKo sabe de la persona, y la cámara que se acerca.
+- **Dónde vive:** app/second-brain/BrainDelRecorrido.tsx (la capa) y lib/onboarding-v2/brain-del-recorrido.ts (la geometría, pura).
+  Lo que sabe sale de `loQueSabeMaKo` (lib/reto/nombre.ts): el `onboarding.arranque` del NEGOCIO, como el nombre del reto.
+- **Trampa 1: el grafo lo arma el SERVIDOR** (`mapaDelSecondBrain` da un ReactNode) y no recibe hijos. La capa entra por un portal al
+  `.cbg-marco` (la marca «Lo que MaKo sabe de ti»), que se busca hasta 6 s porque llega después que el cliente. Va por DEBAJO de la barra
+  del grafo (z-index 3): la flecha de volver es el paso que sigue y se toca.
+- **Trampa 2: el JSON de la portada pesa 107 KB.** Va en corto (app/second-brain/brain-del-recorrido.json, 28 KB, un nodo por renglón)
+  con `compactarCerebro`, el mismo corte que hace la maqueta al armarse (armar.mjs). El test compara el corto con el original: si la
+  portada cambia, queda en rojo hasta regenerarlo. Entra con next/dynamic y se pide al montar el Ops Center con el V2, así está listo al
+  tocar «Second Brain».
+- **Lo que falta no se inventa:** la maqueta ponía «…» sin origen; en la app, lo que la persona no dijo no va. «Confirmado» sólo con el
+  WhatsApp verificado.
+- **Sólo mientras corre el recorrido** (`senal.tutorial === TUTORIAL_RECORRIDO`, como LlegadaAlReto): terminado u omitido, se desvanece y
+  queda el grafo real del negocio. La nota de la maqueta («Por ahora, esto es lo que sé de ti…») no va: la dice la tarjeta del paso.
+- **Mirado** en una página suelta (sin MaKo ni sonido), a 1440 y 375, en sus tres momentos. En el teléfono, lo que queda sube para dejar
+  lugar a la tarjeta de abajo, como en la maqueta.
+- **Sin hacer:** no se miró dentro de la app con el recorrido real, porque la regla es no abrir MaKo en el navegador de la app (los
+  tutoriales suenan). Eso lo cubren los Playwright contra el ws 3, la tanda que sigue.
+- tests/brain-del-recorrido.test.ts (roto de a una rotura, 6).

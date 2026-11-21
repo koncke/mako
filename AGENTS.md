@@ -2718,6 +2718,14 @@ van dos marcas en el mismo render).
   no su contenido) y se vuelve a medir con `animationend` y `transitionend`: un `transform` no avisa a nadie más.
   tests/marcas-centradas-y-sin-siguiente.test.ts.
 
+- **Un texto de MaKo en un globo se dibuja con `<Markdown>`** (21/11/2026, Martín): negrita, cursiva, `++subrayado++`, viñetas y números,
+  sin HTML crudo; nunca en un `<p>`, donde un `**` se ve crudo. Un texto que también sale por correo de texto plano (el del día del reto)
+  no lleva marcas. tests/formato-en-los-globos.test.ts.
+
+- **Una animación de la maqueta se porta con SUS datos y SUS tiempos** (21/11/2026): el Second Brain del recorrido usa el cerebro de la
+  portada en corto (`compactarCerebro`), comparado en su test con el original, y lo que la persona no dijo no se rellena. Sobre una pieza
+  que arma el servidor, entra por portal a su marco y por debajo de sus controles. tests/brain-del-recorrido.test.ts.
+
 # Mirando un negocio como administrador, el estado del onboarding es el del DUEÑO
 
 Martín, 20/11/2026, probando en Lalaland «como administrador»: la vista como administrador muestra LO MISMO que ve el cliente. Lo que se
