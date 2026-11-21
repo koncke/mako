@@ -67,6 +67,10 @@ las entradas de abajo; esto es la lista para el producto.
    lámina): la IA ponía ese renglón como «original» del texto de la firma, la marca lo cambiaba por el nombre del negocio, y el
    reparto lo daba por puesto (`fijos`). Ahora es fijo sólo lo que SIGUE diciendo lo mismo (`conElCopy`, copy-pegado.ts). Test 14
    de tests/carruseles-copy-pegado.test.ts. La revisión no lo veía: lo que se saca del reparto tampoco se espera.
+   **Sin hacer (visto el 21/11 con el motor de cfcaf2bda):** un renglón DUPLICADO («Cuando sientas la reacción:» dos veces en la
+   lámina 9) no lo ve nadie: está en lo esperado, así que ni falta ni sobra.  (lib/carruseles/regenerar.ts) tendría
+   que contar cuántas veces aparece cada renglón esperado en lo leído y avisar el que sobra. Una palabra de más dentro de un renglón
+   («acción con constante») sí se ve y se avisa.
    ⚠️ **La letra chica no se arregla con otra pasada** (las maquetas de Ganchos 2): pedirle que corrija «reegrdo» o «cabre» en
    un texto de 1–2 % del alto lo escribe mal de otra forma y daña otras palabras chicas («Gracles», «lagres»), y pedir «TU» sin
    tilde le agregó la tilde. Lo que sirvió: sacar esa línea con una frase, y si tampoco sale, taparla en el propio archivo
