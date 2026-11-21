@@ -1148,11 +1148,35 @@ toma de la base, así que sumar o cambiar una no requiere publicar.
   achican a 160 × 160 px (pesan pocos KB), porque el almacén de 1 GB está lleno.
 - **Cómo se sube:** `Artifact` publish con `asset: true` (hasta 25 por llamada) y después `ArtifactData` `batch` con
   `update` de `caricatura` en cada `creadores/<cuenta>`, pinado a la versión leída.
+
 - **Cargadas el 21/11:** dakota, mdmukeem, tyler-mommsen, mosidd, joseph y hyperframes (600 × 600 → 160 × 160 px, de 4,6 a
   6,3 KB cada una; copias en `content-machine/caricaturas/`). `victor` lleva `cuentas: ["victor", "herasmedia"]`. Los 7
   primeros (Ramiro, Víctor, Heras Media, Hormozi, Carrizo, Doglio, Collado) ya tenían su caricatura de MaKo en `foto`.
   Para un creador nuevo, la caricatura la hace el chat de carruseles (`docs/hallazgos-generativa.md`, «Caricaturas de
   creadores»).
+### Ángulos del mercado en Content Machine (21/11/2026, v58)
+
+- **El filtro «Ángulo ›»** en Spy, Reels y Carruseles sigue el contrato `docs/tendencias/contrato-angulos-spy.md`. Lee
+  `angulos: [{id, nombre, padre}]` de cada pieza de `spy`. Mientras el chat Spy no lo escribe, usa el mapa embebido
+  (`content-machine/tend/mapa-angulos.json`, 709 piezas). Opciones: «<Sector> · todos» y los sub-ángulos de ese sector,
+  ordenados por puntaje, con el ícono de su estado. Sólo aparecen los que tienen piezas. Lo que entra desde Spy hereda los
+  ángulos de su referencia. La tarjeta lleva el sello del primer ángulo, y al tocarlo filtra por él.
+- **El catálogo va embebido y compacto** (`id → [nombre, padre, estado, puntaje]`). No hizo falta la colección `angulos`.
+- **La pestaña** sigue `docs/tendencias/diseno-pestana-angulos.md`. El sector se elige con un solo control y los 4 estados
+  van como chips. El gráfico de burbujas es SVG a mano:
+  - X = contagio, con un desvío fijo por id para que no se encimen.
+  - Y = comentarios cada 1.000 vistas, en escala logarítmica de 0,1 a 20.
+  - Tamaño = el `r` que trae el JSON, con un mínimo de 4 y un máximo de 28. Color = estado; «Nuevo» va como anillo en tinta.
+  - Medianas punteadas y la etiqueta «Ganadores». Etiqueta directa sólo en los 3 de mayor puntaje, y sólo desde 520 px: en
+    el teléfono se pisaban.
+  - Tooltip con las señales y clic que baja a la fila del ranking. El ranking va con barra de puntaje y las 4 señales. La
+    investigación anterior quedó plegada al final.
+- La paleta pasó `validate_palette.js` (aqua, azul, naranja). Avisa que el aqua tiene menos de 3:1 de contraste: por eso el
+  estado siempre lleva ícono y palabra.
+- **Los datos:** hoy es el JSON de prueba (`node C:/dev/tendencias/herramientas/generar.mjs <carpeta>` →
+  `content-machine/tend/angulos.json`). Cuando el chat de tendencias avise, se copia el nuevo ahí y se rearma.
+- **Trampa:** una regla general de la página le pone `::after` a todo `summary`. En una fila en grilla, ese `::after` cayó
+  en un renglón propio y dibujaba una flecha suelta.
 
 **El reel para mentores high ticket (los pistachos) está en «Reels terminados»** (21/11). No viene de la galería de
 animaciones: va a mano en `armar-cm.mjs` (`reels.push`).
