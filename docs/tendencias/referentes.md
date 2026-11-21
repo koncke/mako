@@ -1,7 +1,8 @@
 # Tendencias del mercado: los referentes por sector
 
 21/11/2026. La lista para relevar (OK del Cerebro). **Ronda 2 (misma noche):** cuatro agentes buscaron por sector y sumaron 66; ahora son
-**155**, con un cuarto subsector de IA (avatares y video). Los de la ronda 2 dicen «ronda 2» en la nota; salen de
+**155**, con un cuarto subsector de IA (avatares y video). **Después, Martín sumó Operaciones y Lifestyle (21/11): 163.**
+Operaciones es el sector más flojo en hispanos grandes: sus 5 nuevos tienen sólo YouTube. Los de la ronda 2 dicen «ronda 2» en la nota; salen de
 `docs/tendencias/herramientas/referentes-extra.json` (lo arma `sumar-candidatos.mjs` desde los `candidatos-*.json` de los agentes,
 con los descartes a mano escritos ahí).
 
@@ -50,6 +51,7 @@ con los descartes a mano escritos ahí).
 **Los más flojos:**
 - Carruseles con IA: casi nadie en español lo enseña con constancia. Es una señal en sí misma.
 - Orgánico viral: los nuevos que aparecieron no publican seguido.
+
 
 
 ### Orgánico de nicho (16)
@@ -252,6 +254,34 @@ con los descartes a mano escritos ahí).
 | Jonathan Rengifo | @jonathan.rengi | @JonathanRengifoTV | falta | web | ronda 2: Vender ebooks y publicar infoproductos en Hotmart; IG tomado de su página de Apple Podcasts |
 | Adrián Sáenz | @adrians | @AdrianSaenz | falta | web | ronda 2: Marketing y negocios online; videos sobre ganar con productos digitales (más amplio que low ticket) |
 | Óscar García Digital | — | @oscargarciadigital | falta | web | ronda 2: Cómo ganar dinero con comunidades pagas en Skool |
+
+### Operaciones (10)
+
+| Referente | Instagram | YouTube | Datos | De dónde | Nota |
+|---|---|---|---|---|---|
+| Leila Hormozi (inglés) | @leilahormozi | @leilahormozi | Spy de producción | Spy |  |
+| Sofía Contreras | @soysofiacontreras | @SofiaContreras | Spy de producción | MaKo, Knowledge, Spy | el IG del Spy (sofiacontreras, 529) es un homónimo: falta su IG |
+| Juan Carrizo | @juanxcarrizo | @Juan_carrizo | ya bajado | MaKo, Knowledge |  |
+| Francisco Doglio | @franciscodoglio | @FranciscoDoglio | ya bajado | MaKo, Knowledge |  |
+| Alex Hormozi (inglés) | @hormozi | @AlexHormozi | ya bajado | MaKo, Knowledge, Spy |  |
+| Sergio E. Perdomo | — | @sergioeperdomo | falta | web | ronda 2: Cuenta cómo funciona por dentro su negocio info/mentoría: equipo comercial, sistemas invisibles, cómo escalar la entrega sin perder |
+| Braulio Aranda (Tocando Tierra) | — | @tocandotierra | falta | web | ronda 2: Serie diaria sobre dirigir equipo: dejar de ser el cuello de botella, soltar el trabajo, contratar, que la operación también venda. |
+| Blash Design / Antonio Olombrada | — | @blashdesign | falta | web | ronda 2: Mentoring para dueños de agencias: 5 pilares para que la agencia no dependa de ti, delegar, accesos y roles, casos reales de escala |
+| Agustín Casorzo (Agencias IA) | — | @AguCasorzo | falta | web | ronda 2: Formación para dueños de agencias: las 4 formas de escalar una agencia, cómo valorar el servicio, casos de éxito de agencias. |
+| Dan Martell (inglés) | — | @DanMartell | falta | web | ronda 2: Estándar de delegación para fundadores: contratar para recuperar tiempo, no ver a los nuevos como niños, liderar equipo. |
+
+### Lifestyle (8)
+
+| Referente | Instagram | YouTube | Datos | De dónde | Nota |
+|---|---|---|---|---|---|
+| Juan Carrizo | @juanxcarrizo | @Juan_carrizo | ya bajado | MaKo, Knowledge |  |
+| Titto Gálvez | @tittogalvez | @tittogalvez | Spy de producción | Spy |  |
+| Julio Iero | @julioiero | — | Spy de producción | Spy |  |
+| Iman Gadzhi (inglés) | @imangadzhi | @ImanGadzhi | falta | MaKo, Knowledge |  |
+| Guille Collado | @guille.colladomk | — | ya bajado | MaKo, Knowledge | YouTube parado desde 03/2025 |
+| Nomadito (Adolfo Berraquero) | @nomadito_ | @nomadito_ | falta | web | ronda 2: Vende formación para crear y escalar un negocio de servicios desde cualquier lugar; promesa: +5 años nómada, +700 clientes, liberta |
+| Antonio G (Inteligencia Viajera / Escuela Nómada Digital) | @inteligenciaviajera | @InteligenciaViajera | falta | web | ronda 2: CEO de la Escuela Nómada Digital: vende formación y eventos para vivir y trabajar en remoto; bio «Emprendedor y viajero, creando li |
+| Fede Nomad | @fede_nomad | @fedenomad | falta | web | ronda 2: Vende un club de inversores inmobiliarios (desde 10K EUR) con marca de vida nómada y libertad; tiene destacado «Lifestyle». OJO: el |
 
 ### Mentalidad y coaching (14)
 

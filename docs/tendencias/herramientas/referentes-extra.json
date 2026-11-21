@@ -507,6 +507,36 @@
   "nota": "ronda 2: Reels diarios con tu clon de IA; ElevenLabs."
  },
  {
+  "clave": "nomadito-adolfo-berraquero",
+  "nombre": "Nomadito (Adolfo Berraquero)",
+  "instagram": "nomadito_",
+  "youtube": "@nomadito_",
+  "sectores": [
+   "Lifestyle"
+  ],
+  "nota": "ronda 2: Vende formación para crear y escalar un negocio de servicios desde cualquier lugar; promesa: +5 años nómada, +700 clientes, liberta"
+ },
+ {
+  "clave": "antonio-g-inteligencia-viajera",
+  "nombre": "Antonio G (Inteligencia Viajera / Escuela Nómada Digital)",
+  "instagram": "inteligenciaviajera",
+  "youtube": "@InteligenciaViajera",
+  "sectores": [
+   "Lifestyle"
+  ],
+  "nota": "ronda 2: CEO de la Escuela Nómada Digital: vende formación y eventos para vivir y trabajar en remoto; bio «Emprendedor y viajero, creando li"
+ },
+ {
+  "clave": "fede-nomad",
+  "nombre": "Fede Nomad",
+  "instagram": "fede_nomad",
+  "youtube": "@fedenomad",
+  "sectores": [
+   "Lifestyle"
+  ],
+  "nota": "ronda 2: Vende un club de inversores inmobiliarios (desde 10K EUR) con marca de vida nómada y libertad; tiene destacado «Lifestyle». OJO: el"
+ },
+ {
   "clave": "tomas-hauser",
   "nombre": "Tomas Hauser",
   "instagram": "emprendiendo.tomas",
@@ -665,5 +695,55 @@
    "YouTube"
   ],
   "nota": "ronda 2: Canales faceless y cambios de YouTube con IA"
+ },
+ {
+  "clave": "sergio-e-perdomo",
+  "nombre": "Sergio E. Perdomo",
+  "instagram": null,
+  "youtube": "@sergioeperdomo",
+  "sectores": [
+   "Operaciones"
+  ],
+  "nota": "ronda 2: Cuenta cómo funciona por dentro su negocio info/mentoría: equipo comercial, sistemas invisibles, cómo escalar la entrega sin perder"
+ },
+ {
+  "clave": "braulio-aranda-tocando-tierra",
+  "nombre": "Braulio Aranda (Tocando Tierra)",
+  "instagram": null,
+  "youtube": "@tocandotierra",
+  "sectores": [
+   "Operaciones"
+  ],
+  "nota": "ronda 2: Serie diaria sobre dirigir equipo: dejar de ser el cuello de botella, soltar el trabajo, contratar, que la operación también venda."
+ },
+ {
+  "clave": "blash-design-antonio-olombrada",
+  "nombre": "Blash Design / Antonio Olombrada",
+  "instagram": null,
+  "youtube": "@blashdesign",
+  "sectores": [
+   "Operaciones"
+  ],
+  "nota": "ronda 2: Mentoring para dueños de agencias: 5 pilares para que la agencia no dependa de ti, delegar, accesos y roles, casos reales de escala"
+ },
+ {
+  "clave": "agustin-casorzo-agencias-ia",
+  "nombre": "Agustín Casorzo (Agencias IA)",
+  "instagram": null,
+  "youtube": "@AguCasorzo",
+  "sectores": [
+   "Operaciones"
+  ],
+  "nota": "ronda 2: Formación para dueños de agencias: las 4 formas de escalar una agencia, cómo valorar el servicio, casos de éxito de agencias."
+ },
+ {
+  "clave": "dan-martell-ingles",
+  "nombre": "Dan Martell (inglés)",
+  "instagram": null,
+  "youtube": "@DanMartell",
+  "sectores": [
+   "Operaciones"
+  ],
+  "nota": "ronda 2: Estándar de delegación para fundadores: contratar para recuperar tiempo, no ver a los nuevos como niños, liderar equipo."
  }
 ]

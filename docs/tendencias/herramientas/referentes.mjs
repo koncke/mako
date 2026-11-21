@@ -105,6 +105,9 @@ const SECTORES = {
   'YouTube': ['eloisa', 'cabrera', 'veloz', 'mari', 'carlotta', 'chamizo', 'fons', 'basi', 'higuera'],
   'High ticket': ['ramiro', 'carrizo', 'doglio', 'razzetti', 'higuera', 'sofia', 'cristofari', 'hormozi', 'leila', 'iman'],
   'Low ticket': ['turu', 'luque', 'spisso', 'araujo', 'lenieil', 'ironback', 'atom', 'espiad', 'wendt'],
+  // Operaciones y Lifestyle (Martín, 21/11): los de la lista que ya hablan de esto; los nuevos llegan por referentes-extra.json.
+  'Operaciones': ['leila', 'sofia', 'carrizo', 'doglio', 'hormozi'],
+  'Lifestyle': ['carrizo', 'titto', 'iero', 'iman', 'collado'],
   'Mentalidad y coaching': ['sofia', 'titto', 'serratos', 'klaric', 'iriondo', 'sola', 'valentina', 'peer'],
 };
 // La ronda 2 (21/11, agentes por sector): C:/dev/tendencias/referentes-extra.json, [{clave, nombre, instagram, youtube, sectores, nota}].
