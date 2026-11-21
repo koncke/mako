@@ -675,28 +675,26 @@ avatar de IA».
 
 ### Ampliar el relevo a cientos de reels (21/11/2026)
 
-- **La lista sale del Chrome de Martín, sólo leyendo** (Claude in Chrome, pestaña Reels). El navegador de la app ya no tiene la sesión
-  de Instagram. El 21/11 la pestaña de Víctor dio 225 reels, hasta diciembre de 2021, contra los 36 del 19/11.
-- **Trampas de la grilla:**
-  - Hay sólo unas 24 tarjetas en la página a la vez: se juntan mientras se baja de a 0,7 pantallas.
-  - La portada es un `background-image`, no un `img`.
-  - La salida de `javascript_tool` se corta a unos 1.500 caracteres: la lista se saca en tandas de 50 «código|vistas».
-  - En español, Instagram escribe «17,2 mil» y «2,4 M». La coma decimal choca con separar por comas, así que se separa con «;».
-- **Heras Media es `@herasmedia`** (249 mil seguidores, bio «Soy @victorherasemprendedor»). `@victorherasmedia` es otra cuenta, de
-  50 seguidores: se confirma por la bio, no por el nombre.
-- **El primer filtro no baja nada.** `tools/ampliar.py` usa `yt-dlp` sin descargar y trae fecha, texto y portada. La duración viene en
-  0. Hace 193 reels en unos 4 minutos y arma hojas de 20 portadas numeradas.
-- **Clasificar por portada y texto** (criterio en `C:/dev/referentes-videos/criterio-video-ia.md`, con subagentes):
-  - Rama: 20 pasan, 57 en duda, 116 no. En sus textos, «Ficción 100% generada con IA» es la señal más fuerte.
-  - Víctor: 6 pasan, 22 en duda, 162 no. Casi todo es él a cámara con texto dorado.
-  - Sólo lo que pasa o está en duda se baja y se transcribe (`tools/procesar.py`). Las dudas se deciden con 8 cuadros de la hoja
-    (`tools/tiras-dudas.py`).
-- **Dos `yt-dlp` contra Instagram a la vez se frenan entre sí:** `procesar.py` pasó de unos 15 s a unos 30 s por reel mientras corría
-  `ampliar.py`.
-- **Un artefacto guarda 256 MB por versión.** De los reels nuevos se suben los primeros 35 s a 480 px, unos 1,7 MB cada uno, con el
-  link al completo.
-- **El N× es uno solo para todas las tarjetas:** contra la mediana de los 6 reels maduros más cercanos en fecha de la misma cuenta,
-  con las reproducciones de la grilla del día (`armar-ampliados.mjs`).
+Cómo se releva una cuenta (el usuario correcto, la lista con sesión, el filtro por portada, el N× y cuánto rinde cada cuenta)
+quedó en [hallazgos-competitors-spy.md](hallazgos-competitors-spy.md) → «Relevar a mano la cuenta de Instagram de un referente».
+
+### Lo que Martín corrigió de la página, ronda por ronda (19 al 21/11)
+
+Cada ronda dejó una regla para cualquier página donde Martín elige o revisa contenido:
+
+1. **Demasiado texto.** Las tarjetas con porqué, ganchos, formato y costo, y después con el detalle escondido: «súper confusa» las
+   dos veces. Se rehizo DE CERO, no se recortó. Regla: si se entiende leyendo, está mal planteada; tiene que entenderse mirando.
+2. **La referencia manda.** Galería de los reels en 9:16 y, al tocar uno, la referencia y nuestra versión lado a lado. Los guiones
+   van en pestañas cerradas y la decisión queda fija abajo.
+3. **Todo en claro.** Nada de páginas en modo oscuro. Regla: las páginas de trabajo van en modo claro.
+4. **Un solo filtro.** Un botón «Filtrar» que combina creador, forma y estado, en lugar de una fila de chips por cada cosa.
+5. **El video se ve al pasar el cursor, sin sonido.** El audio va con un botón y el video con `preload="none"`. Un video que suena
+   solo es lo que más le molesta.
+6. **Afuera lo que no lleva video con IA.** El criterio está en `conVideoIA` y en `criterio-video-ia.md`.
+7. **Content Machine.** Una sola página con tres pestañas (Avatar IA, Animaciones, Carruseles) y el mismo patrón en las tres.
+8. **Todo se ve adentro.** Los 91 formatos se reproducen en la página, sin links a otro artefacto, y cada póster es su propio
+   archivo, nunca una imagen con todos juntos.
+9. **La devolución por voz, en todo.** Cada reel, formato, carrusel y lámina tiene sus comentarios, escritos, dictados o con audio.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
@@ -709,14 +707,52 @@ avatar de IA».
 - **Los topes que mandan:**
   - Un publish admite 64 MB y 255 archivos.
   - Una versión admite 256 MB y 511 archivos.
-  - El 21/11 quedaron unos 456 archivos y unos 220 MB.
-  - Los 91 formatos de animación se muestran con su póster y se abren en la galería: embebidos son más de 300 archivos.
-  - Antes de sumar más reels hay que liberar lugar: recortes de 25 s o los pósteres de formatos en el almacén de archivos aparte.
+  - El 21/11 quedaron unos 456 archivos y unos 220 MB. Por eso los formatos y los videos nuevos van al almacén de archivos (abajo).
 - **Los 7 reels terminados son los de `mp4/para-ig` de la galería.** Su referencia en video sale del texto `origen` de cada uno: un
   Short de YouTube o un reel de Instagram, bajados con `yt-dlp`. Para YouTube, el formato es `bv*+ba/b` con `merge_output_format`
   mp4; `b[ext=mp4]` falla porque YouTube separa audio y video. Dos de ellos sólo tienen imagen de referencia.
 - **Lo que se marca:** Avatar IA guarda en `votos` («si» / «no»). Los reels terminados y los carruseles guardan en `revision`
   («aprobado» / «cambiar» y una nota), un documento por pieza: `anim-<id>` o `carr-<id>`.
+
+### Comentarios por voz en todo Content Machine (21/11/2026)
+
+- **Cada comentario es un documento de la colección `comentarios`** del artefacto:
+  - `seccion`: `avatar`, `anim` (reel terminado), `fmt` (formato) o `carr` (carrusel);
+  - `pieza`: el id de la pieza, y `titulo`, para leerlo sin abrir la página;
+  - `lamina`: el número de lámina desde 0, sólo en carruseles;
+  - `texto`, y `voz: true` si se dictó;
+  - `audio: {id, url}` si se adjuntó un audio;
+  - `transcripcion`: `null` hasta que un chat la complete;
+  - `por` (el id opaco de quien lo dejó) y `cuando` (fecha ISO).
+  En la galería, cada tarjeta con comentarios lleva un globito con el número.
+- **No existe una capacidad de micrófono crudo para la página.** Por eso hay dos caminos:
+  - **Dictar** (capacidad `dictation`): la voz se transcribe en vivo dentro del cuadro de texto, y la página nunca recibe el audio.
+    Anda en una pestaña de Chromium o en la ventana principal de la app de escritorio, y sólo para gente de la organización. Si no
+    está disponible, el botón no aparece.
+  - **Adjuntar audio:** `<input type="file" accept="audio/*" capture>`. En el teléfono abre la grabadora. Se sube con
+    `assets.upload` y queda en el almacén del artefacto. Sólo los editores tienen `assets`; a los demás no les aparece el botón.
+- **Cómo lo lee un chat:**
+  1. `ArtifactData` → `list` de `comentarios` con la URL del artefacto.
+  2. Para un audio: `Artifact` → `read` con `path` igual al `audio.id`, que lo guarda en disco. Se transcribe con faster-whisper.
+  3. `ArtifactData` → `update` del comentario con `transcripcion` y el `if_version` leído. Hasta entonces, la página muestra
+     «Transcripción pendiente».
+- **Trampa de la vista local:** el artefacto envuelve la página en un esqueleto con `[hidden]{display:none!important}`. Una copia
+  local sin ese esqueleto muestra el panel de filtros abierto. Para mirar en local, se envuelve con el mismo esqueleto.
+
+### Videos y pósteres en el almacén de archivos, no en la versión (21/11/2026)
+
+- **Una versión admite 511 archivos y 256 MB.** Los 91 formatos son 247 archivos: 89 videos, 90 pósteres y 68 referencias. No
+  entraban. El **almacén de archivos** del artefacto (capacidad `assets`) no cuenta en la versión y sobrevive a cada publicación:
+  - se sube con `Artifact` → `publish` con `asset: true` y `file_paths`, hasta 25 por llamada (los 247 fueron 10 llamadas);
+  - cada archivo vuelve con su `/_blob/<id>`, que la página usa tal cual;
+  - el mapa «archivo → url» queda en `assets.json`, con copia en `C:/dev/referentes-videos/artefacto/content-machine/`, y lo lee
+    `armar-cm.mjs`;
+  - un archivo del almacén se borra sólo a propósito, con su id.
+- Para sacar de la versión archivos que la sesión no publicó (los que vinieron copiados de otro artefacto), primero hay que
+  listarlos (`list` con `scope: "files"`). Si no, la publicación se niega a quitarlos.
+- Martín: **nunca juntar pósteres en una sola imagen.** Cada uno es su archivo.
+- Los clips de las cuentas nuevas van directo al almacén. Los 93 clips de Avatar IA siguen en la versión: si hace falta lugar, se
+  mudan.
 
 ### Lo que quedó sin hacer (serie con avatar de IA)
 
@@ -725,6 +761,11 @@ avatar de IA».
 - **Los regalos del CTA:** 13 de los 20 guiones regalan algo que no existe todavía, una guía o una plantilla (CRM, FILTRO, IA,
   CLIENTES, NICHO, EMBUDO, MARGEN, SISTEMA, EMPEZAR, MENTOR, PRECIO, CIERRE y CASO). Los otros 7 regalan la app, pero no tienen
   cargada la respuesta automática. Cada uno está en el campo `dudas` de `guiones.json`.
-- **Ampliar el relevo a 150-200 reels por cuenta:** espera la sesión de Instagram (en el panel de la app o en el Chrome de Martín).
+- **Las cuentas en cola** (Carrizo, Doglio, Collado) y Julián Alborna: ver [hallazgos-competitors-spy.md](hallazgos-competitors-spy.md)
+  → «Lo que quedó sin hacer».
+- **El contador de arriba en Animaciones** dice «0 de 7 aprobados» y «7 de 7»: cuenta sólo los reels terminados, no los 91 formatos
+  (el detalle de un formato sí dice «de 91»).
+- **Transcribir los audios de los comentarios:** nadie lo hace solo todavía. Lo hace el chat que lea los comentarios (los pasos,
+  arriba).
 - **Los guiones adaptados:** Martín tiene que aprobar cada uno antes de generar el video con avatar (Omni 1.2 Flash, US$0,024 por
   segundo).
