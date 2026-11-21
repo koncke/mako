@@ -60,6 +60,37 @@ Display sólo tiene 400). En la plancha, esa familia reemplaza a Inter, sin «ap
 - ⚠️ Un test que exige una línea del código palabra por palabra (tests/thumbnails-verticales.test.ts, 4) se rompe con cualquier
   cambio de nombre: se actualizó con el nombre nuevo.
 
+**La plantilla «con blur» (00:51:03) y la réplica fiel sobre fondos que no son lisos.** Lo que no se podía borrar se TAPABA con
+el color dominante de alrededor (`taparZona`): sobre un blur, un rectángulo liso de otro tono detrás de cada renglón. Ahora, en un
+carrusel, se RELLENA desde los cuatro bordes (`rellenarZona`, la superficie de Coons, con la mediana de 3 píxeles de cada borde):
+en un degradé sintético queda a 1 nivel del fondo (el parche liso se apartaba más de 40). Tres cosas que había que saber:
+- ⚠️ **Sobre un degradé, `borrarZona` dice que «pudo»** y rellena con un color PLANO cada fila cuyos costados difieren más de 60:
+  el renglón quedaba a 65 niveles. `esDegrade` lo distingue de un ícono pegado a un costado (más allá del ícono vuelve el fondo;
+  en un degradé el color sigue alejándose) y en un carrusel el degradé va directo al relleno.
+- ⚠️ **`conSusSignos` estiraba el renglón hasta el borde de la lámina** sobre un degradé: el fondo que se aleja del dominante
+  contaba como «tinta». Ahora sólo se estira por píxeles del color de la letra.
+- ⚠️ **`pastillaDe` veía una «pastilla de contorno»** en el borde de un degradé y borraba sólo la letra de adentro. Sobre un
+  degradé no se busca pastilla.
+- tests/carruseles-plancha-blur.test.ts (3 casos). En una miniatura (sin `tapar`) el camino es el de antes.
+
+**Lo que quedó SIN hacer de la réplica fiel:**
+- **Un titular ENORME sobre una foto** («9 YOUTUBE COURSES» de @awakpenn, letras de 200 px en degradé blanco→gris): `leerLamina` no
+  lo ve como tinta (en la ventana de 3 × 3 baldosas el blanco de la letra ES lo dominante), la portada pierde su titular y el
+  carrusel entero cae al armado viejo. **El diagnóstico obvio (buscarlo por su color) era el equivocado**: se probó y encontraba
+  sólo pedazos (el gris de abajo del degradé no es «blanco») y borraba franjas sueltas, peor que el armado viejo. Se sacó. Lo fiel
+  ahí es regenerar el cuadro con IA (Flow), la misma deuda de arriba (lib/carruseles/plancha.ts, «parte 7»).
+- La referencia «con blur» que eligió Leila no se identificó: su diseño (ws 11, `14331b1a`) no guarda de qué ejemplo salió. Se le
+  preguntó al Cerebro. Sin ella, el blur se probó con un degradé sintético, no con su lámina.
+- Para repetir una plancha sin pagar otra IA: lo que guarda `scripts/carruseles-probar-editar.mts --salida` (replica.json +
+  original-N.jpg) se replanchea con `marcarLaminas` + `planchasDeLaReplica` en seco. ⚠️ Sin el segundo pedido (`completar`), la
+  repetición pierde lo que ése agregaba (la persona de la portada, textos sin dueño): «equipo», «siete» y «ticket», fieles con la
+  IA, caen al armado viejo repetidos así. No es una regresión: es la repetición incompleta.
+
+**«Cargar tu carpeta o tu brandboard» (00:53:42).** El kit de marca ya existía (Second Brain › Marca) y nadie lo encontraba desde
+el carrusel. «Tu marca» (app/image-editor/carruseles/TuMarca.tsx), en el encabezado de «Editar», abre ESA pantalla (`MarcaView`, no
+una copia) y además sube una carpeta de piezas propias a «Subidos» (`webkitdirectory`, hasta 40). Al cerrar, el guiado vuelve a
+mirar los kits (`pedirKits`) y ofrece «Con mis colores» sin recargar.
+
 ## «Editar» se cortaba a los 4 minutos: el modelo por defecto de Gemini NO llega, y nadie medía el tiempo de la corrida (19/11/2026, ticket 119)
 
 **El síntoma** (Leila, ws 11, 17:04 UTC): «Tu IA tardó más de 4 minutos en escribir la versión y se cortó: es la demora del

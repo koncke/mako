@@ -35,6 +35,8 @@ import {
 } from '@/lib/carruseles/guiado';
 import { imagenesDe, type Carrusel } from '@/lib/carruseles/explorar';
 import { partesDelCopy, resumenDelCopy } from '@/lib/carruseles/copy-pegado';
+import { pedirKits } from '@/app/_chat/kits-de-marca';
+import { TuMarca } from './TuMarca';
 import type { Boton } from '@/lib/aperturas/reglas';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { GUIA_IMAGE } from '../guia-image';
@@ -61,6 +63,8 @@ export type Guiado = {
   /** Lo que se puede cambiar DESPUÉS de armar (otra oferta, la foto, los colores): cada una rehace la pieza. */
   opciones?: readonly Rehacer[];
   rehacer?: (valor: string) => void;
+  /** Se cerró «Tu marca» (./TuMarca.tsx): se vuelve a mirar si hay kit, para ofrecer «Con mis colores» sin recargar la página. */
+  marcaCambiada?: () => void;
 };
 
 /** Cuántas láminas tiene el ejemplo, para preguntar y para el resumen: un anuncio es una. */
@@ -83,10 +87,15 @@ export function useGuiado(c: Carrusel | null, base: BaseGuiado): Guiado | null {
       .catch(() => { if (vivo) setLectura({ persona: null, leyendo: false }); });
     return () => { vivo = false; };
   }, [id]);
+  // El kit de marca guardado DESDE el carrusel («Tu marca», 20/11/2026): la página lo trajo sin kit y ahora hay uno.
+  const [kitNuevo, setKitNuevo] = useState(false);
+  const marcaCambiada = useCallback(() => {
+    void pedirKits().then((x) => { if (x.ok) setKitNuevo(x.kits.kits.some((k) => k.colores.length > 0)); }).catch(() => {});
+  }, []);
   const hechos = useMemo<HechosGuiado | null>(() => (c ? {
     laminas: laminasDe(c), creador: c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre,
-    ofertas: base.ofertas, persona: lectura.persona, leyendo: lectura.leyendo, fotos: base.fotos, kit: base.kit,
-  } : null), [c, base, lectura]);
+    ofertas: base.ofertas, persona: lectura.persona, leyendo: lectura.leyendo, fotos: base.fotos, kit: base.kit || kitNuevo,
+  } : null), [c, base, lectura, kitNuevo]);
   // SIN PREGUNTAR (12/11/2026, memoria `replicar-deja-todo-escrito`): «Editar» arranca a escribir con lo de por defecto (la oferta
   // principal, su cara de marca, sólo los textos) y lo demás se cambia DESPUÉS, al lado del resultado. Las preguntas quedan para
   // «Cambiar algo».
@@ -103,8 +112,8 @@ export function useGuiado(c: Carrusel | null, base: BaseGuiado): Guiado | null {
   const crudo = useMemo(() => (hechos ? pedidoDelGuiado(hechos, r) : null), [hechos, r]);
   const clave = JSON.stringify(crudo);
   const pedido = useMemo(() => crudo, [clave]); // eslint-disable-line react-hooks/exhaustive-deps -- la clave ES el valor
-  return useMemo(() => (c && hechos ? { c, hechos, r, elegir, escribir, seguir, pedido, volverDelArmado, opciones, rehacer } : null),
-    [c, hechos, r, elegir, escribir, seguir, pedido, volverDelArmado, opciones, rehacer]);
+  return useMemo(() => (c && hechos ? { c, hechos, r, elegir, escribir, seguir, pedido, volverDelArmado, opciones, rehacer, marcaCambiada } : null),
+    [c, hechos, r, elegir, escribir, seguir, pedido, volverDelArmado, opciones, rehacer, marcaCambiada]);
 }
 
 const QUIEN = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
@@ -189,6 +198,8 @@ export function ReplicarGuiado({ g, onSalir }: { g: Guiado; onSalir: () => void 
           <h1>Tu versión del carrusel de {g.hechos.creador}</h1>
           <div className={s.botones}>
             <button type="button" className={s.pastilla} onClick={onSalir}>← Elegir otro</button>
+            {/* El brandboard y las piezas propias, sin salir de acá (20/11/2026, la llamada con Leila): ./TuMarca.tsx. */}
+            <TuMarca alGuardar={g.marcaCambiada} />
             {g.c.url ? <a className={s.pastilla} href={g.c.url} target="_blank" rel="noopener noreferrer">Ver el original ↗</a> : null}
           </div>
         </header>
