@@ -57,4 +57,6 @@ if (!fs.existsSync(video)) {
   execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=320x180:rate=15', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000',
     '-t', '20', '-c:v', 'libvpx', '-b:v', '200k', '-c:a', 'libopus', video]);
 }
+const poster = path.join(AQUI, 'salida', 'poster.jpg');
+if (!fs.existsSync(poster)) execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=640x360', '-frames:v', '1', poster]);
 console.log('banco listo: scripts/banco-onboarding/salida');

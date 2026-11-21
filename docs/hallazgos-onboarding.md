@@ -47,6 +47,14 @@ lo toca el Cerebro en producción. Lo que fallaba se arregló en las tandas 367a
 | Ícono de videos | El catálogo; elegir un video lo muestra | A medias: elegir y después play (dos toques) | reto-dias |
 | Barra del administrador | RESET, «Reiniciar onboarding», «Ir a un paso», «Salir de la vista» | Sí. RESET dejaba el onboarding en el navegador y «Salir» navegaba aunque fallara: arreglados. «Ir a un paso», nuevo | reiniciar-onboarding, inventario-onboarding-flujo «1», «2», revision-saltar-y-ejemplos |
 
+**Quién lo TOCA desde el 21/11** (el banco, scripts/banco-onboarding, sin sesión ni producción):
+- El banco toca 15 de las 18 filas: emoji, micrófono (con el de mentira de Chromium), campo y Enter/Shift+Enter, sol y luna, video
+  (play, barra, velocidad, teclado), pantalla completa, flotante y su X, país y «Seguir», «Guardar contacto», opciones y «Escribe otra
+  cosa», «Responder» con varias, «Entrar a MaKo», «dale play» y su X, «Omitir recorrido» y «Siguiente», y la barra del administrador.
+- Las tres del reto («¿Qué hacemos ahora?», el desplegable de días y el catálogo de videos) viven del estado del reto en el server: las
+  recorre el Cerebro en producción, con la sesión de Martín en el navegador de la app y silenciado. También lo de la libreta del
+  teléfono y la pantalla completa del iPhone.
+
 **Lo que quedó sin hacer, y lo que decidió el Cerebro** (21/11/2026, tanda E):
 - HECHO: el V2 pasa `voz` a la caja como las demás (no se graba mientras MaKo contesta: `apagada`). La nota de voz se cancela
   mientras se transcribe y, si falla, queda en la barra para volver a mandarla o borrarla (app/_chat/useNotaConEspera.ts; la señal,
@@ -4277,7 +4285,8 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
 - **La regla** (el Cerebro): en un navegador automático NO se usan las cookies, la sesión ni la contraseña de nadie, y no hay previews de
   Vercel. Los tests que tocan van contra los componentes REALES dibujados en local: scripts/banco-onboarding (como los otros
   scripts/banco-*). build.mjs compila con esbuild y stubs de Next; entrada.tsx monta cada escenario y contesta /api con datos inventados;
-  probar.mjs usa Playwright headless, toca cada control y deja capturas. 48 chequeos en cinco escenarios:
+  probar.mjs usa Playwright headless, toca cada control y deja capturas. Primero fueron 48 chequeos en cinco escenarios; con la segunda
+  vuelta (el reproductor, la caja y las tarjetas del chat, la llegada) son más de 80:
   - dos videos en el hilo, con el motor;
   - el WhatsApp simulado;
   - la barra (RESET, «Autocompletar», «Ir a un paso»);
@@ -4298,6 +4307,11 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
   - el botón con «Reiniciar onboarding».
   Cada uno cayó en su escenario.
 - Los cuadros negros de los videos en las capturas son del Chromium headless con el video de prueba, no de la app.
+- **Trampa 5: «el modo no se recuerda al recargar» era del BANCO, no de la app.** El sol y la luna leen el atributo de `<html>`, y ese
+  atributo lo pone el arranque (ModoArranque antes de React, ModoDelUsuario después). El banco monta ModoDelUsuario, como la app.
+- **Trampa 6: el panel de emojis abre en «Recientes»,** vacío en un navegador nuevo. Para tocar un emoji, primero va una categoría.
+- El micrófono se prueba con `--use-fake-device-for-media-stream` y `--use-fake-ui-for-media-stream`, y la transcripción la contesta
+  la página. Se tocan grabar, terminar y mandar; pausar, escuchar y tirar no se tocaron uno por uno.
 - **Lo que el banco NO ve (lo mira el Cerebro en producción, con la sesión de Martín en el navegador de la app, silenciado):**
   - el panel de emojis a 375 dentro del Ops Center;
   - el micrófono y la transcripción;

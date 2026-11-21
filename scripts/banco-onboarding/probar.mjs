@@ -22,7 +22,7 @@ const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const servidor = spawn(process.execPath, [path.join(AQUI, 'servir.cjs')], { env: { ...process.env, PUERTO_BANCO: String(PUERTO) }, stdio: ['ignore', 'pipe', 'inherit'] });
 await new Promise((ok) => servidor.stdout.once('data', ok));
-const navegador = await chromium.launch({ headless: true, args: ['--mute-audio', '--autoplay-policy=no-user-gesture-required'] });
+const navegador = await chromium.launch({ headless: true, args: ['--mute-audio', '--autoplay-policy=no-user-gesture-required', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
 
 async function pagina(escenario, ancho = 1440, alto = 900) {
   const ctx = await navegador.newContext({ viewport: { width: ancho, height: alto } });
@@ -179,6 +179,201 @@ const ESCENARIOS = {
     await ctx.close();
   },
 
+  // ── El reproductor: velocidad, barra, pantalla completa; y la X del flotante ──
+  async reproductor() {
+    {
+      const { pg, ctx, errores } = await pagina('videos');
+      const a = 'div[data-banco="arriba"]';
+      await pg.waitForSelector(`${a} .mk-vmom__play`, { timeout: 15000 });
+      await pg.click(`${a} .mk-vmom__play`);
+      await esperar(600);
+      const vel0 = await pg.evaluate((s) => document.querySelector(`${s} video`).playbackRate, a);
+      await pg.click(`${a} .mk-vmom__vel`);
+      const vel1 = await pg.evaluate((s) => document.querySelector(`${s} video`).playbackRate, a);
+      chequear('reproductor', 'la velocidad cambia (de 1× para arriba)', vel0 === 1 && vel1 > 1, `${vel0} → ${vel1}`);
+      const pista = await pg.$(`${a} .mk-vmom__pista`);
+      const caja = await pista.boundingBox();
+      await pg.mouse.click(caja.x + caja.width * 0.5, caja.y + caja.height / 2);
+      await esperar(400);
+      const t = await pg.evaluate((s) => document.querySelector(`${s} video`).currentTime, a);
+      chequear('reproductor', 'tocar la mitad de la barra salta a la mitad', t > 7 && t < 13, `t = ${t.toFixed(1)}`);
+      await pg.focus(`${a} .mk-vmom__pista`).catch(() => {});
+      await pg.keyboard.press('ArrowRight');
+      await esperar(200);
+      const t2 = await pg.evaluate((s) => document.querySelector(`${s} video`).currentTime, a);
+      chequear('reproductor', 'la flecha del teclado adelanta 5 s', t2 - t > 3.5, `${t.toFixed(1)} → ${t2.toFixed(1)}`);
+      await pg.click(`${a} [aria-label="Pantalla completa"]`);
+      await esperar(500);
+      chequear('reproductor', 'pantalla completa', await pg.evaluate(() => !!document.fullscreenElement));
+      await pg.evaluate(() => document.exitFullscreen?.().catch(() => {}));
+      chequear('reproductor', 'sin errores en la página', errores.length === 0, errores.slice(0, 3).join(' | '));
+      await ctx.close();
+    }
+    {
+      const { pg, ctx } = await pagina('videos');
+      const a = 'div[data-banco="arriba"]';
+      await pg.waitForSelector(`${a} .mk-vmom__play`, { timeout: 15000 });
+      await pg.click(`${a} .mk-vmom__play`);
+      await esperar(600);
+      await pg.evaluate(() => window.scrollTo(0, 1500));
+      const flota = await pg.waitForSelector('.mk-pip', { timeout: 5000 }).then(() => true).catch(() => false);
+      chequear('reproductor', 'flota al salir de la vista', flota);
+      if (flota) {
+        await pg.click('.mk-pip [aria-label="Cerrar el video"]');
+        await esperar(500);
+        chequear('reproductor', 'la X del flotante lo cierra', (await pg.$('.mk-pip')) === null);
+        await pg.evaluate(() => window.scrollTo(0, 0));
+        await esperar(700);
+        chequear('reproductor', 'cerrado, no vuelve a sonar solo en el chat', await pg.evaluate((s) => document.querySelector(`${s} video`).paused, a));
+      }
+      await ctx.close();
+    }
+  },
+
+  // ── La caja y las tarjetas del chat del arranque ──
+  async chat() {
+    const posts = async (pg) => (await llamadas(pg)).filter((l) => l.url.startsWith('/api/onboarding/arranque') && l.metodo === 'POST').map((l) => l.cuerpo);
+    {
+      const { pg, ctx, errores } = await pagina('chat&etapa=nombre');
+      const caja = '.co-caja textarea';
+      await pg.waitForSelector(`${caja}:not([disabled])`, { timeout: 25000 });
+      await pg.click(caja);
+      await pg.keyboard.type('a');
+      await pg.keyboard.press('Shift+Enter');
+      await pg.keyboard.type('b');
+      chequear('chat', 'Shift+Enter hace un renglón y no manda', (await pg.inputValue(caja)) === 'a\nb' && (await posts(pg)).length === 0, JSON.stringify(await pg.inputValue(caja)));
+      await pg.fill(caja, '');
+      await pg.click('button[aria-label="Emojis"]');
+      const panel = await pg.waitForSelector('[aria-label="Recientes"]', { timeout: 4000 }).then(() => true).catch(() => false);
+      chequear('chat', 'la carita abre el panel de emojis', panel);
+      if (panel) {
+        // Abre en «Recientes», vacío en un navegador nuevo: primero una categoría (la pestaña), después un emoji (su toque de verdad).
+        await pg.click('.co-emojis__pestana >> nth=1');
+        const puesto = await pg.textContent('.co-emojis__emoji >> nth=0').then((t) => (t ?? '').trim()).catch(() => null);
+        if (puesto) await pg.click('.co-emojis__emoji >> nth=0');
+        await esperar(200);
+        chequear('chat', 'el emoji queda en la caja', !!puesto && (await pg.inputValue(caja)).includes(puesto), `${puesto} → ${JSON.stringify(await pg.inputValue(caja))}`);
+        await pg.keyboard.press('Escape');
+        await esperar(300);
+        chequear('chat', 'Escape cierra el panel', (await pg.$('[aria-label="Recientes"]')) === null);
+      }
+      await pg.fill(caja, 'Valentina');
+      await pg.press(caja, 'Enter');
+      await esperar(700);
+      chequear('chat', 'Enter manda lo escrito', (await posts(pg)).some((c) => c?.texto === 'Valentina'), JSON.stringify(await posts(pg)).slice(0, 160));
+      const modo = 'button[aria-pressed][aria-label*="odo"]';
+      const antes = await pg.getAttribute(modo, 'aria-pressed').catch(() => null);
+      if (antes != null) {
+        await pg.click(modo);
+        // El cambio va detrás del barrido (`conBarrido`): se espera, no se lee en el acto (en una corrida lenta se leía el de antes).
+        await pg.waitForFunction(([s, v]) => document.querySelector(s)?.getAttribute('aria-pressed') !== v, [modo, antes], { timeout: 3000 }).catch(() => {});
+        const despues = await pg.getAttribute(modo, 'aria-pressed');
+        chequear('chat', 'el sol y la luna cambian el modo', antes !== despues, `${antes} → ${despues}`);
+        await pg.reload();
+        await pg.waitForSelector(modo, { timeout: 15000 });
+        // Arranca en claro y se corrige en su efecto (InterruptorModo: el server no sabe qué eligió este navegador).
+        const vuelto = await pg.waitForFunction(([s, v]) => document.querySelector(s)?.getAttribute('aria-pressed') === v, [modo, despues], { timeout: 3000 }).then(() => true).catch(() => false);
+        chequear('chat', 'y lo recuerda al volver', vuelto, `después de recargar: ${await pg.getAttribute(modo, 'aria-pressed')}`);
+      } else chequear('chat', 'el sol y la luna están', false, 'no encontré el botón del modo');
+      chequear('chat', 'sin errores en la página', errores.length === 0, errores.slice(0, 3).join(' | '));
+      await ctx.close();
+    }
+    {
+      // El micrófono, con el micrófono de mentira de Chromium: grabar, terminar y mandar (lo transcribe la ruta, contestada por la página).
+      const { pg, ctx } = await pagina('chat&etapa=nombre');
+      await pg.waitForSelector('.co-caja textarea:not([disabled])', { timeout: 25000 });
+      await pg.click('button[aria-label="Grabar una nota de voz"]');
+      await esperar(1800);
+      const etiquetas = await pg.$$eval('.co-caja button, .co-caja-wrap button', (xs) => xs.map((x) => x.getAttribute('aria-label') || (x.textContent ?? '').trim()));
+      const listo = etiquetas.find((t) => /terminar|listo|detener|parar|✓/i.test(t ?? ''));
+      if (listo) { await pg.click(`.co-caja-wrap button[aria-label="${listo}"]`).catch(() => pg.click(`text=${listo}`)); await esperar(600); }
+      const enviar = await pg.$('button[aria-label="Enviar audio"]');
+      if (enviar) { await enviar.click(); await esperar(1500); }
+      const ll = await llamadas(pg);
+      chequear('chat', 'el micrófono graba y manda la nota a transcribir', ll.some((l) => l.url === '/api/plan-dictado'), `controles: ${etiquetas.join(' | ')}`);
+      chequear('chat', 'lo transcrito sale como respuesta', (await posts(pg)).some((c) => c?.texto === 'Valentina'));
+      await ctx.close();
+    }
+    {
+      const { pg, ctx } = await pagina('chat&etapa=telefono');
+      const tel = await pg.waitForSelector('.arr-tarjeta input[inputmode="tel"]', { timeout: 25000 }).then(() => true).catch(() => false);
+      chequear('chat', 'la tarjeta del WhatsApp, con país y número', tel);
+      if (tel) {
+        const pais = await pg.$('.arr-tarjeta select');
+        if (pais) await pais.selectOption({ label: /Argentina/ }).catch(async () => { await pais.selectOption({ index: 0 }); });
+        await pg.fill('.arr-tarjeta input[inputmode="tel"]', '9 11 5555 0101');
+        await pg.click('.arr-tarjeta button:has-text("Seguir")');
+        await esperar(800);
+        const t = (await posts(pg)).find((c) => c?.action === 'telefono');
+        chequear('chat', '«Seguir» manda el número con su país', !!t && String(t.telefono).replace(/\D/g, '').length >= 10, JSON.stringify(t));
+      }
+      await ctx.close();
+    }
+    {
+      const { pg, ctx } = await pagina('chat&etapa=origen');
+      const op = await pg.waitForSelector('.co-preg__op', { timeout: 25000 }).then(() => true).catch(() => false);
+      chequear('chat', 'las opciones de «¿Cómo llegaste?»', op);
+      if (op) {
+        await pg.click('.co-preg__op >> nth=0');
+        await esperar(800);
+        chequear('chat', 'una opción contesta con un toque', (await posts(pg)).some((c) => c?.opcion === 0));
+        const otra = await pg.waitForSelector('[aria-label="Escribe otra respuesta"]', { timeout: 8000 }).then(() => true).catch(() => false);
+        if (otra) {
+          await pg.fill('[aria-label="Escribe otra respuesta"]', 'Por una amiga');
+          await pg.click('.co-preg button:has-text("Responder")');
+          await esperar(800);
+        }
+        chequear('chat', '«Escribe otra cosa» manda lo escrito', (await posts(pg)).some((c) => c?.texto === 'Por una amiga'));
+      }
+      await ctx.close();
+    }
+    {
+      const { pg, ctx } = await pagina('chat&etapa=interes');
+      const op = await pg.waitForSelector('.co-preg__op', { timeout: 25000 }).then(() => true).catch(() => false);
+      if (op) {
+        await pg.click('.co-preg__op >> nth=0');
+        await pg.click('.co-preg__op >> nth=1');
+        await pg.click('.co-preg button:has-text("Responder")');
+        await esperar(800);
+      }
+      chequear('chat', '«Responder» con varias manda las elegidas', (await posts(pg)).some((c) => Array.isArray(c?.opciones) && c.opciones.length === 2));
+      await ctx.close();
+    }
+    {
+      const { pg, ctx } = await pagina('chat&etapa=contacto');
+      const vcf = await pg.waitForSelector('a[download="MaKo.vcf"]', { timeout: 25000 }).then(() => true).catch(() => false);
+      chequear('chat', '«Guardar contacto» descarga la tarjeta de MaKo', vcf && /^data:text\/vcard/.test((await pg.getAttribute('a[download="MaKo.vcf"]', 'href')) ?? ''));
+      await ctx.close();
+    }
+    {
+      const { pg, ctx, navegaciones } = await pagina('chat&etapa=listo');
+      const b = await pg.waitForSelector('button:has-text("Entrar a MaKo")', { timeout: 25000 }).then(() => true).catch(() => false);
+      chequear('chat', '«Entrar a MaKo» está', b);
+      if (b) {
+        await pg.click('button:has-text("Entrar a MaKo")');
+        await esperar(2500);
+        chequear('chat', '«Entrar a MaKo» va a la app con una carga entera', navegaciones.some((u) => u.startsWith('/second-brain')), navegaciones.join(', '));
+      }
+      await ctx.close();
+    }
+  },
+
+  // ── La llegada: «dale play» y su X ──
+  async llegada() {
+    const { pg, ctx, errores } = await pagina('llegada');
+    const inv = await pg.waitForSelector('.mk-tuto__vx[aria-label="Cerrar"]', { timeout: 25000 }).then(() => true).catch(() => false);
+    chequear('llegada', '«dale play» sale sobre el video de la llegada', inv);
+    if (inv) {
+      await pg.screenshot({ path: path.join(CAPT, 'llegada-dale-play.png') });
+      await pg.click('.mk-tuto__vx[aria-label="Cerrar"]');
+      await esperar(800);
+      chequear('llegada', 'su X lo cierra', (await pg.$('.mk-tuto__vx[aria-label="Cerrar"]')) === null);
+      chequear('llegada', 'y deja el recorrido visto (el reto no queda frenado)', (await llamadas(pg)).some((l) => l.url.startsWith('/api/recorridos') && l.metodo === 'POST'));
+    }
+    chequear('llegada', 'sin errores en la página', errores.length === 0, errores.slice(0, 3).join(' | '));
+    await ctx.close();
+  },
+
   // ── Un paso que pide clic no tiene «Siguiente» ──
   async marca() {
     const { pg, ctx, errores } = await pagina('marca');
@@ -197,6 +392,9 @@ const ESCENARIOS = {
       if (dos) {
         const b2 = await pg.$$eval('button', (xs) => xs.map((x) => (x.textContent ?? '').trim()));
         chequear('marca', 'el paso que explica sí tiene su botón para avanzar', b2.includes('Siguiente') || b2.includes('Listo'), b2.join(', '));
+        await pg.click('button:has-text("Omitir recorrido")');
+        await esperar(500);
+        chequear('marca', '«Omitir recorrido» lo termina', (await pg.$('text=Este paso sólo explica.')) === null);
       }
     }
     chequear('marca', 'sin errores en la página', errores.length === 0, errores.slice(0, 3).join(' | '));

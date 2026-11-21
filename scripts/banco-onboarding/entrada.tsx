@@ -5,17 +5,21 @@
 //   ?p=barra    la barra del administrador (RESET, «Autocompletar», «Ir a un paso») con el chat del arranque en la revisión
 //   ?p=brain    el Second Brain del recorrido sobre un marco de grafo
 //   ?p=marca    el motor con un paso que pide clic (sin «Siguiente») y uno que explica (con «Siguiente»)
+//   ?p=chat&etapa=nombre|telefono|origen|interes|contacto|listo   el chat del arranque en esa pregunta (la caja, las tarjetas)
+//   ?p=llegada  la llegada al reto con su «dale play» (el motor y la marca que invita)
 import { createRoot } from 'react-dom/client';
 import { MotorTutorial } from '@/app/_ui/tutorial/MotorTutorial';
 import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
 import { ChatArranqueV2 } from '@/app/onboarding/ChatArranqueV2';
 import { ImpersonationBanner } from '@/app/_components/ImpersonationBanner';
 import { BrainDelRecorrido } from '@/app/second-brain/BrainDelRecorrido';
+import { LlegadaAlReto } from '@/app/second-brain/LlegadaAlReto';
+import { ModoDelUsuario } from '@/app/_components/ModoDelUsuario';
 import { cerrarTutorial, mostrarTutorial, senalAhora } from '@/app/_ui/tutorial/store';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
-import { mensajesDeArranqueV2, type EstadoArranque, type HechosArranque } from '@/lib/onboarding-arranque';
+import { etapaDeArranqueV2, mensajesDeArranqueV2, type EstadoArranque, type HechosArranque } from '@/lib/onboarding-arranque';
 import { vistaDelWhatsappSimulado } from '@/lib/onboarding-v2/whatsapp-simulado';
-import { PASOS_DE_REVISION } from '@/lib/onboarding-v2/saltar';
+import { PASOS_DE_REVISION, estadoArranqueHasta } from '@/lib/onboarding-v2/saltar';
 import type { VistaArranque } from '@/lib/onboarding-arranque-server';
 import type { TutorialPestana } from '@/lib/tutoriales';
 
@@ -23,11 +27,12 @@ type W = Window & { __llamadas: Array<{ url: string; metodo: string; cuerpo: unk
 const w = window as unknown as W;
 const q = new URLSearchParams(window.location.search);
 const p = q.get('p') ?? 'videos';
-document.documentElement.setAttribute('data-tema', q.get('tema') === 'oscuro' ? 'oscuro' : 'claro');
+// El modo: el que eligió este navegador, como al arrancar la app (ModoDelUsuario, con ModoArranque antes de React); ?tema=oscuro lo fuerza.
+if (q.get('tema') === 'oscuro') document.documentElement.setAttribute('data-tema', 'oscuro');
 
 const HECHOS = { modo: 'oferta', v2: true, conTelefono: true, terminado: false, nombreCuenta: 'Valentina', nombreWorkspace: 'Nutri Vale' } as unknown as HechosArranque;
-const vistaDe = (e: EstadoArranque, etapa: string, extra: Record<string, unknown> = {}): VistaArranque => ({
-  modo: 'oferta', v2: true, etapa, antes: mensajesDeArranqueV2(e, HECHOS), despues: [], sesion: null, tieneSesion: false, sesionCaida: false,
+const vistaDe = (e: EstadoArranque, etapa: string | null, extra: Record<string, unknown> = {}, h: HechosArranque = HECHOS): VistaArranque => ({
+  modo: 'oferta', v2: true, etapa: etapa ?? etapaDeArranqueV2(e, h), antes: mensajesDeArranqueV2(e, h), despues: [], sesion: null, tieneSesion: false, sesionCaida: false,
   funnelDefaultId: null, introVista: true, nombre: e.nombre ?? '', avisosQr: null, telefonoNumero: e.telefonoNumero ?? '', telefonoDelPago: '',
   whatsapp: null, crmTipo: null, crmPropuesta: null, canal: null, crmRecomendado: 'directa', interes: null, bloqueo: null, equipo: null, ...extra,
 }) as unknown as VistaArranque;
@@ -41,6 +46,8 @@ function responder(ruta: string, metodo: string): unknown {
   if (ruta === '/api/admin/negocio-de-prueba') return { ok: true, disponible: false };
   if (ruta === '/api/admin/saltar-onboarding') return metodo === 'GET' ? { ok: true, puede: true, pasos: PASOS_DE_REVISION } : { ok: true, destino: '/second-brain?reto=1', vistos: [], salto: null, avisos: [] };
   if (ruta === '/api/onboarding/arranque') return { ok: true, vista: vistaActual };
+  if (ruta === '/api/plan-dictado') return { ok: true, texto: 'Valentina' };
+  if (ruta === '/api/recorridos') return metodo === 'GET' ? { ok: true, guardado: true, vistos: [], quien: 'a1b2c3d4e5f60718' } : { ok: true };
   return { ok: true };
 }
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -49,7 +56,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (!u.pathname.startsWith('/api/')) return fetchReal(input, init);
   const metodo = (init?.method ?? 'GET').toUpperCase();
   let cuerpo: unknown = null;
-  try { cuerpo = init?.body ? JSON.parse(String(init.body)) : null; } catch { cuerpo = String(init?.body ?? ''); }
+  if (init?.body instanceof FormData) cuerpo = { formulario: [...init.body.keys()] };
+  else { try { cuerpo = init?.body ? JSON.parse(String(init.body)) : null; } catch { cuerpo = String(init?.body ?? ''); } }
   w.__llamadas.push({ url: u.pathname + u.search, metodo, cuerpo });
   return new Response(JSON.stringify(responder(u.pathname, metodo)), { status: 200, headers: { 'content-type': 'application/json' } });
 };
@@ -88,6 +96,22 @@ if (p === 'videos') {
       <p data-banco="grafo-real" style={{ color: '#fff', padding: 80 }}>El grafo real del negocio</p>
     </div>
     <BrainDelRecorrido sabe={{ nombre: 'Valentina', negocio: 'Nutri Vale', whatsapp: true, origen: 'Instagram', intereses: ['Armar mi landing'] }} />
+  </>);
+} else if (p === 'chat') {
+  const etapa = q.get('etapa') ?? 'nombre';
+  const tel = { telefonoNumero: '5491155550101' };
+  const estados: Record<string, EstadoArranque> = {
+    nombre: { introVista: true }, telefono: { introVista: true, nombre: 'Valentina' },
+    origen: estadoArranqueHasta('origen', tel), interes: estadoArranqueHasta('interes', tel), contacto: estadoArranqueHasta('agendado', tel), listo: estadoArranqueHasta('cierre', tel),
+  };
+  const h = etapa === 'listo' ? ({ ...HECHOS, terminado: true } as HechosArranque) : HECHOS;
+  vistaActual = vistaDe(estados[etapa] ?? estados.nombre, null, {}, h);
+  raiz.render(<div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}><ModoDelUsuario /><ChatArranqueV2 inicial={vistaActual} persona={{ nombre: 'Valentina', email: 'valentina@ejemplo.test' }} /></div>);
+} else if (p === 'llegada') {
+  w.__bancoRuta = '/second-brain';
+  raiz.render(<>
+    <MotorTutorial revision={false} />
+    <div className="co-hilo" style={{ height: '100vh', overflow: 'auto', padding: 24, boxSizing: 'border-box' }}><LlegadaAlReto nombre="Valentina" listo /></div>
   </>);
 } else if (p === 'marca') {
   w.__bancoRuta = '/banco';

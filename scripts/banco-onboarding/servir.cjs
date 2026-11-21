@@ -5,10 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const sal = path.join(__dirname, 'salida');
 const PUERTO = Number(process.env.PUERTO_BANCO || 4591);
-const tipos = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html', '.webm': 'video/webm', '.json': 'application/json' };
+const tipos = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html', '.webm': 'video/webm', '.json': 'application/json', '.jpg': 'image/jpeg' };
 const pagina = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/casa.css"><link rel="stylesheet" href="/entrada.css"><style>body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink)}</style></head><body><div id="raiz"></div><script type="module" src="/entrada.js"></script></body></html>';
-const video = (key, titulo) => ({ key, pestana: titulo, ruta: '/second-brain', archivo: '/tutoriales/prueba.webm', duracion_s: 20, peso_kb: 540 });
-const manifiesto = JSON.stringify({ videos: [video('banco-arriba', 'El de arriba'), video('banco-abajo', 'El de abajo')] });
+const video = (key, titulo) => ({ key, pestana: titulo, ruta: '/second-brain', archivo: '/tutoriales/prueba.webm', poster: '/tutoriales/poster.jpg', duracion_s: 20, peso_kb: 540 });
+// El del recorrido, para la llegada y su «dale play» (sin frases: el banco no prueba el recorrido con video).
+const manifiesto = JSON.stringify({ videos: [video('banco-arriba', 'El de arriba'), video('banco-abajo', 'El de abajo'), video('recorrido', 'Tu recorrido por MaKo')] });
 http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x').pathname;
   if (u === '/') { res.setHeader('content-type', 'text/html'); return res.end(pagina); }
