@@ -35,6 +35,9 @@ const chip: CSSProperties = {
 };
 
 /** Lo que dice la confirmación: qué vuelve a empezar y qué NO se toca. */
+/** En un espacio de PRUEBA (21/11/2026, Martín: «le di a reset y comenzamos de cero»): RESET deja todo como una cuenta recién creada. */
+export const TEXTO_RESET_PRUEBA = 'Borra todo y empieza el onboarding de cero, como una cuenta recién creada: los chats sueltos y el historial de Offer Coach y Funnel Coach se van. Quedan los datos del negocio, el plan y su WhatsApp.';
+
 export const TEXTO_REINICIAR = 'Vuelve a empezar el onboarding y el reto de 7 días. No borra nada de lo suyo: leads y CRM, cursos, automatizaciones, funnels, ofertas, conversaciones, archivos, plan y cobros quedan como están. Su WhatsApp sigue verificado.';
 
 export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
@@ -44,6 +47,14 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
   const [hecho, setHecho] = useState(false);
   const ws = useWs();
   const [aviso, setAviso] = useState<{ texto: string; tono: 'info' | 'error' } | null>(null);
+  // ¿Un espacio de prueba? Lo dice el server (la misma puerta que «Borrar todos los datos»): ahí RESET borra también los chats.
+  const [dePrueba, setDePrueba] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    fetch('/api/admin/negocio-de-prueba', { cache: 'no-store' }).then((r) => r.json()).then((j: { disponible?: boolean }) => { if (vivo) setDePrueba(!!j.disponible); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+  const texto = dePrueba ? TEXTO_RESET_PRUEBA : TEXTO_REINICIAR;
   const btn = useRef<HTMLButtonElement | null>(null);
 
   function abrir() {
@@ -98,7 +109,7 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
 
   return (
     <>
-      <button ref={btn} type="button" onClick={() => (confirmar ? setConfirmar(false) : abrir())} title={TEXTO_REINICIAR}
+      <button ref={btn} type="button" onClick={() => (confirmar ? setConfirmar(false) : abrir())} title={texto}
         aria-expanded={confirmar} aria-controls={confirmar ? ID_PANEL : undefined} style={chip}>
         Reset
       </button>
@@ -113,7 +124,7 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
               {hecho ? `Listo: el onboarding de ${cliente} empieza de cero.` : `¿Reset del onboarding de ${cliente}?`}
             </div>
             <p role={hecho ? 'status' : undefined} style={{ margin: '6px 0 14px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-              {hecho ? 'No se borró nada de lo suyo. Te llevo a su onboarding…' : TEXTO_REINICIAR}
+              {hecho ? (dePrueba ? 'Quedó como una cuenta recién creada. Te llevo a su onboarding…' : 'No se borró nada de lo suyo. Te llevo a su onboarding…') : texto}
             </p>
             {!hecho && <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button type="button" className="mk-btn mk-btn--sm mk-btn--secondary" onClick={() => setConfirmar(false)} disabled={busy}>No</button>

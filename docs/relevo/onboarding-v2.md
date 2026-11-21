@@ -18,6 +18,11 @@ Lo pidió el Cerebro con las 3 capturas de Martín (ws 3, Nutri Vale). Despliegu
   llegada vuelve a medir con cualquier scroll. Banco «recuadro»: con el código viejo, el recuadro sobre la cabecera. OJO: el caso del
   reto del 1 (el hueco sobre los «…») no se reprodujo en el banco; si vuelve a pasar en producción, mirar la medida de LlegadaAlReto.
 
+- **7 y 9. RESET en un espacio de prueba** (commit «RESET en un espacio de prueba»): después de «Reiniciar onboarding», la ruta vacía
+  chart_chats, chart_sessions, offer_sesiones y el estado de los coaches (lib/reset-chats-prueba.ts, sólo con `esClienteDePrueba`); el
+  botón dice «Borra todo…» en uno de prueba. El grupo de avisos (`grupo_*`) no se toca. SIN PROBAR contra la base: lo mira el Cerebro en
+  producción (crear un chat suelto, RESET, que no quede; Offer Coach sin historial).
+
 ## Falta (con por dónde empezar)
 1. **El recuadro del recorrido mal ubicado** (/second-brain?reto=1: el hueco sobre los «…» de MaKo escribiendo, arriba a la izquierda,
    en vez de la fila del reto). Mirar `lugarDe(sel)` en app/_ui/tutorial/MotorTutorial.tsx (toma el PRIMER elemento visible del selector)
