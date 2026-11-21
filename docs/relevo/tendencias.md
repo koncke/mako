@@ -12,7 +12,8 @@ que rehace el chat de Content Machine (local_fc754a71-87b7-4a34-8133-0307a31abe1
 
 ## Pasos
 
-1. [en curso] Sectores y referentes: lista de 6-12 por sector con Instagram y YouTube. Fuentes: los 32 de
+1. [hecho, esperando el OK del Cerebro] Sectores y referentes → `docs/tendencias/referentes.md` (89 en 11 sectores; la fuente
+   es `docs/tendencias/herramientas/referentes.mjs`, que escribe `C:/dev/tendencias/referentes.json`). Antes: sectores y referentes: lista de 6-12 por sector con Instagram y YouTube. Fuentes: los 32 de
    `lib/asesores/catalogo.ts`, los autores de Knowledge (`app/conocimientos/catalogo.ts` → `CURSOS_TODOS`), los 77 links
    (`C:/dev/inspiracion/relevo.json`), el Spy de producción (54 competidores, volcado en el scratchpad de los ángulos:
    `gurus-b/comp.json`) y la web. Se pasa al Cerebro ANTES de bajar nada.
@@ -31,5 +32,16 @@ que rehace el chat de Content Machine (local_fc754a71-87b7-4a34-8133-0307a31abe1
   comentarios-palabra de los comentarios de conversación.
 - Instagram sin sesión no deja verificar un usuario con curl (perfil real y uno inexistente dan el mismo HTML). YouTube sí:
   `youtube.com/@handle` da 404 si no existe.
-- Dos agentes (sonnet, web) verifican usuarios y buscan referentes nuevos → `scratchpad/handles-verificados.json` y
-  `scratchpad/referentes-nuevos.json` (scratchpad de esta sesión; si se perdió, se rehace).
+- Dos agentes (sonnet, web) verificaron usuarios y buscaron referentes nuevos → copiados a `C:/dev/tendencias/handles-verificados.json`
+  y `C:/dev/tendencias/referentes-nuevos.json`.
+- **El Spy de producción ya tiene 2.545 piezas de los últimos 90 días** (`spy_piezas`, con vistas y comentarios; sólo lectura
+  con un GET a la REST, como `rest.mjs`). Las cuentas que ya están ahí no se vuelven a bajar. Tiene también el canal `anuncios`
+  (biblioteca de Meta) de Hormozi y Sofía.
+- **Corpus histórico para la antigüedad de cada tema:** 10.567 piezas con fecha en el scratchpad de los ángulos
+  (`…/0ee425c6-…/scratchpad/afirm/corpus.json`, armado por `corpus.py` del mismo lugar).
+- **Herramientas** (versionadas en `docs/tendencias/herramientas/`, copia de trabajo en `C:/dev/tendencias/herramientas/`):
+  `yt-chequeo.mjs` (¿existe el canal?, último video, cuántos en 90 días, sin claves), `referentes.mjs` (la lista), `analizar.mjs`
+  (de `piezas.jsonl` + `clasificacion.json` a `tabla.json` con el estado de cada tema).
+- **Método del estado** (en `analizar.mjs`): Nuevo = visto por primera vez hace ≤ 60 días y con ≤ 3 referentes · En crecimiento =
+  comentarios por día de los últimos 30 días ≥ 1,3× los de los 60 anteriores, sin bajar las piezas · En baja = piezas o
+  comentarios < 0,7× · si no, Saturado. Los comentarios-palabra del CTA se separan de los de conversación con la muestra de texto.
