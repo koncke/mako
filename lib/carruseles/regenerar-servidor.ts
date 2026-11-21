@@ -19,7 +19,7 @@ import { generarImagen, esperarTarea } from '../apimart';
 import { MODELO_IMAGEN_POR_DEFECTO, sePuedeReintentar, type IdModeloImagen } from '../apimart-reglas';
 import { mtDeImagenDe } from '../mako-tokens-reglas';
 import { cobrarMediosMt, devolverMediosMt } from '../mako-tokens-medidor';
-import { INTENTOS_POR_LAMINA, PROMPT_DE_PERSONA, cambiosReales, escribirSinPares, promptDeTextos, textoQueFalta, textosEsperados, type PedidoDeLamina } from './regenerar';
+import { INTENTOS_POR_LAMINA, PROMPT_DE_PERSONA, cambiosReales, escribirSinPares, promptDeOtraFoto, promptDeTextos, textoQueFalta, textoQueSobra, textosEsperados, type PedidoDeLamina } from './regenerar';
 
 /** La función de los MaKo Tokens y del registro de uso: regenerar una lámina de un carrusel con la IA de imagen. */
 export const FEATURE_REGENERAR = 'carrusel-regenerar';
@@ -77,7 +77,8 @@ async function revisar(jpeg: Buffer, esperados: readonly string[], o: OpcionesRe
   if (!esperados.length) return [];
   if (!o.leer) return null;
   const leido = await o.leer(`data:image/jpeg;base64,${jpeg.toString('base64')}`).catch(() => null);
-  return leido == null ? null : textoQueFalta(leido, esperados);
+  // Lo que falta y también lo que SOBRA (un texto del original que quedó, un número que la IA sumó).
+  return leido == null ? null : [...textoQueFalta(leido, esperados), ...textoQueSobra(leido, esperados)];
 }
 
 /**
@@ -117,6 +118,20 @@ export async function regenerarLamina(ws: number, p: PedidoDeLamina, o: Opciones
       if (!faltan.length) break;
     }
     if (!mejor) return { ok: false, error: 'La IA de imagen no devolvió la lámina.' };
+  }
+  // 1b. OTRA FOTO para una lámina que repite base (un paso aparte: pedido dentro del de texto, la IA conservaba la escena). Si
+  // cambiar la foto rompe el texto, queda la de antes.
+  if (p.otraFoto && Date.now() < o.hastaMs) {
+    intentos++;
+    const paso = await unPaso([mejor?.url ?? p.base], promptDeOtraFoto(p.otraFoto), o);
+    if (!('error' in paso)) {
+      const jpeg = await bajarComoJpeg(paso.url);
+      if (jpeg) {
+        const leido = await revisar(jpeg, esperados, o);
+        const faltan = leido ?? [];
+        if (!mejor || faltan.length <= mejor.faltan.length) mejor = { jpeg, url: paso.url, faltan, sinLeer: leido === null };
+      }
+    }
   }
   // 2. La persona, sobre lo que salió (o sobre la original si no había texto que cambiar): UN paso más, nunca un tercero.
   if (p.persona && Date.now() < o.hastaMs) {

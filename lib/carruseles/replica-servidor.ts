@@ -426,7 +426,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   async function regenerarElCarrusel(): Promise<ResultadoReplica | null> {
     if ('error' in replica) return null;
     const { regenerarLaminas } = await import('./regenerar-servidor');
-    const { PROMPT_LEER_TEXTO, PROMPT_HAY_PERSONA, hayPersonaEn, leidoDe, documentoRegenerado, avisoDeTextoQueFalta, avisoDeLaminasSinLeer } = await import('./regenerar');
+    const { PROMPT_LEER_TEXTO, PROMPT_HAY_PERSONA, hayPersonaEn, leidoDe, documentoRegenerado, avisoDeTextoQueFalta, avisoDeLaminasSinLeer, ESCENAS_OTRA_FOTO } = await import('./regenerar');
     const conCopyR = partes ? conElCopy(replica, partes, { ...medidas, max: LAMINAS_MAX }).replica : replica;
     const baseDe = partes ? laminaParaCadaParte(conCopyR.laminas.length, replica.laminas.length) : conCopyR.laminas.map((_, i) => i);
     const { leerDocumentoIA } = await import('../ai-cheap');
@@ -459,7 +459,8 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
     }
     const pedidos = conCopyR.laminas.map((l, i) => {
       const b = baseDe[i];
-      return { base: imagenes[b], cambios: l.textos.map((t) => ({ antes: t.original ?? '', despues: t.texto })), persona: conPersona.get(b) ? persona : null };
+      // Una base que ya usó otra lámina (el copy tiene más partes que el original): otra foto del mismo estilo, no la misma.
+      return { base: imagenes[b], cambios: l.textos.map((t) => ({ antes: t.original ?? '', despues: t.texto })), persona: conPersona.get(b) ? persona : null, otraFoto: baseDe.indexOf(b) < i ? ESCENAS_OTRA_FOTO[i % ESCENAS_OTRA_FOTO.length] : null };
     });
     avisar({ fase: 'escribir', con: 'la IA de imagen, lámina por lámina' });
     const hasta = o.hastaMs != null ? o.hastaMs - 12_000 : Date.now() + 260_000;

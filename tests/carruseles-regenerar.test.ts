@@ -13,12 +13,15 @@
 //   6. el documento: una página por lámina con su imagen de fondo y el origen en las notas de la primera;
 //   7. el aviso de lo que no quedó bien escrito nombra la lámina y el texto; sin errores, no hay aviso;
 //   8. «no pude leer» no es «bien escrita»: sin pares se escribe igual y la lámina sin leer se avisa (Hormozi 5 y 6, 21/11).
+//   9. el copy de Leila en producción (21/11): lo que SOBRA (un texto del original que quedó, un número sumado) se detecta y se
+//      avisa; el pedido dice que las «» no se dibujan, que ningún otro texto queda y nombra los que no cambian; una base reusada
+//      pide otra foto del mismo estilo.
 //
 // Correr: node --import tsx --test tests/carruseles-regenerar.test.ts
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PROMPT_DE_PERSONA, avisoDeLaminasSinLeer, avisoDeTextoQueFalta, cambiosReales, escribirSinPares, documentoRegenerado, leidoDe, promptDeTextos, textoQueFalta, textosEsperados } from '../lib/carruseles/regenerar';
+import { PROMPT_DE_PERSONA, avisoDeLaminasSinLeer, avisoDeTextoQueFalta, cambiosReales, escribirSinPares, documentoRegenerado, leidoDe, promptDeTextos, textoQueFalta, textoQueSobra, textosEsperados, promptDeOtraFoto, ESCENAS_OTRA_FOTO } from '../lib/carruseles/regenerar';
 
 const CAMBIOS = [
   { antes: '9 YOUTUBE', despues: '9 AGENTES' },
@@ -31,16 +34,17 @@ const CAMBIOS = [
 test('1 · el prompt de texto conserva todo y cambia cada texto por el suyo', () => {
   const p = promptDeTextos(CAMBIOS);
   assert.match(p, /^Keep this exact image/);
-  assert.match(p, /«9 YOUTUBE» becomes «9 AGENTES»/);
-  assert.match(p, /«WILL TEACH YOU MORE THAN 4 YEAR DEGREE FOR FREE» becomes «QUE TE ENSEÑAN MÁS QUE 4 AÑOS DE FACULTAD»/);
-  assert.match(p, /Remove the text «@awakpenn»/);
-  assert.doesNotMatch(p, /01 of 11/, 'lo que no cambia no se pide');
+  assert.match(p, /"9 YOUTUBE" becomes "9 AGENTES"/);
+  assert.match(p, /"WILL TEACH YOU MORE THAN 4 YEAR DEGREE FOR FREE" becomes "QUE TE ENSEÑAN MÁS QUE 4 AÑOS DE FACULTAD"/);
+  assert.match(p, /Remove the text "@awakpenn"/);
+  assert.doesNotMatch(p, /"01 of 11" becomes/, 'lo que no cambia no se pide como cambio');
+  assert.match(p, /stay exactly as they are: "01 of 11"/, 'pero se nombra: si no, "ningún otro texto" se lo lleva (21/11)');
   assert.deepEqual(cambiosReales(CAMBIOS).map((c) => c.antes), ['9 YOUTUBE', 'COURSES', 'WILL TEACH YOU MORE THAN 4 YEAR DEGREE FOR FREE', '@awakpenn']);
 });
 
 test('2 · el segundo intento va con los textos en orden, sin los originales', () => {
   const p = promptDeTextos(CAMBIOS, { enOrden: textosEsperados(CAMBIOS) });
-  assert.match(p, /From top to bottom, the text must read exactly, letter by letter: «9 AGENTES», «DE IA», «QUE TE ENSEÑAN MÁS QUE 4 AÑOS DE FACULTAD», «01 of 11»/);
+  assert.match(p, /From top to bottom, the text must read exactly, letter by letter: "9 AGENTES", "DE IA", "QUE TE ENSEÑAN MÁS QUE 4 AÑOS DE FACULTAD", "01 of 11"/);
   assert.doesNotMatch(p, /YOUTUBE/);
 });
 
@@ -91,4 +95,24 @@ test('8 · «no pude leer» no es «bien escrita»: sin pares se escribe igual, 
   assert.equal(avisoDeLaminasSinLeer([]), null);
   assert.match(avisoDeLaminasSinLeer([5])!, /No pude leer la lámina 5 .*mírala antes de publicar/);
   assert.match(avisoDeLaminasSinLeer([5, 6])!, /las láminas 5 y 6 .*míralas/);
+});
+
+test('9 · lo que sobra se detecta; las «» no se dibujan; ningún otro texto queda; una base reusada pide otra foto', () => {
+  // La lámina 2 del copy de Leila, como la leyó la IA en producción (21/11/2026).
+  const esperados = ['LA REVELACIÓN', 'Por dos fuerzas.', '01 Lo que le exiges a cada resultado.', '02 El ruido de afuera que te marca el ritmo sin que lo notes.', 'Guárdalo para después', '@martin.koncke'];
+  const leido = '«LA REVELACIÓN»\nThe hardest way\nto grow.\nUnder 20k followers.\nPor dos fuerzas.\n01 Lo que le exiges a cada\nresultado.\n02 El ruido de afuera que te\nmarca el ritmo sin que lo notes.\nGuárdalo para después\n2/10\n@martin.koncke';
+  assert.deepEqual(textoQueFalta(leido, esperados), [], 'lo que tiene que estar, está');
+  assert.deepEqual(textoQueSobra(leido, esperados), ['sobra: The hardest way', 'sobra: to grow.', 'sobra: Under 20k followers.'], 'no vio lo que quedó del original');
+  assert.deepEqual(textoQueSobra('3. POR FUERA\nEl péndulo.', ['POR FUERA', 'El péndulo.']), ['sobra: 3. POR FUERA'], 'no vio el número que sumó la IA');
+  assert.match(avisoDeTextoQueFalta([{ lamina: 2, faltan: ['sobra: The hardest way'] }])!, /en la lámina 2 quedó «The hardest way», que no es de tu copy/);
+
+  const p = promptDeTextos([{ antes: 'The hardest way to grow.', despues: 'LA REVELACIÓN' }, { antes: '@creatoearn', despues: '@creatoearn' }]);
+  assert.match(p, /never draw them/, 'la IA dibujaba las comillas del pedido');
+  assert.match(p, /No other text may remain/, 'quedaban textos del original que el pedido no nombraba');
+  assert.match(p, /stay exactly as they are: "@creatoearn"/, 'lo que no cambia tiene que nombrarse, o «ningún otro texto» se lo lleva');
+  assert.doesNotMatch(p, /«The hardest/, 'las «» del pedido se dibujaban: ahora marca con comillas rectas');
+  assert.match(promptDeTextos([{ antes: 'X', despues: '«Publica todos los días»' }]), /"«Publica todos los días»"/, 'las «» del copy quedan como texto');
+  const f = promptDeOtraFoto(ESCENAS_OTRA_FOTO[2]);
+  assert.match(f, /Replace only the background photo of this image with a different scene: a modern office/, 'una base reusada repetía la foto');
+  assert.match(f, /Keep every text exactly as it is/);
 });

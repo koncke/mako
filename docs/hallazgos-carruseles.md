@@ -54,6 +54,15 @@ las entradas de abajo; esto es la lista para el producto.
    «COMENTA OFERTA»: se resolvió al revés, con la pantalla de MaKo de base y la lámina como referencia del texto). *Falta en el
    replicador:* después de cada paso, comparar el texto leído contra el pedido COMPLETO de la lámina (también contadores y firmas),
    no sólo contra lo que se cambió.
+   ⚠️ **El caso de Leila en producción (21/11, ws 9, f37c3439c):** 10 láminas con su copy sobre @creatoearn de 7, ninguna en
+   blanco, pero quedaban textos del original que el pedido no nombraba («The hardest way to grow.», «The lesson.»), la IA dibujaba
+   las comillas del pedido («EL GIRO»), le sumaba «3.» a un título, y las láminas que reusan una base repetían su foto (la 3 y la
+   8, la 4 y la 9). La revisión no lo vio porque sólo buscaba lo que FALTA. Ahora `textoQueSobra` (lib/carruseles/regenerar.ts)
+   busca lo que SOBRA; el pedido marca cada texto con comillas RECTAS (con «» la IA las dibujaba, y chocaban con las «» del propio
+   copy de Leila) y dice que ningún otro texto queda, nombrando los que no cambian (si no, se los llevaría); y una base reusada
+   pasa por un paso aparte que cambia la foto por otra escena (`promptDeOtraFoto`, `ESCENAS_OTRA_FOTO`). ⚠️ Pedir «otra foto del
+   mismo estilo» DENTRO del paso de texto no sirvió: probado en seco, la IA conservó la escena. Test 9 de
+   tests/carruseles-regenerar.test.ts. Probado en seco con el copy de Leila: sin textos del original ni el «3.».
    ⚠️ **La letra chica no se arregla con otra pasada** (las maquetas de Ganchos 2): pedirle que corrija «reegrdo» o «cabre» en
    un texto de 1–2 % del alto lo escribe mal de otra forma y daña otras palabras chicas («Gracles», «lagres»), y pedir «TU» sin
    tilde le agregó la tilde. Lo que sirvió: sacar esa línea con una frase, y si tampoco sale, taparla en el propio archivo

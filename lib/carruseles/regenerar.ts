@@ -25,9 +25,33 @@ export type PedidoDeLamina = {
   cambios: readonly CambioDeTexto[];
   /** La persona del negocio que entra en lugar de la del original (la segunda referencia), o null (queda la del original). */
   persona: string | null;
+  /**
+   * Esta lámina usa una base que ya usó otra (un copy con más partes que láminas tiene el original): después del texto, un paso
+   * aparte cambia la foto por ESTA escena (21/11/2026, la prueba del copy de Leila en producción: la 3 y la 8, la 4 y la 9 salían
+   * con la misma). ⚠️ Pedirlo dentro del paso de texto («otra foto del mismo estilo») no sirvió: la IA conservó la escena.
+   */
+  otraFoto?: string | null;
 };
 
-const comillas = (s: string) => `«${s.replace(/\s+/g, ' ').trim()}»`;
+/**
+ * Las escenas para la foto de una lámina que repite base, en orden: neutras, de negocio y de ciudad, como las de los carruseles que
+ * más se replican. Se elige por el número de la lámina.
+ */
+export const ESCENAS_OTRA_FOTO = [
+  'a quiet city street at dusk with warm shop lights',
+  'a wooden desk by a large window with a laptop and a coffee cup',
+  'a modern office corner with plants and soft daylight',
+  'a seaside promenade on a cloudy afternoon',
+  'a calm café terrace with empty tables',
+] as const;
+
+/** El paso de la OTRA FOTO: la misma lámina con otra escena de fondo; el texto, la persona y la composición, iguales. */
+export const promptDeOtraFoto = (escena: string): string =>
+  `Replace only the background photo of this image with a different scene: ${escena}, with the same style, light, colors and mood, and the same darkening behind the text. Keep every text exactly as it is, letter by letter, in the same place, and keep any person in the same place and pose.`;
+
+// Comillas RECTAS para marcar cada texto en el pedido: con «» la IA las dibujaba, y se confundía con las «» del propio copy (el de
+// Leila trae «Publica todos los días»): salían «EL EFECTO PÉNDULO» y «PROTOCOLO ANTI-PÉNDULO» (21/11/2026).
+const comillas = (s: string) => `"${s.replace(/\s+/g, ' ').trim()}"`;
 
 /** Los cambios que de verdad cambian algo (uno igual a su original no se pide: la IA lo deja como está). */
 export const cambiosReales = (cambios: readonly CambioDeTexto[]): CambioDeTexto[] =>
@@ -39,18 +63,27 @@ export const cambiosReales = (cambios: readonly CambioDeTexto[]): CambioDeTexto[
  * abajo (la IA principal a veces escribe el texto NUEVO en «original» y el par no se puede ubicar).
  */
 export function promptDeTextos(cambios: readonly CambioDeTexto[], o: { enOrden?: readonly string[] } = {}): string {
+  // ⚠️ Lo que se vio en producción con el copy de Leila (21/11/2026): la IA DIBUJABA las comillas del pedido («EL GIRO»), dejaba
+  // textos del original que el pedido no nombraba («The hardest way to grow.», «The lesson.») y le sumaba al título el número del
+  // original («3. POR FUERA»). Se dice que las comillas sólo marcan y que ningún otro texto puede quedar.
   const conserva = 'Keep this exact image: the same people, their faces, poses and clothes, the objects, the background, the colors, the layout and the typography.';
   const lugar = 'in the same places, with the same font, size and colors';
+  const marcas = 'The straight quotation marks only show where each text starts and ends: never draw them (draw « » only where they are inside a text).';
+  const nadaMas = 'No other text may remain in the image: any text not listed here is removed and the background continues where it was.';
   if (o.enOrden?.length) {
-    return `${conserva} Only replace its text, ${lugar}. From top to bottom, the text must read exactly, letter by letter: ${o.enOrden.map(comillas).join(', ')}. Everything else stays exactly the same.`;
+    return `${conserva} Only replace its text, ${lugar}. From top to bottom, the text must read exactly, letter by letter: ${o.enOrden.map(comillas).join(', ')}. ${marcas} ${nadaMas} Everything else stays exactly the same.`;
   }
   const reales = cambiosReales(cambios);
   const cambia = reales.filter((c) => c.despues.trim()).map((c) => `${comillas(c.antes)} becomes ${comillas(c.despues)}`);
   const saca = reales.filter((c) => !c.despues.trim()).map((c) => comillas(c.antes));
+  // Lo que no cambia se NOMBRA (el @, el contador): si no, «ningún otro texto» también se lo llevaría.
+  const quedan = cambios.filter((c) => c.antes.trim() && c.despues.trim() && !reales.includes(c)).map((c) => comillas(c.despues));
   return [
     conserva,
     cambia.length ? `Only change the text, letter by letter, ${lugar}: ${cambia.join('; ')}.` : '',
     saca.length ? `Remove the text ${saca.join(', ')} and continue the background where it was.` : '',
+    quedan.length && (cambia.length || saca.length) ? `These texts stay exactly as they are: ${quedan.join(', ')}.` : '',
+    cambia.length || saca.length ? `${marcas} ${nadaMas}` : '',
     'Everything else stays exactly the same.',
   ].filter(Boolean).join(' ');
 }
@@ -78,6 +111,23 @@ export function textoQueFalta(leido: string, esperados: readonly string[]): stri
     const x = comparable(e);
     return x && !todo.includes(` ${x} `);
   });
+}
+
+/**
+ * Lo que SOBRA en lo leído: renglones que no son parte de ningún texto esperado (21/11/2026, el copy de Leila en producción: quedaban
+ * «The hardest way to grow.» y «The lesson.» del original, y «3.» delante de «POR FUERA», y la revisión sólo miraba lo que FALTA).
+ * Un renglón cuenta si, sin mayúsculas ni signos, no está dentro de los esperados juntos; se ignoran los del marco (un contador, un
+ * @, un ©) y los de menos de 3 letras. Vuelve cada uno como «sobra: …», para el aviso y para reintentar.
+ */
+export function textoQueSobra(leido: string, esperados: readonly string[]): string[] {
+  if (!esperados.length) return [];
+  const todo = ` ${comparable(esperados.join(' '))} `;
+  return leido.split(/\r?\n/).map((l) => l.trim()).filter((l) => {
+    const x = comparable(l);
+    if (x.replace(/[^\p{L}]/gu, '').length < 3) return false;
+    if (/^\s*(\d{1,2}\s*(\/|of|de)\s*\d{1,2}|@[\w.]+|©.*)\s*$/i.test(l)) return false;
+    return !todo.includes(` ${x} `);
+  }).map((l) => `sobra: ${l}`);
 }
 
 /** El prompt para LEER el texto de la imagen generada (la IA del negocio, con visión): todo, tal cual, renglón por renglón. */
@@ -129,7 +179,7 @@ export function avisoDeLaminasSinLeer(laminas: readonly number[]): string | null
 export function avisoDeTextoQueFalta(faltan: ReadonlyArray<{ lamina: number; faltan: readonly string[] }>): string | null {
   const malas = faltan.filter((x) => x.faltan.length);
   if (!malas.length) return null;
-  const una = (x: { lamina: number; faltan: readonly string[] }) => `en la lámina ${x.lamina}, «${x.faltan[0].slice(0, 60)}»`;
+  const una = (x: { lamina: number; faltan: readonly string[] }) => (x.faltan[0].startsWith("sobra: ") ? `en la lámina ${x.lamina} quedó «${x.faltan[0].slice(7, 67)}», que no es de tu copy` : `en la lámina ${x.lamina}, «${x.faltan[0].slice(0, 60)}»`);
   return `La IA de imagen no escribió bien ${malas.length === 1 ? 'un texto' : 'unos textos'} (${malas.slice(0, 3).map(una).join('; ')}): vuelve a generar ${malas.length === 1 ? 'esa lámina' : 'esas láminas'} antes de publicar.`;
 }
 
