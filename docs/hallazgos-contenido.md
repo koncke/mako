@@ -825,6 +825,14 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - **Para probarlo en la vista local:** los carruseles de Carrizo sólo están en la base, y la vista local no la tiene. Se arma
       una copia de prueba (`pub/vista-prueba.html`) con una pieza pasada a carrusel con láminas locales y otra con sólo la
       portada. Nunca se publica esa copia.
+22. **En el detalle de Spy, el lugar de nuestra versión ES el botón** (21/11). Martín: «el placeholder ahí debería ser como un
+    botón gigantesco que sea todo el placeholder». El botón chico debajo de la referencia sola no se veía como el paso siguiente.
+    - El escenario es el mismo de Reels y Carruseles: la referencia a la izquierda y, a la derecha, un recuadro del mismo tamaño y
+      proporción (324 × 576 a 1440), con borde punteado, un «＋» grande, «Hacer mi versión» y la línea de qué pasa al tocarlo.
+      Al pasar el cursor se rellena con el azul de la marca. Si ya está en producción, el recuadro dice «Ya está en Reels».
+    - En el teléfono va debajo de la referencia, a lo ancho y con su proporción, con tope de 62 % del alto de la pantalla.
+    - **Regla:** la acción principal de una vista va en el lugar donde va a aparecer su resultado, no en un botón suelto.
+    - Al guardar, el texto cambia en la `<b>` del botón, no en todo el botón: con `textContent` sobre el botón se borraba el «＋».
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
