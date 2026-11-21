@@ -9,6 +9,15 @@ el 20/11 se hicieron 53 builds a ~US$0,84 cada uno). Lo que espera el deploy del
 con IA (ApiMart) y el corte de grupos nuevos. **Después del deploy:** recorrerlo en el ws 3 (videos silenciados, una pestaña) y
 avisar a los clientes lo que se resolvió para ellos (memoria ticket-cerrado-siempre-se-avisa: TODO lo de un cliente termina con aviso).
 
+**Lo que se mira en producción después del deploy del 21/11 11:05 UTC** (ws 3, sesión de Martín en el navegador de la app, videos
+silenciados, UNA pestaña y cerrarla al terminar; el banco local scripts/banco-onboarding ya cubre 48 chequeos):
+1. el panel de emojis a 375 dentro del Ops Center; 2. el micrófono (grabar, transcribir, mandar, con y sin IA); 3. «Guardar contacto»
+en el teléfono; 4. «Entrar a MaKo» hasta la app; 5. el recorrido sobre el Ops Center real con la capa del Second Brain y la flecha;
+6. «Ir a un paso» a una marca del medio de otra pestaña (Día 2 · Integraciones); 7. «Ir a un paso» al código por WhatsApp (modal,
+pegar, «¿Guardaste…?»); 8. «Autocompletar» en origen e intereses; 9. el reto: «¿Qué hacemos ahora?», el desplegable de días, el
+catálogo y las marcas de las tareas; 10. el formato en los globos; 11. «Borrar todos los datos» en /admin/customers/3 (sólo cuentas
+de prueba, pide el nombre). Y un video a la vez (play a uno, después a otro: el primero se pausa y no flota).
+
 **Chats vivos y en qué están** (los ids en list_sessions linked):
 - **onboarding-v2:** los pedidos de Martín del 21/11 (memoria onboarding-16-11-decisiones, bloque 21/11): falta «Ir a un paso» con todos
   los pasos individuales y el paso del WhatsApp igual que un cliente nuevo (con un modal que simula WhatsApp); borrar /api/datos-mau;
