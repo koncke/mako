@@ -792,7 +792,9 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   return createPortal(
     <div ref={capaRef} className="mk-rec mk-tuto" data-tutorial={senal.tipo === 'tutorial' ? senal.tutorial.pestana : 'marca'} style={{ zIndex: z }}>
       <style>{cssRecorrido() + CSS_TUTORIAL}</style>
-      {senal.tipo === 'tutorial' && (
+      {/* Desde un salto («Ir a un paso», «Atrás» a un paso del medio) el recorrido corre con sus tarjetas, sin el video: nunca el cartel
+          falso de «todavía no está grabado» (21/11, Martín: «eso no tiene sentido… estás haciendo que no me funcione»). */}
+      {senal.tipo === 'tutorial' && !senal.desde && (
         <VideoChico tutorial={senal.tutorial} video={video} vidRef={vidRef} autoplay={!conFrases}
           sub={paso?.sub ?? senal.tutorial.intro} revision={revision} arriba={videoArriba} lugar={senal.lugar}
           onCerrar={() => fin('omitido')} />
