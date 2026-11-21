@@ -20,17 +20,24 @@
 //   8. el prompt lleva cada parte palabra por palabra y no la regla de «cada texto lo escribes tú»;
 //   9. ninguna foto se repite en el documento, ni con la misma búsqueda en dos láminas; un cuadro sin foto propia queda sin foto;
 //  10. agregar 3 láminas a un carrusel de 8 da 11, cada una con el diseño de una de contenido y los renglones dictados.
+//  11. SIN IA (21/11/2026, la prueba en producción en el ws 3): las láminas de guía llevan cada una SU parte, tantas como partes
+//      (un tipo topado en 8 no corta un copy de 9), sin una palabra de la guía; antes salían las guías y el copy se perdía;
+//  12. el guiado dice las láminas que salen: «Generar las 10 láminas» con el copy de Leila (decía 7), y un anuncio sigue en una.
+//  13. con «Slide N», un «01/05» suelto es texto (el sello del diseño), no una marca; y un renglón igual a un texto fijo de la
+//      lámina (el sello, el @) es ése: no corre los de abajo un lugar (21/11/2026, «Páginas que venden» de Martín: el sello salió
+//      «04 / 09», «Hormozi» cayó donde iba «página» y «POR QUÉ VENDE» en el titular). Uno con otro valor («02/05») cambia el sello.
 //
 // Correr: node --import tsx --test tests/carruseles-copy-pegado.test.ts
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { conElCopy, laminaParaCadaParte, partesDelCopy, repartirEnLosTextos } from '../lib/carruseles/copy-pegado';
-import { escribir, leerPedidoGuiado, pedidoDelGuiado, respuestasPorDefecto, type HechosGuiado } from '../lib/carruseles/guiado';
-import { documentoDeReplica, promptDeReplica, type LaminaReplica, type Replica, type TextoReplica } from '../lib/carruseles/replica';
+import { LAMINAS_DEL_COPY, conElCopy, laminaParaCadaParte, laminasConElCopy, partesDelCopy, repartirEnLosTextos } from '../lib/carruseles/copy-pegado';
+import { escribir, leerPedidoGuiado, pedidoDelGuiado, preguntaDe, respuestasPorDefecto, resumenDe, type HechosGuiado } from '../lib/carruseles/guiado';
+import { LAMINAS_MAX, documentoDeReplica, promptDeReplica, type LaminaReplica, type Replica, type TextoReplica } from '../lib/carruseles/replica';
 import { aplicarOperaciones } from '../lib/image-editor/chat/aplicar';
 import { validarOperacion, type OperacionImagen } from '../lib/image-editor/chat/catalogo';
 import { vistaDeDiseno } from '../lib/image-editor/chat/vista';
+import { tipoCarrusel } from '../lib/carruseles/tipos';
 
 /** El copy que pegó Leila el 20/11/2026 (image_editor_chats del diseño 14331b1a, ws 11), tal cual. */
 const COPY_DE_LEILA = `Slide 1, portada
@@ -302,4 +309,55 @@ test('10 · agregar 3 láminas a un carrusel de 8 da 11, con el diseño de una d
   assert.deepEqual(nueva.background, { type: 'solid', color: '#1F1F1F' });
   assert.equal(nueva.objects.filter((o) => o.type === 'textbox').length, 0);
   assert.equal(nueva.objects.filter((o) => o.type === 'image').length, 1);
+});
+
+test('11 · sin IA, cada lámina de guía lleva SU parte del copy, tantas como partes y sin una palabra de la guía', () => {
+  // «Antes y después» va de 5 a 8 láminas: el copy de Leila (10) no puede quedar cortado en 8.
+  const guias = tipoCarrusel('antes-despues')!.estructura(8);
+  const partes = partesDelCopy(COPY_DE_LEILA)!;
+  const ls = laminasConElCopy(guias, partes);
+  assert.equal(ls.length, 10, 'salieron las láminas del tipo, no las del copy');
+  partes.forEach((p, i) => {
+    assert.equal(ls[i].titulo, p.lineas[0], `la lámina ${i + 1} no abre con su primer renglón`);
+    assert.equal(ls[i].cuerpo, [...p.lineas.slice(1), ...(p.abajo ? [p.abajo] : [])].join('\n'), `la lámina ${i + 1} no dice su parte`);
+    assert.equal(ls[i].rotulo, '', 'quedó el rótulo de la guía');
+  });
+  const dicho = ls.map((l) => `${l.titulo} ${l.cuerpo}`).join(' ');
+  assert.deepEqual(palabras(dicho), palabras(COPY_DE_LEILA), 'falta o sobra una palabra del copy');
+  for (const g of guias) for (const t of [g.titulo, g.cuerpo]) if (t.trim().length > 12) assert.ok(!dicho.includes(t), `quedó la guía «${t}»`);
+  // La portada y el cierre conservan su diseño (el rol); las del medio, las del medio.
+  assert.equal(ls[0].rol, guias[0].rol);
+  assert.equal(ls[9].rol, guias[7].rol);
+  assert.equal(LAMINAS_DEL_COPY, LAMINAS_MAX, 'el tope del copy se separó del de la réplica');
+  assert.equal(laminasConElCopy(guias, []).length, 8, 'sin copy, las guías como siempre');
+});
+
+test('12 · el guiado dice las láminas que salen: las del copy, no las del ejemplo (y un anuncio sigue en una)', () => {
+  const r0 = respuestasPorDefecto(HECHOS);
+  const r = { ...escribir(HECHOS, { ...r0, listo: false }, COPY_DE_LEILA), oferta: { id: 1, nombre: 'MetaCoach' }, cambio: 'textos' as const };
+  assert.match(resumenDe(HECHOS, r), /^10 láminas/, 'el resumen dice las del ejemplo (7)');
+  const pregunta = preguntaDe(HECHOS, r);
+  assert.ok(pregunta && JSON.stringify(pregunta).includes('Generar las 10 láminas'), 'el botón dice 7 con un copy de 10');
+  assert.match(resumenDe(HECHOS, r0), /^7 láminas/, 'sin copy, las del ejemplo');
+  assert.match(resumenDe({ ...HECHOS, laminas: 1, anuncio: true }, r), /^Una lámina/, 'un anuncio no se vuelve 10 láminas');
+});
+
+test('13 · el sello «01/05» del copy no es una marca de lámina ni corre los renglones de abajo', () => {
+  const copy = 'Slide 1\nPáginas que venden\ncópialas\n\nSlide 2\n01/05\npágina\nHormozi\nPOR QUÉ VENDE\n\nSlide 3\n02/05\npágina\nDotCom Secrets\nPOR QUÉ VENDE';
+  const partes = partesDelCopy(copy)!;
+  assert.equal(partes.length, 3, 'el «01/05» abrió otra lámina');
+  assert.deepEqual(partes[1].lineas, ['01/05', 'página', 'Hormozi', 'POR QUÉ VENDE'], 'el sello desapareció del copy');
+  // Sin «Slide N», «1/3» sigue siendo la marca de cada lámina.
+  assert.equal(partesDelCopy('1/3\nUno\n2/3\nDos\n3/3\nTres')!.length, 3);
+
+  // La lámina 2 de @textura.us: el sello «01/05» (del marco: no recibe), el «prompt» a mano, el nombre y la etiqueta.
+  const lugares = [
+    { rol: 'rotulo', x: 0.5, y: 0.09 }, { rol: 'rotulo', x: 0.3, y: 0.13 }, { rol: 'titulo', x: 0.55, y: 0.14 }, { rol: 'rotulo', x: 0.1, y: 0.72 },
+  ];
+  const fijos = ['01/05', 'prompt', 'Auralis', 'PROMPT'];
+  const noRecibe = [true, false, false, false];
+  assert.deepEqual(repartirEnLosTextos(partes[1], lugares, { noRecibe, fijos }), [null, 'página', 'Hormozi', 'POR QUÉ VENDE'],
+    'el «01/05» corrió los renglones un lugar');
+  // La lámina 3 usa el mismo diseño: su «02/05» va al sello, que cambia.
+  assert.deepEqual(repartirEnLosTextos(partes[2], lugares, { noRecibe, fijos }), ['02/05', 'página', 'DotCom Secrets', 'POR QUÉ VENDE']);
 });

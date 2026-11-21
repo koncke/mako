@@ -49,7 +49,11 @@ const renglon = (s: string): string => s.replace(/[ \t]+$/g, '').replace(/^[ \t]
  */
 export function partesDelCopy(texto: string | null | undefined): ParteDelCopy[] | null {
   const lineas = String(texto ?? '').replace(/\r\n?/g, '\n').split('\n');
-  const conMarcas = lineas.some((l) => MARCA.test(l) || MARCA_FRACCION.test(l));
+  // ⚠️ Con «Slide N», un «01/05» suelto es TEXTO de la lámina (el sello «01/05» del diseño de @textura.us), no otra marca: se lo
+  // comía como marca y desaparecía del copy (21/11/2026, «Páginas que venden» de Martín: el sello salió «04 / 09»).
+  const conPalabras = lineas.some((l) => MARCA.test(l));
+  const esFraccion = (l: string) => !conPalabras && MARCA_FRACCION.test(l);
+  const conMarcas = conPalabras || lineas.some(esFraccion);
   const conSeparador = lineas.some((l) => SEPARADOR.test(l));
   if (!conMarcas && !conSeparador) return null;
   const partes: Array<{ lineas: string[]; abajo: string | null }> = [];
@@ -57,9 +61,9 @@ export function partesDelCopy(texto: string | null | undefined): ParteDelCopy[] 
   const cerrar = () => { if (actual && (actual.lineas.length || actual.abajo)) partes.push(actual); };
   for (const cruda of lineas) {
     const m = MARCA.exec(cruda);
-    if (m || MARCA_FRACCION.test(cruda) || SEPARADOR.test(cruda)) {
+    if (m || esFraccion(cruda) || SEPARADOR.test(cruda)) {
       // Con marcas, un «---» entre dos láminas no abre otra (ya la abre la marca siguiente).
-      if (!m && !MARCA_FRACCION.test(cruda) && conMarcas) continue;
+      if (!m && !esFraccion(cruda) && conMarcas) continue;
       cerrar();
       actual = { lineas: [], abajo: null };
       const resto = m ? renglon(m[2] ?? '') : '';
@@ -79,6 +83,32 @@ export function partesDelCopy(texto: string | null | undefined): ParteDelCopy[] 
 
 /** ¿Lo escrito es un copy de láminas? (lo que decide si va como copy o como tema). */
 export const esCopyDeLaminas = (texto: string | null | undefined): boolean => partesDelCopy(texto) != null;
+
+/** El tope de láminas de un carrusel con copy: el mismo `LAMINAS_MAX` de ./replica.ts (un test lo compara; acá sin importar el módulo grande). */
+export const LAMINAS_DEL_COPY = 12;
+
+/** Cuántas láminas salen de un copy pegado (hasta el tope); null si no es un copy. Lo que dicen el resumen y el botón del guiado. */
+export function laminasDelCopy(texto: string | null | undefined): number | null {
+  const p = partesDelCopy(texto);
+  return p ? Math.min(LAMINAS_DEL_COPY, p.length) : null;
+}
+
+/**
+ * SIN IA (21/11/2026, la prueba en producción en un negocio sin IA conectada): las láminas de guía con el copy pegado. Salen tantas
+ * como partes (hasta el tope), cada una con el diseño de la guía que le toca (portada, una del medio o el cierre:
+ * `laminaParaCadaParte`) y SU texto: el primer renglón de título y el resto de cuerpo, con el pie al final. Ninguna palabra de la
+ * guía queda (tampoco su rótulo). Antes salían las guías («Tu gancho con un número…») y el copy se perdía aunque la pantalla decía
+ * que había llegado; y un tipo con tope de 8 láminas habría cortado un copy de 9.
+ */
+export function laminasConElCopy<L extends { rotulo: string; titulo: string; cuerpo: string }>(guias: readonly L[], partes: readonly ParteDelCopy[]): L[] {
+  if (!guias.length || !partes.length) return [...guias];
+  const ps = partes.slice(0, LAMINAS_DEL_COPY);
+  const de = laminaParaCadaParte(ps.length, guias.length);
+  return ps.map((p, i) => {
+    const [titulo = '', ...resto] = p.lineas;
+    return { ...guias[de[i]], rotulo: '', titulo, cuerpo: [...resto, ...(p.abajo ? [p.abajo] : [])].join('\n') };
+  });
+}
 
 /**
  * Con el diseño de qué lámina del original (0 a n-1) va cada parte del copy (p partes). La primera con la portada; la última con
@@ -124,11 +154,25 @@ export function ordenDeLectura(lugares: readonly LugarDeTexto[]): number[] {
  * Lo que la IA escribió en cada lugar (`escrito`) se respeta SÓLO si cada uno es, tal cual, renglones seguidos del copy y entre
  * todos están todos: así el titular cae en el titular cuando la IA lo ubicó bien, sin creerle una palabra.
  */
-export function repartirEnLosTextos(parte: ParteDelCopy, lugares: readonly LugarDeTexto[], o: { escrito?: ReadonlyArray<string | null | undefined>; noRecibe?: ReadonlyArray<boolean> } = {}): Array<string | null> {
+export function repartirEnLosTextos(parte: ParteDelCopy, lugares: readonly LugarDeTexto[], o: { escrito?: ReadonlyArray<string | null | undefined>; noRecibe?: ReadonlyArray<boolean>; fijos?: ReadonlyArray<string | null | undefined> } = {}): Array<string | null> {
   const out: Array<string | null> = lugares.map(() => null);
   const reciben = ordenDeLectura(lugares).filter((i) => !NO_RECIBE.has(lugares[i].rol) && !o.noRecibe?.[i]);
   if (!reciben.length) return out;
-  let lineas = [...parte.lineas];
+  // Un renglón del copy que YA dice un texto que no recibe (el sello «01/05», el @) es ése: no se le da a otro lugar, que correría
+  // todos los renglones de abajo uno más (21/11/2026: «Hormozi» cayó donde iba «página» y «POR QUÉ VENDE» en el titular).
+  // Y un renglón del marco con OTRO valor («02/05» donde el original dice «01/05», otro @) va a ESE lugar, que cambia.
+  const fj = o.fijos ?? [];
+  const deFijo = lugares.map((l, i): string | null => { const f = fj[i]; return f && (o.noRecibe?.[i] || NO_RECIBE.has(l.rol)) ? f : null; });
+  const clase = (s: string) => (/^\s*@/.test(s) ? '@' : /\d\s*(\/|of|de)\s*\d/i.test(s) ? '/' : esDelMarco(s) ? '©' : null);
+  const tomados = new Set<number>();
+  let lineas = parte.lineas.filter((l) => {
+    const igual = deFijo.findIndex((f, i) => f != null && !tomados.has(i) && igualable(f) === igualable(l));
+    if (igual >= 0) { tomados.add(igual); return false; }
+    const c = esDelMarco(l) ? clase(l) : null;
+    const suyo = c ? deFijo.findIndex((f, i) => f != null && !tomados.has(i) && clase(f) === c) : -1;
+    if (suyo >= 0) { tomados.add(suyo); out[suyo] = l; return false; }
+    return true;
+  });
   let libres = [...reciben];
   if (parte.abajo) {
     const abajo = libres.length > 1 ? libres[libres.length - 1] : null;
@@ -203,7 +247,7 @@ export function conElCopy<R extends { laminas: L[] }, L extends { textos: T[]; n
     // En la réplica fiel, un texto sin lugar medido no se dibuja: no puede recibir el copy.
     const noRecibe = original.textos.map((t, j) => (conPlanchas && !plancha!.textos[j]) || esDelMarco(t.texto) || (!!t.original && esDelMarco(t.original) && !t.texto));
     // Lo que escribió la IA vale para la PRIMERA parte que va con esa lámina (el prompt le dio ésa); las repetidas, por código.
-    const textos = repartirEnLosTextos(parte, lugares, { escrito: base.indexOf(i) === k ? original.textos.map((t) => t.texto) : undefined, noRecibe });
+    const textos = repartirEnLosTextos(parte, lugares, { escrito: base.indexOf(i) === k ? original.textos.map((t) => t.texto) : undefined, noRecibe, fijos: original.textos.map((t) => t.original || t.texto) });
     const nueva = { ...original, textos: original.textos.map((t, j) => {
       const va = textos[j];
       if (va == null) return { ...t };

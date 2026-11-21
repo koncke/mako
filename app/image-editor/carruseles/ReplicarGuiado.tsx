@@ -93,7 +93,7 @@ export function useGuiado(c: Carrusel | null, base: BaseGuiado): Guiado | null {
     void pedirKits().then((x) => { if (x.ok) setKitNuevo(x.kits.kits.some((k) => k.colores.length > 0)); }).catch(() => {});
   }, []);
   const hechos = useMemo<HechosGuiado | null>(() => (c ? {
-    laminas: laminasDe(c), creador: c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre,
+    laminas: laminasDe(c), anuncio: c.clase === 'anuncio', creador: c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre,
     ofertas: base.ofertas, persona: lectura.persona, leyendo: lectura.leyendo, fotos: base.fotos, kit: base.kit || kitNuevo,
   } : null), [c, base, lectura, kitNuevo]);
   // SIN PREGUNTAR (12/11/2026, memoria `replicar-deja-todo-escrito`): «Editar» arranca a escribir con lo de por defecto (la oferta

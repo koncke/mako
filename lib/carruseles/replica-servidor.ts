@@ -252,9 +252,11 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   /** Sin IA (o sin láminas que mirar): la estructura del ejemplo, editable, con guías. */
   const conGuias = async (motivo: { aviso: string; conectar: string | null } | null, errores: string[] = []): Promise<ResultadoReplica> => {
     const fin = (r: { id: string; titulo: string; doc: Record<string, unknown> }): ResultadoReplica => {
+      // Con copy pegado no hay «guía»: cada lámina ya trae su parte del copy (21/11/2026).
+      const aviso = motivo?.aviso && partes?.length && !t && !v ? motivo.aviso.replace('Por ahora, cada lámina trae una guía.', 'Por ahora, cada lámina trae tu copy, palabra por palabra, sobre un diseño simple.') : motivo?.aviso ?? null;
       mostrar(r.doc);
-      avisar({ fase: 'fin', ok: true, id: r.id, titulo: r.titulo, sinIA: true, aviso: motivo?.aviso ?? null, conectar: motivo?.conectar ?? null });
-      return { ok: true, id: r.id, titulo: r.titulo, sinIA: true, aviso: motivo?.aviso ?? null, conectar: motivo?.conectar ?? null, doc: r.doc, vistas: imagenes.length, errores };
+      avisar({ fase: 'fin', ok: true, id: r.id, titulo: r.titulo, sinIA: true, aviso, conectar: motivo?.conectar ?? null });
+      return { ok: true, id: r.id, titulo: r.titulo, sinIA: true, aviso, conectar: motivo?.conectar ?? null, doc: r.doc, vistas: imagenes.length, errores };
     };
     if (t || v) {
       const doc = documentoGuiaMiniatura({ marca, nuevoId: randomUUID, notas: t ? notasDeMiniatura(t) : notasDeVertical(v as Vertical), vertical });
@@ -268,7 +270,8 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
     // que el comando de prueba NO podía ver justo lo que se había arreglado ese día (que el camino de guías mande sus láminas
     // a la pantalla, en vez de dejar el modal en blanco). Un modo de prueba que saltea un paso no prueba ese paso.
     const est = estructuraDe(c as Carrusel);
-    const r = await crearCarruselDesdeReferencia(ws, quien, (c as Carrusel).id, est.tipo ?? 'lista', anuncio ? 3 : total, { seco: o.seco });
+    // Sin IA, el copy pegado igual va en las láminas (21/11/2026): no hace falta una IA para poner un texto que ya está escrito.
+    const r = await crearCarruselDesdeReferencia(ws, quien, (c as Carrusel).id, est.tipo ?? 'lista', anuncio ? 3 : total, { seco: o.seco, copy: !anuncio && partes ? partes.slice(0, LAMINAS_MAX) : null });
     if (!r.ok) return { ok: false, error: r.error, falla: r.falla };
     return fin(r);
   };

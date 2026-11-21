@@ -82,6 +82,19 @@ se APLANABA (`\s+` → un espacio) y se cortaba en 300 letras (`TOPE_LIBRE`, lib
   correr allá (el copy aplanado, f1/f2 repetidas, la lámina blanca).
 - En seco con la IA real: `scripts/carruseles-probar-editar.mts --ws 3 --id <id> --copy <archivo>` dice «Copy palabra por palabra:
   N de P láminas» y cuál renglón falta en cada una.
+- ⚠️ **SIN IA el copy se perdía igual** (la prueba en producción del 21/11, ws 3 sin IA conectada): la línea de estado decía «Tu
+  copy de 9 láminas: va palabra por palabra», el botón «Generar las 7 láminas», y salieron 7 GUÍAS («Tu gancho con un número…»).
+  El camino sin IA (`conGuias` → `crearCarruselDesdeReferencia`) nunca recibía el copy. Poner un texto ya escrito no necesita IA:
+  `laminasConElCopy` arma tantas láminas como partes con el diseño de la guía que le toca (un tipo topado en 8 no corta un copy
+  de 9), y `laminasQueSalen` hace que el resumen y el botón digan las del copy. Toda pantalla que dice «llegó» tiene que tener
+  detrás un camino que lo use, también el de respaldo. Tests 11 y 12.
+- ⚠️ **Un «01/05» en el copy NO es una marca de lámina cuando hay «Slide N»** (21/11, «Páginas que venden» de Martín sobre
+  @textura.us): `partesDelCopy` lo tomaba como marca, el sello desaparecía del copy, la IA lo reescribía como contador («04 / 09»)
+  y todos los renglones de abajo corrían un lugar («Hormozi» donde iba «página», «POR QUÉ VENDE» en el titular). Ahora la fracción
+  sólo es marca sin marcas de palabra, y `repartirEnLosTextos` saca del reparto el renglón que ya dice un texto fijo (`fijos`) o
+  lo pone en el sello de su clase si trae otro valor («02/05»). Test 13.
+- **Sin hacer:** con UN lugar de más que renglones (un «textura.agency» arriba que el copy no nombra), el reparto en orden deja
+  vacío el ÚLTIMO y corre los demás. Lo que lo evita hoy es el copy: un renglón por cada texto de la referencia.
 
 **«No se lee, y le puse a aumentar contraste» (00:51:37).** «Mejora el contraste» era un pedido a la IA del chat: mira un JSON de
 colores, NO la foto, y nadie medía después. Ahora es medido y sin IA (`mejorarContraste`, app/image-editor/mako/chat/contraste.ts):

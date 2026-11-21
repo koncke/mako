@@ -21,7 +21,7 @@
 
 import type { Apertura, Boton } from '../aperturas/reglas';
 import { TOPE_ROTULO } from '../aperturas/reglas';
-import { TOPE_COPY, esCopyDeLaminas } from './copy-pegado';
+import { TOPE_COPY, esCopyDeLaminas, laminasDelCopy } from './copy-pegado';
 
 // ── Lo que se sabe al abrir la pestaña ────────────────────────────────────────────────────────────────────────────────
 
@@ -44,6 +44,8 @@ export type HechosGuiado = {
   fotos: { cara: boolean; look: boolean };
   /** ¿Tiene un kit de marca con colores? Sin él, «Textos y mis colores» no se ofrece. */
   kit: boolean;
+  /** Un anuncio es una lámina y el copy pegado no le cambia la cuenta (la réplica no lo usa en un anuncio). */
+  anuncio?: boolean;
 };
 
 // ── Lo que contesta la persona ────────────────────────────────────────────────────────────────────────────────────────
@@ -163,8 +165,17 @@ const nombreOferta = (o: OfertaRespuesta) => ('libre' in o ? o.libre : o.nombre)
 const DICHO_AVATAR: Record<AvatarRespuesta, string> = { cara: 'con tu cara de marca', look: 'con tu último look', ninguno: 'sin persona' };
 
 /** El resumen de lo que se va a generar, en una frase («9 láminas para «Mentoría», con tu cara de marca y sólo con tus textos»). */
-export function resumenDe(h: HechosGuiado, r: RespuestasGuiado): string {
+/**
+ * Cuántas láminas salen: las del ejemplo o, con un copy pegado, sus partes (21/11/2026: la prueba en producción decía «Generar las 7
+ * láminas» con un copy de 9, y salían 9).
+ */
+export function laminasQueSalen(h: HechosGuiado, r: RespuestasGuiado): number {
   const n = Math.max(1, Math.round(h.laminas) || 1);
+  return (!h.anuncio && laminasDelCopy(r.copy)) || n;
+}
+
+export function resumenDe(h: HechosGuiado, r: RespuestasGuiado): string {
+  const n = laminasQueSalen(h, r);
   const que = n === 1 ? 'Una lámina' : `${n} láminas`;
   const para = r.oferta ? ` para «${cortarRotulo(nombreOferta(r.oferta), 40)}»` : '';
   const quien = r.avatar && preguntaAvatar(h) ? `, ${DICHO_AVATAR[r.avatar]}` : '';
@@ -241,7 +252,7 @@ export function preguntaDe(h: HechosGuiado, r: RespuestasGuiado): Apertura<never
       return { id: id('cambio'), alcance: 'entidad', texto: 'Copio el diseño del original, con fotos parecidas en lugar de las suyas. ¿Qué cambio además de los textos?', botones };
     }
     case 'resumen': {
-      const n = Math.max(1, Math.round(h.laminas) || 1);
+      const n = laminasQueSalen(h, r);
       return {
         id: id('resumen'), alcance: 'entidad', texto: `Listo: ${resumenDe(h, r).replace(/^./, (c) => c.toLowerCase())}`,
         botones: [respuesta(n === 1 ? 'Generarla' : `Generar las ${n} láminas`, VALOR.generar), respuesta('Cambiar algo', VALOR.cambiar), callar],
