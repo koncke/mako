@@ -912,6 +912,22 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
       `spy` son de la competencia.
     - Con 13 creadores, el panel no alcanzaba: subió a 780 px de alto como máximo y los botones de creador se achicaron
       (cara de 26 px). Si se suman más creadores, revisar que el último renglón (Orden) siga a la vista.
+29. **En Spy un reel siempre se reproduce y un carrusel siempre pasa sus láminas** (21/11). Martín: «entro a la referencia y
+    no hay nada» (Punch Captions de Md Mukeem: una imagen fija y borrosa).
+    - **El diagnóstico obvio era el equivocado:** no faltaba bajar 57 reels. El «paquete» de @mdmukeem__001 es UN carrusel-
+      catálogo ([DfvtkWWkyJf](https://www.instagram.com/p/DfvtkWWkyJf/), 11 láminas con 6 tarjetas cada una), y cada
+      «referencia» era la miniatura de una tarjeta. El pack de videos lo manda por DM: no hay reel público. Las 57 salieron de
+      Spy y entró el carrusel de verdad, con las láminas que la investigación ya tenía en
+      `C:/dev/artefactos-animaciones/investigacion/competencia/carrusel/`. De las 23 imágenes de esa carpeta, las láminas son
+      la 1, las pares de la 4 a la 20 y la 22. Las impares son recortes repetidos, y la 2 y la 3 son de otras publicaciones.
+    - Las otras referencias de formato tenían su video en `investigacion/codigo/videos/<x>/video.mp4`: 10 de 11. Los bloques
+      de HyperFrames traen además `preview.video` en su `registry-item.json`. El ejemplo nyt-graph no tiene video público
+      (403): salió de Spy.
+    - En la colección `spy` no hubo nada que arreglar: las 436 piezas que no son carrusel tienen un `/_blob/` real o una ruta
+      `vid/` publicada.
+    - **Regla en la página:** un reel sin video va al final, con el sello «Sin video todavía». En su detalle va el recuadro
+      con la cara del creador, nunca la imagen como si fuera la referencia. Para ordenar, `tieneMedio` mira el video en los
+      reels y las láminas en los carruseles.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
