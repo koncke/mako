@@ -139,6 +139,8 @@ mediana propia y con el sketch entero y el animado con código como comparación
 
 ## La serie con avatar de IA (21/11/2026)
 
+**Cuentas que se sumaron el 21/11:** [Heras Media](heras-media.md) (@herasmedia, la segunda cuenta de Víctor; 246 reels, 26 entran). En cola, con el usuario ya confirmado: Juan Carrizo (@juanxcarrizo), Francisco Doglio (@franciscodoglio) y Guille Collado (@guille.colladomk).
+
 Cada tema tiene UN reel de referencia: el que se calca, no siempre el de más vistas. La página se arma fuera del repo, en
 `C:/dev/referentes-videos/artefacto/serie/`:
 - `armar-fichas.mjs` → `fichas.json`: la referencia elegida para cada tema, con sus números y su transcripción.
