@@ -33,11 +33,9 @@ Lo pidió el Cerebro con las 3 capturas de Martín (ws 3, Nutri Vale). Despliegu
 
 - **3. Second Brain arranca directo** (DEMORA_FASE_MS 1200 → 60: sin el cuadro quieto del cerebro chico) y **4, la animación se
   repite** al volver al paso del grafo (BrainDelRecorrido mira `usePasoDelMotor`). Banco «brain»: al volver, data-fase vuelve a «todo».
-- **4, el VIDEO desde un paso del medio: SIGUE PENDIENTE.** Con `desde` (salto o «Atrás» a un paso del medio) el motor corre sin video
-  (`video = … senal.desde ? null`) y ya no muestra el cartel falso. Para que vuelva SU video: con `desde`, no anular el video; al
-  arrancar el modo video, adelantar `vidRef.current.currentTime` al `t_inicio` de la primera frase con `mismoLugar(f.sel,
-  pasos[desde].sel)` (lib/tutoriales/videos.ts) y dejar que el motor siga las frases desde ahí. Probarlo en el banco con un manifiesto
-  con frases.
+- **4, el VIDEO desde un paso del medio: HECHO.** Con `desde`, el video arranca en el `t_inicio` de la frase que marca ese paso
+  (`tDesde`, MotorTutorial) y el motor sigue sus frases desde ahí; sin una frase para el paso, va con su tarjeta. Lo mira el Cerebro en
+  producción (el banco no tiene un video con frases).
 
 ## Falta (con por dónde empezar)
 1. **El recuadro del recorrido mal ubicado** (/second-brain?reto=1: el hueco sobre los «…» de MaKo escribiendo, arriba a la izquierda,

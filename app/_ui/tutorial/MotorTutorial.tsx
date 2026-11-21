@@ -374,7 +374,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   const videoPedido = useVideoTutorial(senal.tipo === 'tutorial' ? senal.video ?? null : null);
   const videoPropio = useVideoTutorial(senal.tipo === 'tutorial' ? senal.tutorial.pestana : null);
   const videoAlgun = videoPedido ?? videoPropio;
-  const video = senal.tipo === 'tutorial' && senal.desde ? null : videoAlgun && senal.tipo === 'tutorial' && VIDEO_FIEL.has(senal.tutorial.pestana) && !sigueLosPasos(videoAlgun.frases ?? [], senal.tutorial.pasos) ? null : videoAlgun;
+  const video = videoAlgun && senal.tipo === 'tutorial' && VIDEO_FIEL.has(senal.tutorial.pestana) && !sigueLosPasos(videoAlgun.frases ?? [], senal.tutorial.pasos) ? null : videoAlgun;
   // Con otro video que el de la pestaña (el recorrido), su cierre es SU último lugar marcado («toca aquí, en Reto de 7 días»), no el
   // último paso del tutorial de la pestaña.
   const conVideoPedido = !!videoPedido;
@@ -542,6 +542,19 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   // nunca más en ningún lugar de ninguna tab… muy, muy, muy molesto»). Todo tutorial arranca solo: con un video que trae sus frases,
   // el video manda apenas está; sin él, el primer paso. Para saltearlo, se cierra el video del costado (`VideoChico` → `fin`).
   useEffect(() => { if (conFrases && !modoVideo && i === -1 && vidRef.current) siguiente(); }, [conFrases, modoVideo, i, siguiente]);
+  // DESDE UN PASO DEL MEDIO, CON SU VIDEO (21/11/2026, Martín: «quise ir de vuelta para atrás en el paso del second brain… ahora el video
+  // ya no se reproduce»): con «Ir a un paso» o «Atrás», el video arranca en la frase que marca ESE paso y el motor sigue sus frases desde
+  // ahí. Sin una frase para ese paso, el paso va con su tarjeta (y sin el cartel falso de «todavía no está grabado»).
+  const tDesde = senal.tipo === 'tutorial' && senal.desde ? frases.find((f) => f.sel && mismoLugar(f.sel, pasos[senal.desde ?? 0]?.sel ?? ''))?.t_inicio ?? null : null;
+  const arrancoDesde = useRef(false);
+  useEffect(() => {
+    if (senal.tipo !== 'tutorial' || !senal.desde || tDesde == null || modoVideo || arrancoDesde.current || !vidRef.current) return;
+    arrancoDesde.current = true;
+    const v = vidRef.current;
+    setModoVideo(true);
+    v.muted = false; v.currentTime = tDesde;
+    void v.play().catch(() => { v.muted = true; void v.play().catch(() => {}); });
+  }, [senal, tDesde, modoVideo]);
   useEffect(() => {
     if (i !== -1 || conFrases || modoVideo) return;
     const t = window.setTimeout(() => { setEl(null); setGeo({ hueco: null, tarjeta: null }); setI(0); }, ESPERA_VIDEO_MS);
@@ -813,7 +826,7 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
       <style>{cssRecorrido() + CSS_TUTORIAL}</style>
       {/* Desde un salto («Ir a un paso», «Atrás» a un paso del medio) el recorrido corre con sus tarjetas, sin el video: nunca el cartel
           falso de «todavía no está grabado» (21/11, Martín: «eso no tiene sentido… estás haciendo que no me funcione»). */}
-      {senal.tipo === 'tutorial' && !senal.desde && (
+      {senal.tipo === 'tutorial' && (!senal.desde || tDesde != null) && (
         <VideoChico tutorial={senal.tutorial} video={video} vidRef={vidRef} autoplay={!conFrases}
           sub={paso?.sub ?? senal.tutorial.intro} revision={revision} arriba={videoArriba} lugar={senal.lugar}
           onCerrar={() => fin('omitido')} />

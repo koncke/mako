@@ -89,10 +89,12 @@ test('4. quién arranca la marca: el motor (desde su paso, sin el video) y el ch
   assert.match(st, /desde\?: number/);
   const m = sinComentarios(fuente('app/_ui/tutorial/MotorTutorial.tsx'));
   assert.match(m, /useState\(senal\.tipo === 'tutorial' && senal\.desde \? senal\.desde : /, 'empieza en su paso');
-  assert.match(m, /senal\.tipo === 'tutorial' && senal\.desde \? null :/, 'sin el video (sigue los pasos desde el primero)');
+  // 21/11 (producción): con su VIDEO, desde la frase que marca ese paso; sin una frase para él, con su tarjeta.
+  assert.match(m, /const tDesde = senal\.tipo === 'tutorial' && senal\.desde \? frases\.find\(\(f\) => f\.sel && mismoLugar\(f\.sel, pasos\[senal\.desde \?\? 0\]\?\.sel \?\? ''\)\)\?\.t_inicio \?\? null : null;/);
+  assert.match(m, /v\.muted = false; v\.currentTime = tDesde;/, 'el video arranca en esa frase');
   assert.match(m, /tomarSalto\(esDelRecorrido\)/, 'el motor toma el salto del recorrido');
   // Desde un salto, sin el cartel falso de «todavía no está grabado» (21/11, producción).
-  assert.match(m, /\{senal\.tipo === 'tutorial' && !senal\.desde && \(\n\s*<VideoChico /);
+  assert.match(m, /\{senal\.tipo === 'tutorial' && \(!senal\.desde \|\| tDesde != null\) && \(\n\s*<VideoChico /);
   // Al terminarlo (u omitirlo) queda visto, como cualquier recorrido (21/11, el Cerebro).
   assert.match(m, /const r = useRecorrido\(ID_RECORRIDO, \{ autoabrir: false \}\);/);
   assert.match(m, /mostrarTutorial\(TUTORIAL_RECORRIDO, \{ desde: s\.recorrido, alTerminar: \(m\) => cerrar\.current\(m\) \}\)/);
