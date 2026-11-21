@@ -716,6 +716,29 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
       si no entra, se resume el texto, no se achica la letra;
     - en el teléfono, una lámina grande con «Referencia | Nuestra», deslizar para pasar y el panel en una hoja que sube.
     Regla: la pregunta es «¿se entiende en 5 segundos, sin leer?». Si para entender una pieza hay que leer un bloque, está mal.
+12. **Spy para elegir, Reels y Carruseles para producir** (21/11, noche). La pestaña «Avatar IA» pasó a ser «Spy»: trae TODO lo
+    de la competencia (avatar IA, animación, a cámara y carruseles) y nada queda afuera por no llevar video con IA. Cada pieza tiene
+    «Elegir» (los «Lo hago» de `votos` cuentan como elegidos), y elegir la manda a «Reels» o «Carruseles» como «Por producir»,
+    con la referencia y un lugar vacío para nuestra versión (`revision/prod-<id>`). Además:
+    - los comentarios y la ficha van DEBAJO del escenario (en pantalla ancha, las dos columnas a la vez), no en un panel al costado;
+    - no hay flechas ni «1 de 11» para pasar de pieza: se vuelve con «‹ Todas». Sólo se pasan láminas de un mismo carrusel;
+    - la referencia de un reel va SIEMPRE en video; una captura no sirve para comparar.
+    - En el teléfono, si todavía no hay nuestra versión, el detalle abre en la referencia, no en un recuadro vacío.
+    Regla: Spy es para mirar y elegir; lo que no lleva IA también se muestra, con su tipo en el filtro.
+13. **El filtro, con caras y sin «Como vienen»** (21/11, noche). Martín pidió los creadores con su nombre completo y su caricatura,
+    y que el orden por defecto sea el N×, dicho en palabras: «Los que más superaron a su cuenta», con un «?» que lo explica.
+    Se sumó «Los más comentados», para los videos de ventas con palabra CTA, y cada tarjeta muestra el número del orden elegido.
+14. **Un panel con tres pestañas, del ancho de las dos piezas** (21/11, noche). Comentarios y ficha lado a lado no servía: el
+    panel quedaba con un bloque blanco debajo de la barra de escribir y no se veía que había algo más abajo. Quedó así:
+    - el escenario baja a ~60vh, para que en la primera pantalla ya asome el borde del panel;
+    - UN panel con «Comentarios · Guion · Guion técnico», de borde a borde de las dos piezas (se mide con JS);
+    - la decisión sube a la barra de arriba, al lado de «‹ Todas»;
+    - la barra de escribir queda pegada al fondo del panel, que tiene alto fijo (500 px), y el hilo hace scroll adentro;
+    - «Guion» va en dos columnas: el original, por bloques, contra el nuestro. En carruseles es lámina por lámina;
+    - «Guion técnico» va en dos columnas: lo que se ve en la referencia (con sus tiempos) contra lo que hacemos nosotros, con lo
+      que cambia marcado.
+    - **Trampa:** con el panel del navegador escondido, `requestAnimationFrame` no corre. Medir el panel en un rAF lo dejaba sin
+      ajustar en la vista local, así que se mide al pintar.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
@@ -734,6 +757,63 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
   mp4; `b[ext=mp4]` falla porque YouTube separa audio y video. Dos de ellos sólo tienen imagen de referencia.
 - **Lo que se marca:** Avatar IA guarda en `votos` («si» / «no»). Los reels terminados y los carruseles guardan en `revision`
   («aprobado» / «cambiar» y una nota), un documento por pieza: `anim-<id>` o `carr-<id>`.
+
+### Contrato de la colección spy (21/11/2026)
+
+La pestaña Spy de Content Machine (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz) lee sus piezas de la BASE del artefacto, no de
+la página. Así el chat de la competencia suma piezas con `ArtifactData` y sube los medios al almacén sin republicar, y aparecen
+solas. **Sólo el chat de Content Machine publica la página.**
+
+**`spy/<id>`, un documento por pieza.** El id es `<cuenta>-<código>`, por ejemplo `carrizo-DGUM7vVucJx`. Las 104 piezas viejas
+conservan su id anterior.
+
+```json
+{
+  "creador": "Juan Carrizo",              // nombre completo, como lo muestra la tarjeta
+  "cuenta": "carrizo",                    // clave de la colección «creadores» (abajo)
+  "usuario": "@juanxcarrizo",
+  "tipo": "a-camara",                     // "avatar-ia" | "animacion" | "a-camara" | "carrusel"
+  "formato": "9:16",                      // "9:16" | "4:5" | "1:1" | "3:4" (láminas 1080×1440) | "16:9" (reels horizontales)
+  "url": "https://www.instagram.com/reel/DGUM7vVucJx/",
+  "fecha": "2026-11-12",                  // aaaa-mm-dd
+  "reproducciones": 103000,               // número; en un carrusel, 0 si Instagram no da vistas
+  "metrica": "vistas",                    // "vistas" | "me gusta" (reels sin vistas en la grilla: reproducciones 0)
+  "me_gusta": 4500,
+  "comentarios": 812,                     // comment_count de yt-dlp; null si no se sabe
+  "nx": 3.2,                              // N× contra los 6 maduros más cercanos de la misma cuenta, en su métrica: vistas, o me gusta si no hay vistas; los carruseles, contra los 6 carruseles más cercanos. null si tiene menos de 48 h
+  "gancho": "la primera frase, tal cual",
+  "guion": "la transcripción entera (reels) o el texto de cada lámina, una por renglón (carruseles)",
+  "forma": "sketch entero con IA",        // 2 a 5 palabras
+  "idioma": "es",                         // "es" | "en"
+  "medios": {
+    "video": "/_blob/<id>",               // recorte de 25 s, 480 px (sólo reels)
+    "poster": "/_blob/<id>",              // portada
+    "laminas": ["/_blob/<id>"]            // sólo carruseles, en orden y enteras (no el recorte cuadrado de yt-dlp)
+  },
+  "agregado": "2026-11-21T07:00:00Z",
+  "por": "chat-competencia",
+  "estructura": [{ "de": 0, "a": 11, "que": "gancho IA: el Papa busca a Ramiro" }],   // opcional: el guion técnico de la referencia, en segundos
+  "guion_original": "",                                          // opcional: la transcripción en inglés si «guion» está traducido
+  "nuestro": { "imagen": null, "gancho": null, "guion": [] },   // opcional: lo completa Content Machine al producir
+  "costo": { "seg_avatar": 0, "usd": 0 },                        // opcional
+  "tema": "", "orden": 0                                         // opcional
+}
+```
+
+- **Los medios van al almacén de archivos del artefacto** (`Artifact` → `publish` con `asset: true`, hasta 25 por llamada). En
+  `medios` va la url `/_blob/<id>` que devuelve la subida. Las 104 piezas viejas apuntan a rutas de la versión (`vid/…`,
+  `poster/…`): sirven igual, pero lo nuevo va siempre al almacén.
+- **`creadores/<cuenta>`:** `{ "nombre": "Juan Carrizo", "usuario": "@juanxcarrizo", "foto": "/_blob/<id>", "orden": 4 }`. La foto es
+  la caricatura de MaKo (`public/asesores/<nombre>.png` del repo). Si un creador no tiene caricatura, va su foto de perfil. Ya están
+  los 7: ramiro, victor, herasmedia, hormozi, carrizo, doglio y collado.
+- **Cómo se escribe:** `ArtifactData` → `batch` con `{op: "set", collection: "spy", doc_id, file_path}`, hasta 50 por llamada, con
+  cada documento en un `.json` local. Para cambiar una pieza que ya existe, se lee primero y se escribe con su `if_version`.
+- **Qué hace la página:** filtra por «Tipo» y por creador, con sus caricaturas. Ordena por «Los que más superaron a su cuenta» (`nx`,
+  el orden por defecto), por «Los más vistos» o por «Los más comentados», y muestra en cada tarjeta el número del orden elegido.
+  «Elegir» manda la pieza a Reels o a Carruseles según su `tipo`.
+- **Cada pieza se ve con su tamaño:** la tarjeta y el escenario toman la proporción de `formato`. Uno que no está en la lista se dibuja como 9:16 (reel) o 4:5 (carrusel).
+- **Trampa:** si la `cuenta` no está en `creadores`, la tarjeta muestra iniciales en lugar de la cara. Sin `nx`, la pieza queda al
+  final del orden por defecto.
 
 ### Comentarios por voz en todo Content Machine (21/11/2026)
 
