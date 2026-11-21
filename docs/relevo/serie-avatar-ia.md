@@ -1,6 +1,6 @@
 # Relevo — serie con avatar IA (chat hijo del Cerebro)
 
-Actualizado: 21/11/2026 ~06:15 UTC, cuenta claude5 (92 %). Las cuatro cuentas en cola dan 0 para avatar IA: espera la decisión de abrir una sección «Martín a cámara» o buscar cuentas con sketches de IA.
+Actualizado: 21/11/2026 ~07:00 UTC, cuenta claude5 (92 %). Spy lee de la base (v26) y la competencia la baja otro chat.
 
 ## Dónde está
 - **La página: «Content Machine»,** https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz. Tres pestañas:
@@ -25,6 +25,31 @@ Actualizado: 21/11/2026 ~06:15 UTC, cuenta claude5 (92 %). Las cuatro cuentas en
 | Hormozi | 48 del 19/11: 19 a cámara en estudio, 13 taller en vivo, 3 podcast… y 1 con viñetas de cómic | con la regla de una hoja: 0 escenas con IA en 48. No entra en avatar IA | — |
 | Juan Carrizo (@juanxcarrizo), Francisco Doglio (@franciscodoglio), Guille Collado (@guille.colladomk) | 87, 168 y 52 | la hoja más nueva y la más vieja: 0 pasan; textos: 0 señales. No entran en avatar IA (todo a cámara) | — |
 | Julián Alborna | EN ESPERA: Martín tiene que pasar el usuario (las únicas son de un artista visual sin reels) | — | — |
+
+## Content Machine v25 (21/11 ~06:40 UTC): Spy · Reels · Carruseles
+- Spy = 104 piezas: los 93 de avatar IA y los 11 de `otras-series.json` (1 animación y 10 a cámara). Sus videos y pósteres están
+  en el almacén de archivos (claves `vid/<código>.mp4` y `poster/<código>.jpg` en `content-machine/assets.json`).
+- «Elegir» guarda `votos/<id>` con `estado: "si"`. Lo elegido aparece en Reels (o en Carruseles, si su tipo es carrusel) como
+  «Por producir»; su decisión va en `revision/prod-<id>`.
+- Capturas: `side-session-notes/local_3f1a66d3-.../content-machine-spy-v25/`.
+
+## La bajada de la competencia la hace OTRO chat (21/11, pedido de Martín)
+Ese chat es `local_557794c1-f009-4764-b4de-dd9b15b0e16e`. Escribe en la colección `spy` con el contrato de
+`docs/hallazgos-contenido.md` → «Contrato de la colección spy». Este chat sólo publica la página y trabaja el feedback.
+Lo que queda para él, con rutas exactas:
+
+| Cuenta | Qué hay | Dónde |
+|---|---|---|
+| Juan Carrizo (@juanxcarrizo) | 87 reels listados, con metadatos, portadas y 5 hojas de 20 portadas | `C:/dev/referentes-videos/carrizo/lista-ig-21-11.txt`, `carrizo/ampliado/indice.json`, `carrizo/ampliado/<código>.json` y `.jpg`, `carrizo/ampliado/hoja-01..05.jpg` |
+| Francisco Doglio (@franciscodoglio) | 168 listados y 9 hojas | `C:/dev/referentes-videos/doglio/…`, con la misma estructura |
+| Guille Collado (@guille.colladomk) | 52 listados y 3 hojas | `C:/dev/referentes-videos/collado/…` |
+| Rama, Víctor y Heras Media | todo listado y clasificado para IA; falta sumar lo que NO es IA (animación o a cámara) | `C:/dev/referentes-videos/<cuenta>/ampliado/clasificacion-a.json`, `-b.json` y `-dudas.json` (forma y serie de cada reel) |
+| Hormozi | 48 reels del 19/11, bajados y transcriptos | `C:/dev/referentes-videos/hormozi/<código>/` (`video.mp4`, `video.info.json`, `meta.json`) |
+| Carruseles de todas | sin listar | grilla de PUBLICACIONES desde el Chrome de Martín, sólo leyendo |
+
+- Las herramientas están en `C:/dev/referentes-videos/tools/` (`ampliar.py`, `procesar.py`, `tiras-dudas.py`, `portadas.py`).
+- Para recortar, `artefacto/serie/comprimir-ampliados.sh`: los primeros 25 s, a 480 px y crf 30.
+- El criterio de IA está en `criterio-video-ia.md`. Para Spy hace falta el tipo (avatar-ia, animación o a cámara), no sólo si pasa.
 
 ## Pendiente
 - **El lugar del artefacto:** los formatos ya están en el almacén de archivos. Los clips de cuentas nuevas van directo ahí
