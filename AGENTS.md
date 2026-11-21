@@ -2736,6 +2736,11 @@ van dos marcas en el mismo render).
   maneja app/_ui/tutorial/un-video-a-la-vez.ts: pausa a los demás, y en la esquina queda sólo el último. Un video de adorno va `muted`, o
   pausa al de verdad. tests/un-video-a-la-vez.test.ts.
 
+- **Ningún navegador automático con la sesión, las cookies o la contraseña de nadie, y nada de previews de Vercel** (21/11/2026, el
+  Cerebro: es manejar credenciales). Lo que hay que TOCAR se prueba con los componentes reales en local: el banco
+  (scripts/banco-onboarding y los otros scripts/banco-*), con Playwright headless y `--mute-audio`. Lo que sólo se ve con la app entera y
+  una sesión lo recorre el Cerebro en producción: se le pasa la lista.
+
 # Mirando un negocio como administrador, el estado del onboarding es el del DUEÑO
 
 Martín, 20/11/2026, probando en Lalaland «como administrador»: la vista como administrador muestra LO MISMO que ve el cliente. Lo que se
