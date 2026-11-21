@@ -23,6 +23,9 @@ Lo pidió el Cerebro con las 3 capturas de Martín (ws 3, Nutri Vale). Despliegu
   botón dice «Borra todo…» en uno de prueba. El grupo de avisos (`grupo_*`) no se toca. SIN PROBAR contra la base: lo mira el Cerebro en
   producción (crear un chat suelto, RESET, que no quede; Offer Coach sin historial).
 
+- **8. El recorrido no persigue** (commit «El recorrido no persigue»): MarcaAlReto una vez por pestaña (sessionStorage), nunca con un
+  coach, un grupo o un gurú abiertos, y con «Lo hago después». Falta, si Martín lo pide, un chip «Seguir el recorrido» para retomarlo.
+
 ## Falta (con por dónde empezar)
 1. **El recuadro del recorrido mal ubicado** (/second-brain?reto=1: el hueco sobre los «…» de MaKo escribiendo, arriba a la izquierda,
    en vez de la fila del reto). Mirar `lugarDe(sel)` en app/_ui/tutorial/MotorTutorial.tsx (toma el PRIMER elemento visible del selector)

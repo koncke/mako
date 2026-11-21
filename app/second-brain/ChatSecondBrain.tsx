@@ -794,7 +794,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       })}
       {/* El grupo de un negocio (ChatDelGrupo.tsx): su hilo, los avisos y quién está. */}
       {/* Al llegar del onboarding (V2), la marca que lleva al chat del reto (MarcaAlReto.tsx). */}
-      {retoV2 && !reto && <MarcaAlReto empezo={!!datosReto.d?.estado} listo={!!datosReto.d?.ve} />}
+      {retoV2 && !reto && <MarcaAlReto empezo={!!datosReto.d?.estado} listo={!!datosReto.d?.ve} enOtroLado={conCoach || enOtroChat} />}
       {/* El chat del reto (ChatDelReto.tsx): su hilo de cada día y su desplegable. */}
       {retoV2 && reto && !verMapa && !ticketera && (
         <ChatDelReto nombre={nombrePersona} onVolver={() => { setReto(false); setConChat(false); }} />
