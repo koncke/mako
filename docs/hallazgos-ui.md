@@ -5838,3 +5838,22 @@ titular), no se tiñe.
 - **Sin hacer:** probarlo tocando, con dos videos en el hilo del reto (los Playwright contra el ws 3). Las notas de voz (`<audio>`) no
   entran en la regla.
 - tests/un-video-a-la-vez.test.ts (roto de a una rotura, 5).
+
+## «Datos de Mauricio» se borró, y lo que colgaba de esa ruta (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Decisión** (Martín, por el Cerebro): «esa parte ya no debería existir». Además traía datos de un cliente a una cuenta de prueba.
+  Se borraron /api/datos-mau, lib/datos-mau.ts (traer, devolver y «todo») y app/_components/DatosDeMau.tsx, que ya nadie montaba.
+- **Lo que colgaba de esa ruta y sigue:** el borrado total de un negocio de prueba («Borrar todos los datos», /admin/customers/<ws>) y el
+  «Probar tema» del Cliente de Diseño. Los dos van por /api/admin/negocio-de-prueba, con la MISMA puerta:
+  - super admin;
+  - la lista blanca `esClienteDePrueba`;
+  - nunca uno en la cartera vigente de una agencia.
+  `PERFIL_EXTRA`, lo que el RESET le saca a la gente, pasó a lib/reset-workspace.ts.
+- **Trampa (para borrar o sumar una ruta):** tests/cuenta-revision-escrituras.test.ts enumera las rutas con lo que conoce GIT.
+  - Un archivo borrado sin `git rm` da ENOENT en cinco de sus casos.
+  - Una ruta nueva sin `git add` no se enumera.
+  - Primero el índice; después `MAKO_REGENERAR_SNAPSHOT=1`, y el diff del snapshot tiene que mostrar sólo esas líneas.
+- **Sin hacer:** el Cliente de Diseño se llenaba con «todo» de /api/datos-mau (lo cuenta app/api/admin/cliente-diseno/route.ts). Esa vía ya
+  no existe: si el diseño necesita un negocio con datos, hace falta otra. Las bitácoras y algunos comentarios todavía nombran
+  «Datos de Mau» como historia; el test mira sólo el código.
+- tests/sin-datos-de-mauricio.test.ts.

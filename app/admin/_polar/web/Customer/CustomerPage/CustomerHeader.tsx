@@ -12,7 +12,7 @@
 //   · «Delete Customer» → «Eliminar negocio» (`eliminar`), con el ConfirmModal de Polar que pide escribir el nombre (la ruta lo
 //     pide igual).
 //   · «Borrar todos los datos» (21/11/2026, Martín: el reset viejo sale de la barra del administrador y viene aquí): vacía el negocio
-//     entero y deja su onboarding de cero (/api/datos-mau → lib/reset-workspace.ts), SÓLO en las cuentas de prueba (`esClienteDePrueba`,
+//     entero y deja su onboarding de cero (/api/admin/negocio-de-prueba → lib/reset-workspace.ts), SÓLO en las cuentas de prueba (`esClienteDePrueba`,
 //     y el server lo cierra igual con la misma lista blanca) y escribiendo el nombre. Contra ESE negocio: `conWs` con su número.
 // Se sacó «Add Credits»: MaKo no tiene créditos por cliente. ⚠️ Lo que falla se dice debajo del menú (Admin no tiene el toast).
 // «Administrar», en el clic derecho de la lista (../menu-contextual-negocios.ts), llega con `?editar=1`: abre «Editar negocio» y
@@ -118,9 +118,9 @@ export const CustomerHeader = ({ negocio }: CustomerHeaderProps) => {
     setError(null)
     setBorrado(null)
     try {
-      const r = await fetch(conWs('/api/datos-mau', negocio.ws), {
+      const r = await fetch(conWs('/api/admin/negocio-de-prueba', negocio.ws), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reset' }),
+        body: JSON.stringify({ action: 'borrar' }),
       })
       const j = (await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }))) as { ok?: boolean; error?: string; borrado?: Record<string, number>; archivos?: number }
       if (!j.ok) {

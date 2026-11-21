@@ -40,9 +40,10 @@ test('1b. el borrado total, en «Acciones del negocio» de /admin/customers/<ws>
   assert.match(h, /const dePrueba = esClienteDePrueba\(negocio\.ws\)/);
   assert.match(h, /\{dePrueba && \(\n\s*<DropdownMenuItem destructive onClick=\{showBorrarDatosModal\}>\n\s*Borrar todos los datos\n\s*<\/DropdownMenuItem>/, 'sólo en las cuentas de prueba');
   assert.match(h, /<ConfirmModal\n\s*isShown=\{isBorrarDatosModalShown\}[\s\S]{0,900}confirmPrompt=\{negocio\.nombre\}[\s\S]{0,200}destructive\n/, 'confirmación fuerte: escribir el nombre');
-  assert.match(h, /fetch\(conWs\('\/api\/datos-mau', negocio\.ws\), \{[\s\S]{0,200}JSON\.stringify\(\{ action: 'reset' \}\)/, 'contra ESE negocio');
+  assert.match(h, /fetch\(conWs\('\/api\/admin\/negocio-de-prueba', negocio\.ws\), \{[\s\S]{0,200}JSON\.stringify\(\{ action: 'borrar' \}\)/, 'contra ESE negocio');
   // Quién puede, lo sigue diciendo el server: super admin y sólo un negocio de prueba (la lista blanca, nunca «distinto del dueño»).
-  const api = sinComentarios(fuente('app/api/datos-mau/route.ts'));
+  // Desde el 21/11, por su ruta: «Datos de Mauricio» se borró (tests/sin-datos-de-mauricio.test.ts).
+  const api = sinComentarios(fuente('app/api/admin/negocio-de-prueba/route.ts'));
   assert.match(api, /if \(ws == null \|\| !esClienteDePrueba\(ws\)\) return null;/);
 });
 

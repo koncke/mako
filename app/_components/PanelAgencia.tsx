@@ -12,7 +12,8 @@
 //     los datos», sólo en las cuentas de prueba y escribiendo el nombre (app/admin/_polar/web/Customer/CustomerPage/CustomerHeader.tsx).
 //   · «Datos de Mauricio» → en su lugar, «Autocompletar» (./Autocompletar.tsx): la respuesta de ejemplo de la pregunta de ahora.
 //
-// Se pinta solo si /api/datos-mau dice que corresponde: super-admin de la agencia parado EXACTAMENTE en un negocio de prueba. Quién
+// «Datos de Mauricio» se borró entero el 21/11 (la ruta, su lib y su componente). Se pinta solo si /api/admin/negocio-de-prueba dice que
+// corresponde: super-admin de la agencia parado EXACTAMENTE en un negocio de prueba. Quién
 // decide es el server: esconder el botón no protege nada si el endpoint acepta igual.
 
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -80,14 +81,14 @@ export function PanelAgencia() {
 
   useEffect(() => {
     let vivo = true;
-    fetch('/api/datos-mau', { cache: 'no-store' })
+    fetch('/api/admin/negocio-de-prueba', { cache: 'no-store' })
       .then((r) => r.json())
       .then((j: { disponible?: boolean; ws?: unknown }) => {
         if (!vivo) return;
         setDisponible(!!j.disponible);
         setWsPanel(typeof j.ws === 'number' ? j.ws : null);
       })
-      .catch((e) => { console.warn('[datos-mau] no se pudo consultar', e); if (vivo) setDisponible(false); });
+      .catch((e) => { console.warn('[negocio-de-prueba] no se pudo consultar', e); if (vivo) setDisponible(false); });
     return () => { vivo = false; };
   }, []);
 

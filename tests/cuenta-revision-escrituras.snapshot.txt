@@ -46,6 +46,7 @@ POST /api/admin/mako-chats/grupo → sólo admin (el rol la corta antes, tambié
 POST /api/admin/mako-doer → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/mako-grupo → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/modelos → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/negocio-de-prueba → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/pedidos-ingreso → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/plantillas → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/recibos/comprobante → sólo admin (el rol la corta antes, también a un closer)
@@ -148,7 +149,6 @@ POST /api/crm/llamadas-grabadas → cortada
 POST /api/crm/mako → cortada
 POST /api/cron/grupo-turno → pública (no usa la sesión)
 POST /api/cuenta/eliminar → PERMITIDA
-POST /api/datos-mau → cortada
 POST /api/desarmar → cortada
 POST /api/dev/group-photo → cortada
 POST /api/email/broadcasts → cortada
