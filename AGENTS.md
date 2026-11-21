@@ -2706,6 +2706,12 @@ van dos marcas en el mismo render).
   chat: nunca pausado y en ningún lado. tests/video-en-el-chat.test.ts.
 - **Un globo con un video tiene el ancho del video** (`:has(.mk-vmom)`, centro.css: 400 del reproductor + el padding del globo). El
   texto se acomoda debajo; nunca un globo más ancho que su video.
+- **Todo control que la persona puede tocar tiene salida y no hace de más** (20/11/2026, el inventario de botones; la tabla en
+  docs/hallazgos-onboarding.md). Una marca del motor lleva `alOmitir` («Lo hago después» y Escape), y la X de un «dale play» que frena
+  algo avisa con `alCerrar` y lo destraba. Un menú o desplegable del chat se cierra tocando afuera y con Escape (`useCerrarAfuera`,
+  app/copywriter/editor/cerrar-afuera.ts) y al elegir algo. Tocar la velocidad, la barra o la pantalla completa de un video quieto no es
+  «verlo». Un reproductor del chat lleva pantalla completa (`pantallaCompleta`, con la vuelta del iPhone). Un control nuevo del onboarding
+  o del reto suma su fila a la tabla y su test.
 
 # Mirando un negocio como administrador, el estado del onboarding es el del DUEÑO
 

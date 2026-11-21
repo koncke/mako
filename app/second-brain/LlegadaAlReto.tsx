@@ -26,7 +26,7 @@ import { useRecorrido } from '@/app/_ui/Recorrido';
 import { marcarVistoEnEnsayo, useEnsayo, vistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
 import { chatPresentaRecorrido, mostrarTutorial, senalAhora, terminar, useSenal } from '@/app/_ui/tutorial/store';
 import { CSS_REPRODUCTOR } from '@/app/_ui/tutorial/VideoDelMomento';
-import { esconderLaBarra } from '@/app/_ui/tutorial/barra-oculta';
+import { esconderLaBarra, mostrarLaBarra } from '@/app/_ui/tutorial/barra-oculta';
 import { avisarMensajeNuevo } from '@/app/_chat/useBajarAlUltimo';
 import { msEscribiendo } from '@/app/_chat/useColaDeSalida';
 import { barrer } from '@/app/_ui/tutorial/iris';
@@ -161,7 +161,10 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
     const el = imgPoster.current;
     if (poster && el?.complete && el.naturalWidth > 0) setPosterCargado(poster);
   }, [poster, fase]);
-  useDalePlay(play, { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado({ poster, posterCargado }) });
+  // Su X (20/11/2026, el inventario de botones): cerraba la invitación para siempre y el reto quedaba FRENADO, con el recorrido sin ver y
+  // la barra escondida. Ahora es «Omitir recorrido»: queda visto y la barra vuelve.
+  useDalePlay(play, { clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado({ poster, posterCargado }),
+    alCerrar: () => { mostrarLaBarra(); alTerminar('omitido'); } });
   // ¿Corre el recorrido? Mientras corre, su video lo dibuja el motor ENCIMA de este lugar (o en la esquina, si el mensaje no se ve).
   const senal = useSenal();
   const corre = senal?.tipo === 'tutorial' && senal.tutorial === TUTORIAL_RECORRIDO;

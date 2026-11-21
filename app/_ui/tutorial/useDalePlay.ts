@@ -15,14 +15,17 @@ import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { senalarDondeTocar, soltarSenal, useSenal } from './store';
 import { PARTE_A_LA_VISTA, cerrarDalePlay, dalePlayCerrado, sueltaDalePlay, tituloDalePlay, tocaDalePlay } from './entrada';
 
-/** `clave`: la del video (lo cerrado se recuerda por ella). `activo`: el video está QUIETO (nunca reproducido). */
-export function useDalePlay(ref: RefObject<HTMLElement | null>, o: { clave: string; titulo: string; activo: boolean }): void {
+/** `clave`: la del video (lo cerrado se recuerda por ella). `activo`: el video está QUIETO (nunca reproducido). `alCerrar`: la persona
+ *  cerró la invitación con su X sin reproducir (20/11/2026, el inventario: la de la llegada dejaba el reto frenado esperando el recorrido). */
+export function useDalePlay(ref: RefObject<HTMLElement | null>, o: { clave: string; titulo: string; activo: boolean; alCerrar?: () => void }): void {
   const { clave, titulo, activo } = o;
   const senal = useSenal();
   const marca = useId();
   const [aLaVista, setALaVista] = useState(false);
   const [cerrado, setCerrado] = useState(() => dalePlayCerrado(clave));
   const mia = useRef<number | null>(null);
+  const alCerrar = useRef(o.alCerrar);
+  useEffect(() => { alCerrar.current = o.alCerrar; }, [o.alCerrar]);
 
   // A la vista: más de la mitad del video adentro de la pantalla (y de lo que lo recorta: el hilo con su scroll).
   useEffect(() => {
@@ -47,7 +50,7 @@ export function useDalePlay(ref: RefObject<HTMLElement | null>, o: { clave: stri
     mia.current = senalarDondeTocar(
       { sel: `[data-dale-play="${marca}"]`, titulo: tituloDalePlay(titulo), texto: '', haz: '', lado: 'derecha' },
       visto,
-      { invita: true, alOmitir: visto },
+      { invita: true, alOmitir: () => { visto(); alCerrar.current?.(); } },
     );
   }, [senal, activo, aLaVista, cerrado, clave, titulo, marca]);
 

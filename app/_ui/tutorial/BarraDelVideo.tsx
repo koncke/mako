@@ -8,6 +8,7 @@
 // =============================================================================
 import { useEffect, useState, type MouseEvent, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
+import { pantallaCompleta } from './pantalla-completa';
 
 const VELOCIDADES = [1, 1.25, 1.5, 2] as const;
 
@@ -61,6 +62,19 @@ export function BarraDelVideo({ vidRef, archivo, durManifiesto = 0 }: { vidRef: 
         <span className="mk-vmom__hecho" style={{ width: `${dur ? Math.min(100, (t / dur) * 100) : 0}%` }} />
       </div>
       <button type="button" className="mk-vmom__vel" onClick={cambiarVel} title="Velocidad">{vel}×</button>
+      {/* Pantalla completa (20/11/2026, el inventario de botones: no había en ningún reproductor del chat). */}
+      <button type="button" className="mk-vmom__btn mk-vmom__completa" onClick={() => pantallaCompleta(vidRef.current)} aria-label="Pantalla completa" title="Pantalla completa">
+        <IconoCompleta />
+      </button>
     </div>
+  );
+}
+
+/** Las cuatro esquinas que se abren (el ícono de pantalla completa). */
+export function IconoCompleta() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
