@@ -106,3 +106,14 @@ que rehace el chat de Content Machine (local_fc754a71-87b7-4a34-8133-0307a31abe1
 - ⚠️ (21/11 ~10:15) La extensión Claude in Chrome se desconectó con el apagón: el chat Spy baja SÓLO YouTube hasta que Martín la
   reconecte (la lista de Instagram sale de ese Chrome). Anuncios: 15 cuentas encoladas. Plan: si el YouTube de Anuncios termina
   antes, mandar al Cerebro un Anuncios preliminar (sólo YouTube) y completarlo con Instagram después.
+
+## Encargo nuevo (21/11 ~10:40): SUB-ÁNGULOS concretos, propuestas para producir y el filtro de ángulos en Spy
+
+- Martín quiere empezar a PRODUCIR y ángulos ESPECÍFICOS (una afirmación por ángulo). Fuente: la colección `spy` de Content
+  Machine (918 piezas: 503 en español, 415 de Dakota), bajada con ArtifactData a `C:/dev/tendencias/spy-cm/spy/`.
+- Circuito (todo en `C:/dev/tendencias/sub/`, instrucciones versionadas en `docs/tendencias/herramientas/sub/`):
+  1. 8 lotes (`sub/lotes/s-NN.json`) → 4 agentes sonnet sacan la afirmación de cada pieza → `sub/salida/s-NN.json`.
+  2. `node herramientas/sub-afirmaciones.mjs` → `sub/afirmaciones.md` → un agente consolida → `sub/subangulos.json`.
+  3. `node herramientas/sub-senales.mjs` → `sub/ranking.json` + `sub/mapa-angulos.json` (id de pieza → sub-ángulos).
+  4. Un agente con `instrucciones-propuestas.md` → `sub/propuestas.json` + `sub/resumen-propuestas.md` (para el Cerebro/Martín).
+  5. El mapa al chat Spy (escribe el campo `angulos` en cada documento) y el contrato al chat de Content Machine.
