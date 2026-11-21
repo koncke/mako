@@ -49,6 +49,8 @@ import { MS_SIN_PLAY, useMensajeDelVideo } from '@/app/_ui/tutorial/useMensajeDe
 import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { useColaDeSalida, type FilaDeCola } from '@/app/_chat/useColaDeSalida';
 import { MOMENTO_AGENDADO, MOMENTO_CODIGO, MOMENTO_NOMBRE } from '@/lib/onboarding-v2/momentos';
+import { ejemploDe } from '@/lib/onboarding-v2/saltar';
+import { senalConTope } from '@/lib/senal-con-tope';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean; whatsapp?: VistaArranque['whatsapp'] };
 
@@ -100,8 +102,11 @@ const PASO_ABRIR_WHATSAPP = {
 
 const horaDe = (d: Date) => d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
+export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, ejemplos = false }: {
   inicial: VistaArranque;
+  /** LA REVISIÓN (20/11/2026): las respuestas de ejemplo de la maqueta, un toque y avanza. Lo decide la PÁGINA con la puerta
+   *  (`puedeVerLaRevision`: alguien de MaKo en un negocio de prueba); sin ella, nada. Nunca a un cliente. */
+  ejemplos?: boolean;
   /** En un teléfono: el primer paso acá y «Continuar el onboarding desde la PC» al final (18/11). Lo decide la página. */
   seguirEnPc?: boolean;
   persona?: { nombre: string; email: string };
@@ -198,6 +203,15 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
     } finally {
       setOcupado(false);
     }
+  };
+
+  // La respuesta de ejemplo de la pregunta que se escribe (el nombre, el negocio), sólo en la revisión: un toque la manda.
+  const ejemplo = ejemplos ? ejemploDe(etapa) : null;
+  const mandarEjemplo = (t: string) => {
+    if (ocupado || etapa === 'listo' || etapa === 'cierre') return;
+    primeroListo();
+    cola.mostrarYa([MOMENTO_NOMBRE.mensaje]);
+    void responder({ texto: t }, t);
   };
 
   const mandarTexto = () => {
@@ -348,7 +362,9 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
     setEntrando(true);
     // El chat «Onboarding» con la conversación (lo crea la ruta; si falla, se entra igual).
     await fetch('/api/onboarding/arranque', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'hilo' }), signal: AbortSignal.timeout(20_000),
+      // `senalConTope` y no AbortSignal.timeout (20/11, el inventario): un Safari de antes del 16 no lo tiene, tiraba antes del fetch y el
+      // botón quedaba en «Entrando…» para siempre.
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'hilo' }), signal: senalConTope(20_000),
     }).catch(() => null);
     setSaliendo(true);
     // Un video del onboarding que sigue corriendo NO pasa flotando al Ops Center (20/11, OD-13): flotaba, y el recorrido no arrancaba.
@@ -430,6 +446,9 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
   const progreso = Math.max(0, PASOS.indexOf(etapa)) / (PASOS.length - 1);
   // El recuadro, con su mensaje y después de su pausa (la cola: onboarding-3).
   const enRecuadro = fase === 'chat' && !ocupado && ultimoMako?.opciones?.length && ultimoMako.recuadro && cola.conPieza(ultimoMako.id) ? ultimoMako : null;
+  // Lo marcado y lo escrito de cada pregunta, aquí y no en el recuadro: se desmonta mientras envía, y si el envío falla vuelve con esto.
+  const borradores = useRef(new Map<string, Borrador>());
+  const guardarBorrador = (id: string) => (b: Borrador) => { borradores.current.set(id, b); };
   // La segunda pregunta del contacto («Guárdalo cuando puedas…») no se contesta con sí o no (20/11, OA-F2: la maqueta, «Ya lo guardé»).
   const enAgendadoNo = etapa === 'agendado' && mensajes.some((m) => m.id === 'arr-agendado-no');
   const placeholder = etapa === 'listo' ? (enTelefono ? 'Toca «Continuar el onboarding desde la PC»' : 'Toca «Entrar a MaKo»') : enAgendadoNo ? 'Ya lo guardé' : PH[etapa] ?? 'Escribe a MaKo';
@@ -488,13 +507,20 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
             )}
             {aviso && !error && <p className="arr-v2__aviso" role="status">{aviso}</p>}
             {enRecuadro && <Recuadro key={enRecuadro.id} m={enRecuadro} ocupado={ocupado}
+              inicial={borradores.current.get(enRecuadro.id)} onBorrador={guardarBorrador(enRecuadro.id)}
               onUna={(i) => void responder({ opcion: i, opcionTexto: enRecuadro.opciones![i] }, enRecuadro.opciones![i])}
               onVarias={(vs) => void responder({ opciones: vs }, vs.join(' · '))}
               onOtra={(t) => void responder({ texto: t }, t)} />}
+            {ejemplo && fase === 'chat' && !ocupado && (
+              <div className="arr-v2__ejemplos" role="group" aria-label="Respuesta de ejemplo de la revisión">
+                <span>Revisión · respuesta de ejemplo:</span>
+                <button type="button" className="arr-v2__ejemplo" onClick={() => mandarEjemplo(ejemplo)}>{ejemplo}</button>
+              </div>
+            )}
             {/* La caja del Ops Center, la de una línea (Martín, 19/11: «la barra de chat abajo… está como muy alta»). */}
             <div className={`co-caja${etapa === 'listo' && enTelefono ? ' arr-v2__caja--dos' : ''}`} onFocusCapture={soltarPrimero} onPointerDownCapture={soltarPrimero}>
               <CajaChat texto={texto} onTexto={(v) => { setError(null); setTexto(v); }} onMandar={mandarTexto} placeholder={placeholder} enterManda
-                ocupado={ocupado} apagado={fase !== 'chat' || etapa === 'listo'} sinAdjuntos onErrorMic={(m) => setError(m)} />
+                ocupado={ocupado} apagado={fase !== 'chat' || etapa === 'listo' || etapa === 'cierre'} sinAdjuntos onErrorMic={(m) => setError(m)} />
             </div>
           </div>
         </div>
@@ -525,7 +551,8 @@ function TarjetaTelefono({ inicial, ocupado, onSeguir, onIncompleto }: {
   };
   return (
     <div className="arr-tarjeta">
-      <TelefonoConPais lada={lada} numero={numero} onLada={setLada} onNumero={setNumero} onEnter={seguir} placeholder="9 11 5555 0101" inputStyle={CAMPO} />
+      {/* Sin un ejemplo fijo (20/11, el inventario): era argentino con México por defecto; TelefonoConPais lo arma por país. */}
+      <TelefonoConPais lada={lada} numero={numero} onLada={setLada} onNumero={setNumero} onEnter={seguir} inputStyle={CAMPO} />
       <Button variant="primary" size="sm" full disabled={ocupado} loading={ocupado} onClick={seguir}>Seguir</Button>
     </div>
   );
@@ -602,15 +629,21 @@ function TarjetaCodigo({ vista, ocupado, reescribir, resaltarWa, onConfirmar, on
  * .co-preg--arriba), con el tema a la izquierda, como la maqueta (`recuadro`). Varias a la vez con números en caja y «Responder»;
  * una lista larga en dos columnas, numerada de arriba hacia abajo; «Escribe otra cosa» al final.
  */
-function Recuadro({ m, ocupado, onUna, onVarias, onOtra }: {
+type Borrador = { marcadas: string[]; otra: string };
+
+function Recuadro({ m, ocupado, onUna, onVarias, onOtra, inicial, onBorrador }: {
   m: MensajeArranque; ocupado: boolean; onUna: (i: number) => void; onVarias: (vs: string[]) => void; onOtra: (t: string) => void;
+  /** Lo marcado y lo escrito de antes (20/11/2026, el inventario de botones): el recuadro se desmonta mientras envía, y si el envío
+   *  falla vuelve con esto, no vacío. */
+  inicial?: Borrador; onBorrador: (b: Borrador) => void;
 }) {
   const q = m.recuadro!;
   const ops = m.opciones ?? [];
   const [plegado, setPlegado] = useState(false);
-  const [marcadas, setMarcadas] = useState<string[]>([]);
-  const [otra, setOtra] = useState('');
+  const [marcadas, setMarcadas] = useState<string[]>(inicial?.marcadas ?? []);
+  const [otra, setOtra] = useState(inicial?.otra ?? '');
   const [aviso, setAviso] = useState<string | null>(null);
+  useEffect(() => { onBorrador({ marcadas, otra }); }, [marcadas, otra, onBorrador]);
   const varias = q.varias ?? 0;
   // La pregunta del recuadro, sin el nombre, también plegado y en su aria-label (20/11, la verificación de OA-18).
   const pregunta = q.pregunta ?? m.texto;
@@ -621,8 +654,11 @@ function Recuadro({ m, ocupado, onUna, onVarias, onOtra }: {
       </button>
     );
   }
+  // LO QUE SE MANDA ES LO QUE SE VE (20/11/2026, el inventario): con opciones marcadas Y texto escrito, «Responder» mandaba sólo el
+  // texto sin avisar. Ahora marcar borra lo escrito, y escribir desmarca.
   const marcar = (o: string) => {
     setAviso(null);
+    setOtra('');
     setMarcadas((v) => {
       if (v.includes(o)) return v.filter((x) => x !== o);
       if (v.length >= varias) { setAviso(`Puedes elegir hasta ${varias}. Saca uno para sumar otro.`); return v; }
@@ -659,7 +695,7 @@ function Recuadro({ m, ocupado, onUna, onVarias, onOtra }: {
             <label className="co-preg__op co-preg__op--otra">
               <span className="co-preg__num" aria-hidden="true">{ops.length + 1}</span>
               <input className="co-preg__campo" value={otra} maxLength={1000} placeholder="Escribe otra cosa" aria-label="Escribe otra respuesta"
-                onChange={(e) => setOtra(e.target.value)}
+                onChange={(e) => { setOtra(e.target.value); if (e.target.value.trim()) setMarcadas([]); }}
                 onKeyDown={(e) => { if (e.key === 'Enter' && otra.trim() && !ocupado) { e.preventDefault(); onOtra(otra.trim()); } }} />
             </label>
           </li>
@@ -724,6 +760,9 @@ const CSS_V2 = `
 .arr-v2__error-ico { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--bad); color: #fff; display: grid; place-items: center; font: 800 12px/1 'Geist', system-ui, sans-serif; margin-top: 1px; }
 .arr-v2__error-t { flex: 1; min-width: 0; }
 .arr-v2__error > button { flex: none; border: 0; background: none; color: var(--dim); cursor: pointer; font: inherit; padding: 0 2px; }
+.arr-v2__ejemplos { max-width: 760px; margin: 0 auto 8px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; font-size: var(--fs-meta); color: var(--faint); }
+.arr-v2__ejemplo { border: 1px dashed var(--border-strong); border-radius: 999px; padding: 4px 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.arr-v2__ejemplo:hover { background: var(--surface-2); }
 .arr-v2__aviso { max-width: 760px; margin: 0 auto 8px; font-size: var(--fs-sm); color: var(--dim); text-align: center; }
 /* La tarjeta del código. */
 .arr-v2__wa { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: flex-start; height: 42px; padding: 0 18px; border-radius: 999px; border: 0;

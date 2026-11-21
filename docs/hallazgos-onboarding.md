@@ -3,6 +3,86 @@
 El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-state.ts`) y
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
+## El inventario de botones del onboarding V2, la llegada y el primer día (20/11/2026, noche, claude5, chat «onboarding-v2»)
+
+Martín: «Tienes que fijarte todas las opciones que tiene el usuario, todos los botones que puede apretar». Tres lectores de código, uno
+por zona (la caja; los videos, las marcas y el reto; el flujo y la barra del administrador). «¿Lo hace?» sale del CÓDIGO, no de tocarlo:
+lo toca el Cerebro en producción. Lo que fallaba se arregló en las tandas 367a6868d (nota de voz, emojis), 38beadae2 (el video en el chat),
+69b36ad6d (el flujo, la caja, la barra) y la tanda D (videos, marcas, reto, y la ayuda «?» encima de los emojis que vio el Cerebro).
+
+| Control | Qué tiene que hacer | ¿Lo hace? | Test que lo cuida |
+|---|---|---|---|
+| Emoji (carita y panel) | Abrir, poner el emoji en el cursor, pestañas, recientes, cerrar con Escape o afuera | Sí. Salía recortado: ahora se acomoda adentro. Se cierra con la caja apagada; abierto, esconde la ayuda «?» (a 375 la tapaba) | centro-ops5 «5», emojis-dentro-del-chat, inventario-onboarding-flujo «5» |
+| Micrófono: grabar, pausar, ✓, escuchar, mandar, 🗑 | Grabar en tramos, revisar, mandar o tirar | Sí. Sin IA propia no transcribía: ahora el Whisper de MaKo, en MaKo Tokens | whatsapp-sexta-tanda, chat-nota-de-voz, nota-de-voz-con-mako, ia16-cada-uno-su-ia |
+| Campo de texto, Enter / Shift+Enter, flecha | Escribir y mandar | Sí. En el cierre lo escrito se perdía: ahora se apaga | centro-caja, caja-voz-revision «3», inventario-onboarding-flujo «5» |
+| Sol / luna | Claro / oscuro, recordado | Sí | onboarding-v2-maqueta «6», onboarding-v2-auditoria «13» |
+| Video: play, barra, velocidad | Arrancar, saltar, 1× a 2× | Sí (la barra, sólo con clic) | ninguno de comportamiento (leen el código) |
+| Pantalla completa | Agrandar el video | **No existía**: agregada (en el iPhone, la suya) | inventario-videos-y-reto «1» |
+| Video flotante y su X | A la esquina sólo fuera de la vista; volver; cerrar | Sí. «¡Hola de nuevo!» iba a la esquina siempre, y con una marca de sus frases no flotaba: arreglados | video-en-el-chat, onboarding-v2-auditoria «15» |
+| País y «Seguir» | Elegir el país, validar, mandar | Sí. El ejemplo era argentino con México: ahora por país | onboarding-whatsapp-primero «6», onboarding-v2-auditoria «4», inventario-onboarding-flujo «3» |
+| «Guardar contacto» | Guardar a MaKo en la libreta | A medias: descarga MaKo.vcf; en el teléfono no abre la libreta | whatsapp-ya-confirmado «4» (sólo el link) |
+| Opciones y «Escribe otra cosa» | Contestar con un toque o con texto | Sí. Con opciones Y texto mandaba sólo el texto, y un envío fallido perdía lo elegido: arreglados | onboarding-v2-maqueta «2», «3», inventario-onboarding-flujo «7» |
+| «Responder» con varias | Mandar las elegidas (hasta 3) | Sí | onboarding-v2-maqueta «2» |
+| «Entrar a MaKo» | Navegación entera a la app | Sí. En un Safari viejo quedaba «Entrando…»: arreglado | onboarding-sin-ida-y-vuelta «5», inventario-onboarding-flujo «4» |
+| «dale play» y su X | Invitar al video quieto; la X cierra | Sí. Salía sobre el cuadro vacío; la X de la llegada frenaba el reto; tocar la velocidad lo cerraba: arreglados | llegada-dale-play-dibujado, tutorial-entrada, inventario-videos-y-reto «2», «3» |
+| «Omitir recorrido» y «Siguiente» | Saltear; avanzar; «Listo» al final | Sí. Con el video en el mensaje no había «Omitir»: ahora debajo del reproductor | tutorial-sin-presentacion «1», tutorial-pausas «7», video-en-el-chat «2», inventario-videos-y-reto «6» |
+| «¿Qué hacemos ahora?» | «Empezar mi día 1» o «Muéstrame {pestaña}» | Sí. La marca de «Muéstrame» no tenía salida: ahora «Lo hago después» | reto-dias, inventario-videos-y-reto «4» |
+| Desplegable «Día 1 de 7» | Los 7 días, sus tareas y su video | Sí. No se cerraba afuera ni al elegir un video: arreglado | reto-dias, inventario-videos-y-reto «5» |
+| Ícono de videos | El catálogo; elegir un video lo muestra | A medias: elegir y después play (dos toques) | reto-dias |
+| Barra del administrador | RESET, «Reiniciar onboarding», «Ir a un paso», «Salir de la vista» | Sí. RESET dejaba el onboarding en el navegador y «Salir» navegaba aunque fallara: arreglados. «Ir a un paso», nuevo | reiniciar-onboarding, inventario-onboarding-flujo «1», «2», revision-saltar-y-ejemplos |
+
+**Lo que quedó sin hacer** (con dónde vive):
+- Se puede grabar una nota mientras MaKo contesta: el V2 no le pasa `voz` a la caja (app/onboarding/ChatArranqueV2.tsx, CajaChat). La nota sale después, como respuesta a la pregunta siguiente.
+- No hay cancelar mientras se transcribe, y una nota que falla al transcribir se pierde (app/_components/VoiceRecorder.tsx: `enviar` vacía antes de entregar).
+- «Guardar contacto» en el teléfono descarga el .vcf en vez de abrir la libreta (app/onboarding/TarjetaContactoMako.tsx). Es una decisión: sin ella, queda así.
+- Desde el desplegable o el pin, el video de los días 2 a 7 corre sin `alTocar` ni `alTerminar` (ChatDelReto.tsx, `verVideoDelDia`): lo tocado no cuenta y al terminar no se marca lo que falta.
+- El catálogo de videos pide dos toques (app/second-brain/reto/CatalogoTutoriales.tsx).
+- La barra de avance no se arrastra ni se maneja con el teclado (VideoDelMomento.tsx, BarraDelVideo.tsx).
+- Sin tests de COMPORTAMIENTO (que toquen) para play, avance, velocidad, «Listo», elegir un día o un video: los de hoy leen el código. Lo que se miró, se miró con números y con las máquinas de verdad (`etapaDeArranqueV2`, `diaAbierto`), no tocando.
+
+**Trampa del inventario:** los tres lectores leyeron código, no tocaron. Encontraron fallas de lógica y de cableado, no de dibujo: un panel
+recortado o un video más chico que su globo los vio Martín, no el inventario. Lo que se ve, lo mira el Cerebro en producción a 1440 y 375.
+
+## La revisión: ir a cualquier paso y respuestas de ejemplo, con el estado real (20/11/2026, noche, claude5, chat «onboarding-v2»)
+
+Martín: «viste que hay un desplegable en el artefacto que me deja ir avanzando o retrocediendo. Si no, cada vez que quiero ver algo que
+ya pasó, tengo que resetear todo». La maqueta salta REPRODUCIENDO eventos con respuestas precargadas (`flujo(ev)` + `precarga`, en
+C:/dev/artefactos-onboarding/cuerpo.html). La app guarda el estado en el server, así que acá saltar es ESCRIBIR el estado del paso.
+- **Cómo:** «Reiniciar onboarding» (el mismo del botón, ya probado: borra el estado del onboarding y del reto y olvida los tutoriales,
+  sin tocar los datos) y después el estado del paso (lib/onboarding-v2/saltar.ts, puro; lo escribe saltar-server.ts). Los del
+  arranque, con las respuestas de ejemplo de la maqueta (escenario A). La llegada, con el onboarding terminado (`status: 'done'`). Cada
+  día del reto, con el recorrido visto para el dueño, el día 1 elegido y los días hasta N adelantados, como «Adelantar al día N». Las
+  tareas de los días de antes van con «Lo hago después»: las hechas de verdad las LEE MaKo, no se escriben.
+- **Lo que no se adivina, se mide con la máquina de verdad:** el test pasa cada estado por `etapaDeArranqueV2` y `diaAbierto`. **Trampa
+  del reto:** `adelantado` no es «cuántos días adelantó» sino el día que quedó abierto (`/api/reto`, «adelantar»). Con `n - 1`, el día
+  N quedaba en N-1.
+- **Lo del navegador:** lo visto del reto va por el `inicio` del reto (`mako.reto.visto.<inicio>|…`), así que un reto nuevo arranca
+  limpio. El desplegable anota como vistos los videos de los días de antes en ESTE navegador. El del dueño no, salvo la limpieza del
+  reinicio.
+- **La puerta** (alguien de MaKo, en el 3 o el 9) va en el server: la ruta y la página que pasa `ejemplos`. Regla en AGENTS.md.
+- **Sin hacer:** el paso «código» no está en el desplegable (pide un código pendiente de verdad: se llega con «Tu WhatsApp» y
+  «Seguir»). Las preguntas de los coaches (Offer Coach y Funnel Coach) no tienen respuestas de ejemplo; sólo las que se escriben en el
+  arranque (el nombre y el negocio), porque las de opciones ya se contestan con un toque. Nada se probó contra la base: lo prueba el
+  Cerebro en producción, en el ws 3. tests/revision-saltar-y-ejemplos.test.ts (roto de a una rotura, 8).
+
+## «¡Hola de nuevo!» se iba a la esquina sin motivo (20/11/2026, noche, claude5, chat «onboarding-v2»)
+
+- **Síntoma** (Martín, en producción, ws 3): sin scroll, con el mensaje a la vista, tocó play y el video saltó al recuadro chico de
+  abajo a la derecha («Martín · MaKo», con «Omitir recorrido»). «Debería haberse reproducido directamente ahí en el chat».
+- **Causa:** la llegada arrancaba el recorrido con `mostrarTutorial(TUTORIAL_RECORRIDO, { alTerminar })`, sin `lugar`. Sin `lugar`, el
+  motor (MotorTutorial → VideoChico) dibuja su video SIEMPRE en la esquina. El mecanismo para dibujarlo en el mensaje ya existía desde
+  los días 2 a 7 del reto (`lugar` + `useLugarALaVista`, lugarDelVideo.ts), pero la llegada nunca se lo pasaba.
+- **Ahora:** el mensaje lleva el reproductor ENTERO (pantalla y barra, `data-video-lugar="recorrido"`), como el día del reto. El motor
+  lo tapa con el video mientras se ve, y va a la esquina si el mensaje sale de la vista o el recorrido lleva a otra pantalla.
+- **Trampa:** con el video en el mensaje, el motor esconde «Omitir recorrido» y la X entre paso y paso (`!enLugar`: sólo los muestra
+  en la esquina). Pasado el primer paso, no quedaba cómo saltear el recorrido. La llegada lo pone debajo del reproductor mientras
+  corre (`terminar(senal.id, 'omitido')`). **Los días 2 a 7 tienen el mismo hueco** y siguen sin arreglar: va con el inventario.
+- **Y todo VideoDelMomento:** `reproducirFlotante` no dejaba pasar a la esquina con CUALQUIER marca puesta, también la de una frase
+  del mismo video (los coaches con `marcarFrases`) o un «dale play». Y `useVideoQueFlota` pausaba ANTES de preguntar, así que el
+  video quedaba pausado en el chat y no aparecía en ningún lado. Ahora esas dos marcas le dejan el lugar (`cedeAlFlotante`). Con una
+  tarea o un recorrido no pasa a la esquina, y entonces no se pausa: sigue en el chat.
+- tests/video-en-el-chat.test.ts (roto de a una rotura, 7). Sin mirar en producción.
+
 ## El «dale play» de la llegada salía sobre la pantalla vacía (20/11/2026, noche, claude5, chat «onboarding-v2»)
 
 - **Síntoma** (el Cerebro, recorriendo 7736f219f en producción, ws 3): la página tardó unos 15 s en dibujarse, el arranque en frío del

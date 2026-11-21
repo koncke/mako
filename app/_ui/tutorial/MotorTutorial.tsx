@@ -695,6 +695,9 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
     const alTocar = (e: Event) => {
       // Sólo el de la persona: el clic de «Siguiente» (el.click(), sintético) ya lo maneja `siguiente` y no cuenta como tocado.
       if (tocado || !e.isTrusted || !(e.target instanceof Node) || !el.contains(e.target)) return;
+      // Con el «dale play» puesto, la velocidad, la barra o la pantalla completa del video quieto NO son «tocarlo» (20/11/2026, el
+      // inventario de botones): cerraban la invitación para siempre sin reproducir, y el día 1 quedaba visto y marcaba Offer Coach.
+      if (senal.tipo === 'marca' && senal.invita && e.target instanceof Element && e.target.closest('.mk-vmom__vel, .mk-vmom__pista, .mk-vmom__completa')) return;
       tocado = true;
       // Adónde lleva y desde dónde, ANTES de que navegue: con eso se retiene el video hasta que llega (regla 3, ./pausas.ts).
       const navega = navegaAlTocar(el), url = urlAhora();

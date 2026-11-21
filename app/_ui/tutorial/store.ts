@@ -56,14 +56,23 @@ export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m
 /**
  * EL VIDEO SIEMPRE A LA VISTA (Martín, 18/11: «si estoy viendo el tutorial y me voy a otro lugar… que aparezca la vista previa
  * chiquitita abajo a la derecha, o si scrolleo en el chat y queda muy arriba… que aparezca también ahí abajito»). Un video que
- * corría en su lugar y salió de la vista sigue aquí, desde donde iba. No pisa un tutorial en curso.
+ * corría en su lugar y salió de la vista sigue aquí, desde donde iba. No pisa un tutorial en curso. Devuelve si pasó a la esquina.
  */
-export function reproducirFlotante(clave: string, titulo: string, desde: number, alTerminar?: (m: MotivoFin) => void): void {
-  if (actual && actual.tipo !== 'video') return;
+export function reproducirFlotante(clave: string, titulo: string, desde: number, alTerminar?: (m: MotivoFin) => void): boolean {
+  if (!cedeAlFlotante(actual)) return false;
   actual = { tipo: 'video', id: ++n, clave, titulo, desde, ...(alTerminar ? { alTerminar } : {}) };
   tiempoFlotante = desde;
   avisar();
+  return true;
 }
+
+/**
+ * ¿Lo de ahora le deja el lugar a un video que pasa a la esquina? (20/11/2026, Martín: «el video se reproduce EN el chat», y pasa a la
+ * esquina cuando su mensaje sale de la vista.) La marca de una frase del video (`libre`, VideoDelMomento con `marcarFrases`) y un
+ * «dale play» (`invita`) sí: son del video, y con ellas puesto el video quedaba pausado en el chat y en ningún lado. Una tarea (la fila
+ * de Offer Coach, «Muéstrame…») o un recorrido, no: no se pisan, y el video sigue en el chat (./useVideoQueFlota.ts).
+ */
+export const cedeAlFlotante = (s: Senal | null): boolean => !s || s.tipo === 'video' || (s.tipo === 'marca' && (!!s.libre || !!s.invita));
 
 /**
  * Un solo lugar donde tocar. `alHacer` corre cuando la persona toca lo marcado. Con `listo`, la tarjeta lleva ese botón

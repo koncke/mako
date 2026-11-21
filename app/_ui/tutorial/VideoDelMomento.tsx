@@ -26,6 +26,8 @@ import { fraseEnElTiempo, type FraseVideo } from '@/lib/tutoriales/videos';
 import { useDalePlay } from './useDalePlay';
 import { usePosterDibujado } from './usePosterDibujado';
 import { cerrarDalePlay } from './entrada';
+import { pantallaCompleta } from './pantalla-completa';
+import { IconoCompleta } from './BarraDelVideo';
 
 type Estado = 'quieto' | 'reproduciendo' | 'pausado' | 'terminado';
 const VELOCIDADES = [1, 1.25, 1.5, 2] as const;
@@ -144,6 +146,10 @@ export function VideoDelMomento({ clave, titulo, revision, onTermina, onPausa, o
           <span className="mk-vmom__hecho" style={{ width: `${dur ? Math.min(100, ((terminado ? dur : t) / dur) * 100) : 0}%` }} />
         </div>
         <button type="button" className="mk-vmom__vel" onClick={cambiarVel} title="Velocidad">{vel}×</button>
+        {/* Pantalla completa (20/11/2026, el inventario de botones: no había en ningún reproductor del chat). */}
+        <button type="button" className="mk-vmom__btn mk-vmom__completa" onClick={() => pantallaCompleta(ref.current)} aria-label="Pantalla completa" title="Pantalla completa">
+          <IconoCompleta />
+        </button>
       </div>
     </div>
   );

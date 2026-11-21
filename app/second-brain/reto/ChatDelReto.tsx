@@ -33,7 +33,8 @@ import {
   HORAS_WA, RETO_HOLA, RETO_SUB, RETO_TITULO, mensajeEscrito, tareaHecha,
   type DiaReto, type EstadoDia, type EstadoReto, type MarcaReto, type TareaReto,
 } from '@/lib/reto/dias';
-import { mostrarTutorial, reproducirFlotante, senalAhora, senalarDondeTocar, useEsRevision, useSenal } from '@/app/_ui/tutorial/store';
+import { mostrarTutorial, reproducirFlotante, senalAhora, senalarDondeTocar, terminar, useEsRevision, useSenal } from '@/app/_ui/tutorial/store';
+import { useCerrarAfuera } from '@/app/copywriter/editor/cerrar-afuera';
 import { verEnSuMensaje } from '@/app/_ui/tutorial/VideosDelChat';
 import { BarraFijados } from '@/app/admin/operaciones/MensajeWA';
 import { Icon } from '@/app/_components/icons';
@@ -879,6 +880,7 @@ function VideoDelDia({ dia, onTocado, onFin, dalePlay = false }: { dia: DiaReto;
   if (v && conMarcas) {
     const ver = () => verVideoDelDia(dia, true, titulo, { alTocar: onTocado, alTerminar: onFin });
     return (
+      <>
       <div ref={raiz} className="mk-vmom rt-vlugar" data-video-lugar={dia.video} data-estado={corre ? 'reproduciendo' : 'quieto'}>
         <style>{CSS_REPRODUCTOR}</style>
         <div className="mk-vmom__pantalla" onClick={corre ? undefined : ver}>
@@ -894,6 +896,10 @@ function VideoDelDia({ dia, onTocado, onFin, dalePlay = false }: { dia: DiaReto;
           <button type="button" className="mk-vmom__vel" disabled title="Velocidad">1×</button>
         </div>
       </div>
+      {/* Con el video EN el mensaje, el motor no muestra «Omitir recorrido» entre frase y frase (sólo en la esquina): va aquí, como en
+          la llegada (20/11/2026, el inventario de botones). */}
+      {corre && senal?.tipo === 'tutorial' && <button type="button" className="rt-omitir" onClick={() => terminar(senal.id, 'omitido')}>Omitir recorrido</button>}
+      </>
     );
   }
   // Sin marcas (el día 1): el reproductor de la maqueta (V14), que sigue en la esquina si se navega y marca «dale play» (V5). La marca de
@@ -913,7 +919,7 @@ const mmss = (s?: number) => (s ? `${Math.floor(s / 60)}:${String(Math.round(s %
 
 /** El video de un día, en el desplegable (20/11, auditoría V2, D1-08 y R57-14): su título y su duración, y lo reproduce como en el
  *  chat: con sus marcas en los días que las tienen. Sin video en el manifiesto, nada (nunca un hueco). */
-function VideoEnElMenu({ dia, hoy }: { dia: DiaReto; hoy: boolean }) {
+function VideoEnElMenu({ dia, hoy, alElegir }: { dia: DiaReto; hoy: boolean; alElegir?: () => void }) {
   const v = useVideoTutorial(dia.video);
   const [visto] = useState(() => yaVisto(`video:${dia.n}`));
   if (!v) return null;
@@ -923,7 +929,8 @@ function VideoEnElMenu({ dia, hoy }: { dia: DiaReto; hoy: boolean }) {
   const titulo = tituloDelVideo(v, dia.n);
   const conMarcas = !!v.frases?.some((f) => f.sel);
   return (
-    <button type="button" className="rt-menu__video" onClick={() => verVideoDelDia(dia, conMarcas, titulo)}>
+    // Elegir un video cierra el desplegable (20/11/2026, el inventario): quedaba abierto encima del video que arrancaba.
+    <button type="button" className="rt-menu__video" onClick={() => { alElegir?.(); verVideoDelDia(dia, conMarcas, titulo); }}>
       <span className="rt-menu__play" aria-hidden>▶</span>
       <span><b>{titulo}</b><small>Video{v.duracion_s ? ` · ${mmss(v.duracion_s)}` : ''}</small></span>
     </button>
@@ -954,10 +961,14 @@ function VideoDeMuestra({ m, onPlay }: { m: MuestraReto; onPlay: () => void }) {
  */
 function PinDelReto({ dias, fijados }: { dias: readonly DiaReto[]; fijados: number }) {
   const [abierto, setAbierto] = useState(false);
+  // Se cierra tocando afuera o con Escape (20/11/2026, el inventario de botones).
+  const cajaPin = useRef<HTMLSpanElement>(null);
+  const cerrarPin = useCallback(() => setAbierto(false), []);
+  useCerrarAfuera(cajaPin, abierto, cerrarPin);
   const n = dias.length + fijados;
   if (!n) return null;
   return (
-    <span className="rt-pin">
+    <span ref={cajaPin} className="rt-pin">
       <button type="button" className="rt-btn rt-btn--ico" aria-expanded={abierto} aria-label={`Videos y mensajes fijados: ${n}`} title="Videos y mensajes fijados" onClick={() => setAbierto((x) => !x)}>
         <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden><path d="M9 4h6l-1 6 3 3v2H7v-2l3-3-1-6zM12 15v5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         <span className="rt-pin__n">{n}</span>
@@ -990,8 +1001,12 @@ export function DesplegableReto({ d, abierto, onAbrir }: { d: DatosReto; abierto
   const ver = diaAbierto ?? actual;
   const hora = d.estado?.horaWa ?? '9:00';
   const ESTADO: Record<EstadoDia, string> = { hecho: 'Listo', medias: 'A medias', hoy: 'Hoy', luego: '' };
+  // Se cierra tocando afuera o con Escape (20/11/2026, el inventario de botones).
+  const caja = useRef<HTMLDivElement>(null);
+  const cerrarMenu = useCallback(() => onAbrir(false), [onAbrir]);
+  useCerrarAfuera(caja, abierto, cerrarMenu);
   return (
-    <div className="rt-btn-wrap">
+    <div ref={caja} className="rt-btn-wrap">
       <button type="button" className="rt-btn" aria-expanded={abierto} aria-haspopup="dialog" onClick={() => onAbrir(!abierto)} data-recorrido="sb-reto">
         <svg className="rt-btn__ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
         <span className="rt-btn__txt"><b>{RETO_TITULO}</b><span className="rt-segs" aria-hidden>{d.dias.map((x, i) => <i key={i} data-e={x} />)}</span></span>
@@ -1021,7 +1036,7 @@ export function DesplegableReto({ d, abierto, onAbrir }: { d: DatosReto; abierto
                   {abre && (
                     <div className="rt-menu__cuerpo">
                       {futuro && <p className="rt-menu__luego">Su video llega {dia.n === actual + 1 ? `mañana a las ${hora}` : `ese día a las ${hora}`}. Si quieres, adelántalo al terminar el día de hoy.</p>}
-                      {!futuro && <VideoEnElMenu dia={dia} hoy={dia.n === actual} />}
+                      {!futuro && <VideoEnElMenu dia={dia} hoy={dia.n === actual} alElegir={cerrarMenu} />}
                       <p className="rt-menu__rot">Lo que te toca</p>
                       <ol className="rt-menu__tareas">
                         {dia.tareas.map((t) => {
@@ -1059,6 +1074,7 @@ export const CSS_RETO = `
 .rt-tarjeta { display: flex; flex-direction: column; gap: 8px; }
 .rt-tarjeta__t { margin: 0; font-weight: 650; font-size: var(--fs-sm); color: var(--ink); }
 .rt-vlugar .mk-vmom__pantalla { cursor: pointer; }
+.rt-omitir { align-self: flex-start; margin: 4px 0 0; padding: 2px 0; border: 0; background: none; color: var(--dim); font: inherit; font-size: var(--fs-meta); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .rt-vlugar .mk-vmom__btn:disabled, .rt-vlugar .mk-vmom__vel:disabled { opacity: .6; cursor: default; }
 .rt-tareas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .rt-tarea { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }

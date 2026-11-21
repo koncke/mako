@@ -63,7 +63,8 @@ test('4. la nota de voz que no se pudo escuchar se dice sin jerga, y sin IA como
   const jerga = /(red gratis|salteada|transcribirAudio|ninguna IA pudo|entrena con lo que recibe|cascada|provider|\bkey\b)/i;
   for (const t of [SIN_OIDO, NO_PUDE_ESCUCHAR]) assert.doesNotMatch(t, jerga, t);
   const ruta = sinComentarios(leer('app/api/plan-dictado/route.ts'));
-  assert.match(ruta, /return Response\.json\(\{ ok: false, error: errorDeDictado\(msg\) \}, \{ status: 200 \}\);/);
+  // (20/11: con los errores de las claves del negocio, para no decir «conecta la tuya» a quien tiene una; tests/nota-de-voz-con-mako.)
+  assert.match(ruta, /return Response\.json\(\{ ok: false, error: errorDeDictado\(msg, \{ delNegocio: e instanceof SttSinEscucha \? e\.errores\.length : 0 \}\) \}, \{ status: 200 \}\);/);
   assert.doesNotMatch(ruta, /No pude transcribir el audio\. \$\{msg\}/, 'el error de la cascada viajaba tal cual');
 });
 

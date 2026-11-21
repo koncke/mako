@@ -180,7 +180,8 @@ function ClienteDeAgencia({ inicial, conMercadoPago }: { inicial: PrecioClienteA
   )
 }
 
-type CampoDePagoDirecto = keyof DatosDePagoDirecto
+/** Los campos de texto (el interruptor del checkout no se edita acá: el guardado lo conserva). */
+type CampoDePagoDirecto = Exclude<keyof DatosDePagoDirecto, 'checkoutPublico'>
 const CAMPOS_PAGO_DIRECTO: ReadonlyArray<{ campo: CampoDePagoDirecto; titulo: string; ayuda?: string; modo?: 'text' | 'tel' | 'email' }> = [
   { campo: 'binancePayId', titulo: 'Binance Pay ID', ayuda: 'Va siempre debajo, con «Copiar». Con él o con el link, se ofrece pagar por Binance.' },
   { campo: 'linkBinance', titulo: 'Link de Binance Pay (tu QR de «Recibir»)', ayuda: 'El enlace https de tu QR personal de Recibir: es permanente y quien paga pone el monto. NO uses un «payment request» (vence a los 30 días). En la PC se dibuja como QR.' },
@@ -217,7 +218,9 @@ function PagoDirecto({ inicial }: { inicial: DatosDePagoDirecto }) {
   }
 
   return (
-    <SettingsGroup title="Transferencia o Binance" description="Los datos que ve quien elige pagar así en el checkout, al precio de lista. Sin ninguno cargado, la opción no se muestra. La activación la haces tú a mano.">
+    <SettingsGroup title="Transferencia o Binance" description={inicial.checkoutPublico
+      ? 'Los datos que ve quien elige pagar así en el checkout, al precio de lista. Sin ninguno cargado, la opción no se muestra. La activación la haces tú a mano.'
+      : 'Los usa MaKo para decirle a una agencia a dónde pagar su mensualidad. El checkout de /planes no ofrece esta opción: todo se cobra por la pasarela, al mismo precio.'}>
       {CAMPOS_PAGO_DIRECTO.map((c) => (
         <SettingsGroupItem key={c.campo} title={c.titulo} description={c.ayuda}>
           <Box flexDirection="column" rowGap="s" width="100%" alignItems="end">

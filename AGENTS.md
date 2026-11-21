@@ -2576,6 +2576,11 @@ Tres reglas del 17/10/2026, cada una con su guard que barre en positivo (las lis
 - **Una URL que escribe un cliente (o su agente) se baja con `fetchSeguro`** (lib/fetch-seguro.ts):
   `validarDestino` en CADA salto, IP clavada, techo de tamaño. `fetch` sigue los redirects sin mirarlos, y
   validar sólo el primero es el agujero. `tests/landing-analisis-ssrf.test.ts`.
+- **Una puerta nueva por donde entra un lead de un FORMULARIO lo califica antes de inscribirlo** (20/11/2026):
+  `aplicarCalificacion` (lib/calificacion-aplicar.ts) con la clave del formulario (`meta:<form_id>`, `form:<id>` o
+  `web:<página>`, lib/fuentes-formularios.ts), ANTES de `enrolarPorEvento`: si no, un lead que sus reglas mandan a
+  «Descalificado» recibe la secuencia de «lead nuevo». Hoy lo hacen el opt-in, el webhook y el poll de Meta, y Zernio
+  (`tests/crm-fuentes-prospeccion.test.ts`, «la calificación se aplica en las tres puertas»).
 
 # Qué cierra un plan se lee en la PUERTA, nunca en la tabla de /planes
 
@@ -2697,6 +2702,21 @@ van dos marcas en el mismo render).
   `usePosterDibujado(v?.poster)` (app/_ui/tutorial/usePosterDibujado.ts) para un `<video poster>` o un fondo, que no avisan cuándo
   cargó; o el `onLoad` de un `<img>` propio más `complete && naturalWidth > 0` (app/second-brain/LlegadaAlReto.tsx). Lo vigila
   tests/llegada-dale-play-dibujado.test.ts, que revisa cada `useDalePlay(` de esos archivos.
+- **El video de un mensaje se reproduce EN el chat** (Martín, 20/11/2026: «debería haberse reproducido directamente ahí en el chat»).
+  Un video que el motor pasa por un mensaje (`mostrarTutorial`) lleva su `lugar`: el reproductor ENTERO del mensaje (pantalla y barra,
+  marcado con `data-video-lugar`), que el motor tapa con el video mientras se ve. A la esquina sólo si el mensaje sale de la vista o se
+  cambia de pantalla, y vuelve al volver. Sin `lugar`, la esquina siempre. Con el video en el mensaje, el motor no muestra «Omitir
+  recorrido» entre paso y paso: lo pone el mensaje. Un `VideoDelMomento` que sale de la vista pasa a la esquina aunque el motor tenga
+  una marca de SUS frases o un «dale play» (`cedeAlFlotante`, store.ts). Si no puede pasar (hay una tarea o un recorrido), sigue en el
+  chat: nunca pausado y en ningún lado. tests/video-en-el-chat.test.ts.
+- **Un globo con un video tiene el ancho del video** (`:has(.mk-vmom)`, centro.css: 400 del reproductor + el padding del globo). El
+  texto se acomoda debajo; nunca un globo más ancho que su video.
+- **Todo control que la persona puede tocar tiene salida y no hace de más** (20/11/2026, el inventario de botones; la tabla en
+  docs/hallazgos-onboarding.md). Una marca del motor lleva `alOmitir` («Lo hago después» y Escape), y la X de un «dale play» que frena
+  algo avisa con `alCerrar` y lo destraba. Un menú o desplegable del chat se cierra tocando afuera y con Escape (`useCerrarAfuera`,
+  app/copywriter/editor/cerrar-afuera.ts) y al elegir algo. Tocar la velocidad, la barra o la pantalla completa de un video quieto no es
+  «verlo». Un reproductor del chat lleva pantalla completa (`pantallaCompleta`, con la vuelta del iPhone). Un control nuevo del onboarding
+  o del reto suma su fila a la tabla y su test.
 
 # Mirando un negocio como administrador, el estado del onboarding es el del DUEÑO
 
@@ -2705,6 +2725,15 @@ guarda por persona en el onboarding (empezó el V2, vio el recorrido, la barra o
 (lib/seguir-en-pc.ts), que da el dueño del negocio que se mira. Nunca con la persona de la sesión ni con un «mirando, nunca».
 **Se lee del dueño siempre; se ESCRIBE en el dueño sólo en los negocios de prueba** (`escribeComoElCliente`: ws 3 y ws 9). En cualquier
 otro cliente, lo que hace el administrador no toca el perfil del cliente (la D7, docs/diseno-curso-skool.md).
+
+# Las herramientas de la revisión nunca le aparecen a un cliente
+
+«Ir a un paso» (el desplegable de la barra del administrador) y las respuestas de ejemplo del onboarding V2 (20/11/2026, Martín: «como en
+el artefacto») se ven SÓLO con `puedeVerLaRevision` (lib/onboarding-v2/saltar.ts): alguien de MaKo (`getSesionAdmin`) en un negocio de
+PRUEBA (`WS_PRUEBA_COMO_CLIENTE`: el 3 y el 9; nunca el 11 de Leila, que es una clienta). La puerta va en el SERVER: la ruta
+(/api/admin/saltar-onboarding, en GET y en POST, con el negocio que dice el server) y la página que pasa `ejemplos`. La pantalla no
+decide nada: sin el sí del server no dibuja. Una herramienta de revisión nueva usa la misma puerta. Un paso nuevo del onboarding o del
+reto se suma a `PASOS_DE_REVISION` con su estado, y lo mira la máquina de verdad en tests/revision-saltar-y-ejemplos.test.ts.
 
 # Algo nuevo que guarde estado del onboarding o del reto se suma a «Reiniciar onboarding»
 
@@ -6467,7 +6496,12 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts). **Y el audio:** `transcribirAudio` (lib/ai-cheap.ts)
   tiene `pii` en false por defecto, así que toda nota de voz de una persona del negocio o de un lead la lleva en `true`
-  (22/10/2026: la del chat del Ops Center salió sin él; docs/hallazgos-ia.md, la entrada de IA7).
+  (22/10/2026: la del chat del Ops Center salió sin él; docs/hallazgos-ia.md, la entrada de IA7). **Y con `pii`, sin NINGUNA
+  clave del negocio, la escucha el Whisper de MaKo** (con una suya, SÓLO la suya, aunque falle: nunca el de MaKo además; el Groq de
+  la plataforma, que no entrena; `escuchaElDeMaKoAlFinal`,
+  lib/nota-de-voz-de-mako.ts) y la paga el cupo de MaKo Tokens (20/11/2026: «el usuario debería poder enviar audios
+  independientemente de si tiene la IA conectada»). Nunca con D6b. «Necesito una IA conectada» (SIN_OIDO) es sólo para cuando no
+  hubo ni ésa: los errores del Whisper de MaKo van con `MARCA_EL_DE_MAKO`.
 - ⛔ **D6b: UN NEGOCIO CON SU CLAUDE O SU GPT NO MANDA NADA A GEMINI NI A UNA IA O RED GRATIS** (Martín, 21/10/2026). Un
   camino del Ops Center que llama a una IA corre adentro de `conSoloSuIA(negocio.suIA, …)` (lib/solo-su-ia.ts; el turno,
   con `entrarSoloSuIA` después de su primer `await`), con `negocioConSuIA` (lib/ia-del-negocio.ts): por NEGOCIO y
@@ -7400,7 +7434,11 @@ Escape de la casa viven en `document` y en captura, y `stopPropagation` frena la
 propagación a otros NODOS, nunca a los listeners hermanos del mismo. Medido el 27/09/2026
 en el selector de portada: una tecla cerraba el panel **y la ficha del cliente**, o sea que
 perdías el cliente por cerrar un selector. El de arriba de todo frena con
-`stopImmediatePropagation()`.
+`stopImmediatePropagation()`. **Y escucha en la captura de `window`, no en la de `document`**
+(21/11/2026): `stopImmediatePropagation` sólo frena a los que se registraron DESPUÉS en el
+mismo nodo, y lo que se abre encima se registra después del modal que ya estaba. Así un
+Escape para cerrar un desplegable cerraba el modal de «Asignar fuentes» con la regla a medio
+armar (tests/desplegable-escape-en-modal.test.ts).
 
 ⚠️ **Y UN EFECTO QUE MIDE UN NODO MONTADO POR UN PORTAL DEPENDE DEL ESTADO QUE MONTA EL
 PORTAL.** El patrón `const [montado, setMontado] = useState(false)` + `if (!montado) return
@@ -8917,6 +8955,15 @@ condiciones para que no mienta:
 
 ⚠️ **Y un «Cargando…» escrito no es un loader.** Un texto no dice que algo está pasando: dice
 que algo dice que está pasando. Va el giro, siempre.
+
+⚠️ **UNA ESCRITURA QUE TIENE QUE SENTIRSE EN EL ACTO NO HACE FILA DETRÁS DE LAS LECTURAS.**
+(21/11/2026) «Mandar a la papelera» en la ficha de un lead «no reaccionaba al primer clic»: el
+clic sí entraba, pero la server action esperaba detrás de las que la ficha manda al abrir
+(medido: cinco en serie en sus primeros 9 s) y el cartel ya se había cerrado. Si la pantalla
+tiene lecturas por server action en vuelo, la escritura va por una RUTA (`fetch`, en paralelo;
+`router.push` después, que en la fila de Next pasa adelante) — `app/api/crm/papelera/route.ts`.
+Y **un cartel de confirmación se cierra cuando la acción TERMINÓ, no cuando empezó**: abierto
+y con su `loading` mientras trabaja (tests/papelera-ficha-primer-toque.test.ts).
 
 # Un SQL escrito en un documento ES código, y se audita igual
 
@@ -12758,7 +12805,8 @@ Lo fija tests/binance-sin-captura.test.ts.
 Y la cuenta se lee SIEMPRE con `pagosRecibidosEnBinance` (lib/binance-pay.ts), nunca con un fetch propio a Binance: el proyecto corre en
 `pdx1` y desde EE. UU. Binance contesta 451; ese lector va por la ruta de São Paulo (/api/cron/binance-pagos, `gru1`) cuando hace falta.
 Esa ruta es la ÚNICA función fuera de pdx1 (tests/region-funciones.test.ts, `EXCEPCIONES`): no le sumes nada que consulte la base, y
-una función nueva en otra región es una excepción NUEVA, escrita con su porqué, nunca una región puesta por su cuenta.
+una función nueva en otra región es una excepción NUEVA, escrita con su porqué, nunca una región puesta por su cuenta. La región de UNA
+función va en vercel.json (`functions[<ruta>].regions`): Vercel ignoró `export const preferredRegion` (21/11, la ruta siguió en pdx1).
 Lo fija tests/binance-pay-region.test.ts.
 
 ## Lo que se le paga a MaKo lo contesta el código; una foto con una pregunta no es un comprobante (20/11/2026)
@@ -12768,3 +12816,6 @@ Lo fija tests/binance-pay-region.test.ts.
   tests/agencia-pago-consulta.test.ts (y uno que NO, del CRM).
 - Todo lector de comprobantes recibe el TEXTO que vino con la foto (`pie`). Una pregunta sin N.º de operación es una pregunta (`esPreguntaYNoPago`),
   no un pago: va al turno, sin «Recibí tu comprobante» ni aviso a Martín. Detalle: docs/hallazgos-agencias.md.
+- **Tener los datos de cobro no es ofrecerlos** (20/11/2026): /planes y el pedido preguntan `mediosDelCheckout` / `medioDirectoQueVale`
+  (lib/pago-directo-reglas.ts, interruptor `checkoutPublico`, apagado), nunca `mediosDisponibles`. Un campo nuevo en un ajuste que el editor
+  no manda se conserva al guardar (`guardarDatosDePagoDirecto`). El precio es el mismo por cualquier medio: nada de descuento ni recargo.

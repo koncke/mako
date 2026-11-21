@@ -242,7 +242,7 @@ test('«¿Qué hacemos ahora?»: lo elegido en el onboarding, con su «Muéstram
 test('el desplegable del reto: «El reto de 7 días de MaKo», el video de cada día abierto, el ícono y la flecha (20/11, V2, D1-17, R57-F6)', () => {
   const chat = fuente('../app/second-brain/reto/ChatDelReto.tsx');
   assert.ok(chat.includes("const RETO_TITULO_DESPLEGABLE = 'El reto de 7 días de MaKo';") && chat.includes('{RETO_TITULO_DESPLEGABLE}</p>'), 'el título de la maqueta');
-  assert.ok(chat.includes('{!futuro && <VideoEnElMenu dia={dia} hoy={dia.n === actual} />}'), 'cada día abierto o hecho, con su video');
+  assert.ok(chat.includes('{!futuro && <VideoEnElMenu dia={dia} hoy={dia.n === actual} alElegir={cerrarMenu} />}'), 'cada día abierto o hecho, con su video');
   assert.ok(chat.includes('adelántalo al terminar el día de hoy'), 'el texto de la maqueta');
   assert.ok(chat.includes('className="rt-btn__ico"') && chat.includes('className="rt-btn__flecha"'), 'el ícono de la lista y la flecha');
 });
@@ -732,7 +732,7 @@ test('verificación 20/11: lo visto se recuerda por día; el desplegable, el pin
   assert.ok(chat.includes('const [nuevo] = useState(() => !yaVisto(`entrada:${dia.n}`));'), 'la entrada, la primera vez');
   assert.ok(chat.includes('activo: dalePlay && conMarcas && !visto'), 'el «dale play», mientras no se vio');
   assert.ok(chat.includes("if (hoy && !visto) return <p className=\"rt-menu__luego\">Su video sale cuando lo abres.</p>;"));
-  assert.ok(chat.includes('onClick={() => verVideoDelDia(dia, conMarcas, titulo)}'), 'el del día 1, sin la cadena de marcas');
+  assert.ok(chat.includes('onClick={() => { alElegir?.(); verVideoDelDia(dia, conMarcas, titulo); }}'), 'el del día 1, sin la cadena de marcas');
   assert.ok(chat.includes("actual === 7 && diaTerminado(d.estado, diasDelReto(d.funnel, d.integraciones)[6])) ? 'Completo'"), '«Completo» al cerrar el día 7');
   assert.ok(chat.includes('<svg className="rt-menu__flecha"') && chat.includes('<PinDelReto dias='), 'la flecha de cada fila y el pin');
   assert.ok(chat.includes('const quienMako = useMemo(() => ({ nombre: RETO_TITULO, aspecto: ASPECTO_RETO }), []);'), '«Escribe a Reto de 7 días», con el avatar del reto');
