@@ -1029,6 +1029,12 @@ elegido en otra lámina, el filtro lo escondía.
   audio) en `comentarios` con `seccion: "angulos"`, `pieza: "angulos"` y `refiere_a: "Pregunta N"`. Debajo de cada
   pregunta se ven las respuestas con su estado, y lo que llega de la base se pinta sin borrar lo que se está escribiendo.
 
+**Reels y Carruseles en una sola grilla** (21/11, Martín: «no quiero textos innecesarios»). Sin títulos de sección. Lo
+que entra desde Spy va primero (lo más nuevo arriba), con el sello «En preparación», y después lo terminado. En la tarjeta
+el grande es NUESTRO reel o nuestra portada, y la referencia va en la miniatura; mientras no hay versión nuestra, el
+grande es la referencia. Formatos va al final, plegado detrás de «Formatos ▸». Viene: Ángulos pasa a llamarse
+«Tendencias», con datos por sector (no tocarla hasta que lleguen).
+
 **El reel para mentores high ticket (los pistachos) está en «Reels terminados»** (21/11). No viene de la galería de
 animaciones: va a mano en `armar-cm.mjs` (`reels.push`).
 - **Cuál es la versión vigente:** `montaje/REEL-v-hormozi-palma.mp4` (37,8 s, con el clip de Hormozi aprobado). El relevo
