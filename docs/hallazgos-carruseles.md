@@ -55,6 +55,22 @@ Flow. Va por ApiMart, con la clave de la plataforma y medido en MaKo Tokens (la 
 - Lo que la referencia trae adentro (las miniaturas de otros creadores en «9 YouTube courses») queda: para cambiarlo, otro paso.
 - `esDelMarco` reconoce ahora «01 of 11», «3 de 7» y «Oct ©2026»: sin eso el contador recibía un renglón del copy.
 
+**Corregir una lámina YA hecha: una frase sobre ella (21/11/2026, los cinco de Martín).** Lo que no salió idéntico se arregló
+lámina por lámina, con la lámina hecha de base y UNA frase (y UNA referencia si hace falta: su personaje en cubos, o la lámina
+original para copiar un sello): 40 s y 47 MaKo Tokens cada una. Lo que funcionó y lo que no:
+- ✅ Cambiar al personaje («Replace the pixel-art man… with the cube character from the second image, in the same pose»), un logo,
+  un @, un sello: sale al primer intento y el resto de la lámina queda igual.
+- ✅ **Si el texto quedó en el lugar equivocado, se regenera desde la REFERENCIA** con todos los pares «X → Y» en su lugar, no desde
+  la lámina mal hecha: Copiar 2–6 y Caballo 2–6 salieron con el diseño exacto.
+- ⚠️ «Cambia 'Grok Bot' por 'MaKo' y saca el «MaKo» de la izquierda» dio **«Grok MaKo»**: se pide el texto FINAL («to just 'MaKo'»).
+- ⚠️ «'lista' en itálica» dio **asteriscos literales** («*lista*»): la itálica se pide «like the first word now», sin marcar nada.
+- ⚠️ Pedir que cambien sólo los dos textitos de arriba de una lámina de CTA reemplazó también el CTA grande (Copiar 9): hay que
+  NOMBRAR lo que tiene que quedar.
+- ⚠️ **El @ y la marca del creador original quedan si el copy no los nombra** (@albert.olgaard en la 2 de Equipo, @ramiro.cubria,
+  «textura.agency»): el copy para regenerar lleva también el encabezado y el pie.
+- `.q/corregir.mts` del worktree de carruseles fue la herramienta (no está en el repo): cobra con `cobrarMediosMt` igual que el
+  motor. **Sin hacer:** «corregir esta lámina con una frase» dentro de MaKo, desde el editor.
+
 ## La llamada con Leila (20/11/2026): el copy pegado se inventaba, las láminas agregadas salían «en blanco» y las fotos se repetían
 
 **El síntoma** (Fathom 205366178, 00:49:31–00:53:42): «le pegué el copy que quería… y las que salen del máximo que tenía el
