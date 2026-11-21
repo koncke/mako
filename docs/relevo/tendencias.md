@@ -66,3 +66,14 @@ que rehace el chat de Content Machine (local_fc754a71-87b7-4a34-8133-0307a31abe1
 - Ajustes del método después del piloto: cada pieza aporta como mucho 5× la mediana de comentarios de su cuenta (un regalo con
   15.000 comentarios decidía solo); el ritmo de comentarios es null (no 0) sin 2 piezas maduras por ventana; con menos de 6
   piezas o un solo referente el tema va a `pocasSenales`.
+
+## El pedido al chat Spy (se manda con el OK del Cerebro a la lista)
+
+- Lista: `C:/dev/tendencias/referentes.json`, los de `datos: "bajar"` (65 Instagram, 36 YouTube).
+- Sólo lo liviano de los últimos 90 días (desde el 23/08/2026): `yt-dlp --skip-download --write-info-json --write-comments` por
+  pieza. En Instagram, la lista desde el Chrome de Martín, sólo leyendo: pestaña Reels (con las vistas del enlace) más la grilla
+  (carruseles). En YouTube, `/videos` y `/shorts` con `--dateafter 20260823`.
+- Dónde: `C:/dev/tendencias/<usuario de Instagram>/<id>.info.json` y `vistas.json` (`{"<código>": vistas}` de la lista). Los que
+  no tienen Instagram, en `C:/dev/tendencias/<clave>/`. `armar-piezas.mjs` ya lee ese formato.
+- Orden: primero los sectores sin datos (IA, Low ticket, YouTube, Anuncios, Closing), después el resto. Un proceso a la vez.
+- Después, la transcripción sólo de las piezas con más comentarios de cada tema (la lista la doy yo con `tabla.json`).
