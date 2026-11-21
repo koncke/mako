@@ -64,7 +64,8 @@ const enLaBarra = (ruta: string, nombre: string, texto: string): MarcaReto => ({
 export const RETO_TITULO = 'Reto de 7 días';
 /** Martín, 18/11, textual. */
 export const RETO_SUB = 'Cada día un video para que avances con tu negocio. Puedes adelantar días cuando quieras.';
-export const RETO_HOLA = (nombre: string) => `¡Hola${nombre ? `, ${nombre}` : ''}! Éste es tu reto de 7 días. ${RETO_SUB}`;
+/** Sin otro saludo (21/11, Martín: «no quiero que le salude de vuelta, ya le saludó como 5 veces»): lo saludó la llegada. «Este», sin tilde. */
+export const RETO_HOLA = (_nombre: string) => `Este es tu reto de 7 días. ${RETO_SUB}`;
 
 /** «En X › Y»: la ruta va aparte para que empiece por la tab de la barra (tests/mako-nombres-de-tabs.test.ts). */
 const en = (ruta: string): string => `En ${ruta}`;

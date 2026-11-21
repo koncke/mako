@@ -403,6 +403,35 @@ const ESCENARIOS = {
     await ctx.close();
   },
 
+  // ── El recuadro sobre un video con el chat scrolleado (producción, 21/11) ──
+  async recuadro() {
+    const { pg, ctx, errores } = await pagina('recuadro');
+    await pg.waitForSelector('#objetivo-video');
+    // El video, a medias debajo de la cabecera PERO dentro de la ventana (como en producción: la ventana sola no lo detecta).
+    await pg.evaluate(() => { document.querySelector('[data-banco="hilo"]').scrollTop = 640; });
+    await pg.evaluate(() => window.__banco.tutorial());
+    await pg.waitForSelector('.mk-rec__hueco', { timeout: 8000 }).catch(() => {});
+    await esperar(1200);
+    const caja = (s) => pg.evaluate((q) => { const r = document.querySelector(q)?.getBoundingClientRect(); return r ? { x: r.left, y: r.top, b: r.bottom, r: r.right } : null; }, s);
+    const [h, t, hilo] = [await caja('.mk-rec__hueco'), await caja('#objetivo-video'), await caja('[data-banco="hilo"]')];
+    chequear('recuadro', 'hay recuadro', !!h);
+    if (h && t && hilo) {
+      chequear('recuadro', 'el video tapado se lleva a la vista antes de marcarlo', t.y >= hilo.y - 1 && t.b <= hilo.b + 1, JSON.stringify({ t, hilo }));
+      chequear('recuadro', 'el recuadro coincide con el video (con su aire)', Math.abs(h.y - (t.y - 6)) < 4 && Math.abs(h.b - (t.b + 6)) < 4 && Math.abs(h.x - (t.x - 6)) < 4, JSON.stringify({ h, t }));
+      chequear('recuadro', 'nunca sobre la cabecera', h.y >= hilo.y - 7, JSON.stringify({ h, hilo }));
+      await pg.screenshot({ path: path.join(CAPT, 'recuadro-1.png') });
+      // El chat se mueve: el recuadro sigue al video, y lo que queda debajo de la cabecera no se marca.
+      await pg.evaluate(() => { document.querySelector('[data-banco="hilo"]').scrollTop += 150; });
+      await esperar(500);
+      const [h2, t2] = [await caja('.mk-rec__hueco'), await caja('#objetivo-video')];
+      chequear('recuadro', 'al hacer scroll el recuadro sigue al video', !!h2 && Math.abs(h2.b - (t2.b + 6)) < 4, JSON.stringify({ h2, t2 }));
+      chequear('recuadro', 'y lo tapado por la cabecera queda afuera del recuadro', !!h2 && h2.y >= hilo.y - 7, JSON.stringify({ h2, hilo }));
+      await pg.screenshot({ path: path.join(CAPT, 'recuadro-2.png') });
+    }
+    chequear('recuadro', 'sin errores en la página', errores.length === 0, errores.slice(0, 3).join(' | '));
+    await ctx.close();
+  },
+
   // ── Un paso que pide clic no tiene «Siguiente» ──
   async marca() {
     const { pg, ctx, errores } = await pagina('marca');

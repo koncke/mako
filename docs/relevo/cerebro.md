@@ -1,6 +1,18 @@
 # Relevo del Cerebro
 
 
+## 21/11/2026 ~08:45 UTC — LEER PRIMERO (claude5 al 94 %)
+
+**La PC se apagó por CALOR a las 07:27 UTC** (Kernel-Power 41, código 0; muchos procesos de video a la vez). Regla: UN proceso pesado a la vez en
+toda la PC (memoria pc-se-apaga-por-calor). Después del apagón: Runner despertado, vigía y cron del chequeo de las 11:05 rearmados (los crons de
+sesión mueren con la app: si esta sesión se reinicia, volver a crear el de las 11:17 UTC que recorre el onboarding).
+**Content Machine** (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz; memoria solo-content-machine; a Martín SÓLO este link): tabs Spy ·
+Reels · Carruseles. La publica SÓLO avatar-ia-videos (local_fc754a71…); Spy lee la colección `spy` de la base, que llena el chat
+**spy-competencia** (local_557794c1…), con el contrato en docs/hallazgos-contenido.md. 503 piezas: Rama, Heras Media, Víctor, Hormozi, Carrizo,
+Doglio y Collado; bajando @dakota.hermes (357 reels + 58 carruseles). Después: lo que falta de Rama, Heras Media, Víctor y Hormozi, y la
+biblioteca de MaKo (portadas de 893 + láminas de 150). Julián Alborna sin usuario. Las imágenes de «nuestra versión» por ApiMart siguen FRENADAS
+hasta que Martín se lo autorice EN ese chat. «Hacer mi versión» escribe en la cola `produccion`.
+
 ## 21/11/2026 ~05:45 UTC — LEER PRIMERO (cuenta claude5, semanal al 91 %; reinicia el 24/11 17:59 UTC)
 
 **Deploy hecho a pedido de Martín** («despliega en producción… todo en un solo deploy»): `f37c3439c`, READY 05:24 UTC. El cron de

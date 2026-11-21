@@ -26,6 +26,8 @@
 //  13. con «Slide N», un «01/05» suelto es texto (el sello del diseño), no una marca; y un renglón igual a un texto fijo de la
 //      lámina (el sello, el @) es ése: no corre los de abajo un lugar (21/11/2026, «Páginas que venden» de Martín: el sello salió
 //      «04 / 09», «Hormozi» cayó donde iba «página» y «POR QUÉ VENDE» en el titular). Uno con otro valor («02/05») cambia el sello.
+//  14. sólo es fijo lo que no cambió: un renglón del copy que la IA puso de «original» en la firma ya no se pierde (21/11, la
+//      firma de Leila en la última lámina desaparecía y quedaba el nombre del negocio).
 //
 // Correr: node --import tsx --test tests/carruseles-copy-pegado.test.ts
 
@@ -360,4 +362,18 @@ test('13 · el sello «01/05» del copy no es una marca de lámina ni corre los 
     'el «01/05» corrió los renglones un lugar');
   // La lámina 3 usa el mismo diseño: su «02/05» va al sello, que cambia.
   assert.deepEqual(repartirEnLosTextos(partes[2], lugares, { noRecibe, fijos }), ['02/05', 'página', 'DotCom Secrets', 'POR QUÉ VENDE']);
+});
+
+test('14 · un renglón del copy que la IA puso de «original» en la firma no se pierde (sólo es fijo lo que no cambió)', () => {
+  // La última lámina del copy de Leila en ws 9 (21/11/2026): la IA puso su firma en el «original» del texto de la firma, la marca
+  // la cambió por el nombre del negocio, y el reparto creía que el renglón ya estaba: «Leila Fittipaldi · MetaCoach…» desaparecía.
+  const T = (rol: string, texto: string, y: number, original?: string) => ({ rol, texto, x: 0.1, y, tamano: 40, mayus: false, original });
+  const r = { laminas: [{ textos: [T('titulo', 'The lesson.', 0.3, 'The lesson.'), T('cuerpo', 'Remove the variables.', 0.4, 'Remove the variables.'), T('firma', 'Martin Koncke', 0.9, 'Leila Fittipaldi · MetaCoach · La Academia del Coach')] }] };
+  const parte = { lineas: ['Leila Fittipaldi · MetaCoach · La Academia del Coach', 'Un negocio sano se construye con acción constante, no con desesperación.'], abajo: null };
+  const textos = conElCopy(r, [parte], { alto: 1350, ancho: 1080 }).replica.laminas[0].textos.map((t) => t.texto);
+  assert.ok(textos.includes('Leila Fittipaldi · MetaCoach · La Academia del Coach'), `se perdió la firma de Leila: ${JSON.stringify(textos)}`);
+  assert.ok(textos.includes('Martin Koncke'), 'la firma del negocio queda como estaba');
+  // Y el sello que no cambió sigue siendo fijo (test 13).
+  const s = { laminas: [{ textos: [T('rotulo', '01/05', 0.09, '01/05'), T('titulo', 'Auralis', 0.14, 'Auralis')] }] };
+  assert.deepEqual(conElCopy(s, [{ lineas: ['01/05', 'Hormozi'], abajo: null }], { alto: 1350, ancho: 1080 }).replica.laminas[0].textos.map((t) => t.texto), ['01/05', 'Hormozi']);
 });
