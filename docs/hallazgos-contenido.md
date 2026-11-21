@@ -698,6 +698,26 @@ avatar de IA».
 - **El N× es uno solo para todas las tarjetas:** contra la mediana de los 6 reels maduros más cercanos en fecha de la misma cuenta,
   con las reproducciones de la grilla del día (`armar-ampliados.mjs`).
 
+### Content Machine: una página para todo el contenido (21/11/2026)
+
+- **El mismo link pasó a ser «Content Machine»**, con tres pestañas: Avatar IA, Animaciones y Carruseles. Las tres usan el mismo patrón:
+  galería donde manda la referencia, comparación referencia | nuestra versión y la decisión fija abajo. El armado está en
+  `C:/dev/referentes-videos/artefacto/content-machine/armar-cm.mjs`.
+- **Los archivos de otro artefacto se copian del lado del servidor:** `files: {"<ruta nuestra>": {artifact, path}}`, sin bajar nada.
+  Así entran los 7 reels terminados de la galería de animaciones y las 170 láminas de los carruseles. Si el otro chat rehace una
+  lámina, hay que volver a copiarla: la copia no se actualiza sola.
+- **Los topes que mandan:**
+  - Un publish admite 64 MB y 255 archivos.
+  - Una versión admite 256 MB y 511 archivos.
+  - El 21/11 quedaron unos 456 archivos y unos 220 MB.
+  - Los 91 formatos de animación se muestran con su póster y se abren en la galería: embebidos son más de 300 archivos.
+  - Antes de sumar más reels hay que liberar lugar: recortes de 25 s o los pósteres de formatos en el almacén de archivos aparte.
+- **Los 7 reels terminados son los de `mp4/para-ig` de la galería.** Su referencia en video sale del texto `origen` de cada uno: un
+  Short de YouTube o un reel de Instagram, bajados con `yt-dlp`. Para YouTube, el formato es `bv*+ba/b` con `merge_output_format`
+  mp4; `b[ext=mp4]` falla porque YouTube separa audio y video. Dos de ellos sólo tienen imagen de referencia.
+- **Lo que se marca:** Avatar IA guarda en `votos` («si» / «no»). Los reels terminados y los carruseles guardan en `revision`
+  («aprobado» / «cambiar» y una nota), un documento por pieza: `anim-<id>` o `carr-<id>`.
+
 ### Lo que quedó sin hacer (serie con avatar de IA)
 
 - **Las 20 imágenes de nuestra versión.** Ya están listos los fotogramas (`pub/cuadro/`), una frase por tema y el script

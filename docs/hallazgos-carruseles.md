@@ -61,6 +61,22 @@ Flow. Va por ApiMart, con la clave de la plataforma y medido en MaKo Tokens (la 
 - Lo que la referencia trae adentro (las miniaturas de otros creadores en «9 YouTube courses») queda: para cambiarlo, otro paso.
 - `esDelMarco` reconoce ahora «01 of 11», «3 de 7» y «Oct ©2026»: sin eso el contador recibía un renglón del copy.
 
+**«Si tapo el texto, ¿la imagen cuenta lo mismo?» (21/11/2026, segunda vuelta de los cinco).** Martín: «salieron mal en lo que
+SIGNIFICAN, aunque el diseño esté bien… quiero que tengas criterio». **El diagnóstico obvio era el equivocado**: no faltaban
+arreglos puntuales (firmas, tildes); faltaba que lo que se VE fuera nuestro. Las láminas decían «página Hormozi» sobre la web de
+Auralis, «lista o tips» sobre tablas de corte, «Marketing · inspirado en Vilma» sobre la miniatura de un desconocido.
+- Antes de generar: por qué funciona la referencia (2–3 líneas), el guion lámina por lámina adaptado a MaKo y un CTA que dé algo
+  real. Van en el artefacto al lado de cada carrusel.
+- Lo visual ajeno se cambia por lo nuestro con UNA referencia por lámina: la pantalla real del agente, la página de la que habla
+  el texto, los íconos de las herramientas que nombra (una fila de íconos armada con sharp sirve de referencia), portadas de
+  carrusel del tipo que se nombra. 40 s y 47 MaKo Tokens cada una; salió al primer intento en casi todas.
+- **Dónde están las imágenes reales de MaKo:** C:/dev/carruseles-ventas/*/img (de los HTML del 19/11: Spy, Copywriting, Video,
+  Image, CRM, Ops Center, Web Generator, Offer, Second Brain, Automations, los íconos de las apps), y las páginas de «Copiar» son
+  de «Encuentra tu siguiente OUTLIER», la galería del Web Generator (lib/landing-outliers-capturas.json).
+- ⚠️ «La misma pose y la misma acción» choca con «la imagen cuenta el texto» cuando la acción del original es de OTRO tema (los
+  prismáticos del «Scout», la alfombra roja del onboarding): gana el texto. La pose y el lugar quedan; la acción cuenta lo nuestro.
+- ⚠️ El Ops Center es la pantalla del super admin (/admin/operaciones): no es un agente para mostrarle a un cliente.
+
 **Corregir una lámina YA hecha: una frase sobre ella (21/11/2026, los cinco de Martín).** Lo que no salió idéntico se arregló
 lámina por lámina, con la lámina hecha de base y UNA frase (y UNA referencia si hace falta: su personaje en cubos, o la lámina
 original para copiar un sello): 40 s y 47 MaKo Tokens cada una. Lo que funcionó y lo que no:
