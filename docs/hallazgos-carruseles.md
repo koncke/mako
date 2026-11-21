@@ -51,8 +51,10 @@ Flow. Va por ApiMart, con la clave de la plataforma y medido en MaKo Tokens (la 
   pudo leer se dice (`avisoDeLaminasSinLeer`, «mírala antes de publicar»). Test 8 de tests/carruseles-regenerar.test.ts.
 - ⚠️ La revisión mira que cada texto ESTÉ, no DÓNDE: en el del caballo, «1 lista o tips» quedó en el encabezado y el título dice
   «Oct / Graphic Design», y pasó la revisión.
-- Los cinco de Martín, lado a lado: https://claude.ai/artifact/VSm2NYaJj1UovnvzpMPhiY (ws 9: 17c8dae2, e95791ee, 09d8c7d4,
-  0f2e2173, 445db85e). Hormozi y Ramiro salieron casi idénticos; equipo y copiar, con láminas avisadas.
+- Los once de Martín, lado a lado: https://claude.ai/artifact/VSm2NYaJj1UovnvzpMPhiY (ws 9: 17c8dae2, e95791ee, 09d8c7d4,
+  0f2e2173, 445db85e; y 301679fc, 0c0729b1, 4ca17ba2, db277d06, 0c581377, 2dc4b203). Ninguno salió idéntico de una: todos
+  necesitaron de 2 a 9 correcciones por lámina (abajo). Lo que el motor todavía no cambia: lo que la referencia trae ADENTRO
+  (capturas de Claude, logos de otras apps) y las herramientas de una lista («Claude, ChatGPT» quedaba en «VENTAS»).
 - ⚠️ El texto queda DENTRO de la imagen (como en la referencia): ya no se edita con el editor. Fue la decisión del 21/11.
 - ⚠️ El copy decide qué va en cada lugar: con dos renglones para una lámina de tres textos, el primero cayó en la miniatura en una
   lámina y en el título en otra. Un copy para regenerar va con un renglón por cada texto de la referencia.
