@@ -2,13 +2,14 @@
 // /api/admin/mako-grupo — crear / refrescar / adoptar el grupo de un cliente
 // =============================================================================
 // Solo admin. GET ?ws=N → estado (JID guardado). POST { ws, action } donde
-// action = 'asegurar' (crea o refresca marca) | 'adoptar' (registra un JID ya
+// action = 'asegurar' (refresca la marca; desde el 20/11/2026 ya NO crea: MaKo no crea grupos nuevos) | 'adoptar' (registra un JID ya
 // existente y le pone la marca). El nombre del grupo sale del workspace.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import { getWorkspace } from '@/lib/workspace';
 import { asegurarGrupoMaKo, getGrupoJidMaKo } from '@/lib/mako-grupo';
+import { SIN_GRUPOS_NUEVOS } from '@/lib/altas-en-grupos';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,5 +37,6 @@ export async function POST(req: NextRequest) {
     participantes: Array.isArray(body.participantes) ? body.participantes : undefined,
     adoptarJid: body.action === 'adoptar' ? body.jid : undefined,
   });
-  return NextResponse.json(r, { status: r.ok ? 200 : 500 });
+  // «Asegurar» un negocio sin grupo ya no lo crea (20/11/2026): 409 con el aviso. Adoptar un grupo que ya existe sigue andando.
+  return NextResponse.json(r, { status: r.ok ? 200 : !r.ok && r.error === SIN_GRUPOS_NUEVOS ? 409 : 500 });
 }
