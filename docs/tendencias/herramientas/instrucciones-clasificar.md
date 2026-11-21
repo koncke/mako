@@ -24,3 +24,6 @@ Reglas (son las que hicieron coincidir a dos lectores a ciegas en 47 de 48 pieza
 Salida: un JSON objeto `{ "<k>": {"s": "...", "t": "...", "s2"?: "...", "t2"?: "...", "cta"?: "..."} }` con TODAS las piezas del lote,
 escrito en `C:/dev/tendencias/clasif/<mismo nombre del lote>`. Valida antes de terminar: que el JSON parsee con node, que tenga
 tantas claves como piezas el lote y que cada `t` exista en temas.json para su sector (o empiece con "nuevo:", o s = "fuera").
+
+**Lotes históricos (`hist-NN`):** cada pieza trae además `fecha`. Se clasifican igual; sirven para saber desde cuándo existe cada
+tema. Usa los temas de temas.json (ya incluyen los que propusieron los lotes anteriores) antes de proponer un «nuevo:».

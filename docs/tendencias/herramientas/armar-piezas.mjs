@@ -14,9 +14,13 @@ const vistos = new Set();
 const fecha = (s) => (s || '').slice(0, 10);
 const ymd = (s) => (s && /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : fecha(s));
 const ctaDe = (t) => {
-  const m = (t || '').match(/coment(?:a|á|ame|ar|en)\s+(?:la palabra\s+)?[«"“']?([A-ZÁÉÍÓÚÑ0-9]{2,}(?:\s[A-ZÁÉÍÓÚÑ0-9]{2,})?)/) ||
-    (t || '').match(/\bcomment\s+[«"“']?([A-Z0-9]{2,})/) || (t || '').match(/\b(?:escrib[ei]|envi[aá]me|m[aá]ndame)\s+(?:la palabra\s+)?[«"“']?([A-ZÁÉÍÓÚÑ0-9]{3,})/);
-  return m ? m[1].trim() : null;
+  // La palabra va en MAYÚSCULAS; el verbo, con o sin mayúscula («Comentá “SISTEMA”», «comenta CLASE», «Comment GUIDE»).
+  const s = t || '';
+  const m = s.match(/\b[Cc]oment(?:a|á|ame|ar|en|e|ad)(?![a-záéíóú])[^A-ZÁÉÍÓÚÑ0-9\n]{0,22}?([A-ZÁÉÍÓÚÑ0-9]{2,}(?: [A-ZÁÉÍÓÚÑ0-9]{2,})?)(?![a-záéíóúñ])/) ||
+    s.match(/\b[Cc]omment(?![a-z])[^A-Z0-9\n]{0,12}?([A-Z0-9]{2,})(?![a-z])/) ||
+    s.match(/\b(?:[Ee]scrib[ei](?:me)?|[Ee]nv[ií]a(?:me)?|[Mm]and[aá](?:me)?)(?![a-záéíóú])[^A-ZÁÉÍÓÚÑ0-9\n]{0,22}?([A-ZÁÉÍÓÚÑ0-9]{3,})(?![a-záéíóúñ])/);
+  const w = m ? m[1].trim() : null;
+  return w && !/^(DM|IG|MD|YO|LA|EL|UN|USD|IA)$/.test(w) ? w : null;
 };
 const meter = (p) => { const k = `${p.red}:${p.id}`; if (vistos.has(k)) return; vistos.add(k); out.push(p); };
 

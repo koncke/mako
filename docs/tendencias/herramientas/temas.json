@@ -9,7 +9,10 @@
     "marca-personal-autoridad": "posicionamiento, autoridad, te eligen por cómo comunicas; speaker",
     "pocos-seguidores": "vender con pocos seguidores o un nicho chico",
     "frecuencia-y-mitos": "cuánto publicar, horarios, hashtags, constancia",
-    "linkedin-b2b": "contenido para LinkedIn o B2B"
+    "linkedin-b2b": "contenido para LinkedIn o B2B",
+    "sistema-de-contenido": "sistema, calendario y procesos para producir contenido",
+    "documentar-tu-vida": "documentar el día a día como contenido",
+    "audiencia-propia": "audiencia propia fuera de las redes: email, web, blog"
   },
   "Orgánico viral": {
     "ganchos": "fórmulas de gancho, los primeros 3 segundos",
@@ -29,7 +32,9 @@
     "vsl-y-embudo-pago": "VSL, webinar, landing y embudo pago (o «nada de VSL»)",
     "ugc-y-creativos-ia": "UGC, creativos o avatares con IA para anuncios",
     "medicion-y-atribucion": "qué anuncio trajo la venta, CAPI, píxel, métricas",
-    "ganchos-de-anuncio": "plantillas y ganchos para anuncios"
+    "ganchos-de-anuncio": "plantillas y ganchos para anuncios",
+    "organico-y-pago-juntos": "cómo se combinan orgánico y anuncios; cuándo empezar a pagar",
+    "cuentas-bloqueadas": "rechazos de anuncios y cuentas bloqueadas"
   },
   "Closing y ventas": {
     "llamada-de-cierre": "guion y estructura de la llamada de venta, preguntas, tono",
@@ -38,7 +43,8 @@
     "setting-y-agenda": "setter, calificar y agendar por DM, primeras conversaciones",
     "equipo-comercial": "contratar, pagar y gestionar closers y setters",
     "venta-por-chat": "vender por chat o WhatsApp sin llamada",
-    "asistencia-a-llamadas": "show rate, recordatorios, que vengan a la llamada"
+    "asistencia-a-llamadas": "show rate, recordatorios, que vengan a la llamada",
+    "psicologia-de-venta": "psicología de la compra y de la persuasión"
   },
   "IA": {
     "edicion-con-ia": "IA o Claude que edita video, efectos o motion por código, CapCut con IA",
@@ -50,7 +56,11 @@
     "regalo-de-herramientas-ia": "regala prompts, herramientas o su ecosistema de IA a cambio de un comentario",
     "ia-reemplaza-equipo": "la IA reemplaza editores, setters o media buyers; sueldos contra software",
     "app-del-referente": "el referente vende su propia app o software de IA",
-    "noticias-de-ia": "lanzamientos y novedades de modelos y herramientas"
+    "noticias-de-ia": "lanzamientos y novedades de modelos y herramientas",
+    "criterio-y-liderazgo-con-ia": "liderar el negocio con IA sin perder el criterio humano; errores al usar IA",
+    "aparecer-en-la-ia": "que ChatGPT, Gemini o Google AI te recomienden (SEO para IA)",
+    "crear-software-con-ia": "crear apps, páginas o software propio con IA o Claude Code",
+    "trucos-de-uso": "cómo usar mejor la IA: prompts, dictar, qué modelo o herramienta usar"
   },
   "YouTube": {
     "youtube-para-clientes": "YouTube como buscador y fuente de clientes a largo plazo",
@@ -69,7 +79,12 @@
     "casos-y-resultados": "facturé X, casos de clientes, resultados con cifras",
     "dejar-de-vender-horas": "productizar, dejar de cambiar horas por plata",
     "agencia-y-servicios": "conseguir clientes para una agencia o servicio B2B",
-    "escalar-el-negocio": "pasar de una cifra a otra, crecer, restricciones del negocio"
+    "escalar-el-negocio": "pasar de una cifra a otra, crecer, restricciones del negocio",
+    "retener-clientes": "retener, onboarding, éxito del cliente, recompra, referidos, atención al cliente",
+    "finanzas-del-negocio": "márgenes, rentabilidad, impuestos, números del negocio",
+    "crear-un-saas": "crear y escalar un software como negocio",
+    "eventos-presenciales": "eventos y encuentros presenciales que venden",
+    "alianzas-y-afiliados": "alianzas, afiliados y socios para crecer"
   },
   "Low ticket": {
     "embudo-low-ticket": "producto barato que paga los anuncios y lleva al ticket alto",
@@ -85,6 +100,7 @@
     "miedo-y-accion": "miedo, dejar de postergar, pasar a la acción",
     "proposito-y-sentido": "propósito, sentido, felicidad",
     "estilo-de-vida": "joven y millonario, lujo, viajes como prueba",
-    "liderazgo": "liderar equipos, cultura, contratar"
+    "liderazgo": "liderar equipos, cultura, contratar",
+    "limites-y-culpa": "decir que no, culpa, límites"
   }
 }

@@ -107,6 +107,13 @@ const SECTORES = {
   'Low ticket': ['turu', 'luque', 'spisso', 'araujo', 'lenieil', 'ironback', 'atom', 'espiad', 'wendt'],
   'Mentalidad y coaching': ['sofia', 'titto', 'serratos', 'klaric', 'iriondo', 'sola', 'valentina', 'peer'],
 };
+// La ronda 2 (21/11, agentes por sector): C:/dev/tendencias/referentes-extra.json, [{clave, nombre, instagram, youtube, sectores, nota}].
+const EXTRA = 'C:/dev/tendencias/referentes-extra.json';
+if (fs.existsSync(EXTRA)) for (const x of JSON.parse(fs.readFileSync(EXTRA, 'utf8'))) {
+  if (R[x.clave]) continue;
+  R[x.clave] = [x.nombre, x.instagram || null, x.youtube || null, 'bajar', 'w', x.nota || ''];
+  for (const s of x.sectores) (SECTORES[s] ||= []).push(x.clave);
+}
 const sectoresDe = (k) => Object.entries(SECTORES).filter(([, L]) => L.includes(k)).map(([s]) => s);
 const lista = Object.entries(R).map(([k, [nombre, ig, yt, datos, fuente, nota]]) => ({ clave: k, nombre, instagram: ig, youtube: yt, datos, fuente, nota, sectores: sectoresDe(k) }));
 for (const r of lista) if (!r.sectores.length) throw new Error('sin sector: ' + r.clave);

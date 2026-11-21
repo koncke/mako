@@ -26,6 +26,23 @@ const alias = fs.existsSync(`${DIR}/alias.json`) ? JSON.parse(fs.readFileSync(`$
 const hist = fs.existsSync(`${DIR}/historico.json`) ? JSON.parse(fs.readFileSync(`${DIR}/historico.json`, 'utf8')) : {};
 const canon = (s, t) => { const k = alias[`${s}|${t}`] || `${s}|${t}`; const i = k.indexOf('|'); return [k.slice(0, i), k.slice(i + 1)]; };
 
+// El HISTÓRICO (12 meses antes de la ventana, 12 cuentas en español; lotes hist-NN): desde cuándo existe cada tema y cuánto pesaba
+// hace un año. El peso se compara SÓLO entre las mismas cuentas (las del histórico), porque las cuentas nuevas no tienen pasado.
+const histP = fs.existsSync(`${DIR}/historico-piezas.json`) ? Object.fromEntries(JSON.parse(fs.readFileSync(`${DIR}/historico-piezas.json`, 'utf8')).map((p) => [p.k, p])) : {};
+const histTema = {}; let histTotal = 0; const cuentasHist = new Set();
+for (const [k, c] of Object.entries(clas)) {
+  if (!k.startsWith('hist:') || !histP[k]) continue;
+  cuentasHist.add(histP[k].quien);
+  if (!c.s || c.s === 'fuera') continue;
+  histTotal++;
+  for (const [s0, t0] of [[c.s, c.t], [c.s2, c.t2]]) {
+    if (!s0 || !t0 || s0 === 'fuera') continue;
+    const key = canon(s0, t0).join('|');
+    const h = (histTema[key] ||= { n: 0, primera: '9999', quienes: new Set() });
+    h.n++; h.quienes.add(histP[k].quien); if (histP[k].fecha < h.primera) h.primera = histP[k].fecha;
+  }
+}
+
 // Comentario-palabra (la palabra del CTA, una o dos palabras en mayúsculas, sólo emojis): infla el conteo sin decir nada.
 const esPalabra = (t, cta) => {
   const s = (t || '').replace(/@\S+/g, '').replace(/[^\p{L}\p{N} ]/gu, '').trim();
@@ -71,6 +88,13 @@ const ckSector = {};
 for (const g of Object.values(grupos)) (ckSector[g.sector] ||= []).push(...g.piezas.filter((p) => !p.ingles).map(ck));
 for (const s of Object.keys(ckSector)) ckSector[s] = med(ckSector[s]);
 
+// Cuántas piezas clasificadas (no «fuera») publicaron en la ventana las cuentas del histórico: el denominador de pesoAhora.
+let ventanaHist = 0;
+for (const p of piezas) {
+  const c = clas[`${p.red}:${p.id}`]; if (!c || c.s === 'fuera' || !corteDe[p.clave]) continue;
+  const d = D(corteDe[p.clave], p.fecha); if (d < 0 || d > 90) continue;
+  if (cuentasHist.has(p.referente)) ventanaHist++;
+}
 const filas = [], pocasSenales = [];
 for (const g of Object.values(grupos)) {
   const ES = g.piezas.filter((p) => !p.ingles), EN = g.piezas.filter((p) => p.ingles);
@@ -86,7 +110,11 @@ for (const g of Object.values(grupos)) {
   const conv = muestra.length >= 10 ? muestra.filter((m) => !esPalabra(m.texto, m.cta)).length / muestra.length : null;
   const recientes = muestra.filter((m) => m.fecha).length >= 10 ? muestra.filter((m) => m.fecha && D(m.corte, m.fecha) <= 30).length / muestra.filter((m) => m.fecha).length : null;
   const refsES = [...new Set(ES.map((p) => p.referente))], refsEN = [...new Set(EN.map((p) => p.referente))];
-  const primera = [hist[`${g.sector}|${g.tema}`], ...P.map((p) => p.fecha)].filter(Boolean).sort()[0];
+  const hT = histTema[`${g.sector}|${g.tema}`];
+  const primera = [hist[`${g.sector}|${g.tema}`], hT?.primera, ...P.map((p) => p.fecha)].filter((x) => x && x !== '9999').sort()[0];
+  // Peso hace un año contra peso hoy, en las mismas cuentas (las del histórico).
+  const pesoAntes = histTotal ? (hT?.n || 0) / histTotal : null;
+  const pesoAhora = ventanaHist ? ES.filter((p) => cuentasHist.has(p.referente) && p.d <= 90).length / ventanaHist : null;
   const hoy = Object.values(corteDe).sort().at(-1);
   const edad = D(hoy, primera);
   // El estado, en este orden (igual que en docs/tendencias/mapa.md → «Cómo se decide el estado»):
@@ -112,6 +140,8 @@ for (const g of Object.values(grupos)) {
     comentariosPorMil: r1(med(P.map(ck))), comentariosPorMilSector: r1(ckSector[g.sector]),
     conversacion: conv == null ? null : Math.round(conv * 100), comentariosRecientes: recientes == null ? null : Math.round(recientes * 100),
     nxMediana: r1(med(P.map((p) => p.nx))), primeraVez: primera, edadDias: edad,
+    pesoHaceUnAno: pesoAntes == null ? null : r1(100 * pesoAntes), pesoHoy: pesoAhora == null ? null : r1(100 * pesoAhora),
+    referentesHaceUnAno: hT ? hT.quienes.size : 0,
     ctas: Object.entries(P.reduce((a, p) => { if (p.cta) a[p.cta] = (a[p.cta] || 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6),
     ejemplos,
   });
