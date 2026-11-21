@@ -148,7 +148,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // «Asignar fuentes» → Formularios (20/11/2026). La clave del formulario va en el CUERPO (o en la query del GET): la de una
   // página con el Pixel es una URL con barras. PUT porque FIJAN (prendido o apagado; las reglas enteras).
   ['GET', '/crm/formularios', 'listar_formularios'],
-  ['PUT', '/crm/formularios/funnel', 'asignar_formulario'],
+  ['PUT', '/crm/formularios/funnel', 'elegir_embudo_de_formulario'],
   ['GET', '/crm/formularios/reglas', 'ver_reglas_formulario'],
   ['PUT', '/crm/formularios/reglas', 'guardar_reglas_formulario'],
   ['POST', '/crm/formularios/reglas/reaplicaciones', 'reaplicar_reglas_formulario'],

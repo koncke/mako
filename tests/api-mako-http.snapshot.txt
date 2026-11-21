@@ -45,7 +45,6 @@ arrancar_con_formulario
 asegurar_plantilla_reporte
 asignar_campana_funnels
 asignar_closer_setter
-asignar_formulario
 asignar_formulario_a_funnel
 asignar_oferta_lead
 audios_requeridos
@@ -269,6 +268,7 @@ editar_texto_guion_anuncio
 editar_venta_lead
 editar_video_automatico
 elegir_cuenta_meta
+elegir_embudo_de_formulario
 elegir_formato_creativo_anuncio
 elegir_kit_marca
 elegir_pagina_meta

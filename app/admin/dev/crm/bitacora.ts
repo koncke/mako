@@ -4335,7 +4335,7 @@ export const BITACORA: Hito[] = [
       '**Calificación automática por formulario** (lo que pidió Juanfran): reglas en orden, como el «Routing logic» de Calendly. «Si la zona es Fuera de la ciudad → Descalificado», «si cumple al menos 3 de estas 4 → Lead entrante», «al menos 2 → Revisión», y qué pasa si no cumple ninguna. Cada regla puede mandar a cualquier etapa del funnel.',
       '**Se aplica al llegar el lead** (antes de las automatizaciones: un descalificado no recibe la secuencia de lead nuevo) y queda en su historial qué regla lo movió y por qué. Con **«REAPLICAR»** se pasan por los leads que ya entraron: primero dice cuántos se mueven, y sólo mueve a los que están en la entrada o en una etapa de esas reglas.',
       '**Una vista previa** dice a qué etapa irían los últimos envíos con las reglas que se están armando.',
-      '**También por la API de MaKo** (por HTTP; en el chat le quitaban lugar a otras herramientas): listar_formularios, asignar_formulario, ver_reglas_formulario, guardar_reglas_formulario y reaplicar_reglas_formulario, con las mismas funciones que la pantalla.',
+      '**También desde el chat y la API de MaKo** («cuando la zona sea X, descalificado»): listar_formularios, elegir_embudo_de_formulario, ver_reglas_formulario, guardar_reglas_formulario y reaplicar_reglas_formulario, con las mismas funciones que la pantalla. Sólo viajan al chat cuando el pedido habla de formularios o de sus reglas: con palabras de todos los días le quitaban lugar a otras herramientas.',
     ],
     archivos: [
       'app/crm/FuentesModal.tsx · app/crm/FuentesVista.tsx · app/crm/fuentes-actions.ts — el modal, lo que se ve y sus acciones',

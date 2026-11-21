@@ -54,7 +54,7 @@ export const CUBIERTAS: Readonly<Record<string, readonly string[]>> = {
   'app/crm/curso-al-ganar-actions.ts#cambiarCursoAlGanarAction': ['cambiar_curso_al_ganar'],
   // «Asignar fuentes» → Formularios (20/11/2026): la pantalla y la API llaman a lib/fuentes-crm-server.ts.
   'app/crm/fuentes-actions.ts#formulariosAction': ['listar_formularios'],
-  'app/crm/fuentes-actions.ts#alternarFormularioAction': ['asignar_formulario'],
+  'app/crm/fuentes-actions.ts#alternarFormularioAction': ['elegir_embudo_de_formulario'],
   'app/crm/fuentes-actions.ts#reglasAction': ['ver_reglas_formulario'],
   'app/crm/fuentes-actions.ts#guardarReglasAction': ['guardar_reglas_formulario'],
   'app/crm/fuentes-actions.ts#reaplicarAction': ['reaplicar_reglas_formulario'],

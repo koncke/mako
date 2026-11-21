@@ -2353,7 +2353,7 @@ export const RUNNERS: Runners = {
       });
     },
   },
-  asignar_formulario: {
+  elegir_embudo_de_formulario: {
     preparar: async (input) => {
       const clave = s(input.clave);
       if (!claveFuenteValida(clave)) return { error: 'Esa clave no es de un formulario. Pide listar_formularios.', faltan: ['clave'] };

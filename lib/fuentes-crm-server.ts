@@ -6,7 +6,7 @@
 // "calificados" o "descalificados" y que caigan correspondientemente en su etapa».
 //
 // Lo llaman las dos puertas, con las MISMAS funciones: la pantalla (app/crm/fuentes-actions.ts, que pone la sesión y el rol) y
-// la API de MaKo (lib/api-mako/areas/crm.run.ts: listar_formularios, asignar_formulario, ver_reglas_formulario,
+// la API de MaKo (lib/api-mako/areas/crm.run.ts: listar_formularios, elegir_embudo_de_formulario, ver_reglas_formulario,
 // guardar_reglas_formulario y reaplicar_reglas_formulario). «Todo MaKo se debe poder usar por API» (Martín, 25/10/2026).
 // Acá no se mira quién llama: eso es de cada puerta.
 //

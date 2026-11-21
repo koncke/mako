@@ -70,8 +70,14 @@ leads, 13 o 14 cumplían» y el inmobiliario los marcaba no calificados). La ref
   por relevancia con un tope de 12.000 caracteres (`PRESUPUESTO_REGISTRO_CHARS`, lib/doer-herramientas.ts), y descripciones con
   «leads», «anuncios» y «Meta» ganaban en pedidos que no eran de formularios: «¿qué anuncio tiene el mejor costo por lead?» dejó de
   traer `ver_rendimiento_anuncios` (tests/ops-center-bateria.test.ts) y un seguimiento dejó de traer `recomendar_mensajes_whatsapp`
-  (tests/doer-hilo.test.ts). Van sólo por HTTP (`canales: ['http']`, como `migrar_contactos`). **La regla:** una operación nueva
-  con palabras de todos los días en su descripción se prueba contra esas dos baterías ANTES de subir, o va sólo por HTTP.
+  (tests/doer-hilo.test.ts). La relevancia puntúa raíces de 5 letras del pedido en el id y el título (×2) y la descripción (×1)
+  (`ordenarPorRelevancia`, lib/api-mako/registro.ts), y el clasificador le SUMA a todo pedido sobre un lead las palabras de
+  `RELEVANCIA_CRM` (lib/mako-intencion.ts: «asignar», «calificado», «etapa», «historial»…). Se arregló sin tocar el tope ni los
+  pisos: el id, el título y la descripción hablan sólo del dominio (formulario, embudo, reglas, descalificar, «columna» en vez de
+  «etapa»; `asignar_formulario` pasó a `elegir_embudo_de_formulario`) y las palabras comunes quedaron en los parámetros, que no
+  puntúan. Medido con el ordenador real: con «reglas del formulario…» salen 1.º a 5.º de 126; con «¿cuántos leads entraron esta
+  semana?», del 64 al 99. **La regla:** una operación nueva del CRM se escribe sin las raíces de los pedidos de todos los días y se
+  corre contra tests/ops-center-bateria y tests/doer-hilo ANTES de subir.
 
 **Sin hacer** (y dónde iría): el lead que YA existía y llena otro formulario de Meta no se califica al llegar
 (`alNacerLeadDeMeta` corre sólo al crear; `lib/leads.ts`, rama `existing`); el opt-in que queda como propuesta (duplicado ambiguo)

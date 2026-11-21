@@ -4,7 +4,7 @@
 // fuentes-actions — la pestaña «Formularios» de «Asignar fuentes» y sus reglas de calificación (20/11/2026)
 // =============================================================================
 // Las puertas de la PANTALLA: ponen la sesión y el rol y llaman a lib/fuentes-crm-server.ts, que es la implementación que usa
-// también la API de MaKo (listar_formularios, asignar_formulario, ver_reglas_formulario, guardar_reglas_formulario y
+// también la API de MaKo (listar_formularios, elegir_embudo_de_formulario, ver_reglas_formulario, guardar_reglas_formulario y
 // reaplicar_reglas_formulario, lib/api-mako/areas/crm.*). Leer: cualquier sesión del negocio. Cambiar: sólo su admin (como las
 // campañas de Meta, app/crm/campanas-actions.ts).
 //
