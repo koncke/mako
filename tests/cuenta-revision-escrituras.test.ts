@@ -130,7 +130,7 @@ test('2. nada de lo que no está en la lista pasa con la cookie de revisión; co
 
 test('3. las que encontró la revisión, por nombre: mails, WhatsApp, links, la computadora, Spy, otro negocio', async () => {
   for (const ruta of ['/api/whatsapp/evolution/mensajes', '/api/chats/email', '/api/compartir', '/api/ia-pc/codigo', '/api/competitor-spy/competidores',
-    '/api/datos-mau', '/api/agencia/entrar', '/api/perfil/seguridad', '/api/equipo', '/api/agente/token', '/api/onboarding', '/api/errores']) {
+    '/api/agencia/entrar', '/api/perfil/seguridad', '/api/equipo', '/api/agente/token', '/api/onboarding', '/api/errores']) {
     assert.ok(await cortadaPorRevision(pedir('POST', ruta, REVISION)), ruta);
   }
   // Las server actions viajan como un POST a CUALQUIER página (Next reenvía la acción a quien la tenga): con y sin `next-action`, y como formulario.

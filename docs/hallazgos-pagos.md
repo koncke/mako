@@ -1915,6 +1915,31 @@ estaban commiteados (docs/hallazgos-infra.md, la trampa ya anotada).
 el 4/12»): eso pide leer si el negocio tiene prendido `cuota-por-vencer`, y es otra pieza. «Quitar» una excepción no existe en la
 API de MaKo (sólo en la ficha).
 
+## ⛔ Cargar los datos de cobro PRENDÍA el checkout directo: ahora va con su interruptor, apagado (20/11/2026)
+
+Martín (20/11): «por ahora… lo seguimos haciendo todo por pasarela y por el link de pago de Mercado Pago… no le brindamos ningún tipo de
+descuento… que salga exactamente lo mismo todo». Los datos de Binance y de transferencia se cargan para que MaKo le diga a una agencia a
+dónde pagar (lib/agencia-mes-consulta.ts). Pero hasta hoy, apenas había un dato, /planes ofrecía sola «Transferencia o Binance»
+(`mediosDisponibles` en app/planes/[plan]/page.tsx): tener los datos era lo mismo que ofrecerlos. Lo que cambió:
+- **El interruptor:** `checkoutPublico` vive en el mismo ajuste (`planes.pago_directo`) y está apagado por defecto. Sólo un `true` lo prende:
+  un setting de antes del 20/11, un texto o un número quedan apagados.
+- **/planes** pregunta `mediosDelCheckout` (vacío si está apagado): ni la fila ni el QR.
+- **El servidor** tampoco toma un pedido «por Binance» con el interruptor apagado (`medioDirectoQueVale` en `pedirPlanSinPasarela`). Una pestaña
+  de antes o un POST armado a mano quedan como un «Quiero» común, sin prometer otro medio.
+- **La agencia no depende del interruptor:** la consulta de pago dice el Pay ID igual. tests/agencia-pago-consulta.test.ts lo prueba con los
+  datos cargados y el checkout apagado.
+- ⚠️ **La trampa: el editor de Settings › Payments manda SÓLO los campos de texto.** Con un campo nuevo en el ajuste, cada guardado lo habría
+  apagado (o prendido) sin que nadie lo tocara. `guardarDatosDePagoDirecto` conserva el valor guardado cuando lo que llega no lo trae, y si
+  no puede leerlo, queda apagado. El editor no tiene botón para prenderlo: se prende escribiendo el ajuste (lo decide Martín).
+- **El mismo precio por cualquier medio:** `RECARGO_PASARELA` ya era 0. Los «5 %» y «descuento» que quedaban eran comentarios viejos del 18/11
+  y se fueron. Un test barre que ningún texto del pago directo ni de los avisos de la agencia hable de descuento ni de 5 %.
+  - **NO se tocó** el «Descuento del primer mes» del checkout (`conPromo`, app/planes/[plan]/Checkout.tsx): es otra promo, no depende del
+    medio. Si «ningún tipo de descuento» la incluye, es otra decisión.
+- **Probado:** tests/pago-directo.test.ts (14; 3 casos nuevos) y tests/agencia-pago-consulta.test.ts (21). 10 roturas a propósito, todas en rojo.
+
+**Vive en:** lib/pago-directo-reglas.ts (`checkoutPublico`, `mediosDelCheckout`, `medioDirectoQueVale`) · lib/pago-directo.ts (el guardado) ·
+app/planes/[plan]/page.tsx · lib/compra-plan.ts (`pedirPlanSinPasarela`) · app/admin/_polar/web/Settings/OrganizationPaymentSettings.tsx.
+
 ## «Transferencia o Binance» en el checkout, para todos (18/11/2026) — el «5 % OFF» de la mañana se DIO VUELTA a la tarde (ver la sección siguiente)
 
 Martín: «agregar ahí la opción de transferencia para el resto de personas, incluso que no son por partners… ofrecerle también a ellos un descuento… es el 5 %».
@@ -2025,17 +2050,24 @@ con ciclo propio (Leila) manda al grupo de MaKo se aplica SÓLO si el pago está
   El cron del pago sin captura (lib/binance-sin-captura.ts, también del 20/11) lee la misma API y queda igual de ciego.
   **La causa:** vercel.json pone el proyecto entero en `pdx1` (Portland, EE. UU.), y Binance bloquea EE. UU. No era la clave ni la firma: desde la PC
   (Argentina) la misma lectura contesta 200.
-  **El arreglo (20/11, noche):** la cuenta se lee desde São Paulo. Una ruta interna, sólo de lectura, `/api/cron/binance-pagos` (`preferredRegion =
-  'gru1'`, el secreto del cron, sin agenda en Vercel), lee directo (`leerDeBinanceDirecto`); desde cualquier otra región, `pagosRecibidosEnBinance` le
-  pide los pagos a ella (lib/binance-pay-region.ts, `caminoDeBinance` + `leerPorLaRuta`); desde la PC, directo. El resto del proyecto sigue en `pdx1`,
-  cerca de la base. El plan del equipo es **Pro** (medido en la API de Vercel): deja una región por función. ⚠️ En la documentación de Next la
-  opción `preferredRegion` figura como deprecada y Vercel documenta el `functions.regions` de vercel.json; el Next 16.2.6 del repo SÍ la lee y la pasa
-  como región de la función (node_modules/next/dist/build/index.js). Si algún día deja de respetarse, la ruta lo dice: devuelve `region`
-  (`VERCEL_REGION`), y la falla de Binance llega con «(desde pdx1)». Una respuesta de la ruta sin la lista nunca es «cero pagos»: es falla.
-  tests/binance-pay-region.test.ts (8 casos, roto 13 veces).
+  **El arreglo (20/11, noche):** la cuenta se lee desde São Paulo. Una ruta interna, sólo de lectura, `/api/cron/binance-pagos` (el secreto del
+  cron, sin agenda en Vercel, región `gru1` en vercel.json), lee directo (`leerDeBinanceDirecto`); desde cualquier otra región, `pagosRecibidosEnBinance`
+  le pide los pagos a ella (lib/binance-pay-region.ts, `caminoDeBinance` + `leerPorLaRuta`); desde la PC, directo. El resto del proyecto sigue en
+  `pdx1`, cerca de la base. El plan del equipo es **Pro** (medido en la API de Vercel): deja una región por función. Una respuesta de la ruta sin la
+  lista nunca es «cero pagos»: es falla. tests/binance-pay-region.test.ts (8 casos, roto 13 veces).
+  ⛔ **El diagnóstico obvio era el equivocado: `export const preferredRegion = 'gru1'` NO movió la función.** El Next 16.2.6 del repo lee el export y
+  lo pasa al despliegue (node_modules/next/dist/build/index.js), y con eso se dio por hecho. Medido el 21/11 en los request-logs de Vercel
+  (`GET api.vercel.com/logs/request-logs`, `requestPath=/api/cron/binance-pagos`): los crons de las 00:17 y las 00:47 UTC llegaron a la ruta con el
+  secreto (200), pero la ruta corrió en **pdx1** y Binance contestó 451; el cron lo dejó escrito «… (desde pdx1)». Con `"regions": ["pdx1"]` en
+  vercel.json, el export de Next no pesa. Lo que Vercel documenta para pisar la región en UNA función es `functions["app/api/cron/binance-pagos/route.ts"]
+  .regions = ["gru1"]` en vercel.json («This overrides the project-level `regions` setting for the matched functions», vercel.com/docs/project-
+  configuration/vercel-json#functions): es lo que quedó. La cadena entera (cron → ruta con el secreto → respuesta) ya andaba; sólo faltaba la región.
+  ✅ **Medido en producción el 21/11** (deploy de 1459a483c): la ruta contesta `x-vercel-id: gru1::gru1` (el cron de cobros sigue en `gru1::pdx1`);
+  el cron de las 01:47 UTC leyó Binance sin 451 (request-logs: la ruta 200 en 1,7 s, sin aviso) y guardó `binance.pagadores.13 = {ids: [206956446],
+  nombres: [jz_]}`; en seco, los 5 pagos de Código de noviembre salen usados y no queda nada por aprender. Ningún aviso a Martín.
   ⚠️ **La primera subida (a2cb44fc4) dio rojo en tests/region-funciones.test.ts**, el guardia que tiene a TODAS las funciones al lado de la base
   (pdx1, ~5 ms por consulta contra ~97 ms): una región por su cuenta en app/ o lib/ (también en un comentario) lo rompe. Quedó UNA excepción
-  escrita, esta ruta, con su porqué; y la lectura directa se separó en lib/binance-pay-directo.ts para que la función de São Paulo no cargue
+  escrita, esta ruta, con su porqué (desde el 21/11, la de vercel.json: el export sigue prohibido); y la lectura directa se separó en lib/binance-pay-directo.ts para que la función de São Paulo no cargue
   nada de la base ni de la navegación (lib/app-url.ts arrastraba `movil-rutas` → `nav`): sus imports los fija el test.
 - **Medido el 19/11 contra la cuenta real (sólo lectura):** el 16/11 reenviado → «no entró» (no se cuenta dos veces); el 11/11 ya anotado → a Martín; un pago de 426
   que no se hizo → «no entró». **No probado de punta a punta con un comprobante real** (el próximo es el de Leila, el 26/11).

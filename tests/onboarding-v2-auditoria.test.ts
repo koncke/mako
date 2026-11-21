@@ -198,7 +198,8 @@ test('16. OD-05 y V9: la llegada (desde el 20/11, el primer mensaje del chat del
   const b = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
   assert.match(b, /const toca = ensayo\.activo \? !vistoEnEnsayo\(ID_RECORRIDO\) : r\.visto === false;/, 'el velo, sólo mientras no vio el recorrido (también en el ensayo)');
   assert.match(b, /const alTerminar = ensayo\.activo \? \(\) => marcarVistoEnEnsayo\(ID_RECORRIDO\) : r\.onCerrar;/);
-  assert.match(b, /const empezar = \(\) => mostrarTutorial\(TUTORIAL_RECORRIDO, \{ alTerminar \}\);/, 'el play lo arranca y lo anota como visto');
+  // (20/11: con su lugar en el mensaje, tests/video-en-el-chat.test.ts.)
+  assert.match(b, /const empezar = \(\) => mostrarTutorial\(TUTORIAL_RECORRIDO, \{ alTerminar, lugar: LUGAR_VIDEO_LLEGADA \}\);/, 'el play lo arranca y lo anota como visto');
   assert.match(b, /chatPresentaRecorrido\(true\);\n\s*return \(\) => chatPresentaRecorrido\(false\);/);
   assert.match(b, /createPortal\(\n\s*<div className="sbl-capa" aria-hidden="true">/, 'el velo, en un portal');
   // El motor no lo arranca solo mientras el chat lo presenta.

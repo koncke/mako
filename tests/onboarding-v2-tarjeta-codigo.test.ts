@@ -50,14 +50,15 @@ test('2. «Usar ese número»: el número sale del servidor (la vista en otro-nu
   assert.doesNotMatch(b, /body\./, 'nunca un número que manda la pantalla');
   assert.match(b, /const malo = errorDelTelefono\(otro\);/);
   // Con `telefonoYa` también (20/11: el WhatsApp ya confirmado; tests/whatsapp-ya-confirmado.test.ts): otro número no está confirmado.
-  assert.match(b, /await guardarEstadoArranque\(\{ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined \}\);/);
+  assert.match(b, /await guardarEstadoArranque\(\{ telefono: undefined, telefonoNumero: undefined, telefonoVisto: undefined, telefonoEntrante: undefined, telefonoYa: undefined(?:, simulacion: undefined)? \}\);/);
   // Con el mensaje que YA llegó de ese número (20/11/2026, tests/whatsapp-v2-auditoria.test.ts): MaKo le contesta ahí mismo.
   assert.match(b, /return await pedirCodigo\(e2, h2, await hechosConfirmados\(h2\), otro, llego\?\.telefono === otro \? llego\.escribioAt : undefined\);/);
 });
 
 test('3. la tarjeta se entera (el sondeo) y lo dice arriba, con «Usar el …» y «Cambiar número» una sola vez', () => {
   const v = sinComentarios(leer('app/onboarding/ChatArranqueV2.tsx'));
-  assert.match(v, /const esperandoWhatsapp = etapa === 'codigo' && \(vista\.whatsapp\?\.estado === 'esperando' \|\| vista\.whatsapp\?\.estado === 'otro-numero'\);/);
+  // 21/11 (producción): con el WhatsApp SIMULADO de la revisión no se pregunta (tests/revision-whatsapp-simulado.test.ts).
+  assert.match(v, /const esperandoWhatsapp = etapa === 'codigo' && !vista\.whatsapp\?\.simulado && \(vista\.whatsapp\?\.estado === 'esperando' \|\| vista\.whatsapp\?\.estado === 'otro-numero'\);/);
   assert.match(v, /if \(document\.hidden\) return;\s*void llamar\(\{ action: 'whatsapp' \}\)/);
   assert.match(v, /\}, 4000\);/);
   assert.match(v, /const otro = w\?\.estado === 'otro-numero' && w\.otroNumero \? avisoOtroNumero\(w\.otroNumero, w\.telefono\) : null;/);

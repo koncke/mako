@@ -74,8 +74,10 @@ test('sin el secreto del cron no se llama a nada: falla', async () => {
 
 test('la ruta interna: São Paulo, sólo GET, empieza con el secreto del cron y lee DIRECTO (sin volver a llamarse)', () => {
   const src = leer('app', 'api', 'cron', 'binance-pagos', 'route.ts');
-  // El literal tiene que estar escrito así: Next lo lee del archivo (no evalúa una constante importada).
-  assert.match(src, new RegExp(`export const preferredRegion = '${REGION_DE_BINANCE}';`));
+  // La región la pone vercel.json: el export de Next lo IGNORÓ Vercel (21/11, los crons de las 00:17 y 00:47 corrieron en pdx1, 451).
+  const v = JSON.parse(leer('vercel.json')) as { functions?: Record<string, { regions?: string[] }> };
+  assert.deepEqual(v.functions?.['app/api/cron/binance-pagos/route.ts']?.regions, [REGION_DE_BINANCE]);
+  assert.doesNotMatch(src, /preferredRegion/);
   assert.match(src, /export async function GET\(req: NextRequest\) \{\s*const denied = checkCronAuth\(req\);\s*if \(denied\) return denied;/);
   assert.doesNotMatch(src, /export (async )?function (POST|PUT|PATCH|DELETE)/);
   assert.match(src, /leerDeBinanceDirecto\(/);

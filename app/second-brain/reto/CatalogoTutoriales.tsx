@@ -89,7 +89,8 @@ export function CatalogoTutoriales({ diaAbierto, onVolver, videos }: { diaAbiert
           <ul className="rt-cat__lista">
             {g.tarjetas.map((t) => (
               <li key={t.key} className="rt-cat__item" data-cerrado={t.cerrado ? '' : undefined}>
-                {viendo === t.key ? <VideoDelMomento clave={t.key} titulo={t.titulo} revision={false} /> : (
+                {/* En UN toque (21/11/2026, el inventario): elegirlo lo arranca (`arrancar`). */}
+                {viendo === t.key ? <VideoDelMomento clave={t.key} titulo={t.titulo} revision={false} arrancar /> : (
                   <button type="button" className="rt-cat__btn" disabled={!!t.cerrado} onClick={() => {
                     // Una pestaña, en la pestaña de verdad (V1): la barra la marca y su video corre ahí. Si no está en la barra, aquí mismo.
                     const tu = t.pestana ? tutorialDe(t.key) : null;

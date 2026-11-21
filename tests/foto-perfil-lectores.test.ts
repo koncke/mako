@@ -123,10 +123,6 @@ test('lo que ESCRIBE lib/usuarios.ts no deja entrar una foto de afuera', async (
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 /** Las lecturas que NO pasan por el filtro, a propósito. Cada una con su porqué. */
 const EXCEPCIONES: Record<string, string> = {
-  // «Traer datos de Mau» guarda la fila del destino en un recibo para poder deshacer, y al deshacer la devuelve: es la celda
-  // tal cual estaba, de la base a la base, y nunca se dibuja. Filtrarla haría que «Eliminar» no devuelva lo que había.
-  'lib/datos-mau.ts · foto_url: dest.foto_url,': 'el recibo guarda la celda como estaba',
-  'lib/datos-mau.ts · foto_url: p.foto_url,': 'deshacer devuelve la celda del recibo',
 };
 const FILTROS = /fotoDePersonaSegura\(|conFotoSegura\(|caraDeUsuario\(/;
 

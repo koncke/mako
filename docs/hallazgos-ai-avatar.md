@@ -740,3 +740,28 @@ sin sesión y por negocio (`terminarClipDe(ws, …)`). El cron la llama dentro d
 escriben en el negocio del CONTEXTO (lib/settings.ts). Y la vuelta se niega si el contexto no es su `ws`: un cron que se olvide el
 `runWithWorkspace` escribiría el clip de un negocio en otro. La tarjeta y el cron pasan por el mismo compare-and-set, así que, si caen a la
 vez, el clip lo guarda uno solo.
+
+
+## Content Machine: «reel completo con inspiración» y «formato» no se revisan igual (21/11/2026)
+
+Los videos del personaje en cubos («AI Avatar por código») se revisan en la pestaña Animaciones de Content Machine
+(https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz). Ahí conviven dos cosas distintas:
+
+- **Reel completo con inspiración:** un reel terminado, de 23 a 55 s, armado entero sobre UN reel ajeno que se calca: su gancho,
+  su orden y su CTA. Son los 7 de `mp4/para-ig` de la galería de animaciones. Se juzga contra su referencia, lado a lado.
+- **Formato:** un tratamiento visual suelto (subtítulos karaoke, zócalos, glitch, mapa, recibo…), sin historia. Son 91, en siete
+  familias: Investigación 32, 3D 14, Ilustrado 12, Shorts 11, Retro y datos 9, «Sobre tu toma» 8 y Anteriores 5. «Sobre tu toma»
+  quiere decir que va encima de un video filmado. Un formato se juzga solo: su referencia es una imagen (68 de los 91 la tienen),
+  y lo que se aprueba es el recurso, no un guion.
+
+Lo que dejaron los 7:
+
+- **La referencia de un reel completo sale del texto `origen` de cada uno** (un Short de YouTube o un reel de Instagram), no de una
+  lista aparte. Si el `origen` no nombra un video, no hay contra qué comparar. Pasa con 2 de los 7 (Serie 1 · El avión y Serie 4 ·
+  Responde comentarios): tienen sólo una imagen, y Martín decide sin ver el original en movimiento.
+- **Para comparar, el reel ajeno tiene que estar en la página.** De YouTube se baja con `bv*[height<=1280]+ba/b` y
+  `merge_output_format mp4`. `b[ext=mp4]` falla porque YouTube separa audio y video.
+- **El reel terminado se copia del otro artefacto del lado del servidor, sin bajarlo.** Si la galería lo rehace, la copia de
+  Content Machine no se entera: hay que volver a copiarlo.
+- La decisión se guarda en `revision/anim-<id>` o `revision/fmt-<id>`, con `estado` («aprobado» o «cambiar») y una `nota`. Los
+  comentarios, escritos o por voz, van aparte, en `comentarios`.
