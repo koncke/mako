@@ -24,6 +24,36 @@ para cualquier cuenta (y para llevar a MaKo):
 - **Sin hacer:** etiquetar cada pieza de Spy con su ángulo (para filtrar por ángulo en Content Machine) y decidir con Martín las cuatro
   preguntas de «Cómo seguimos» del documento.
 
+## Mapa de tendencias por sector (21/11/2026, chat «tendencias»)
+
+El método y las herramientas están en `docs/tendencias/` (`herramientas/`: lista de referentes, armado de piezas, lotes,
+clasificación y análisis); el relevo, en `docs/relevo/tendencias.md`. Lo que sirve para cualquier medición de tendencias:
+- **El diagnóstico obvio era el equivocado: «comparar los últimos 30 días contra los 60 anteriores» daba «En baja» en casi todo.**
+  El Spy de producción mide cada pieza UNA vez (del 4 al 19/11, `metricas_leidas_en`): una pieza medida a los 2 días todavía no
+  juntó sus comentarios, y una cuenta medida el 4/11 no tiene piezas después. Se corta cada cuenta en SU última medición y los
+  comentarios se cuentan sólo en piezas medidas con 7 días o más (`analizar.mjs`). Lo bajado con yt-dlp tiene la misma trampa.
+- **yt-dlp de Instagram trae una MUESTRA de comentarios con texto y fecha (`comments`), pero ninguna vista** (`view_count` vacío
+  en las 997 piezas de `C:/dev/referentes-videos/`). Las vistas salen de la pestaña Reels del Chrome o del Spy.
+- **Muchos comentarios son la palabra del CTA** («Video», «CLASE»). Para saber si un tema está caliente se separan de los de
+  conversación (`esPalabra` en `analizar.mjs`), y cada pieza aporta como mucho 5× la mediana de comentarios de su cuenta: un
+  regalo con 15.000 comentarios decidía solo el estado del tema.
+- **«No se sabe» no es «bajó»:** sin 2 piezas maduras por ventana, el ritmo de comentarios es null. Con 0, «reels de prueba» salía
+  «En baja» teniendo comentarios.
+- **Un usuario que la web no encuentra puede existir:** el agente de búsqueda devolvió null para `curiosfer` y `santaia.lab`, que
+  existen (son links de Martín). Y el @ obvio suele ser otro: `juanads` (privado; el real es `juan_adss`), `sofiacontreras`
+  (529 seguidores, **el que tiene cargado el Spy de producción**; la real es `soysofiacontreras`), `davidturu` (es `davituru`),
+  `julianotalora` (es `marketing.julian`), `tino.mossu02` (ofrece «trabajo en EEUU»; el real es `tino_.mossu`).
+- **Un canal de YouTube se verifica con curl** (`youtube.com/@handle` da 404 si no existe; el RSS
+  `feeds/videos.xml?channel_id=` da fecha y vistas de los últimos 15). Instagram sin sesión NO: un perfil real y uno inexistente
+  devuelven el mismo HTML. La cifra de suscriptores que se saca del HTML no es confiable.
+- **Clasificar con agentes por lotes de 200** (`instrucciones-clasificar.md` + `temas.json`, leyendo, con «nuevo:…» permitido)
+  anduvo en 2 a 4 minutos por lote; los «nuevo:» se funden después en `alias.json`. Los YouTube de Leila Hormozi y los reels de
+  Maria Wendt traen sólo el título: muchos «fuera» (hasta 134 de 200 en un lote).
+- **Push a la punta:** después de subir a `punta/<x>`, NO hacer `git pull --rebase origin main`: reescribe el commit ya subido y el
+  siguiente push es rechazado (non-fast-forward). Se rebasa sobre `origin/punta/<x>` (el workflow de la punta le mezcla main solo).
+- **Sin hacer:** la bajada de los 71 referentes que faltan (pedido escrito en el relevo), la antigüedad de cada tema contra el
+  corpus histórico (`…/0ee425c6-…/scratchpad/afirm/corpus.json`, 10.567 piezas), el `mapa.md`, el `tendencias.json` y la pestaña.
+
 ## Serie 3 (ventas, «encontré una aplicación») — 19/11/2026
 
 **El Martín en cubos dentro de una escena 3D propia.** El kit da `KIT.martin` con su propio renderer y su propia escena.
