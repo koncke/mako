@@ -1006,6 +1006,18 @@ elegido en otra lámina, el filtro lo escondía.
 - `estado`: «nuevo» al crearlo; el chat que lo atiende lo pasa a «visto» o «hecho». Se ve como chip.
 - **Trampa:** la capacidad `sample` lee texto e imágenes, no audio. La transcripción de los audios adjuntos la hace el chat
   (faster-whisper en la PC) y la escribe en `transcripcion`. Los comentarios dictados ya llegan como texto.
+
+## La pestaña «Ángulos» (21/11/2026)
+
+- Va después de Carruseles (`#angulos`). Es `docs/series/angulos-de-comunicacion.md` (commit 9fef26253) puesto en tarjetas:
+  la definición arriba; Personal y MaKo en dos columnas con el color de su cuenta; abajo «Todos los caminos llevan a Roma,
+  con tensión», «Qué NO hacer» y «Cómo seguimos», con las 4 preguntas para Martín destacadas en amarillo.
+- El contenido está escrito a mano en la página (`ANG` en `cuerpo.html`), resumido para que entre en cada tarjeta sin
+  achicar la letra. **Si cambia el documento, hay que actualizar `ANG`:** no se lee solo.
+- Cada gancho busca su referencia en Spy por el código de la publicación (`id`, `<cuenta>-<código>` o la `url`). Si la
+  encuentra, muestra la miniatura y, al tocarla, abre la pieza en Spy. Si no, dice «Todavía no está en Spy»: pasa con
+  Dakota, que no está en la colección.
+- Pendiente (pedido para más adelante): etiquetar cada pieza de Spy con su ángulo y filtrar por ángulo.
 - Lo que ya había quedó así: El avión = MaKo · A o B; los tres de Educación = Personal · Educación; Cubos = MaKo · Animados;
   El ticket = Personal · Ventas; Comentarios = MaKo · Comentarios; los 11 carruseles = Personal · Ventas. El dudoso es
   «Ofertas que se venden» (tuits de Hormozi), que podría ser Educación.
