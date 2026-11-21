@@ -1,6 +1,6 @@
 # Relevo — Spy de Content Machine con TODA la competencia (chat hijo del Cerebro, claude5)
 
-Actualizado: 21/11/2026 ~10:55 UTC. Cuenta claude5 en 99 % (Martín: seguir sin cortar; la reinicia al 100 %) (al 97 % se guarda todo y se corta).
+Actualizado: 21/11/2026 ~12:50 UTC. Cuenta claude5 reiniciada por Martín (seguir con todo).
 
 ## Qué es
 Llenar la tab **Spy** de Content Machine (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz) con todo lo de la competencia de
@@ -36,9 +36,9 @@ UN solo proceso pesado a la vez (bajar, transcribir, ffmpeg o subir); `tools/pro
 | Cuenta | En la base | Pendiente |
 |---|---|---|
 | Carrizo | 103: 49 avatar IA a cámara, 37 animación, 17 carruseles de fotos | — |
-| Doglio | 207: 137 a cámara, 60 animación, 10 carruseles (me gusta ocultos: sin N×) | — (los 72 con `/_blob/→` ya corregidos) |
+| Doglio | 207: 137 a cámara, 60 animación, 10 carruseles (me gusta ocultos: sin N×) | — (videos ya en recorte de 15 s) |
 | Collado | 89: 39 a cámara, 10 animación, 40 carruseles | 3 reels restringidos no bajan |
-| Dakota Hermes (@dakota.hermes) | — | PRIORIDAD de Martín. Los 357 reels YA bajados, recortados y con hojas (`spy/dakota/clasificar/hoja-01…36`). Sigue: clasificar con `criterio-tipos-v2.md` (subagentes Haiku de ≤10 hojas → `spy/dakota/clasificacion-v2*.json`), `spy.py carruseles dakota` + `ocr` (58, hay códigos de 39 caracteres), `spy-lotes.py preparar` y subir (validar `assets-lineas.txt`), `mapa`, `armar`, escribir; avisar a Content Machine (foto de perfil en el filtro) y relevo en `docs/series/referentes/dakota-hermes.md` |
+| Dakota Hermes (@dakota.hermes) | 415: 218 a cámara, 7 sketch, 125 animación, 58 carruseles (más 7 reels que entraron después) | — (relevo en `docs/series/referentes/dakota-hermes.md`) |
 | Rama | 84 viejas reclasificadas | 102 reels por bajar (14 ya bajados), 71 carruseles |
 | Heras Media | (en las viejas) | 191 reels por bajar (15 no bajan desde el 19/11), 2 carruseles |
 | Víctor | (en las viejas) | 161 reels por bajar, 11 carruseles (con láminas enteras) |
@@ -47,3 +47,18 @@ UN solo proceso pesado a la vez (bajar, transcribir, ffmpeg o subir); `tools/pro
 | Julián Alborna | — | en espera: Martín tiene que pasar el usuario |
 
 Las piezas viejas (104) ya tenían `comentarios`; se les sumó `cta` (72 por este chat, 16 de tema por Content Machine).
+
+## ⛔ Almacén de 1 GB (21/11)
+Se llenó subiendo Dakota. Los videos de Doglio y Dakota se reemplazaron por recortes de 15 s a 480 px (`tools/spy-reemplazo.py`:
+fase A con `video: null` → borrar los viejos → subir → fase B) y se liberaron ~250 MB. Todo lo nuevo va en ese formato
+(`spy-reemplazo.py clips <cuenta>` hace los recortes de 15 s; `spy.py reels` todavía hace los de 25-35 s: usar los de 15).
+Si vuelve a faltar lugar: lo mismo con Collado y Carrizo. Nunca borrar lo de Content Machine.
+
+## Tendencias (pedido del chat «Tendencias del mercado por sector», local_b76382ea-…)
+137 referentes con `datos: "bajar"` en `C:/dev/tendencias/referentes.json`, SÓLO metadatos de los últimos 90 días (desde el
+23/08/2026) a `C:/dev/tendencias/<usuario>/`, no al artefacto. Orden: Anuncios, IA (4 subsectores), Closing, YouTube, High ticket,
+Low ticket, Nicho, Viral, Mentalidad. Instagram: la lista sale del Chrome (procedimiento en
+`C:/dev/tendencias/herramientas/listar-ig.md`, con la fecha sacada del código) y después
+`herramientas/bajar-metadatos.py <claves…>` (info.json con comentarios; YouTube con los 60 comentarios más nuevos de los 10
+videos más comentados). **Bloqueado:** la extensión Claude in Chrome se desconectó tras el apagón; sin ella no hay lista de
+Instagram. YouTube de Anuncios bajando (`C:/dev/tendencias/bajada.log`). Avisar al chat de tendencias al terminar cada sector.
