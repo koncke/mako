@@ -1,6 +1,6 @@
 # Relevo — serie con avatar IA (chat hijo del Cerebro)
 
-Actualizado: 21/11/2026 ~06:00 UTC, cuenta claude5.
+Actualizado: 21/11/2026 ~06:15 UTC, cuenta claude5 (92 %). Las cuatro cuentas en cola dan 0 para avatar IA: espera la decisión de abrir una sección «Martín a cámara» o buscar cuentas con sketches de IA.
 
 ## Dónde está
 - **La página: «Content Machine»,** https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz. Tres pestañas:
@@ -22,7 +22,7 @@ Actualizado: 21/11/2026 ~06:00 UTC, cuenta claude5.
 | Rama (@ramiro.cubria) | 243, hasta el 08/09/2026 | 193 nuevos: 20 pasan, 57 en duda (de esas, 29 pasan) | los 49 |
 | Heras Media (@herasmedia) | 246, todo | 20 pasan, 50 en duda (6 más pasan; 15 no se pudieron bajar) | los 26; relevo en docs/series/referentes/heras-media.md |
 | Víctor (@victorherasemprendedor) | 225, hasta 12/2021 | 190 nuevos: 6 pasan, 22 en duda (4 más pasan) | los 10 |
-| Hormozi | no (casi no tiene escenas) | — | — |
+| Hormozi | 48 del 19/11: 19 a cámara en estudio, 13 taller en vivo, 3 podcast… y 1 con viñetas de cómic | con la regla de una hoja: 0 escenas con IA en 48. No entra en avatar IA | — |
 | Juan Carrizo (@juanxcarrizo), Francisco Doglio (@franciscodoglio), Guille Collado (@guille.colladomk) | 87, 168 y 52 | la hoja más nueva y la más vieja: 0 pasan; textos: 0 señales. No entran en avatar IA (todo a cámara) | — |
 | Julián Alborna | EN ESPERA: Martín tiene que pasar el usuario (las únicas son de un artista visual sin reels) | — | — |
 
