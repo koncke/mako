@@ -20,9 +20,10 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 - **Trampa del mensaje:** con el Whisper de MaKo en la cascada, «ninguna IA pudo» ya no quiere decir «no hay con quién». Sus errores
   van con `MARCA_EL_DE_MAKO`, y con esa marca la persona lee «grábala de nuevo», no «conecta la tuya». Sin MaKo Tokens, lee lo que dice
   el medidor, con sus dos salidas (antes, «grábala de nuevo»).
-- **Sin hacer:** la nota del chat de MaKo en el teléfono (lib/mako-turno-app.ts) arma su mensaje con `errorDeCascada` sobre los
-  errores DEL NEGOCIO. Si el Whisper de MaKo falla, o se acaba el saldo, lo que lee no lo cuida esta tanda. Sin mirar en producción.
-  tests/nota-de-voz-con-mako.test.ts (roto de a una rotura, 6).
+- **La misma trampa en el teléfono:** la nota del chat de MaKo (lib/mako-turno-app.ts) arma su mensaje con `errorDeCascada` sobre
+  los errores DEL NEGOCIO. Sin claves esa lista viene vacía y decía «no hay ninguna IA». Ahora, antes: sin saldo, el mensaje del
+  medidor; con la de MaKo caída, «grábala de nuevo». Sin mirar en producción. tests/nota-de-voz-con-mako.test.ts (roto de a una
+  rotura, 8).
 
 ## El prompt empujaba a [[no-pude]] sin probar la otra pista (ticket #121, 20/11/2026, ws 13)
 

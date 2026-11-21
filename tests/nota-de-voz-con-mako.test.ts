@@ -60,9 +60,19 @@ test('3. la cascada: después de las claves del negocio y antes de rendirse, el 
   assert.match(fuente('lib/mako-turno-app.ts'), /motivo: 'MaKo: escuchar una nota de voz del chat', pii: true \}\)/);
 });
 
-// ⚠️ PROBADO ROMPIÉNDOLO (20/11/2026, base 3/0; al restaurar, 3/0). Cada rotura, de a una, cae:
+test('4. la nota del chat de MaKo en el teléfono: sin saldo, lo que dice el medidor; si falló la de MaKo, que la grabe de nuevo', () => {
+  // Arma su mensaje con `errorDeCascada` sobre los errores DEL NEGOCIO; sin claves del negocio esa lista viene vacía y decía «no hay IA».
+  const t = bloque(fuente('lib/mako-turno-app.ts'), 'export async function escucharNotaDelChat(');
+  const iSaldo = t.indexOf('if (esSinSaldoDeMt(e)) return { ok: false, error: e instanceof Error ? e.message : String(e), status: 424 };');
+  const iMako = t.indexOf('if (e instanceof SttSinEscucha && !e.errores.length && e.erroresPlataforma.some((x) => x.startsWith(MARCA_EL_DE_MAKO))) return { ok: false, error: NO_PUDE_ESCUCHAR, status: 424 };');
+  const iCascada = t.indexOf("error: await errorDeCascada(delNegocio, 'escuchar tu audio')");
+  assert.ok(iSaldo > 0 && iMako > iSaldo && iCascada > iMako, 'el saldo y la de MaKo, antes del mensaje de las claves del negocio');
+});
+
+// ⚠️ PROBADO ROMPIÉNDOLO (20/11/2026, base 4/0; al restaurar, 4/0). Cada rotura, de a una, cae:
 //   - escuchaElDeMaKoAlFinal sin mirar D6b (con su IA, igual la de MaKo) → 1
 //   - la cascada sin el paso del de MaKo (lo de antes: «ninguna IA pudo») → 3
 //   - el de MaKo DESPUÉS del corte de la red → 3
 //   - el de MaKo sin marcar sus errores (vuelve «Conecta la tuya» con la de MaKo caída) → 3
 //   - errorDeDictado sin mirar la marca → 2; sin el caso del saldo → 2
+//   - la nota del teléfono sin el caso del saldo, o sin el de la de MaKo (cada una por separado) → 4

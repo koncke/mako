@@ -1716,6 +1716,10 @@ a.co-link:hover { color: var(--primary-strong); }
   position: relative; padding: 7px 10px 5px; border-radius: 0 12px 12px 12px; background: var(--surface);
   box-shadow: 0 1px .5px rgba(11, 20, 26, .13);
 }
+/* UN GLOBO CON UN VIDEO TIENE EL ANCHO DEL VIDEO (20/11/2026, Martín: el texto de abajo ensanchaba el globo y el video quedaba más
+   angosto que su recuadro). 420 = los 400 del reproductor (.mk-vmom, VideoDelMomento.tsx) + los 10 + 10 del padding de arriba; el texto
+   se acomoda debajo. En una fila más angosta (375), el 100% de la fila, y el video (max-width: 100%) el ancho de adentro, como el texto. */
+.co-el:not(.co-trabajando) > .co-el__cuerpo:not(.co-el__cuerpo--ancho):has(.mk-vmom) { width: min(100%, 420px); box-sizing: border-box; }
 .co-el:not(.co-trabajando) > .co-el__cuerpo:not(.co-el__cuerpo--ancho)::before {
   content: ''; position: absolute; top: 0; left: -8px; width: 8px; height: 13px; background: inherit;
   clip-path: polygon(100% 0, 0 0, 100% 100%);

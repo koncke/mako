@@ -5,6 +5,18 @@ para todos los chats de MaKo. Lo que sabe cada pantalla de su chat (su motor, su
 es lo que muerde al montarlas. Qué caja ofrece qué, y la excepción con su porqué: `lib/cajas-de-chat.ts` (el barrido,
 `tests/cajas-de-chat-unificadas.test.ts`). Lo del Ops Center en particular: [hallazgos-operaciones.md](hallazgos-operaciones.md).
 
+## Un globo con un video era más ancho que su video (20/11/2026, chat «onboarding-v2», claude5)
+
+- **Síntoma** (Martín, en producción): en la llegada al reto, el texto de abajo («Te doy la bienvenida a tu Ops Center…») ensanchaba
+  el globo y el video quedaba más angosto que su recuadro.
+- **Causa:** el globo (`.co-el__cuerpo`) toma el ancho de lo que tiene adentro, hasta `min(82%, 900px)`. El reproductor mide 400 px
+  (`.mk-vmom`), y un párrafo largo lo pasa.
+- **Ahora:** un globo con un video (`:has(.mk-vmom)`) mide `min(100%, 420px)`: los 400 del reproductor y los 10 + 10 de su padding, con
+  `box-sizing: border-box`. El texto se acomoda debajo. En una fila más angosta (375), el globo es la fila y el video (con
+  `max-width: 100%`) ocupa el ancho de adentro, igual que el texto.
+- tests/video-en-el-chat.test.ts, el 4: compara el ancho del globo con el del reproductor y su padding, leídos de su CSS. Medido con
+  números, no mirado.
+
 ## El panel de emojis salía recortado contra el borde del chat (20/11/2026, chat «onboarding-v2», claude5)
 
 - **Síntoma** (Martín, probando el onboarding en producción, ws 3): el desplegable se abría a la izquierda de la carita y se veía

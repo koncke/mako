@@ -2697,6 +2697,15 @@ van dos marcas en el mismo render).
   `usePosterDibujado(v?.poster)` (app/_ui/tutorial/usePosterDibujado.ts) para un `<video poster>` o un fondo, que no avisan cuándo
   cargó; o el `onLoad` de un `<img>` propio más `complete && naturalWidth > 0` (app/second-brain/LlegadaAlReto.tsx). Lo vigila
   tests/llegada-dale-play-dibujado.test.ts, que revisa cada `useDalePlay(` de esos archivos.
+- **El video de un mensaje se reproduce EN el chat** (Martín, 20/11/2026: «debería haberse reproducido directamente ahí en el chat»).
+  Un video que el motor pasa por un mensaje (`mostrarTutorial`) lleva su `lugar`: el reproductor ENTERO del mensaje (pantalla y barra,
+  marcado con `data-video-lugar`), que el motor tapa con el video mientras se ve. A la esquina sólo si el mensaje sale de la vista o se
+  cambia de pantalla, y vuelve al volver. Sin `lugar`, la esquina siempre. Con el video en el mensaje, el motor no muestra «Omitir
+  recorrido» entre paso y paso: lo pone el mensaje. Un `VideoDelMomento` que sale de la vista pasa a la esquina aunque el motor tenga
+  una marca de SUS frases o un «dale play» (`cedeAlFlotante`, store.ts). Si no puede pasar (hay una tarea o un recorrido), sigue en el
+  chat: nunca pausado y en ningún lado. tests/video-en-el-chat.test.ts.
+- **Un globo con un video tiene el ancho del video** (`:has(.mk-vmom)`, centro.css: 400 del reproductor + el padding del globo). El
+  texto se acomoda debajo; nunca un globo más ancho que su video.
 
 # Mirando un negocio como administrador, el estado del onboarding es el del DUEÑO
 

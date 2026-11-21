@@ -3,6 +3,24 @@
 El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-state.ts`) y
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
+## «¡Hola de nuevo!» se iba a la esquina sin motivo (20/11/2026, noche, claude5, chat «onboarding-v2»)
+
+- **Síntoma** (Martín, en producción, ws 3): sin scroll, con el mensaje a la vista, tocó play y el video saltó al recuadro chico de
+  abajo a la derecha («Martín · MaKo», con «Omitir recorrido»). «Debería haberse reproducido directamente ahí en el chat».
+- **Causa:** la llegada arrancaba el recorrido con `mostrarTutorial(TUTORIAL_RECORRIDO, { alTerminar })`, sin `lugar`. Sin `lugar`, el
+  motor (MotorTutorial → VideoChico) dibuja su video SIEMPRE en la esquina. El mecanismo para dibujarlo en el mensaje ya existía desde
+  los días 2 a 7 del reto (`lugar` + `useLugarALaVista`, lugarDelVideo.ts), pero la llegada nunca se lo pasaba.
+- **Ahora:** el mensaje lleva el reproductor ENTERO (pantalla y barra, `data-video-lugar="recorrido"`), como el día del reto. El motor
+  lo tapa con el video mientras se ve, y va a la esquina si el mensaje sale de la vista o el recorrido lleva a otra pantalla.
+- **Trampa:** con el video en el mensaje, el motor esconde «Omitir recorrido» y la X entre paso y paso (`!enLugar`: sólo los muestra
+  en la esquina). Pasado el primer paso, no quedaba cómo saltear el recorrido. La llegada lo pone debajo del reproductor mientras
+  corre (`terminar(senal.id, 'omitido')`). **Los días 2 a 7 tienen el mismo hueco** y siguen sin arreglar: va con el inventario.
+- **Y todo VideoDelMomento:** `reproducirFlotante` no dejaba pasar a la esquina con CUALQUIER marca puesta, también la de una frase
+  del mismo video (los coaches con `marcarFrases`) o un «dale play». Y `useVideoQueFlota` pausaba ANTES de preguntar, así que el
+  video quedaba pausado en el chat y no aparecía en ningún lado. Ahora esas dos marcas le dejan el lugar (`cedeAlFlotante`). Con una
+  tarea o un recorrido no pasa a la esquina, y entonces no se pausa: sigue en el chat.
+- tests/video-en-el-chat.test.ts (roto de a una rotura, 7). Sin mirar en producción.
+
 ## El «dale play» de la llegada salía sobre la pantalla vacía (20/11/2026, noche, claude5, chat «onboarding-v2»)
 
 - **Síntoma** (el Cerebro, recorriendo 7736f219f en producción, ws 3): la página tardó unos 15 s en dibujarse, el arranque en frío del
