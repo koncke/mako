@@ -803,6 +803,7 @@ conservan su id anterior.
   "metrica": "vistas",                    // "vistas" | "me gusta" (reels sin vistas en la grilla: reproducciones 0)
   "me_gusta": 4500,
   "comentarios": 812,                     // comment_count de yt-dlp; null si no se sabe
+  "cta": "AHORRO",                        // la palabra del CTA (del texto de la publicación o del final del reel); null si no tiene. La página la muestra en la franja del guion
   "nx": 3.2,                              // N× contra los 6 maduros más cercanos de la misma cuenta, en su métrica: vistas, o me gusta si no hay vistas; los carruseles, contra los 6 carruseles más cercanos. null si tiene menos de 48 h
   "gancho": "la primera frase, tal cual",
   "guion": "la transcripción entera (reels) o el texto de cada lámina, una por renglón (carruseles)",
