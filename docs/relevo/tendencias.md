@@ -103,3 +103,6 @@ que rehace el chat de Content Machine (local_fc754a71-87b7-4a34-8133-0307a31abe1
   Mentalidad a Operaciones (alias). Las 872 piezas «fuera» se releyeron (`refuera-NN`): ~90 Lifestyle, ~14 Operaciones.
 - Pendiente: que el chat Spy termine Anuncios → clasificar lo nuevo → `uso.mjs Anuncios` + agente de «cómo usarlo» →
   `generar.mjs` → mandar Anuncios al Cerebro (para Martín) y al chat de Content Machine (local_fc754a71-…) con el diseño.
+- ⚠️ (21/11 ~10:15) La extensión Claude in Chrome se desconectó con el apagón: el chat Spy baja SÓLO YouTube hasta que Martín la
+  reconecte (la lista de Instagram sale de ese Chrome). Anuncios: 15 cuentas encoladas. Plan: si el YouTube de Anuncios termina
+  antes, mandar al Cerebro un Anuncios preliminar (sólo YouTube) y completarlo con Instagram después.
