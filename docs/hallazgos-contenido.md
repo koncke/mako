@@ -942,6 +942,32 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - **Trampa:** dentro del recuadro-botón, el `select` de la serie necesita `pointer-events: auto`, igual que el método.
       Si no, el clic lo agarra el botón que cubre el recuadro.
 
+## Cuentas y series (21/11/2026) — el modelo que va a MaKo
+
+Martín: «súper importante diferenciar cuentas, porque todo luego lo vamos a llevar a MaKo». Content Machine ya funciona así,
+y la app tiene que copiar el modelo:
+
+- **Un usuario puede tener varias cuentas de Instagram, y cada cuenta tiene sus series de contenido.** Las de Martín:
+  - **Personal** (@martin.koncke): Gancho IA (gancho exagerado con avatar, estilo Rama) · Educación · Ventas (incluye el
+    ticket y los carruseles de ventas).
+  - **MaKo** (el usuario todavía no está decidido; se edita en el submenú «Cuenta» y queda en `cuentas/mako`):
+    Animados · A o B · Comentarios.
+  - Los nombres son cortos a propósito: van en un sello de la tarjeta («Personal · Ventas», con un color por cuenta).
+- **Cada pieza propia lleva cuenta y serie.** En el filtro van dos renglones, «Cuenta ›» y «Serie ›». Con una cuenta elegida,
+  Serie muestra sólo las suyas. Se guarda en `series/<sección>-<id>` y, para lo que entra desde Spy, en `produccion.serie` y
+  `produccion.cuenta`. La cuenta de la competencia pasó a `produccion.cuenta_ref`.
+  - Al «Hacer mi versión» se elige con un solo selector agrupado por cuenta, con una propuesta por defecto: carrusel o con
+    CTA → Ventas; animación → Animados; Rama o sketch → Gancho IA; el resto → Educación.
+  - Los códigos viejos (`'1'` a `'5'` del 21/11 a la mañana) se leen como A o B, Educación, Ventas, Comentarios y Gancho IA.
+- **La competencia se agrupa por persona, y cada persona puede tener varias cuentas.** Víctor Heras = @victorherasemprendedor
+  + @herasmedia. En el filtro de Spy hay un solo botón «Víctor Heras» (con el total) y debajo sus dos cuentas, para elegir
+  una o las dos. La tarjeta dice «Víctor Heras · @herasmedia» con la cara de Víctor.
+  - Hoy el vínculo está en la página (`PERSONA_DE = { herasmedia: 'victor' }`). En MaKo tiene que ser un dato del creador:
+    una persona con una lista de cuentas, no una cuenta suelta por creador.
+- Lo que ya había quedó así: El avión = MaKo · A o B; los tres de Educación = Personal · Educación; Cubos = MaKo · Animados;
+  El ticket = Personal · Ventas; Comentarios = MaKo · Comentarios; los 11 carruseles = Personal · Ventas. El dudoso es
+  «Ofertas que se venden» (tuits de Hormozi), que podría ser Educación.
+
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
 - **El mismo link pasó a ser «Content Machine»**, con tres pestañas: Avatar IA, Animaciones y Carruseles. Las tres usan el mismo patrón:
