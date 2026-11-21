@@ -150,12 +150,20 @@ export const lugarDelDia = (dia: DiaReto): string => `[data-video-lugar="${dia.v
  * esquina sólo al scrollear o navegar (app/_ui/tutorial/lugarDelVideo.ts). Antes un botón lo mandaba directo al video chico de 300 px.
  * Sin marcas (el día 1), en su mensaje si está en el chat o, si no, en la esquina (D1-08).
  */
+/**
+ * LO QUE HACE EL HILO CON EL VIDEO DE CADA DÍA (21/11/2026, el inventario de botones): contar lo tocado y, al terminar, marcar lo que
+ * falta. Lo anota el mensaje del día (VideoDelDia) al dibujarse; así el video abierto desde el desplegable o el pin, que no los tienen,
+ * hace lo mismo que desde el hilo (antes corría sin ellos: lo tocado no contaba y al terminar no se marcaba nada).
+ */
+export const avisosDelDia = new Map<number, { alTocar?: (sel: string) => void; alTerminar?: () => void }>();
+
 export function verVideoDelDia(dia: DiaReto, conMarcas: boolean, titulo: string, o: { alTocar?: (sel: string) => void; alTerminar?: () => void } = {}): void {
   anotarVisto(`video:${dia.n}`);
   cerrarDalePlay(conMarcas ? delReto(dia.video) : dia.video);
   if (conMarcas) {
+    const avisos = { ...avisosDelDia.get(dia.n), ...o };
     document.querySelector(lugarDelDia(dia))?.scrollIntoView({ block: 'center' });
-    mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true, lugar: lugarDelDia(dia), ...(o.alTocar ? { alTocar: o.alTocar } : {}), alTerminar: () => o.alTerminar?.() });
+    mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true, lugar: lugarDelDia(dia), ...(avisos.alTocar ? { alTocar: avisos.alTocar } : {}), alTerminar: () => avisos.alTerminar?.() });
     return;
   }
   if (!verEnSuMensaje(dia.video)) reproducirFlotante(dia.video, titulo, 0);
@@ -845,6 +853,11 @@ function VideoDelDia({ dia, onTocado, onFin, dalePlay = false }: { dia: DiaReto;
   // ¿Lo está pasando el motor ahora? (en su lugar o en la esquina)
   const senal = useSenal();
   const corre = senal?.tipo === 'tutorial' && senal.video === dia.video;
+  // Lo que hace el hilo al tocar y al terminar, anotado para el desplegable y el pin (`avisosDelDia`, arriba).
+  useEffect(() => {
+    avisosDelDia.set(dia.n, { alTocar: onTocado, alTerminar: onFin });
+    return () => { if (avisosDelDia.get(dia.n)?.alTerminar === onFin) avisosDelDia.delete(dia.n); };
+  }, [dia.n, onTocado, onFin]);
   // El «dale play» con el TÍTULO DEL VIDEO (segunda verificación de V5: decía «Día 2: dale play»; la maqueta, «Día 2: conecta todo:
   // dale play»), mientras nadie lo tocó y sólo si ese video todavía no se vio en este navegador (V5).
   const [visto] = useState(() => yaVisto(`video:${dia.n}`));

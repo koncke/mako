@@ -217,7 +217,7 @@ test('14. V5: la entrada de un día y su «dale play» se guardan en el navegado
   assert.match(sinComentarios(leer('app/_ui/tutorial/VideoDelMomento.tsx')), /onPlay=\{\(e\) => \{ delete e\.currentTarget\.dataset\[BANDERA_FLOTA\]; setEstado\('reproduciendo'\); if \(dalePlay\) cerrarDalePlay\(clave\); onEmpieza\?\.\(\); \}\}/);
   // Desde el 20/11, tarde (V4), el play del día corre por verVideoDelDia: lo anota visto y cierra el «dale play» antes del motor.
   // (Con la clave de ESTE reto, `delReto`, para el video con marcas: 20/11, ~13:00.)
-  assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /anotarVisto\(`video:\$\{dia\.n\}`\);\n\s*cerrarDalePlay\(conMarcas \? delReto\(dia\.video\) : dia\.video\);\n\s*if \(conMarcas\) \{\n[^\n]*\n\s*mostrarTutorial\(tutorialDelDia\(dia\)/);
+  assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /anotarVisto\(`video:\$\{dia\.n\}`\);\n\s*cerrarDalePlay\(conMarcas \? delReto\(dia\.video\) : dia\.video\);\n\s*if \(conMarcas\) \{\n(?:[^\n]*\n){2}\s*mostrarTutorial\(tutorialDelDia\(dia\)/);
   // (Y el `visto` del chat del reto, d712c72df: el «dale play» del día sólo si ese video no se vio en este navegador.)
   assert.match(sinComentarios(leer('app/second-brain/reto/ChatDelReto.tsx')), /activo: dalePlay && conMarcas && !visto && !corre && posterDibujado \}\);/);
   assert.match(sinComentarios(leer('app/_ui/tutorial/useDalePlay.ts')), /cerrado: cerrado \|\| dalePlayCerrado\(clave\)/);

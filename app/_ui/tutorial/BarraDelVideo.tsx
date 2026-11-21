@@ -6,9 +6,10 @@
 // velocidad), no con el `<video controls>` del navegador. Ese video es el del motor (MotorTutorial → VideoChico, ./lugarDelVideo.ts):
 // esta barra lo maneja por su ref, sin ser dueña del <video>. Usa las clases de CSS_REPRODUCTOR (las pone quien la dibuja).
 // =============================================================================
-import { useEffect, useState, type MouseEvent, type RefObject } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { pantallaCompleta } from './pantalla-completa';
+import { propsDePista } from './pista';
 
 const VELOCIDADES = [1, 1.25, 1.5, 2] as const;
 
@@ -42,11 +43,6 @@ export function BarraDelVideo({ vidRef, archivo, durManifiesto = 0 }: { vidRef: 
     };
   }, [vidRef, archivo]);
   const alternar = () => { const x = vidRef.current; if (!x) return; if (x.paused || x.ended) void x.play().catch(() => {}); else x.pause(); };
-  const ir = (e: MouseEvent<HTMLDivElement>) => {
-    const x = vidRef.current; if (!x || !dur) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    x.currentTime = Math.min(dur, Math.max(0, ((e.clientX - r.left) / r.width) * dur));
-  };
   const cambiarVel = () => {
     const sig = VELOCIDADES[(VELOCIDADES.indexOf(vel as (typeof VELOCIDADES)[number]) + 1) % VELOCIDADES.length];
     setVel(sig);
@@ -58,7 +54,8 @@ export function BarraDelVideo({ vidRef, archivo, durManifiesto = 0 }: { vidRef: 
         <Icon name={corre ? 'pausa' : 'play'} size={16} />
       </button>
       <span className="mk-vmom__tiempo">{mmss(t)} / {mmss(dur)}</span>
-      <div className="mk-vmom__pista" role="progressbar" aria-label="Avance del video" aria-valuemin={0} aria-valuemax={Math.round(dur)} aria-valuenow={Math.round(t)} onClick={ir}>
+      {/* Con arrastre y teclado (21/11/2026, el inventario: sólo saltaba con un clic): ./pista.ts. */}
+      <div className="mk-vmom__pista" {...propsDePista({ video: () => vidRef.current, dur, t })}>
         <span className="mk-vmom__hecho" style={{ width: `${dur ? Math.min(100, (t / dur) * 100) : 0}%` }} />
       </div>
       <button type="button" className="mk-vmom__vel" onClick={cambiarVel} title="Velocidad">{vel}×</button>

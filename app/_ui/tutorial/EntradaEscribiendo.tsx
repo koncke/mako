@@ -16,6 +16,7 @@ import { anotarEntrada, yaEntro } from './entrada';
 import { msEscribiendo } from '@/lib/puntitos';
 import { barrer } from './iris';
 import { useSenal } from './store';
+import { cajaDeLaFila } from './hueco-de-la-fila';
 
 const menosMovimiento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -41,7 +42,6 @@ export function useEntrada(clave: string, activa: boolean, texto?: string | null
 }
 
 type Caja = { x: number; y: number; ancho: number; alto: number };
-const AIRE = 6;
 
 /** La fila de quien escribe (su foto y los tres puntitos), con todo lo demás oscuro. */
 export function EntradaEscribiendo({ foto, quien = 'MaKo' }: { foto: ReactNode; quien?: string }) {
@@ -55,13 +55,11 @@ export function EntradaEscribiendo({ foto, quien = 'MaKo' }: { foto: ReactNode; 
   useLayoutEffect(() => {
     const el = fila.current;
     if (!el) return;
-    // La foto y los tres puntitos, nada más: la fila (y su cuerpo) se estira al ancho del chat.
+    // La foto y el GLOBO de los puntitos (21/11/2026, Martín: «la marca sobre los puntitos está corrida»): con los puntitos solos, el
+    // padding blanco del globo quedaba afuera del hueco y la foto encima (./hueco-de-la-fila.ts). La fila se estira al ancho del chat.
     const medir = () => {
-      const partes = [el.querySelector('.co-el')?.firstElementChild, el.querySelector('.mk-entrada__puntos')].filter((x): x is Element => !!x);
-      const rs = (partes.length ? partes : [el]).map((x) => x.getBoundingClientRect());
-      const x0 = Math.min(...rs.map((r) => r.left)), y0 = Math.min(...rs.map((r) => r.top));
-      const x1 = Math.max(...rs.map((r) => r.right)), y1 = Math.max(...rs.map((r) => r.bottom));
-      setCaja({ x: x0 - AIRE, y: y0 - AIRE, ancho: x1 - x0 + AIRE * 2, alto: y1 - y0 + AIRE * 2 });
+      const partes = [el.querySelector('.co-el')?.firstElementChild, el.querySelector('.co-el__cuerpo')].filter((x): x is Element => !!x);
+      setCaja(cajaDeLaFila((partes.length ? partes : [el]).map((x) => x.getBoundingClientRect())));
     };
     // LA FILA, A LA VISTA ANTES DE OSCURECER (20/11, la auditoría de chats, videos-2): con el hilo sin bajar, el hueco caía fuera de lo
     // visible, sobre la caja o fuera de la pantalla, y eran segundos de pantalla oscura sin puntitos. Y se vuelve a medir con el scroll
@@ -72,7 +70,13 @@ export function EntradaEscribiendo({ foto, quien = 'MaKo' }: { foto: ReactNode; 
     ro?.observe(document.documentElement);
     window.addEventListener('resize', medir);
     document.addEventListener('scroll', medir, { capture: true, passive: true });
-    return () => { ro?.disconnect(); window.removeEventListener('resize', medir); document.removeEventListener('scroll', medir, { capture: true }); };
+    // Y al terminar una animación o una transición: el globo que entra deslizándose se medía a mitad de camino.
+    document.addEventListener('animationend', medir, true);
+    document.addEventListener('transitionend', medir, true);
+    return () => {
+      ro?.disconnect(); window.removeEventListener('resize', medir); document.removeEventListener('scroll', medir, { capture: true });
+      document.removeEventListener('animationend', medir, true); document.removeEventListener('transitionend', medir, true);
+    };
   }, []);
   const hayCaja = caja != null;
   useLayoutEffect(() => {

@@ -650,7 +650,15 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
     if (ro && tarjetaRef.current) ro.observe(tarjetaRef.current);
     const mo = new MutationObserver(pedir);
     mo.observe(document.body, { childList: true, subtree: true });
-    return () => { window.removeEventListener('resize', pedir); document.removeEventListener('scroll', pedir, { capture: true }); ro?.disconnect(); mo.disconnect(); if (cuadro) cancelAnimationFrame(cuadro); };
+    // Y al terminar una animación o una transición (21/11/2026, Martín: «la marca está corrida»): un `transform` no avisa ni al
+    // ResizeObserver ni al MutationObserver, y un globo que entra deslizándose se medía a mitad de camino.
+    document.addEventListener('animationend', pedir, true);
+    document.addEventListener('transitionend', pedir, true);
+    return () => {
+      window.removeEventListener('resize', pedir); document.removeEventListener('scroll', pedir, { capture: true }); ro?.disconnect(); mo.disconnect();
+      document.removeEventListener('animationend', pedir, true); document.removeEventListener('transitionend', pedir, true);
+      if (cuadro) cancelAnimationFrame(cuadro);
+    };
   }, [medir, el]);
 
   // 2c. El velo entra con el barrido del sol y la luna (OD-F2, 20/11; las cuentas en ./iris.ts): al APARECER el hueco de una marca
@@ -817,8 +825,10 @@ function Pie({ senal, paso, ultimo, esperaClic, hayAnterior, conVideo, siguiente
       <Button variant="tertiary" size="sm" onClick={() => fin('omitido')}>Omitir recorrido</Button>
       <span className="mk-rec__aire" />
       {hayAnterior && <Button variant="secondary" size="sm" onClick={atras}>Atrás</Button>}
-      {/* Con el video mandando, «Siguiente» sigue sin tocar lo marcado (Martín: «hasta que toque el botón marcado, o Siguiente»). */}
-      {(conVideo || !esperaClic) && <Button variant="primary" size="sm" onClick={siguiente}>{conVideo ? 'Siguiente' : ultimo ? 'Listo' : 'Siguiente'}</Button>}
+      {/* UN PASO QUE PIDE CLIC NO TIENE «SIGUIENTE» (21/11/2026, Martín: «la idea es que el usuario aprenda a cliquear donde debe
+          cliquear»): «Haz clic en…» se sigue SÓLO tocando ahí, también con el video mandando (antes, `conVideo || !esperaClic`).
+          «Siguiente» sale en las marcas que no piden clic; «Omitir recorrido», siempre. */}
+      {!esperaClic && <Button variant="primary" size="sm" onClick={siguiente}>{ultimo && !conVideo ? 'Listo' : 'Siguiente'}</Button>}
     </div>
   );
 }
