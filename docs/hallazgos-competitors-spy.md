@@ -69,6 +69,31 @@ carrusel. No es el Spy de los clientes (ese va por Apify): es el relevo a mano d
 - La regla que más decide: a cámara con pantallas de apoyo de vez en cuando es a-camara («a cámara con b-roll»); es animacion sólo
   si la pantalla o el gráfico manda en la mitad o más de los cuadros.
 
+### ⛔ La laptop de Martín se apagó por temperatura: un proceso pesado a la vez
+- **Qué pasó (21/11, 07:27 UTC):** ventilador al máximo y apagón sin pantalla azul (Kernel-Power 41, código 0). Corrían a la vez
+  dos bajadas de `procesar.py` (yt-dlp, whisper en la GPU y ffmpeg), la bajada de la biblioteca con 8 hilos y un subagente
+  subiendo archivos. Es una MSI Thin 15 (i5-13420H, RTX 4060, 16 GB): fina, sin margen térmico.
+- **La regla de carga:** UN solo proceso pesado a la vez en total (o se baja, o se transcribe, o se pasa ffmpeg, o se sube);
+  whisper `small` de a un archivo con unos segundos de pausa; ffmpeg con `-threads 2`; yt-dlp de a uno; cada 20-30 minutos de
+  trabajo pesado, 2-3 minutos de pausa. `tools/procesar-suave.py` lo hace solo (varias cuentas en un proceso, 4 s entre reels y
+  150 s cada 25 minutos). Si la PC se pone lenta o el ventilador suena fuerte, se para y se avisa.
+- **Dos bajadas sobre la misma cuenta chocan:** la segunda llegó al reel que la primera estaba transcribiendo, le borró el
+  `audio.wav` y cortó con `FileNotFoundError` toda la cuenta. Una cuenta, un proceso.
+- **Después de un corte:** una carpeta con `video.mp4` y sin `meta.json` quedó a medias (se borra el video y se rehace). Las 15
+  carpetas vacías de Heras Media son las que ya no bajaban el 19/11, no del corte.
+
+### La página no muestra imágenes de otro dominio, y cada subida cuesta tokens
+- **Probado:** un documento con las láminas apuntando al depósito público de Supabase (`spy-miniaturas`) se dibujó en negro. La
+  página del artefacto bloquea imágenes de otro dominio: todo tiene que estar en su almacén (`/_blob/<id>`).
+- **Lo que cuesta subir** (de a 25 por llamada, un subagente que anota «archivo id»): Sonnet, 190 mil tokens para 303 archivos
+  (630 por archivo); Haiku, 149 mil para 198 y 183 mil para 255 (unos 720 por archivo: lo que pesa es releer las respuestas de
+  6 KB por lote en cada turno, no el modelo). Por eso, de la biblioteca de MaKo (893 carruseles, 7.088 láminas) va sólo la portada
+  de cada uno y las láminas enteras de los 150 mejores por N×; el resto lleva `laminas_pendientes: true` y se sube al elegirlo.
+- **La biblioteca de MaKo:** `carruseles_biblioteca_piezas` de producción, leída sólo con GET (`tools/leer-biblioteca.mjs`,
+  con el `.env.local` de producción). En producción NO existe la columna `revisada_en` que el código menciona (la app la da por
+  revisada). Las plantillas de «Ver ejemplo» no entran (negocios ficticios dibujados en el navegador, sin láminas) ni los
+  replicados (`image_disenos`: diseños nuestros).
+
 ### Lo que quedó sin hacer
 - Julián Alborna: Martín tiene que pasar el usuario.
 - Los assets viejos de las 21 láminas chicas de Carrizo quedan en el almacén sin uso (se pueden borrar por id).
