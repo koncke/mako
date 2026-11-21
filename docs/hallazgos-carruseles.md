@@ -33,6 +33,8 @@ se APLANABA (`\s+` → un espacio) y se cortaba en 300 letras (`TOPE_LIBRE`, lib
   `documentoDeReplica` no repite una URL; un cuadro sin foto propia va sin foto. La búsqueda se escribe para el texto NUEVO.
 - tests/carruseles-copy-pegado.test.ts (10 casos, con el copy de Leila tal cual). Contra origin/main fallan los tres que se pueden
   correr allá (el copy aplanado, f1/f2 repetidas, la lámina blanca).
+- En seco con la IA real: `scripts/carruseles-probar-editar.mts --ws 3 --id <id> --copy <archivo>` dice «Copy palabra por palabra:
+  N de P láminas» y cuál renglón falta en cada una.
 
 **«No se lee, y le puse a aumentar contraste» (00:51:37).** «Mejora el contraste» era un pedido a la IA del chat: mira un JSON de
 colores, NO la foto, y nadie medía después. Ahora es medido y sin IA (`mejorarContraste`, app/image-editor/mako/chat/contraste.ts):
@@ -79,8 +81,11 @@ en un degradé sintético queda a 1 nivel del fondo (el parche liso se apartaba 
   carrusel entero cae al armado viejo. **El diagnóstico obvio (buscarlo por su color) era el equivocado**: se probó y encontraba
   sólo pedazos (el gris de abajo del degradé no es «blanco») y borraba franjas sueltas, peor que el armado viejo. Se sacó. Lo fiel
   ahí es regenerar el cuadro con IA (Flow), la misma deuda de arriba (lib/carruseles/plancha.ts, «parte 7»).
-- La referencia «con blur» que eligió Leila no se identificó: su diseño (ws 11, `14331b1a`) no guarda de qué ejemplo salió. Se le
-  preguntó al Cerebro. Sin ella, el blur se probó con un degradé sintético, no con su lámina.
+- ⚠️ **De qué ejemplo salió un diseño SÍ se guarda: en las notas de la PRIMERA PÁGINA** (`doc.pages[0].notes`, «Diseño tomado de
+  un ejemplo de @cuenta (link)…»), no en `doc.notes`. Mirando `doc.notes` (vacío) se concluyó que no se guardaba y se le preguntó
+  al Cerebro por nada. Los de Leila (ws 11): el de la llamada (`14331b1a`, con el copy pegado) y otros dos salieron de
+  **@creatoearn** (`Dc6RTCcCH41`, biblioteca 1417: fotos a toda página con un filtro oscuro, palo seco y la bajada en itálica); el
+  de la foto desenfocada de playa, de **@beautyinc** (`De2C0ojlEfB`, biblioteca 1451). El blur se probó con un degradé sintético.
 - Para repetir una plancha sin pagar otra IA: lo que guarda `scripts/carruseles-probar-editar.mts --salida` (replica.json +
   original-N.jpg) se replanchea con `marcarLaminas` + `planchasDeLaReplica` en seco. ⚠️ Sin el segundo pedido (`completar`), la
   repetición pierde lo que ése agregaba (la persona de la portada, textos sin dueño): «equipo», «siete» y «ticket», fieles con la
