@@ -725,6 +725,9 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - la referencia de un reel va SIEMPRE en video; una captura no sirve para comparar.
     - En el teléfono, si todavía no hay nuestra versión, el detalle abre en la referencia, no en un recuadro vacío.
     Regla: Spy es para mirar y elegir; lo que no lleva IA también se muestra, con su tipo en el filtro.
+13. **El filtro, con caras y sin «Como vienen»** (21/11, noche). Martín pidió los creadores con su nombre completo y su caricatura,
+    y que el orden por defecto sea el N×, dicho en palabras: «Los que más superaron a su cuenta», con un «?» que lo explica.
+    Se sumó «Los más comentados», para los videos de ventas con palabra CTA, y cada tarjeta muestra el número del orden elegido.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
@@ -743,6 +746,60 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
   mp4; `b[ext=mp4]` falla porque YouTube separa audio y video. Dos de ellos sólo tienen imagen de referencia.
 - **Lo que se marca:** Avatar IA guarda en `votos` («si» / «no»). Los reels terminados y los carruseles guardan en `revision`
   («aprobado» / «cambiar» y una nota), un documento por pieza: `anim-<id>` o `carr-<id>`.
+
+### Contrato de la colección spy (21/11/2026)
+
+La pestaña Spy de Content Machine (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz) lee sus piezas de la BASE del artefacto, no de
+la página. Así el chat de la competencia suma piezas con `ArtifactData` y sube los medios al almacén sin republicar, y aparecen
+solas. **Sólo el chat de Content Machine publica la página.**
+
+**`spy/<id>`, un documento por pieza.** El id es `<cuenta>-<código>`, por ejemplo `carrizo-DGUM7vVucJx`. Las 104 piezas viejas
+conservan su id anterior.
+
+```json
+{
+  "creador": "Juan Carrizo",              // nombre completo, como lo muestra la tarjeta
+  "cuenta": "carrizo",                    // clave de la colección «creadores» (abajo)
+  "usuario": "@juanxcarrizo",
+  "tipo": "a-camara",                     // "avatar-ia" | "animacion" | "a-camara" | "carrusel"
+  "formato": "9:16",                      // "9:16" | "4:5" | "1:1"
+  "url": "https://www.instagram.com/reel/DGUM7vVucJx/",
+  "fecha": "2026-11-12",                  // aaaa-mm-dd
+  "reproducciones": 103000,               // número; en un carrusel, 0 si Instagram no da vistas
+  "metrica": "vistas",                    // "vistas" | "me gusta"
+  "me_gusta": 4500,
+  "comentarios": 812,                     // comment_count de yt-dlp; null si no se sabe
+  "nx": 3.2,                              // N× contra los 6 reels maduros más cercanos de la cuenta; null si tiene menos de 48 h
+  "gancho": "la primera frase, tal cual",
+  "guion": "la transcripción entera (reels) o el texto de cada lámina, una por renglón (carruseles)",
+  "forma": "sketch entero con IA",        // 2 a 5 palabras
+  "idioma": "es",                         // "es" | "en"
+  "medios": {
+    "video": "/_blob/<id>",               // recorte de 25 s, 480 px (sólo reels)
+    "poster": "/_blob/<id>",              // portada
+    "laminas": ["/_blob/<id>"]            // sólo carruseles, en orden y enteras (no el recorte cuadrado de yt-dlp)
+  },
+  "agregado": "2026-11-21T07:00:00Z",
+  "por": "chat-competencia",
+  "nuestro": { "imagen": null, "gancho": null, "guion": [] },   // opcional: lo completa Content Machine al producir
+  "costo": { "seg_avatar": 0, "usd": 0 },                        // opcional
+  "tema": "", "orden": 0                                         // opcional
+}
+```
+
+- **Los medios van al almacén de archivos del artefacto** (`Artifact` → `publish` con `asset: true`, hasta 25 por llamada). En
+  `medios` va la url `/_blob/<id>` que devuelve la subida. Las 104 piezas viejas apuntan a rutas de la versión (`vid/…`,
+  `poster/…`): sirven igual, pero lo nuevo va siempre al almacén.
+- **`creadores/<cuenta>`:** `{ "nombre": "Juan Carrizo", "usuario": "@juanxcarrizo", "foto": "/_blob/<id>", "orden": 4 }`. La foto es
+  la caricatura de MaKo (`public/asesores/<nombre>.png` del repo). Si un creador no tiene caricatura, va su foto de perfil. Ya están
+  los 7: ramiro, victor, herasmedia, hormozi, carrizo, doglio y collado.
+- **Cómo se escribe:** `ArtifactData` → `batch` con `{op: "set", collection: "spy", doc_id, file_path}`, hasta 50 por llamada, con
+  cada documento en un `.json` local. Para cambiar una pieza que ya existe, se lee primero y se escribe con su `if_version`.
+- **Qué hace la página:** filtra por «Tipo» y por creador, con sus caricaturas. Ordena por «Los que más superaron a su cuenta» (`nx`,
+  el orden por defecto), por «Los más vistos» o por «Los más comentados», y muestra en cada tarjeta el número del orden elegido.
+  «Elegir» manda la pieza a Reels o a Carruseles según su `tipo`.
+- **Trampa:** si la `cuenta` no está en `creadores`, la tarjeta muestra iniciales en lugar de la cara. Sin `nx`, la pieza queda al
+  final del orden por defecto.
 
 ### Comentarios por voz en todo Content Machine (21/11/2026)
 

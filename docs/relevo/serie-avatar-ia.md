@@ -1,6 +1,6 @@
 # Relevo — serie con avatar IA (chat hijo del Cerebro)
 
-Actualizado: 21/11/2026 ~06:40 UTC, cuenta claude5 (92 %). Martín decidió: Spy trae TODO lo de la competencia, clasificado por tipo.
+Actualizado: 21/11/2026 ~07:00 UTC, cuenta claude5 (92 %). Spy lee de la base (v26) y la competencia la baja otro chat.
 
 ## Dónde está
 - **La página: «Content Machine»,** https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz. Tres pestañas:
@@ -33,15 +33,23 @@ Actualizado: 21/11/2026 ~06:40 UTC, cuenta claude5 (92 %). Martín decidió: Spy
   «Por producir»; su decisión va en `revision/prod-<id>`.
 - Capturas: `side-session-notes/local_3f1a66d3-.../content-machine-spy-v25/`.
 
-## Las cuentas, paso por paso (para sumar a Spy por tandas)
-| Cuenta | Listado | Lo que falta para Spy |
+## La bajada de la competencia la hace OTRO chat (21/11, pedido de Martín)
+Ese chat es `local_557794c1-f009-4764-b4de-dd9b15b0e16e`. Escribe en la colección `spy` con el contrato de
+`docs/hallazgos-contenido.md` → «Contrato de la colección spy». Este chat sólo publica la página y trabaja el feedback.
+Lo que queda para él, con rutas exactas:
+
+| Cuenta | Qué hay | Dónde |
 |---|---|---|
-| Rama | 243 reels | sumar los que NO pasaron el filtro de IA (están en `ramiro/ampliado/clasificacion-*.json`, con su forma): bajar, recortar a 25 s, subir al almacén y armar |
-| Víctor y Heras Media | 225 y 246 | lo mismo; de Heras Media, 15 dudas no se pudieron bajar |
-| Carrizo, Doglio, Collado | 87, 168, 52 (hojas hechas) | clasificar por tipo con subagentes (criterio nuevo: avatar · animación · a cámara), bajar lo mejor por N× y subir |
-| Hormozi | 48 del 19/11 (con forma) | bajar sus reels y sumar como «a cámara» |
-| Carruseles de todas | sin listar | listar la grilla de PUBLICACIONES (no la de reels) desde el Chrome de Martín, sólo leyendo; `yt-dlp --dump-single-json` da una entrada por lámina, pero las de imagen vienen recortadas al cuadrado: la lámina entera se baja abriendo la publicación |
-| Serie 1 (avión) y Serie 4 | — | la referencia es una captura: buscar el reel exacto de @paralisisaldormir (una «parte 1») y de @manuelzapater («Respondiendo preguntas de seguidores», 3,2 M) desde el Chrome y bajarlo con yt-dlp |
+| Juan Carrizo (@juanxcarrizo) | 87 reels listados, con metadatos, portadas y 5 hojas de 20 portadas | `C:/dev/referentes-videos/carrizo/lista-ig-21-11.txt`, `carrizo/ampliado/indice.json`, `carrizo/ampliado/<código>.json` y `.jpg`, `carrizo/ampliado/hoja-01..05.jpg` |
+| Francisco Doglio (@franciscodoglio) | 168 listados y 9 hojas | `C:/dev/referentes-videos/doglio/…`, con la misma estructura |
+| Guille Collado (@guille.colladomk) | 52 listados y 3 hojas | `C:/dev/referentes-videos/collado/…` |
+| Rama, Víctor y Heras Media | todo listado y clasificado para IA; falta sumar lo que NO es IA (animación o a cámara) | `C:/dev/referentes-videos/<cuenta>/ampliado/clasificacion-a.json`, `-b.json` y `-dudas.json` (forma y serie de cada reel) |
+| Hormozi | 48 reels del 19/11, bajados y transcriptos | `C:/dev/referentes-videos/hormozi/<código>/` (`video.mp4`, `video.info.json`, `meta.json`) |
+| Carruseles de todas | sin listar | grilla de PUBLICACIONES desde el Chrome de Martín, sólo leyendo |
+
+- Las herramientas están en `C:/dev/referentes-videos/tools/` (`ampliar.py`, `procesar.py`, `tiras-dudas.py`, `portadas.py`).
+- Para recortar, `artefacto/serie/comprimir-ampliados.sh`: los primeros 25 s, a 480 px y crf 30.
+- El criterio de IA está en `criterio-video-ia.md`. Para Spy hace falta el tipo (avatar-ia, animación o a cámara), no sólo si pasa.
 
 ## Pendiente
 - **El lugar del artefacto:** los formatos ya están en el almacén de archivos. Los clips de cuentas nuevas van directo ahí
