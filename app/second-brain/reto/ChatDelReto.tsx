@@ -35,6 +35,7 @@ import {
 } from '@/lib/reto/dias';
 import { mostrarTutorial, reproducirFlotante, senalAhora, senalarDondeTocar, terminar, useEsRevision, useSenal } from '@/app/_ui/tutorial/store';
 import { useCerrarAfuera } from '@/app/copywriter/editor/cerrar-afuera';
+import { Markdown } from '@/app/_components/Markdown';
 import { verEnSuMensaje } from '@/app/_ui/tutorial/VideosDelChat';
 import { BarraFijados } from '@/app/admin/operaciones/MensajeWA';
 import { Icon } from '@/app/_components/icons';
@@ -505,13 +506,13 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
       piezas.push({ t: tFin, key: `fin:${dia.n}`, nodo: (
         <>
           {verFin(`fin:${dia.n}`) && <Burbuja><p>{finDelDia(dia, sig, horaWa, nombre, faltaDia)}</p></Burbuja>}
-          {dia.n === 3 && !!e.enElPlan && verFin('plan') && <Burbuja><p>{RETO_EN_TU_PLAN}</p></Burbuja>}
+          {dia.n === 3 && !!e.enElPlan && verFin('plan') && <Burbuja><Markdown text={RETO_EN_TU_PLAN} /></Burbuja>}
           {/* El cierre del reto (R57-08): el piloto según su funnel y, recién después, la tarjeta del audio para Martín. */}
-          {dia.n === 7 && verFin('piloto') && <Burbuja><p>{RETO_PILOTO(d.funnel)}</p></Burbuja>}
+          {dia.n === 7 && verFin('piloto') && <Burbuja><Markdown text={RETO_PILOTO(d.funnel)} /></Burbuja>}
           {dia.n === 7 && verFin('piloto') && dia.whatsapp && cola.conPieza('piloto') && <TarjetaPrueba p={dia.whatsapp} linea={d.linea} hora={horaWa} hecha={e.pruebas?.['7'] ?? null} />}
           {/* «Mañana» queda como su mensaje, y MaKo contesta lo de la maqueta con SU hora (verificación D1-06; cuerpo.html, MANANA). */}
           {mananaDia && sig && verFin(`yo-manana:${sig.n}`) && <DeLaPersona texto="Mañana" />}
-          {mananaDia && sig && verFin(`manana:${sig.n}`) && <Burbuja><p>{RETO_MANANA(horaWa, sig.n)}</p></Burbuja>}
+          {mananaDia && sig && verFin(`manana:${sig.n}`) && <Burbuja><Markdown text={RETO_MANANA(horaWa, sig.n)} /></Burbuja>}
         </>
       ) });
     }
@@ -569,12 +570,12 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
           <>
             {/* LA LLEGADA, SIEMPRE PRIMERO (la pieza del chat del onboarding): el video del recorrido general. Lo del reto sale después. */}
             <LlegadaAlReto nombre={nombre} listo={listo} onMostrada={() => setLlegadaMostrada(true)} />
-            {ver('hola') && <Burbuja><p>{RETO_HOLA(nombre)}</p></Burbuja>}
-            {muestras.length > 0 && ver('interes') && <Burbuja><p>{RETO_INTERES_YA(muestras)}</p></Burbuja>}
+            {ver('hola') && <Burbuja><Markdown text={RETO_HOLA(nombre)} /></Burbuja>}
+            {muestras.length > 0 && ver('interes') && <Burbuja><Markdown text={RETO_INTERES_YA(muestras)} /></Burbuja>}
             {vistas.map((m) => (
               <Fragment key={m.pestana}>
                 {ver(`muestra:${m.pestana}`) && <Burbuja ancho><VideoDeMuestra m={m} onPlay={() => verMuestra(m)} /><p className="rt-dia__msj">{RETO_MUESTRA(m)}</p></Burbuja>}
-                {ver(`muestrafin:${m.pestana}`) && <Burbuja><p>{RETO_MUESTRA_FIN(m)}</p></Burbuja>}
+                {ver(`muestrafin:${m.pestana}`) && <Burbuja><Markdown text={RETO_MUESTRA_FIN(m)} /></Burbuja>}
               </Fragment>
             ))}
             {/* La que pidió recién: su mensaje con el video, hasta que lo vea en la pestaña (y quede en `vistas`). */}
@@ -730,12 +731,12 @@ export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy =
       {/* El video primero y el texto abajo, con la hora del mensaje (f24-07): desde el día 2, la que eligió (o 9:00). */}
       <Burbuja ancho hora={dia.n > 1 ? hora : null}>
         <VideoDelDia dia={dia} onTocado={onTocadoEnVideo} onFin={onFinVideo} dalePlay={hoy} />
-        <p className="rt-dia__msj">{dia.mensaje}</p>
+        <div className="rt-dia__msj"><Markdown text={dia.mensaje} /></div>
       </Burbuja>
       {conPieza && <>
       {/* El QR de la app, después del mensaje del día 2 (d24-06; reto-3), mientras la app no esté y no la dejó para después. */}
       {esperaApp && qrApp && <TarjetaQrApp qr={qrApp} onDespues={() => onDespues?.('app')} />}
-      {esperaApp && hoy && qrDeAntes && <Burbuja><p>{RETO_D2_RECORDATORIO}</p></Burbuja>}
+      {esperaApp && hoy && qrDeAntes && <Burbuja><Markdown text={RETO_D2_RECORDATORIO} /></Burbuja>}
       {/* El día 1 sin tarjeta (F2; la maqueta: el mensaje y la marca sobre Offer Coach). Sus tareas están en el desplegable. */}
       {dia.n !== 1 && <Burbuja ancho>
         <div className="rt-tarjeta" data-recorrido={`sb-reto-dia-${dia.n}`}>
@@ -751,7 +752,7 @@ export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy =
       {/* El día 2 en pasos: la extensión, con su mensaje (d24-08). */}
       {sale('ext') && tarea2('extension') && (
         <>
-          <Burbuja><p>{RETO_D2_EXT}</p></Burbuja>
+          <Burbuja><Markdown text={RETO_D2_EXT} /></Burbuja>
           {suTarjeta('ext') && <Burbuja ancho><div className="rt-tarjeta" data-recorrido="sb-reto-dia-2-extension"><ol className="rt-tareas">{fila(tarea2('extension')!)}</ol></div></Burbuja>}
         </>
       )}
@@ -770,7 +771,7 @@ export function Dia({ dia, e, linea, hora, horaElegida, proUnaVez = false, hoy =
           dejada para después): la maqueta lo manda después del WhatsApp de la hora (d24-08, «uno a la vez»). */}
       {ultimo && sale('perfil') && (
         <>
-        <Burbuja><p>{RETO_D2_PERFIL}</p></Burbuja>
+        <Burbuja><Markdown text={RETO_D2_PERFIL} /></Burbuja>
         {suTarjeta('perfil') && <Burbuja ancho>
           <div className="rt-tarjeta" data-recorrido="sb-reto-dia-2-perfil">
             <ol className="rt-tareas">{fila(ultimo, dia.n)}</ol>
@@ -816,7 +817,7 @@ function TarjetaHora({ p, guardada, linea, hora, onHora, onConfirmar, onDespues,
   /** Por la cola de salida (lib/reto/en-el-dia.ts): el mensaje, la tarjeta (después del texto) y la confirmación, cada uno cuando sale. */
   conMensaje?: boolean; conTarjeta?: boolean; confirmada?: boolean;
 }) {
-  const mensaje = conMensaje && <Burbuja><p>{RETO_D2_HORA}</p></Burbuja>;
+  const mensaje = conMensaje && <Burbuja><Markdown text={RETO_D2_HORA} /></Burbuja>;
   if (guardada) return <>{mensaje}{confirmada && <Burbuja><p>✓ MaKo te escribe cada día a las {guardada}, por WhatsApp.</p></Burbuja>}</>;
   const link = linkWaMe(linea, mensajeEscrito(p, hora));
   if (!conTarjeta) return <>{mensaje}</>;

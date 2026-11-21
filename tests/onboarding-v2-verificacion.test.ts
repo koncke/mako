@@ -261,7 +261,7 @@ test('17. F2: el video de la esquina es el reproductor de la maqueta, con «Agra
 test('18. F4: en la llegada al Ops Center, el video va arriba y el texto debajo', () => {
   const b = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
   const video = b.indexOf('data-recorrido="sb-llegada-play"');
-  const texto = b.indexOf('<div className="ch-md"><p>{textoLlegada(nombre)}</p></div>');
+  const texto = b.indexOf('<div className="ch-md"><Markdown text={textoLlegada(nombre)} /></div>');
   assert.ok(video > 0 && texto > 0 && video < texto);
 });
 
