@@ -782,6 +782,19 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - **Trampa del filtro:** el estilo base de lo elegido pone el texto en `--panel` (blanco) sobre fondo `--ink`. Al cambiarle
       sólo el fondo a blanco, el texto desapareció: «Superaron a su cuenta» se veía como un recuadro vacío. Lo elegido lleva ahora
       fondo `--ours-soft`, borde `--ours` y el texto siempre en `--ink`, en todo el panel.
+19. **El mosaico no funcionó: cada pieza es una tarjeta cerrada del mismo tamaño** (21/11). Martín: «no se entiende si lo que
+    está flotando abajo corresponde al video de arriba o al de abajo… debería ser una tarjeta». Y una pieza de otra proporción
+    («la quinta distinta») rompía la grilla. Como en las bibliotecas de anuncios (Foreplay, el Top Ads de TikTok):
+    - la tarjeta tiene fondo blanco, borde suave y esquinas redondeadas;
+    - el medio va en un recuadro fijo 9:16 que los reels llenan. Lo horizontal o cuadrado va centrado sobre su propia imagen
+      desenfocada, con un sello de formato («16:9», «Carrusel · 7»);
+    - el pie va ADENTRO de la tarjeta: la cara y el nombre del creador, el gancho en 2 líneas y una fila de métricas (N×, vistas,
+      comentarios), con la del orden elegido en negrita;
+    - todas las tarjetas miden lo mismo (495 px a 1440). En el teléfono van 2 columnas y se esconde la palabra «vistas» para que
+      la fila no se corte.
+    - Regla: entre una pieza y la siguiente no queda texto suelto. Si el pie no está dentro de un borde, no se sabe de quién es.
+    - Las galerías públicas de Foreplay no cargan en el navegador de la app (quedan en negro), y el Top Ads de TikTok pide
+      cuenta después de 4 o 5 tarjetas.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
