@@ -36,7 +36,7 @@ const chip: CSSProperties = {
 
 /** Lo que dice la confirmación: qué vuelve a empezar y qué NO se toca. */
 /** En un espacio de PRUEBA (21/11/2026, Martín: «le di a reset y comenzamos de cero»): RESET deja todo como una cuenta recién creada. */
-export const TEXTO_RESET_PRUEBA = 'Borra todo y empieza el onboarding de cero, como una cuenta recién creada: los chats sueltos y el historial de Offer Coach y Funnel Coach se van. Quedan los datos del negocio, el plan y su WhatsApp.';
+export const TEXTO_RESET_PRUEBA = 'Borra todo y empieza el onboarding de cero, como una cuenta recién creada: los chats sueltos y el historial de los coaches se van. Quedan los datos del negocio, el plan y su WhatsApp.';
 
 export const TEXTO_REINICIAR = 'Vuelve a empezar el onboarding y el reto de 7 días. No borra nada de lo suyo: leads y CRM, cursos, automatizaciones, funnels, ofertas, conversaciones, archivos, plan y cobros quedan como están. Su WhatsApp sigue verificado.';
 
