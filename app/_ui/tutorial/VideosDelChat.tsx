@@ -9,8 +9,9 @@
 // mensaje si está en el chat (se baja hasta él y arranca ahí); el cuadrito de abajo a la derecha (`reproducirFlotante`, ./store.ts),
 // sólo para lo que no tiene mensaje a la vista.
 // =============================================================================
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { videoDe } from '@/lib/tutoriales/videos';
+import { useCerrarAfuera } from '@/app/copywriter/editor/cerrar-afuera';
 import { useManifiesto } from './useVideoTutorial';
 import { mostrarTutorial, reproducirFlotante } from './store';
 import type { TutorialPestana } from '@/lib/tutoriales';
@@ -33,10 +34,14 @@ export function verEnSuMensaje(clave: string): boolean {
 export function VideosDelChat({ videos }: { videos: readonly VideoDeUnChat[] }) {
   const m = useManifiesto();
   const [abierto, setAbierto] = useState(false);
+  // Se cierra tocando afuera o con Escape (20/11/2026, el inventario de botones).
+  const caja = useRef<HTMLSpanElement>(null);
+  const cerrar = useCallback(() => setAbierto(false), []);
+  useCerrarAfuera(caja, abierto, cerrar);
   const hay = m ? videos.filter((v) => videoDe(m, v.clave)) : [];
   if (!hay.length) return null;
   return (
-    <span className="mk-vchat">
+    <span ref={caja} className="mk-vchat">
       <style>{CSS}</style>
       <button type="button" className="mk-vchat__boton" aria-expanded={abierto} aria-label={`Los videos de este chat (${hay.length})`} title="Los videos de este chat" onClick={() => setAbierto((a) => !a)}>
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" strokeWidth="2" /><path d="m10 9.5 4.5 2.5-4.5 2.5z" fill="currentColor" /></svg>

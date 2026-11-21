@@ -3,6 +3,46 @@
 El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-state.ts`) y
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
+## El inventario de botones del onboarding V2, la llegada y el primer día (20/11/2026, noche, claude5, chat «onboarding-v2»)
+
+Martín: «Tienes que fijarte todas las opciones que tiene el usuario, todos los botones que puede apretar». Tres lectores de código, uno
+por zona (la caja; los videos, las marcas y el reto; el flujo y la barra del administrador). «¿Lo hace?» sale del CÓDIGO, no de tocarlo:
+lo toca el Cerebro en producción. Lo que fallaba se arregló en las tandas 367a6868d (nota de voz, emojis), 38beadae2 (el video en el chat),
+69b36ad6d (el flujo, la caja, la barra) y la tanda D (videos, marcas, reto, y la ayuda «?» encima de los emojis que vio el Cerebro).
+
+| Control | Qué tiene que hacer | ¿Lo hace? | Test que lo cuida |
+|---|---|---|---|
+| Emoji (carita y panel) | Abrir, poner el emoji en el cursor, pestañas, recientes, cerrar con Escape o afuera | Sí. Salía recortado: ahora se acomoda adentro. Se cierra con la caja apagada; abierto, esconde la ayuda «?» (a 375 la tapaba) | centro-ops5 «5», emojis-dentro-del-chat, inventario-onboarding-flujo «5» |
+| Micrófono: grabar, pausar, ✓, escuchar, mandar, 🗑 | Grabar en tramos, revisar, mandar o tirar | Sí. Sin IA propia no transcribía: ahora el Whisper de MaKo, en MaKo Tokens | whatsapp-sexta-tanda, chat-nota-de-voz, nota-de-voz-con-mako, ia16-cada-uno-su-ia |
+| Campo de texto, Enter / Shift+Enter, flecha | Escribir y mandar | Sí. En el cierre lo escrito se perdía: ahora se apaga | centro-caja, caja-voz-revision «3», inventario-onboarding-flujo «5» |
+| Sol / luna | Claro / oscuro, recordado | Sí | onboarding-v2-maqueta «6», onboarding-v2-auditoria «13» |
+| Video: play, barra, velocidad | Arrancar, saltar, 1× a 2× | Sí (la barra, sólo con clic) | ninguno de comportamiento (leen el código) |
+| Pantalla completa | Agrandar el video | **No existía**: agregada (en el iPhone, la suya) | inventario-videos-y-reto «1» |
+| Video flotante y su X | A la esquina sólo fuera de la vista; volver; cerrar | Sí. «¡Hola de nuevo!» iba a la esquina siempre, y con una marca de sus frases no flotaba: arreglados | video-en-el-chat, onboarding-v2-auditoria «15» |
+| País y «Seguir» | Elegir el país, validar, mandar | Sí. El ejemplo era argentino con México: ahora por país | onboarding-whatsapp-primero «6», onboarding-v2-auditoria «4», inventario-onboarding-flujo «3» |
+| «Guardar contacto» | Guardar a MaKo en la libreta | A medias: descarga MaKo.vcf; en el teléfono no abre la libreta | whatsapp-ya-confirmado «4» (sólo el link) |
+| Opciones y «Escribe otra cosa» | Contestar con un toque o con texto | Sí. Con opciones Y texto mandaba sólo el texto, y un envío fallido perdía lo elegido: arreglados | onboarding-v2-maqueta «2», «3», inventario-onboarding-flujo «7» |
+| «Responder» con varias | Mandar las elegidas (hasta 3) | Sí | onboarding-v2-maqueta «2» |
+| «Entrar a MaKo» | Navegación entera a la app | Sí. En un Safari viejo quedaba «Entrando…»: arreglado | onboarding-sin-ida-y-vuelta «5», inventario-onboarding-flujo «4» |
+| «dale play» y su X | Invitar al video quieto; la X cierra | Sí. Salía sobre el cuadro vacío; la X de la llegada frenaba el reto; tocar la velocidad lo cerraba: arreglados | llegada-dale-play-dibujado, tutorial-entrada, inventario-videos-y-reto «2», «3» |
+| «Omitir recorrido» y «Siguiente» | Saltear; avanzar; «Listo» al final | Sí. Con el video en el mensaje no había «Omitir»: ahora debajo del reproductor | tutorial-sin-presentacion «1», tutorial-pausas «7», video-en-el-chat «2», inventario-videos-y-reto «6» |
+| «¿Qué hacemos ahora?» | «Empezar mi día 1» o «Muéstrame {pestaña}» | Sí. La marca de «Muéstrame» no tenía salida: ahora «Lo hago después» | reto-dias, inventario-videos-y-reto «4» |
+| Desplegable «Día 1 de 7» | Los 7 días, sus tareas y su video | Sí. No se cerraba afuera ni al elegir un video: arreglado | reto-dias, inventario-videos-y-reto «5» |
+| Ícono de videos | El catálogo; elegir un video lo muestra | A medias: elegir y después play (dos toques) | reto-dias |
+| Barra del administrador | RESET, «Reiniciar onboarding», «Ir a un paso», «Salir de la vista» | Sí. RESET dejaba el onboarding en el navegador y «Salir» navegaba aunque fallara: arreglados. «Ir a un paso», nuevo | reiniciar-onboarding, inventario-onboarding-flujo «1», «2», revision-saltar-y-ejemplos |
+
+**Lo que quedó sin hacer** (con dónde vive):
+- Se puede grabar una nota mientras MaKo contesta: el V2 no le pasa `voz` a la caja (app/onboarding/ChatArranqueV2.tsx, CajaChat). La nota sale después, como respuesta a la pregunta siguiente.
+- No hay cancelar mientras se transcribe, y una nota que falla al transcribir se pierde (app/_components/VoiceRecorder.tsx: `enviar` vacía antes de entregar).
+- «Guardar contacto» en el teléfono descarga el .vcf en vez de abrir la libreta (app/onboarding/TarjetaContactoMako.tsx). Es una decisión: sin ella, queda así.
+- Desde el desplegable o el pin, el video de los días 2 a 7 corre sin `alTocar` ni `alTerminar` (ChatDelReto.tsx, `verVideoDelDia`): lo tocado no cuenta y al terminar no se marca lo que falta.
+- El catálogo de videos pide dos toques (app/second-brain/reto/CatalogoTutoriales.tsx).
+- La barra de avance no se arrastra ni se maneja con el teclado (VideoDelMomento.tsx, BarraDelVideo.tsx).
+- Sin tests de COMPORTAMIENTO (que toquen) para play, avance, velocidad, «Listo», elegir un día o un video: los de hoy leen el código. Lo que se miró, se miró con números y con las máquinas de verdad (`etapaDeArranqueV2`, `diaAbierto`), no tocando.
+
+**Trampa del inventario:** los tres lectores leyeron código, no tocaron. Encontraron fallas de lógica y de cableado, no de dibujo: un panel
+recortado o un video más chico que su globo los vio Martín, no el inventario. Lo que se ve, lo mira el Cerebro en producción a 1440 y 375.
+
 ## La revisión: ir a cualquier paso y respuestas de ejemplo, con el estado real (20/11/2026, noche, claude5, chat «onboarding-v2»)
 
 Martín: «viste que hay un desplegable en el artefacto que me deja ir avanzando o retrocediendo. Si no, cada vez que quiero ver algo que
