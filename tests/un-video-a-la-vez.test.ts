@@ -22,9 +22,9 @@ import { cerrarTutorial, reproducirFlotante, senalAhora } from '../app/_ui/tutor
 const fuente = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
-type Falso = { tagName: string; muted: boolean; paused: boolean; dentroDe: string | null; pause(): void; closest(sel: string): object | null };
+type Falso = { tagName: string; muted: boolean; loop: boolean; paused: boolean; dentroDe: string | null; pause(): void; closest(sel: string): object | null };
 const video = (o: Partial<Falso> = {}): Falso => ({
-  tagName: 'VIDEO', muted: false, paused: true, dentroDe: null,
+  tagName: 'VIDEO', muted: false, loop: false, paused: true, dentroDe: null,
   pause() { this.paused = true; },
   closest(sel: string) { return this.dentroDe && sel.split(',').some((s) => s.trim() === this.dentroDe) ? {} : null; },
   ...o,
@@ -71,9 +71,9 @@ test('2. los dos a la vista: play al de arriba y después al de abajo → el de 
   sacar();
 });
 
-test('3. el de la esquina manda cuando lo reproducen; los mudos de adorno no cuentan', () => {
+test('3. el de la esquina manda cuando lo reproducen; los de adorno (en bucle) no cuentan', () => {
   cerrarTutorial();
-  const chat = video(), esquina = video({ dentroDe: '.mk-pip' }), adorno = video({ muted: true, paused: false });
+  const chat = video(), esquina = video({ dentroDe: '.mk-pip' }), adorno = video({ muted: true, loop: true, paused: false });
   const { doc, play } = documento([chat, esquina, adorno]);
   const sacar = instalarUnVideoALaVez(doc);
   play(chat);
@@ -82,9 +82,30 @@ test('3. el de la esquina manda cuando lo reproducen; los mudos de adorno no cue
   play(esquina);
   assert.equal(senalAhora()?.tipo, 'video', 'dale play al de la esquina no lo saca de la esquina');
   assert.equal(chat.paused, true, 'y pausa el del chat');
-  assert.equal(adorno.paused, false, 'el mudo de adorno sigue');
+  assert.equal(adorno.paused, false, 'el de adorno (en bucle) sigue');
   play(adorno);
-  assert.equal(esquina.paused, false, 'un mudo que arranca no pausa a nadie');
+  assert.equal(esquina.paused, false, 'uno de adorno que arranca no pausa a nadie');
+  sacar();
+  cerrarTutorial();
+});
+
+// EN PRODUCCIÓN (21/11, 05:24 UTC, el Cerebro con clics de verdad): el flotante, si el navegador no lo deja arrancar con sonido, arranca
+// SILENCIADO (VideoEnLaEsquina: `el.muted = true`), y lo mismo un video del chat. La regla salteaba los silenciados: el de la bienvenida
+// siguió en la esquina (0:21 / 0:25) mientras corría el del código.
+test('5. un video silenciado por el navegador cuenta igual: el flotante mudo se pausa y deja la esquina, y un play mudo también manda', () => {
+  cerrarTutorial();
+  const bienvenida = video(), codigo = video({ muted: true }), esquina = video({ dentroDe: '.mk-pip', muted: true });
+  const { doc, play } = documento([bienvenida, codigo, esquina]);
+  const sacar = instalarUnVideoALaVez(doc);
+  play(bienvenida);
+  // Salió de la vista: pasa a la esquina, y la esquina arranca SILENCIADA.
+  reproducirFlotante('bienvenida', 'Bienvenida', 20);
+  bienvenida.pause();
+  play(esquina);
+  play(codigo);
+  assert.equal(esquina.paused, true, 'el flotante, aunque esté mudo, se pausa');
+  assert.equal(senalAhora(), null, 'y deja la esquina');
+  assert.equal(codigo.paused, false);
   sacar();
   cerrarTutorial();
 });
@@ -104,6 +125,7 @@ test('4. lo instala el motor, en toda la pantalla; y en el video flotante no va 
 //   · sin pausar a los demás                                → 2, 3
 //   · sin soltar lo que flota                                → 1
 //   · el de la esquina se suelta a sí mismo                  → 3
-//   · los mudos también mandan                               → 3
+//   · los de adorno (en bucle) también mandan                 → 3
+//   · los silenciados no cuentan (la regla vieja)              → 5
 //   · «Omitir recorrido» de vuelta en el video               → 4
 // ─────────────────────────────────────────────────────────────────────────────

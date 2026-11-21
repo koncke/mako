@@ -60,6 +60,12 @@ test('4. la ruta: con la puerta, no sale nada por WhatsApp ni se toca la verific
   assert.match(pedir, /if \(h\.v2 && \(await enRevision\(\)\)\) \{[\s\S]*simulacion: \{ codigo: codigoSimulado\(\) \}[\s\S]*return listo\(\);/, 'antes de pedirle nada a WhatsApp');
   assert.match(r, /if \(e\.simulacion && \(await enRevision\(\)\)\) \{\n\s*const d = decidirCodigoSimulado\(codigoEscrito, e\.simulacion\);/, 'el código, contra el simulado y con la puerta');
   assert.match(r, /telefono: 'verificado', simulacion: undefined/);
+  // EN PRODUCCIÓN (21/11, el Cerebro): la pantalla pregunta cada 4 s si llegó el WhatsApp (`action: 'whatsapp'`) y la ruta miraba la
+  // verificación de VERDAD, que en el ws 3 está verificada: «Listo, ya lo cargué» solo, y a «¿Guardaste…?». En la simulación, ni se
+  // pregunta ni se mira.
+  assert.match(r, /case 'whatsapp': \{\n\s*const e = await estadoEstricto\(\);\n\s*if \(e\.simulacion\) return NextResponse\.json\(\{ ok: true, sigue: false \}\);/, 'la ruta no mira la verificación de verdad con la simulación');
+  const c = sinComentarios(fuente('app/onboarding/ChatArranqueV2.tsx'));
+  assert.match(c, /const esperandoWhatsapp = etapa === 'codigo' && !vista\.whatsapp\?\.simulado && /, 'la pantalla no pregunta por el WhatsApp simulado');
   const vista = sinComentarios(fuente('lib/onboarding-arranque-server.ts'));
   assert.match(vista, /e\.simulacion \? vistaDelWhatsappSimulado\(e\) :/);
 });
@@ -81,5 +87,7 @@ test('5. en la pantalla: «Abrir WhatsApp» abre el modal, y «Pegar el código�
 //   · el pedido del modal con otro texto                        → 1
 //   · el código simulado aceptado con cualquier número          → 2
 //   · la simulación sin la puerta                                → 4
+//   · la ruta mirando la verificación de verdad con la simulación → 4
+//   · la pantalla preguntando por el WhatsApp simulado           → 4
 //   · «Abrir WhatsApp» con el link de verdad en la simulación    → 5
 // ─────────────────────────────────────────────────────────────────────────────

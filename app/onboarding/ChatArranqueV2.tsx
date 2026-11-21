@@ -243,7 +243,8 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, ejemplos 
   }, [fase]);
   // ¿LLEGÓ DE OTRO NÚMERO? (20/11, wa-04): como el V1 (ChatArranque.tsx), mientras espera se pregunta cada 4 s, con la pestaña a la
   // vista. El código lo confirma ella; esto sólo trae el estado del WhatsApp (el 'otro-numero' que anota el servidor).
-  const esperandoWhatsapp = etapa === 'codigo' && (vista.whatsapp?.estado === 'esperando' || vista.whatsapp?.estado === 'otro-numero');
+  // Con el WhatsApp SIMULADO de la revisión no se pregunta (21/11, producción): la ruta miraba la verificación de verdad y lo daba por hecho.
+  const esperandoWhatsapp = etapa === 'codigo' && !vista.whatsapp?.simulado && (vista.whatsapp?.estado === 'esperando' || vista.whatsapp?.estado === 'otro-numero');
   useEffect(() => {
     if (!esperandoWhatsapp) return;
     let vivo = true;

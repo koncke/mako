@@ -41,7 +41,11 @@ const vistaDe = (e: EstadoArranque, etapa: string | null, extra: Record<string, 
 w.__llamadas = [];
 const fetchReal = window.fetch.bind(window);
 let vistaActual: VistaArranque | null = null;
-function responder(ruta: string, metodo: string): unknown {
+// Como PRODUCCIÓN en el negocio de prueba (21/11): su WhatsApp de verdad ya está verificado, y la pregunta de la pantalla («¿llegó el
+// WhatsApp?», `action: 'whatsapp'`) lo daba por cargado. El banco contesta lo mismo: si la pantalla pregunta, salta a «¿Guardaste…?».
+let vistaVerificada: VistaArranque | null = null;
+function responder(ruta: string, metodo: string, cuerpo: unknown): unknown {
+  if (ruta === '/api/onboarding/arranque' && (cuerpo as { action?: string } | null)?.action === 'whatsapp' && vistaVerificada) return { ok: true, vista: vistaVerificada };
   if (ruta === '/api/auth/me') return { ok: true, impersonando: true, clienteNombre: 'Cliente de Prueba', modoAgencia: false, salida: '/admin', agencia: null };
   if (ruta === '/api/admin/negocio-de-prueba') return { ok: true, disponible: false };
   if (ruta === '/api/admin/saltar-onboarding') return metodo === 'GET' ? { ok: true, puede: true, pasos: PASOS_DE_REVISION } : { ok: true, destino: '/second-brain?reto=1', vistos: [], salto: null, avisos: [] };
@@ -59,7 +63,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (init?.body instanceof FormData) cuerpo = { formulario: [...init.body.keys()] };
   else { try { cuerpo = init?.body ? JSON.parse(String(init.body)) : null; } catch { cuerpo = String(init?.body ?? ''); } }
   w.__llamadas.push({ url: u.pathname + u.search, metodo, cuerpo });
-  return new Response(JSON.stringify(responder(u.pathname, metodo)), { status: 200, headers: { 'content-type': 'application/json' } });
+  return new Response(JSON.stringify(responder(u.pathname, metodo, cuerpo)), { status: 200, headers: { 'content-type': 'application/json' } });
 };
 
 const raiz = createRoot(document.getElementById('raiz')!);
@@ -78,6 +82,7 @@ if (p === 'videos') {
 } else if (p === 'whatsapp') {
   const e: EstadoArranque = { introVista: true, nombre: 'Valentina', telefono: 'codigo', telefonoNumero: '+5491155550101', telefonoVisto: '+54 9 11 5555 0101', telefonoEntrante: true, simulacion: { codigo: '482913' } };
   vistaActual = vistaDe(e, 'codigo', { whatsapp: vistaDelWhatsappSimulado(e) });
+  vistaVerificada = vistaDe({ ...e, telefono: 'verificado', simulacion: undefined }, null);
   raiz.render(<div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}><ChatArranqueV2 inicial={vistaActual} persona={{ nombre: 'Valentina', email: 'valentina@ejemplo.test' }} /></div>);
 } else if (p === 'barra') {
   const e: EstadoArranque = { introVista: true };

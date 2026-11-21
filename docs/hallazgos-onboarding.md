@@ -4279,6 +4279,14 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
   - «Ir a un paso» ya tiene «El código por WhatsApp» (21/11): deja el estado esperando el código, con la simulación y un código que pone
     el server.
 - tests/revision-whatsapp-simulado.test.ts (roto de a una rotura, 4).
+- **EN PRODUCCIÓN SE CARGABA SOLO** (21/11, 05:24 UTC, el Cerebro en el ws 3). Al tocar «Abrir WhatsApp» no salía el modal: contestaba solo
+  «Listo, ya lo cargué» y saltaba a «¿Guardaste…?». Con «Ir a un paso» desde otra página pasaba lo mismo.
+  - **El diagnóstico obvio (el estado del salto, el modal) era el equivocado.** La pantalla pregunta cada 4 s si llegó el WhatsApp
+    (`action: 'whatsapp'`), y la ruta miraba la verificación de VERDAD del negocio. En el ws 3 está verificada: daba el código por
+    cargado.
+  - **La regla:** una simulación corta TODOS los caminos que leen el estado de verdad, también las preguntas de fondo. Con la
+    simulación, la pantalla ya no pregunta, y la ruta, si le preguntan igual (una pestaña vieja), no mira.
+  - El banco contesta esa pregunta como producción (salta a «¿Guardaste…?»): con la pantalla vieja, cae.
 
 ## Los tests que TOCAN: el banco del onboarding, sin sesión y sin producción (21/11/2026, chat «onboarding-v2», claude5)
 

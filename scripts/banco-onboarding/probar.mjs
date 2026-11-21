@@ -70,6 +70,11 @@ const ESCENARIOS = {
     const hay = await pg.waitForSelector('[data-abrir-whatsapp]', { timeout: 25000 }).then(() => true).catch(() => false);
     chequear('whatsapp', 'el mensaje del código, con «Abrir WhatsApp»', hay);
     if (hay) {
+      // EN PRODUCCIÓN (21/11): la pantalla preguntaba cada 4 s si llegó el WhatsApp, y la ruta (con el WhatsApp de verdad del negocio de
+      // prueba ya verificado) lo daba por cargado: «Listo, ya lo cargué» solo. El banco contesta igual; se espera más de una vuelta.
+      await esperar(9000);
+      chequear('whatsapp', 'en la simulación la pantalla no le pregunta a WhatsApp', !(await llamadas(pg)).some((l) => l.cuerpo?.action === 'whatsapp'));
+      chequear('whatsapp', 'y sigue en el código (no salta solo a «¿Guardaste…?»)', (await pg.$('[data-abrir-whatsapp]')) !== null);
       chequear('whatsapp', '«Abrir WhatsApp» es un botón (no un link a wa.me)', await pg.evaluate(() => document.querySelector('[data-abrir-whatsapp]')?.tagName === 'BUTTON'));
       await pg.click('[data-abrir-whatsapp]');
       const modal = await pg.waitForSelector('.wsim', { timeout: 4000 }).then(() => true).catch(() => false);
@@ -176,6 +181,30 @@ const ESCENARIOS = {
       chequear('brain', 'terminado el recorrido, la capa se va', (await pg.$('.sbr')) === null);
     }
     chequear('brain', 'sin errores en la página', errores.length === 0, errores.slice(0, 3).join(' | '));
+    await ctx.close();
+  },
+
+  // ── Un video a la vez con videos SILENCIADOS (producción, 21/11: el flotante arranca mudo y seguía sonando en la esquina) ──
+  async mudos() {
+    const { pg, ctx, errores } = await pagina('videos');
+    const arriba = 'div[data-banco="arriba"]', abajo = 'div[data-banco="abajo"]';
+    await pg.waitForSelector(`${arriba} .mk-vmom__play`, { timeout: 15000 });
+    await pg.click(`${arriba} .mk-vmom__play`);
+    await esperar(600);
+    await pg.evaluate(() => window.scrollTo(0, 1500));
+    const flota = await pg.waitForSelector('.mk-pip video', { timeout: 5000 }).then(() => true).catch(() => false);
+    chequear('mudos', 'el de arriba flota', flota);
+    // Como en producción: el flotante y el del chat, silenciados por el navegador.
+    await pg.evaluate(([b]) => { const p = document.querySelector('.mk-pip video'); if (p) { p.muted = true; void p.play().catch(() => {}); } const v = document.querySelector(`${b} video`); if (v) v.muted = true; }, [abajo]);
+    await esperar(500);
+    chequear('mudos', 'el flotante corre silenciado', await pg.evaluate(() => { const p = document.querySelector('.mk-pip video'); return !!p && !p.paused && p.muted; }));
+    await pg.click(`${abajo} .mk-vmom__play`);
+    await esperar(1200);
+    const e = await pg.evaluate(([b]) => ({ pip: document.querySelectorAll('.mk-pip').length, corriendo: [...document.querySelectorAll('video')].filter((v) => !v.paused).map((v) => (v.closest('[data-banco]')?.getAttribute('data-banco') ?? (v.closest('.mk-pip') ? 'esquina' : '?'))) }), [abajo]);
+    chequear('mudos', 'clic en el de abajo: el flotante silenciado deja la esquina', e.pip === 0, `flotantes: ${e.pip}`);
+    chequear('mudos', 'de TODOS los <video> de la página, corre uno solo: el de abajo', e.corriendo.length === 1 && e.corriendo[0] === 'abajo', e.corriendo.join(', '));
+    await pg.screenshot({ path: path.join(CAPT, 'mudos.png') });
+    chequear('mudos', 'sin errores en la página', errores.length === 0, errores.slice(0, 3).join(' | '));
     await ctx.close();
   },
 

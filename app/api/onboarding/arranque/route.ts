@@ -321,6 +321,9 @@ export async function POST(req: NextRequest) {
       // se lee y, si llegó, la conversación avanza. Sin novedad contesta corto: la pantalla lo pregunta cada pocos segundos.
       case 'whatsapp': {
         const e = await estadoEstricto();
+        // El WhatsApp SIMULADO de la revisión (21/11, producción): nunca la verificación de verdad, que en el negocio de prueba ya está
+        // verificada y daba el código por cargado solo («Listo, ya lo cargué» y a «¿Guardaste…?»).
+        if (e.simulacion) return NextResponse.json({ ok: true, sigue: false });
         if (e.telefono !== 'codigo' || !e.telefonoEntrante) return NextResponse.json({ ok: true, sigue: false });
         const v = await estadoVerificacionEntrante(g.ws);
         if (v?.estado !== 'verificado') return NextResponse.json({ ok: true, sigue: true, whatsapp: v });

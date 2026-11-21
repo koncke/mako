@@ -2733,8 +2733,9 @@ van dos marcas en el mismo render).
   tests/revision-reset-y-autocompletar.test.ts.
 
 - **Un solo video con sonido a la vez** (21/11/2026, Martín): un reproductor nuevo no coordina nada por su cuenta. El play global lo
-  maneja app/_ui/tutorial/un-video-a-la-vez.ts: pausa a los demás, y en la esquina queda sólo el último. Un video de adorno va `muted`, o
-  pausa al de verdad. tests/un-video-a-la-vez.test.ts.
+  maneja app/_ui/tutorial/un-video-a-la-vez.ts: pausa a los demás, y en la esquina queda sólo el último. Un video de adorno va en bucle
+  (`loop`), o pausa al de verdad; «silenciado» NO es «de adorno», porque el navegador silencia solo (21/11, producción).
+  tests/un-video-a-la-vez.test.ts.
 
 - **Ningún navegador automático con la sesión, las cookies o la contraseña de nadie, y nada de previews de Vercel** (21/11/2026, el
   Cerebro: es manejar credenciales). Lo que hay que TOCAR se prueba con los componentes reales en local: el banco

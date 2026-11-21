@@ -5838,6 +5838,14 @@ titular), no se tiñe.
 - **Sin hacer:** probarlo tocando, con dos videos en el hilo del reto (los Playwright contra el ws 3). Las notas de voz (`<audio>`) no
   entran en la regla.
 - tests/un-video-a-la-vez.test.ts (roto de a una rotura, 5).
+- **EN PRODUCCIÓN NO ANDABA** (21/11, 05:24 UTC, el Cerebro con clics de verdad en el ws 3). El video de la bienvenida flotaba, se le daba
+  play al del código y el flotante seguía sonando (0:21 / 0:25).
+  - **Causa:** la regla salteaba los videos SILENCIADOS para no tocar los de adorno, pero el navegador silencia solo. El flotante
+    arranca mudo si no lo dejan con sonido (VideoEnLaEsquina: `el.muted = true`), y lo mismo un video del chat. Silenciado no es de
+    adorno: ahora no cuentan sólo los que van en bucle (`loop`).
+  - **Por qué el banco no lo vio:** corría con `--autoplay-policy=no-user-gesture-required` y todo sonaba. Un banco más amable que el
+    navegador de verdad esconde la falla. Ahora el escenario «mudos» silencia el flotante y el segundo video, hace un clic real y
+    cuenta TODOS los `<video>` de la página. Con la regla vieja, cae.
 
 ## «Datos de Mauricio» se borró, y lo que colgaba de esa ruta (21/11/2026, chat «onboarding-v2», claude5)
 

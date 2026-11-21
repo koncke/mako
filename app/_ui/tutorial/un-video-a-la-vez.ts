@@ -7,22 +7,24 @@
 //   · se pausan todos los demás (el del chat, el del motor, el de la esquina);
 //   · lo que flotaba en la esquina, si es OTRO video, deja de flotar (`terminar(…, 'omitido')`, como su X). El que se reproduce flota
 //     sólo si sale de la vista (./useVideoQueFlota.ts), así que el de abajo, a la vista, no flota.
-// Los videos mudos (de adorno, en bucle) no cuentan: ni pausan a los demás ni se pausan.
+// Los de ADORNO (en bucle, `loop`) no cuentan: ni pausan a los demás ni se pausan. Un video SILENCIADO sí cuenta (21/11, producción: el
+// flotante arranca mudo si el navegador no lo deja con sonido —VideoEnLaEsquina: `el.muted = true`— y la regla vieja, que salteaba los
+// silenciados, lo dejaba sonando en la esquina mientras corría otro).
 // Lo instala <MotorTutorial> una vez para toda la pantalla. Lo prueba tests/un-video-a-la-vez.test.ts.
 // =============================================================================
 import { senalAhora, terminar } from './store';
 
-type Medio = { tagName?: string; muted: boolean; paused: boolean; pause(): void; closest?(sel: string): unknown };
+type Medio = { tagName?: string; muted: boolean; loop?: boolean; paused: boolean; pause(): void; closest?(sel: string): unknown };
 
 /** Lo que dibuja el motor en la esquina o en su lugar: su <video> no se suelta a sí mismo. */
 const DEL_MOTOR = '.mk-pip, .mk-tuto__video';
 /** El video del recorrido del motor, en la ESQUINA (fuera de su mensaje). */
 const TUTORIAL_EN_LA_ESQUINA = '.mk-tuto__video:not([data-en-lugar])';
 
-/** Pausa los videos con sonido que no son `este`. Devuelve cuántos. */
+/** Pausa los videos que no son `este` (con o sin sonido; los de adorno, en bucle, no). Devuelve cuántos. */
 export function pausarLosDemas(este: Medio, todos: Iterable<Medio>): number {
   let n = 0;
-  for (const v of todos) if (v !== este && !v.paused && !v.muted) { v.pause(); n++; }
+  for (const v of todos) if (v !== este && !v.paused && !v.loop) { v.pause(); n++; }
   return n;
 }
 
@@ -39,7 +41,7 @@ export function soltarLoQueFlota(este: Medio, doc: Pick<Document, 'querySelector
 export function instalarUnVideoALaVez(doc: Document): () => void {
   const alPlay = (e: Event) => {
     const v = e.target as unknown as Medio | null;
-    if (!v || v.tagName !== 'VIDEO' || v.muted) return;
+    if (!v || v.tagName !== 'VIDEO' || v.loop) return;
     pausarLosDemas(v, Array.from(doc.querySelectorAll('video')) as unknown as Medio[]);
     soltarLoQueFlota(v, doc);
   };
