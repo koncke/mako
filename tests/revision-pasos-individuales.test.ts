@@ -91,6 +91,8 @@ test('4. quién arranca la marca: el motor (desde su paso, sin el video) y el ch
   assert.match(m, /useState\(senal\.tipo === 'tutorial' && senal\.desde \? senal\.desde : /, 'empieza en su paso');
   assert.match(m, /senal\.tipo === 'tutorial' && senal\.desde \? null :/, 'sin el video (sigue los pasos desde el primero)');
   assert.match(m, /tomarSalto\(esDelRecorrido\)/, 'el motor toma el salto del recorrido');
+  // Desde un salto, sin el cartel falso de «todavía no está grabado» (21/11, producción).
+  assert.match(m, /\{senal\.tipo === 'tutorial' && !senal\.desde && \(\n\s*<VideoChico /);
   // Al terminarlo (u omitirlo) queda visto, como cualquier recorrido (21/11, el Cerebro).
   assert.match(m, /const r = useRecorrido\(ID_RECORRIDO, \{ autoabrir: false \}\);/);
   assert.match(m, /mostrarTutorial\(TUTORIAL_RECORRIDO, \{ desde: s\.recorrido, alTerminar: \(m\) => cerrar\.current\(m\) \}\)/);

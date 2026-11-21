@@ -18,11 +18,20 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Markdown } from '../app/_components/Markdown';
-import { RETO_INTERES_YA, muestrasDe } from '../lib/reto/dias';
+import { RETO_HOLA, RETO_INTERES_YA, muestrasDe } from '../lib/reto/dias';
 
 const fuente = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 const md = (text: string) => renderToStaticMarkup(createElement(Markdown, { text }));
+
+// EN PRODUCCIÓN (21/11, Martín en el ws 3): «Me dijiste que…» salía sangrado pero SIN el punto (Tailwind deja las listas sin marca), y
+// el reto volvía a saludar («ya le saludó como 5 veces»), con «Éste» con tilde.
+test('0. las viñetas se VEN (con su punto) y el reto no vuelve a saludar', () => {
+  assert.match(md('- uno\n- dos'), /<ul[^>]*style="[^"]*list-style-type:disc/, 'la viñeta, con su punto');
+  assert.match(md('1. uno\n2. dos'), /<ol[^>]*style="[^"]*list-style-type:decimal/, 'los números, con su número');
+  assert.doesNotMatch(RETO_HOLA('Valentina'), /Hola|Valentina/, 'sin otro saludo');
+  assert.match(RETO_HOLA('Valentina'), /^Este es tu reto de 7 días\. Cada día un video para que avances con tu negocio/, '«Este», sin tilde');
+});
 
 test('1. el parser: negrita, cursiva, subrayado, viñetas y números; y nada de HTML crudo', () => {
   assert.match(md('Esto es **clave**, *suave* y ++subrayado++.'), /<strong>clave<\/strong>[\s\S]*<em>suave<\/em>[\s\S]*<u>(<span>)?subrayado(<\/span>)?<\/u>/);
