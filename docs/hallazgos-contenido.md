@@ -1018,6 +1018,12 @@ elegido en otra lámina, el filtro lo escondía.
   encuentra, muestra la miniatura y, al tocarla, abre la pieza en Spy. Si no, dice «Todavía no está en Spy»: pasa con
   Dakota, que no está en la colección.
 - Pendiente (pedido para más adelante): etiquetar cada pieza de Spy con su ángulo y filtrar por ángulo.
+
+**Cuando el chat de carruseles termina una pieza** (21/11, «9 agentes de IA»): se trae la página de su artefacto
+(`Artifact read`, `path: index.html`) a `content-machine/carruseles/index.html` y se rearma. Al publicar se pasan en `files`
+sólo las imágenes de esa pieza, `carr/<id>/mako-NN.jpg` y `ref-NN.jpg`, como `{artifact, path}`: el servidor las vuelve a
+copiar de la versión actual. Un publish sin `files` deja las copias viejas, porque la copia no se actualiza sola. Después se
+lee una (`Artifact read` con `paths`) para comprobar que es la nueva.
 - Lo que ya había quedó así: El avión = MaKo · A o B; los tres de Educación = Personal · Educación; Cubos = MaKo · Animados;
   El ticket = Personal · Ventas; Comentarios = MaKo · Comentarios; los 11 carruseles = Personal · Ventas. El dudoso es
   «Ofertas que se venden» (tuits de Hormozi), que podría ser Educación.
