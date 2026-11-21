@@ -1,6 +1,35 @@
 # Relevo del Cerebro
 
 
+## 21/11/2026 ~05:45 UTC — LEER PRIMERO (cuenta claude5, semanal al 91 %; reinicia el 24/11 17:59 UTC)
+
+**Deploy hecho a pedido de Martín** («despliega en producción… todo en un solo deploy»): `f37c3439c`, READY 05:24 UTC. El cron de
+las 11:05 sólo compila si main trae algo nuevo (lib/desplegar-main.ts), así que lo que se arregle antes sale solo ahí.
+
+**Onboarding, recorrido en producción** (ws 3: /admin/customers/3 › «Acciones del negocio» › «Entrar a su cuenta»; videos silenciados
+con un MutationObserver y la pestaña cerrada al final). Bien: un solo RESET, «Autocompletar», sin «Datos de Mauricio», «Ir a un paso»
+con todos los pasos, video en el chat, formato. **Tres fallas devueltas al chat onboarding-v2** (sale a las 11:05 y se vuelve a recorrer):
+1) un video a la vez NO pausa el FLOTANTE (es otro `<video>`): play al 1, bajar, play al 2 → el flotante sigue; 2) «Abrir WhatsApp» en la
+revisión contesta solo «Listo, ya lo cargué» sin el modal que simula WhatsApp; 3) «Ir a un paso › 3» desde /second-brain cae en
+«¿Guardaste…?». Sin mirar todavía: emojis a 375, micrófono, reto, «Borrar todos los datos».
+
+**Content Machine** = https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz (antes «Serie con avatar IA»), lo publica SÓLO el chat
+avatar-ia-videos. Pestañas Avatar IA (93 reels: Rama, Heras Media @herasmedia, Víctor; filtro «nuestra versión con video de IA»;
+lo demás en C:/dev/referentes-videos/artefacto/serie/otras-series.json) · Animaciones (7 reels completos + 91 formatos) · Carruseles (11,
+copiados de VSm2NYaJj1UovnvzpMPhiY). Pedidos en curso: comentarios por AUDIO en todo, los formatos adentro (depósito de assets, tope de 511
+archivos por versión), el detalle bien formateado con UNA zona de comentarios, recopiar carruseles v5. En cola: @juanxcarrizo,
+@franciscodoglio, @guille.colladomk, Hormozi; **Julián Alborna sin encontrar: Martín tiene que pasar el usuario.** Imágenes de «nuestra
+versión» por ApiMart FRENADAS: el clasificador del chat no lo deja leer la clave; Martín tiene que escribírselo EN ESE chat (un reenvío
+del Cerebro no vale). Relevo y cosecha del chat en `punta/serie-avatar-ia`.
+
+**Carruseles:** los 11 de Martín pasan («si tapo el texto, ¿la imagen cuenta lo mismo?»), artefacto VSm2NYaJj1UovnvzpMPhiY v5; dos CTA
+(HORMOZI, GRUPO) prometen guías que no existen; cosecha en docs/hallazgos-carruseles.md (`c8128db7a`, punta/carruseles-leila). **Leila:**
+sus arreglos (copy pegado, lámina en blanco, fotos repetidas) están en prod; el chat los prueba en ws 9 y al pasar **el Cerebro le avisa
+en su grupo (ws 11)**.
+
+**Spy con video para clientes:** decidido por Martín: Apify. Diseño en `punta/spy-analisis-video` (docs/spy/analisis-con-video.md),
+espera decisiones de Martín; la clave rechazada es la del ws 9, a clientes no les rompe nada.
+
 ## 21/11/2026 ~02:40 UTC — LEER PRIMERO (cuenta claude5, semanal al ~88 %)
 
 **Deploys: UNO por día, el cron de las 11:05 UTC. `desplegar-ya` sólo si Martín lo pide en ese pedido** (memoria vercel-costo-builds:
