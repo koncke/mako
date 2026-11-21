@@ -1,10 +1,12 @@
 'use client';
 
 // =============================================================================
-// «Reiniciar onboarding» — en la barra de la vista de administrador, al lado de RESET (20/11/2026)
+// «RESET» — en la barra de la vista de administrador (20/11/2026; el único reset de la barra desde el 21/11)
 // =============================================================================
 // Martín: «una opción en SuperAdmin para resetear al usuario sin que pierda su información… que pueda resetear el onboarding».
-// RESET (PanelAgencia) vacía el negocio entero y sólo existe en el Cliente de Prueba. Éste borra SÓLO el estado del onboarding y
+// 21/11, Martín: «prefiero quedarme simplemente con el botón de reset… el de reiniciar onboarding funciona mejor… que sea eso, pero
+// que simplemente diga reset». El que vaciaba el negocio entero salió de la barra: es «Borrar todos los datos» en /admin/customers/<ws>
+// (sólo en las cuentas de prueba). Éste borra SÓLO el estado del onboarding y
 // del reto (lib/reiniciar-onboarding.ts dice qué sí y qué no), así que va en cualquier cliente que el super admin esté mirando.
 // Quién puede lo decide el server (/api/admin/reiniciar-onboarding: super admin, nunca el negocio del dueño).
 //
@@ -98,7 +100,7 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
     <>
       <button ref={btn} type="button" onClick={() => (confirmar ? setConfirmar(false) : abrir())} title={TEXTO_REINICIAR}
         aria-expanded={confirmar} aria-controls={confirmar ? ID_PANEL : undefined} style={chip}>
-        Reiniciar onboarding
+        Reset
       </button>
       {confirmar ? (
         pos && createPortal(
@@ -108,7 +110,7 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
             boxShadow: '0 18px 44px rgba(23,21,17,.32)', padding: '14px 16px', fontFamily: SANS,
           }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.35 }}>
-              {hecho ? `Listo: el onboarding de ${cliente} empieza de cero.` : `¿Reiniciar el onboarding de ${cliente}?`}
+              {hecho ? `Listo: el onboarding de ${cliente} empieza de cero.` : `¿Reset del onboarding de ${cliente}?`}
             </div>
             <p role={hecho ? 'status' : undefined} style={{ margin: '6px 0 14px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
               {hecho ? 'No se borró nada de lo suyo. Te llevo a su onboarding…' : TEXTO_REINICIAR}
@@ -116,7 +118,7 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
             {!hecho && <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button type="button" className="mk-btn mk-btn--sm mk-btn--secondary" onClick={() => setConfirmar(false)} disabled={busy}>No</button>
               <button type="button" className="mk-btn mk-btn--sm mk-btn--primary" onClick={() => void reiniciar()} disabled={busy}>
-                {busy ? 'Reiniciando…' : 'Sí, reiniciar'}
+                {busy ? 'Reseteando…' : 'Sí, reset'}
               </button>
             </div>}
           </div>,

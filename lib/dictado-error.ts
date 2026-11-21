@@ -7,6 +7,8 @@
 // la ruta porque un route.ts de Next sólo exporta sus métodos y su configuración.
 // =============================================================================
 
+import { MARCA_EL_DE_MAKO } from './nota-de-voz-de-mako';
+
 /** Sin ninguna IA que pueda escucharla (la red gratis no escucha datos de clientes): lo mismo que dice el chat sin IA. */
 export const SIN_OIDO = 'Para escuchar tu nota de voz necesito una IA conectada. Conecta la tuya o escríbemelo.';
 /** Cualquier otra falla al transcribir: qué hacer, sin el detalle de la cascada (ese va al log). */
@@ -18,7 +20,14 @@ export const NO_PUDE_ESCUCHAR = 'No pude escuchar la nota de voz. Grábala de nu
  * chat del teléfono (22/10/2026, la prueba de los chats). «ninguna IA pudo» es que no hay con quién escuchar: se le dice
  * como el chat («Conecta la tuya»; el botón ya está en la caja: «Conectar tu Claude», app/second-brain/PiezasCliente.tsx);
  * lo demás, que lo grabe de nuevo.
+ * Desde el 20/11/2026, sin IA propia la escucha el Whisper de MaKo (lib/nota-de-voz-de-mako.ts): SIN_OIDO queda para cuando no
+ * hubo NI ésa. Si la de MaKo probó y falló (sus errores van con `MARCA_EL_DE_MAKO`), que la grabe de nuevo; y sin MaKo Tokens, lo
+ * que dice el medidor (lib/mako-tokens-medidor.ts), con sus dos salidas.
  */
-export function errorDeDictado(msg: string): string {
-  return /ninguna IA pudo/i.test(msg) ? SIN_OIDO : NO_PUDE_ESCUCHAR;
+export function errorDeDictado(msg: string, o?: { delNegocio?: number }): string {
+  const sinSaldo = /Te quedaste sin MaKo Tokens[^]*$/.exec(msg);
+  if (sinSaldo) return sinSaldo[0];
+  // Con una clave del negocio que falló (`delNegocio`: sus errores), ya tiene IA: no es «conecta la tuya» (el Cerebro, 20/11).
+  if ((o?.delNegocio ?? 0) > 0) return NO_PUDE_ESCUCHAR;
+  return /ninguna IA pudo/i.test(msg) && !msg.includes(MARCA_EL_DE_MAKO) ? SIN_OIDO : NO_PUDE_ESCUCHAR;
 }

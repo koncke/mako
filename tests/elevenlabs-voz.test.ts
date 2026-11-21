@@ -174,11 +174,7 @@ test('la key de ElevenLabs no se siembra sola en el workspace de nadie', () => {
   const lista = /NO_MIGRAR_A_WS[^=]*=\s*new Set\(\[([^\]]*)\]\)/.exec(src)?.[1] ?? '';
   assert.match(lista, /ELEVENLABS_API_KEY/, 'sin esto, el próximo boot re-siembra la key de la casa en el ws1');
 
-  // Y el otro camino por el que volvía: «Datos de Mau» copia las credenciales del
-  // ws1 al workspace destino. Pregunta a la MISMA lista y no a `soloPlataforma`,
-  // que es un flag que se apaga justo cuando una credencial pasa a BYOK.
-  const mau = sinComentarios(readFileSync(join(RAIZ, 'lib/datos-mau.ts'), 'utf8'));
-  assert.match(mau, /esCredencialDeLaCasa\(campo\.env\)/, 'datos-mau vuelve a copiar la cuenta de la casa');
+  // El otro camino por el que volvía, «Datos de Mau» (copiaba las credenciales del ws1 a un workspace de prueba), se borró el 21/11.
 });
 test('ElevenLabs se le ofrece al CLIENTE en los DOS catálogos', () => {
   // ⚠️ INVERTIDO el 02/09/2026, con el resto del cambio a BYOK. Antes fijaba
