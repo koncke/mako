@@ -886,6 +886,18 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - El recuadro: un degradé suave, la cara del creador al centro y «Video en camino». Las piezas sin medios van al final
       de cualquier orden.
     - **Trampa:** la cara usa su propia clase (`cara-sm`). Con `.cara`, otro estilo la mandaba arriba a la izquierda.
+27. **El filtro: Creador con botones; lo demás, renglones con un submenú en cascada** (21/11). Martín: «los botones solamente
+    me gustan para los creadores; el resto debería ser otro desplegable que se abre al costado».
+    - Tipo, Escena, Publicado, Estado y Orden son renglones («Publicado · Últimos 3 meses ›»). Al pasar el cursor o tocar, se
+      abre al costado del panel un submenú (`position: fixed`, en el `body`) alineado con su renglón: una opción por renglón,
+      ✓ en la elegida y el número de piezas a la derecha. Elegir una cierra el submenú y actualiza el renglón.
+    - Ahora todos son de una sola opción (con «Todos»). Antes Tipo y Estado se podían elegir de a varios.
+    - Se abre hacia donde haya 264 px libres. Si no hay lugar a ningún lado (el teléfono, la hoja de abajo), el renglón abre
+      una segunda pantalla dentro de la misma hoja, con «‹ Filtros».
+    - Los creadores van en dos columnas a partir de 641 px. En una sola columna empujaban los renglones fuera de la vista,
+      y con la barra de scroll escondida no se sabía que había más abajo.
+    - **Trampa para probarlo:** el submenú se cierra con `resize`, y ajustar el tamaño del navegador de prueba dispara
+      `resize`. La captura tiene que ir sin cambiar el tamaño entre abrirlo y fotografiarlo.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
