@@ -706,6 +706,16 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - lo mismo en las tres secciones.
     Regla: nada que el usuario tenga que estirar, y un solo lugar para opinar. La nota vieja de `revision` aparece como primer
     globo del hilo, «Nota anterior», para no perderla.
+11. **«Horriblemente diseñado»: el escenario manda** (21/11, noche). Las cuatro tarjetas de texto en 2×2 debajo de las láminas
+    (párrafos largos, un «2–10» que metía nueve láminas en un párrafo, un CTA medio vacío) se fueron. Quedó así:
+    - arriba, referencia | nuestra del MISMO tamaño y enteras (`object-fit: contain`, 4:5 o 9:16, hasta ~70vh), con flechas;
+    - UNA línea bajo el escenario: el texto de ESA lámina (escrito a mano por lámina en `fichas-cortas.json`, porque el armado
+      automático desde el guion dejaba comillas cortadas y frases de 150 letras) o el gancho del reel;
+    - una tira de miniaturas con la actual marcada y un punto en las que tienen comentarios;
+    - a la derecha, un panel fijo con «Comentarios | Ficha». La ficha va en viñetas de 12 palabras como máximo, reescritas a mano:
+      si no entra, se resume el texto, no se achica la letra;
+    - en el teléfono, una lámina grande con «Referencia | Nuestra», deslizar para pasar y el panel en una hoja que sube.
+    Regla: la pregunta es «¿se entiende en 5 segundos, sin leer?». Si para entender una pieza hay que leer un bloque, está mal.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
