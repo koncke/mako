@@ -48,7 +48,7 @@ const esPalabra = (t, cta) => {
   const s = (t || '').replace(/@\S+/g, '').replace(/[^\p{L}\p{N} ]/gu, '').trim();
   if (!s) return true;
   if (cta && s.toLowerCase() === String(cta).toLowerCase()) return true;
-  return s.split(/\s+/).length <= 2 && s === s.toUpperCase();
+  return s.split(/\s+/).length <= 2; // una o dos palabras («Ia», «Promtp», «Quiero»): no es conversación
 };
 
 // El corte de cada cuenta (su última medición) y el múltiplo de cada pieza contra la mediana de su cuenta y red.

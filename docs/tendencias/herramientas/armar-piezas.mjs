@@ -20,7 +20,7 @@ const ctaDe = (t) => {
     s.match(/\b[Cc]omment(?![a-z])[^A-Z0-9\n]{0,12}?([A-Z0-9]{2,})(?![a-z])/) ||
     s.match(/\b(?:[Ee]scrib[ei](?:me)?|[Ee]nv[ií]a(?:me)?|[Mm]and[aá](?:me)?)(?![a-záéíóú])[^A-ZÁÉÍÓÚÑ0-9\n]{0,22}?([A-ZÁÉÍÓÚÑ0-9]{3,})(?![a-záéíóúñ])/);
   const w = m ? m[1].trim() : null;
-  return w && !/^(DM|IG|MD|YO|LA|EL|UN|USD|IA)$/.test(w) ? w : null;
+  return w && !/^(DM|IG|MD|YO|LA|EL|UN|USD)$/.test(w) ? w : null;
 };
 const meter = (p) => { const k = `${p.red}:${p.id}`; if (vistos.has(k)) return; vistos.add(k); out.push(p); };
 

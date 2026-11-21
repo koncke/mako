@@ -77,3 +77,18 @@ que rehace el chat de Content Machine (local_fc754a71-87b7-4a34-8133-0307a31abe1
   no tienen Instagram, en `C:/dev/tendencias/<clave>/`. `armar-piezas.mjs` ya lee ese formato.
 - Orden: primero los sectores sin datos (IA, Low ticket, YouTube, Anuncios, Closing), después el resto. Un proceso a la vez.
 - Después, la transcripción sólo de las piezas con más comentarios de cada tema (la lista la doy yo con `tabla.json`).
+
+## Estado (21/11, ~09:30 UTC)
+
+- OK del Cerebro a la lista; pedido al chat Spy mandado (orden: Anuncios, IA, Closing, YouTube, High ticket, Low ticket, Nicho,
+  Viral, Mentalidad; 90 días completos; comentarios de texto en IG y en los 10 videos con más comentarios de cada canal de YouTube).
+  El Cerebro quiere **Anuncios analizado primero** para mandárselo a Martín.
+- Ronda 2 de referentes (4 agentes): 155 en total (`referentes-extra.json`); avisado al chat Spy (los 7 nuevos de Anuncios van en esa tanda).
+- Histórico clasificado (7 lotes `hist-NN`, 1.273 piezas): da la antigüedad y el peso de hace un año; el año desempata el estado.
+- Cuando el chat Spy avise que terminó un sector: `node armar-piezas.mjs` → `node lotes.mjs` (sólo arma lotes de lo nuevo) →
+  agentes con `instrucciones-clasificar.md` → fundir «nuevo:» en `alias.json` y `nombres.json` → `node analizar.mjs` →
+  `node uso.mjs <sector>` → un agente con `instrucciones-uso.md` → `uso/<sector>.salida.json` se junta en `como-usarla.json` →
+  `node generar.mjs C:/dev/wt-tendencias/docs/tendencias`.
+- Ojo: en los reels con «comenta X» la muestra de comentarios es casi toda la palabra; lo que pide la gente sale de YouTube y
+  de los carruseles. Un comentario de una o dos palabras («Ia», «Promtp») cuenta como palabra.
+- Juan ADS promociona SaleADS.ai (competidor directo de MaKo) en su YouTube.
