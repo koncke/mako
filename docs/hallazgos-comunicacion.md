@@ -91,6 +91,43 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## ⛔ MaKo ya no crea grupos de WhatsApp: un solo punto de corte, y los grupos que existen siguen (20/11/2026, claude5)
+
+Martín, después de la llamada con Leila: «Sólo no crear más». Los grupos que ya existen siguen como están, y también las altas de gente en
+ellos. Lo que se corta es CREAR un grupo nuevo, por cualquier camino.
+- **Por qué no el freno `mako.grupos.altas`:** corta también las altas en los grupos que ya existen. Además es un ajuste de producción, y escribirlo pide
+  el sí de Martín.
+- **Por qué cortar en Evolution y no en cada caller:** había DOS llamadas a `/group/create`, las dos en lib/mako-grupo.ts (`asegurarGrupoMaKo` y
+  `crearGrupoSuelto`). Detrás de ellas había cinco caminos:
+  - Notificaciones, por `setNumeroDuenoYSync`;
+  - la verificación del teléfono del onboarding, por `sincronizarConfirmado`;
+  - el webhook que confirma el código;
+  - el admin (`/api/admin/mako-grupo`);
+  - los avisos de prueba (`/api/admin/avisos-demo`).
+
+  Ahora las dos pasan por `crearGrupoEnLaVoz`, el ÚNICO lugar que crea. Corta con `SE_CREAN_GRUPOS` (lib/altas-en-grupos.ts, `false`) ANTES del freno y
+  del cupo de la línea: un grupo que no nace no gasta un alta.
+- **Sin grupo no es un error:** `setNumeroDuenoYSync` guarda el número y devuelve `sin_grupo`. Notificaciones guarda los números, no suma a nadie y
+  devuelve `aviso`: «Los avisos de MaKo llegan por su chat privado». El teléfono lo muestra bajo la lista y ya no pone «Al grupo de MaKo» por guardar un
+  número; la computadora lo dice en el «Guardado ✓». El onboarding queda verificado igual. El admin y los avisos de prueba reciben un 409 con ese texto.
+- ⚠️ **Tres tests creaban grupos de verdad contra un Evolution de mentira:**
+  - tests/altas-en-grupos.test.ts ahora recorre los caminos que creaban y prueba que ninguno manda `group/create`, con y sin el freno. Exige además que
+    `group/create` aparezca UNA vez en lib/ y app/, adentro de `crearGrupoEnLaVoz` y después del corte.
+  - tests/whatsapp-anti-ban.test.ts: confirmar el teléfono ya no crea grupo.
+  - tests/agencia-grupos-auto.test.ts prueba el NACIMIENTO de un grupo con el equipo de la agencia, que ahora es código dormido. Corre con el corte
+    abierto por un `mock.module` de lib/altas-en-grupos.ts, sólo en su proceso (`--experimental-test-module-mocks`). Producción no tiene ningún interruptor
+    por variable de entorno.
+- **Probado:** 8 roturas a propósito, todas en rojo. Entre ellas: el corte después del freno, el grupo suelto creando por su cuenta, otro archivo con
+  `group/create`, el número del dueño como error y la pantalla diciendo «Al grupo» otra vez.
+- **Sin hacer:** los grupos que ya existen no se tocaron. Si alguna vez se vuelve a crear, se prende `SE_CREAN_GRUPOS` y el test de las altas lo marca:
+  es una decisión de Martín.
+
+**Vive en:** lib/altas-en-grupos.ts (`SE_CREAN_GRUPOS`, `SIN_GRUPOS_NUEVOS`) · lib/mako-grupo.ts (`crearGrupoEnLaVoz`, `setNumeroDuenoYSync`) ·
+lib/notif-destinatarios.ts · app/m/configuraciones/notificaciones/NotificacionesNegocioM.tsx · app/perfil/DestinatariosCanal.tsx ·
+app/api/admin/mako-grupo/route.ts · app/api/admin/avisos-demo/route.ts.
+
+---
+
 ## El WhatsApp del V2 contra la maqueta: un pedido que no salía sin error, y un camino que no se alcanzaba (20/11/2026, claude5)
 
 **Vive en:** `lib/verificacion-entrante.ts` («EL WHATSAPP DEL ONBOARDING V2») · `lib/mako-grupo.ts` (`responderPedidoV2`,

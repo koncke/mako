@@ -78,7 +78,18 @@ test('4. el botón mide al abrirse (y al cambiar el tamaño) y le pone al panel 
   assert.match(css, /\.co-emojis__grilla \{[^}]*flex: 1 1 auto; min-height: 0;/, 'la grilla se achica cuando el panel tiene poco alto');
 });
 
-// ⚠️ PROBADO ROMPIÉNDOLO (20/11/2026, base 4/0; al restaurar, 4/0). Cada rotura, de a una, cae:
+test('5. con el panel abierto, la ayuda «?» de la pestaña se esconde: a 375 quedaba encima del panel', () => {
+  // El Cerebro en producción (95e9f3f60): a 375 el «?» flotante tapaba el borde derecho del panel. Es el botón del video de la pestaña
+  // (`.mk-tuto-ayuda`, MotorTutorial: `fixed`, z 900, abajo a la derecha): mientras el panel está abierto, se esconde.
+  const e = fuente('app/admin/operaciones/Emojis.tsx');
+  assert.match(e, /useEffect\(\(\) => \{\n\s*if \(!abierto\) return;\n\s*document\.documentElement\.setAttribute\(ATTR_EMOJIS_ABIERTO, ''\);\n\s*return \(\) => document\.documentElement\.removeAttribute\(ATTR_EMOJIS_ABIERTO\);\n\s*\}, \[abierto\]\);/);
+  assert.match(e, /export const ATTR_EMOJIS_ABIERTO = 'data-emojis-abierto';/);
+  assert.match(fuente('app/_ui/tutorial/MotorTutorial.tsx'), /className="mk-tuto-ayuda"/);
+  assert.match(fuente('app/admin/operaciones/centro.css'), /html\[data-emojis-abierto\] \.mk-tuto-ayuda \{ visibility: hidden; \}/);
+});
+
+// ⚠️ PROBADO ROMPIÉNDOLO (20/11/2026, base 5/0; al restaurar, 5/0). Cada rotura, de a una, cae:
+//   - el panel sin marcar `<html>` al abrirse, o sin la regla que esconde la ayuda → 5
 //   - `lugarDelPanel` con el `left: -46` fijo de antes (sin acomodarse) → 1, 2 y 3
 //   - sin achicar el ancho al recuadro → 2
 //   - sin acortar el alto cuando no hay lugar arriba → 3

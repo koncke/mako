@@ -28,7 +28,9 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { exigirClienteDePrueba } from './auth-session';
 import { TABLAS_DE_INQUILINO } from './tablas-de-inquilino';
-import { PERFIL_EXTRA } from './datos-mau';
+/** Los campos de `usuarios.perfil` que el RESET le saca a la gente del negocio de prueba (los copiaba «Datos de Mauricio», que ya no existe:
+ *  quedaron así en los negocios de prueba de antes). */
+export const PERFIL_EXTRA = ['cargo', 'empresa', 'web', 'bio', 'timezone'] as const;
 import { perfilReiniciado } from './reiniciar-onboarding';
 import { leerTodo } from './supabase-paginado';
 import { laCajaNoEsta as migracionSinAplicar } from './mako-tokens-caja';
