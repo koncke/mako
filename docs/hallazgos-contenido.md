@@ -1039,6 +1039,8 @@ animaciones: va a mano en `armar-cm.mjs` (`reels.push`).
 sólo las imágenes de esa pieza, `carr/<id>/mako-NN.jpg` y `ref-NN.jpg`, como `{artifact, path}`: el servidor las vuelve a
 copiar de la versión actual. Un publish sin `files` deja las copias viejas, porque la copia no se actualiza sola. Después se
 lee una (`Artifact read` con `paths`) para comprobar que es la nueva.
+- **Trampa:** si en la sesión no se leyeron antes las copias ya publicadas, el publish se rechaza («not read as published»)
+  y no sube nada. Se leen primero (`Artifact read` con `paths`) y después se vuelve a publicar.
 - Lo que ya había quedó así: El avión = MaKo · A o B; los tres de Educación = Personal · Educación; Cubos = MaKo · Animados;
   El ticket = Personal · Ventas; Comentarios = MaKo · Comentarios; los 11 carruseles = Personal · Ventas. El dudoso es
   «Ofertas que se venden» (tuits de Hormozi), que podría ser Educación.
