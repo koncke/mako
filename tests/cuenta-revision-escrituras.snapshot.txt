@@ -146,6 +146,7 @@ POST /api/crm/ficha/armar → cortada
 POST /api/crm/importar-leads → cortada
 POST /api/crm/llamadas-grabadas → cortada
 POST /api/crm/mako → cortada
+POST /api/crm/papelera → cortada
 POST /api/cron/grupo-turno → pública (no usa la sesión)
 POST /api/cuenta/eliminar → PERMITIDA
 POST /api/datos-mau → cortada
@@ -372,6 +373,7 @@ acción app/crm/curso-al-ganar-actions.ts → cortada (ninguna página acepta un
 acción app/crm/datos-sin-marcar-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/crm/enriquecer-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/crm/ficha-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/fuentes-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/crm/grupo-wa-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/crm/insights-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/crm/lead-cabecera-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)

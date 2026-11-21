@@ -39,6 +39,7 @@ import { porMotivo } from '@/lib/leads-duplicados';
 import { crmsDelOptin } from '@/lib/piezas-web';
 import { anotarEnvio } from '@/lib/lead-formularios';
 import { claveDeFormulario, claveDeLanding, idDeFormularioPixel, paginaDePixel } from '@/lib/editor-landing/piezas';
+import { claveWeb } from '@/lib/fuentes-formularios';
 import { conAtribucion, hayAtribucion } from '@/lib/atribucion-url';
 import { getFunnelDefault, idDelFunnelDefault } from '@/lib/funnels';
 import { agregarAProducto } from '@/lib/lead-funnel';
@@ -138,6 +139,22 @@ async function trasElEnvio(ws: number, leadId: number, e: EnvioDelPixel, respues
       }
     }
   }).catch((err) => console.error(`[track:optin] ws=${ws} lead=${leadId} después del envío:`, err instanceof Error ? err.message : err));
+}
+
+/**
+ * LA CALIFICACIÓN AUTOMÁTICA (20/11/2026, «Asignar fuentes» → Formularios, lib/calificacion-aplicar.ts): con reglas en el
+ * funnel donde entró, el lead va a su etapa según lo que contestó. Va ANTES del envío y de las automatizaciones: un
+ * descalificado no entra a la secuencia de «lead nuevo». Las reglas se buscan por el formulario (`form:<id>`, Web Generator)
+ * y, si no, por la página (`web:<página>`, cualquier página con el Pixel). Nunca tira.
+ */
+async function calificarEnvio(ws: number, leadId: number, e: EnvioDelPixel, pagina: string | null, respuestas: RespuestaOptin[]): Promise<void> {
+  const claves = [e.formularioId ? claveDeFormulario(e.formularioId) : null, pagina ? claveWeb(pagina) : null].filter((c): c is string => !!c);
+  if (!claves.length || !respuestas.length) return;
+  await runWithWorkspace(ws, async () => {
+    const { aplicarCalificacion, respuestasDeOptin } = await import('@/lib/calificacion-aplicar');
+    const movs = await aplicarCalificacion(leadId, claves, respuestasDeOptin(respuestas));
+    if (movs.length) console.log(`[track:optin] ws=${ws} lead=${leadId} calificado: ${movs.map((m) => `${m.funnelId}→${m.etapa}`).join(', ')}`);
+  }).catch((err) => console.error(`[track:optin] ws=${ws} lead=${leadId} la calificación falló:`, err instanceof Error ? err.message : err));
 }
 
 /** Las automatizaciones de la etapa en la que entró a cada CRM agregado, en el acto (no en el barrido de la hora). */
@@ -444,6 +461,7 @@ export async function POST(req: NextRequest) {
           if (error) console.error(`[track:optin] ws=${ws} lead=${leadId} no se guardaron las respuestas nuevas: ${error.message}`);
         }).catch(() => {});
       }
+      await calificarEnvio(ws, leadId, envio, paginaOptin, respuestasOptin);
       await trasElEnvio(ws, leadId, envio, respuestasOptin, paginaGuardable, funnelesDelLead);
       await enrolarEnAgregados(ws, leadId, agregados);
       console.log(`[track:optin] ws=${ws} lead=${leadId} ya existía: ${agregados.length ? `agregado a los CRM ${agregados.map((a) => a.funnelId).join(',')}` : 'ya estaba en sus CRM'}`);
@@ -568,6 +586,7 @@ export async function POST(req: NextRequest) {
       ).catch((e) => console.error('[track:optin] el lead entró pero el aviso falló:', e instanceof Error ? e.message : e));
       // El envío, el historial, «Envió el formulario» y las automatizaciones de la etapa en la que nace, EN EL ACTO (14/11/2026):
       // hasta acá entraba a su secuencia recién con el barrido de la hora (relevo de la llamada con Julio, punto 5).
+      await calificarEnvio(ws, lead.id, envio, paginaOptin, respuestasOptin);
       await trasElEnvio(ws, lead.id, envio, respuestasOptin, paginaGuardable, funnelesDelLead);
       await runWithWorkspace(ws, async () => {
         const { enrolarPorEvento } = await import('@/lib/nutricion');

@@ -254,6 +254,23 @@
 .mk-switch:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .mk-switch:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* «Asignar fuentes» (app/crm/FuentesVista.tsx, 20/11/2026). En el teléfono el número de leads de una campaña baja a la
+   línea de abajo (no entra una columna más al lado del interruptor) y cada condición de una regla se parte en dos
+   renglones: la pregunta entera arriba, y «es / respuesta / ✕» abajo. */
+.mk-solo-movil { display: none; }
+.mk-fuente-fila:hover { background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+@media (max-width: 640px) {
+  .mk-fuente-leads { display: none !important; }
+  .mk-solo-movil { display: inline; }
+  .mk-condicion { grid-template-columns: 120px minmax(0, 1fr) 32px !important; }
+  .mk-condicion > :first-child { grid-column: 1 / -1; }
+  .mk-fuente-reglas { padding-left: 14px !important; }
+  /* Las dos pestañas entran en un renglón (con el padding de siempre, «Formularios» bajaba). */
+  .mk-fuentes .mk-tab { padding-left: 10px !important; padding-right: 10px !important; }
+  /* El detalle de una fuente («página · leads · último envío») en dos renglones en vez de cortado. */
+  .mk-fuente-sub { white-space: normal !important; display: -webkit-box !important; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+}
+
 /* ── Badge · Tag · Status ──────────────────────────────────────────────────
    Tres cosas distintas que hoy se usan indistintamente:
      badge   un CONTADOR o una novedad. Si todo tiene badge, nada tiene badge.

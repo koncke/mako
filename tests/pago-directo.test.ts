@@ -14,7 +14,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { RECARGO_PASARELA, canalDelPago } from '../lib/partners-reglas';
 import {
-  CLAVE_PAGO_DIRECTO, conRecargoDePasarela, DATOS_VACIOS, datosDeSetting, datosLimpios, mediosDisponibles, montoDelMedio, textoDelComprobante, urlDeEmail, urlDeWhatsApp,
+  CLAVE_PAGO_DIRECTO, conRecargoDePasarela, DATOS_VACIOS, datosDeSetting, datosLimpios, medioDirectoQueVale, mediosDelCheckout, mediosDisponibles, montoDelMedio, textoDelComprobante, urlDeEmail, urlDeWhatsApp,
   type DatosDePagoDirecto,
 } from '../lib/pago-directo-reglas';
 import { leerPedidoCompra } from '../lib/compra-plan-reglas';
@@ -22,7 +22,7 @@ import { CompraPlan } from '../app/planes/[plan]/CompraPlan';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
-const DATOS: DatosDePagoDirecto = { binancePayId: 'PAYID-DE-PRUEBA', linkBinance: 'https://app.binance.com/uni-qr/ejemplo', linkTransferencia: 'https://mpago.la/ejemplo', alias: 'alias.de.prueba', cvu: null, titular: 'Titular de prueba', whatsapp: '5491100000000', email: 'cobros@ejemplo.com' };
+const DATOS: DatosDePagoDirecto = { binancePayId: 'PAYID-DE-PRUEBA', linkBinance: 'https://app.binance.com/uni-qr/ejemplo', linkTransferencia: 'https://mpago.la/ejemplo', alias: 'alias.de.prueba', cvu: null, titular: 'Titular de prueba', whatsapp: '5491100000000', email: 'cobros@ejemplo.com', checkoutPublico: true };
 
 test('el modelo (18/11, tarde): el recargo de pasarela está APAGADO (RECARGO_PASARELA = 0): las pasarelas cobran el precio de LISTA, 97 / 47 y los pesos tal cual', () => {
   assert.equal(RECARGO_PASARELA, 0, 'Martín simplificó antes del despliegue: «volvamos al sistema simple… a 47 y 97»');
@@ -51,7 +51,8 @@ test('LO QUE SE MUESTRA ES LO QUE SE COBRA: el recargo se aplica en UN punto (`o
 
 test('los datos de MaKo NO se inventan: sin ninguno la opción no se ofrece, y cada medio pide su dato', () => {
   assert.deepEqual(mediosDisponibles(DATOS_VACIOS), [], 'el repo no trae ningún dato cargado');
-  assert.ok(Object.values(DATOS_VACIOS).every((v) => v === null));
+  assert.ok(Object.values(DATOS_VACIOS).every((v) => v === null || v === false));
+  assert.equal(DATOS_VACIOS.checkoutPublico, false, 'el checkout público arranca apagado');
   assert.deepEqual(datosDeSetting(null), DATOS_VACIOS, 'sin setting, sin datos');
   assert.deepEqual(datosDeSetting('esto no es json'), DATOS_VACIOS, 'un setting roto no muestra nada');
   assert.deepEqual(mediosDisponibles({ ...DATOS, alias: null, cvu: null, linkTransferencia: null }), ['binance']);
@@ -64,7 +65,7 @@ test('los datos de MaKo NO se inventan: sin ninguno la opción no se ofrece, y c
 test('los datos viven en un SETTING editable (no en una constante) y se limpian: lo que no se entiende no se muestra a un cliente', () => {
   assert.equal(CLAVE_PAGO_DIRECTO, 'planes.pago_directo');
   const l = datosLimpios({ binancePayId: '  123 456  ', linkBinance: 'https://app.binance.com/uni-qr/68G3kuwL', linkTransferencia: 'https://mpago.la/abc', alias: 'mako.cobros', cvu: '', titular: 'MaKo SRL', whatsapp: '+54 9 11 2233-4455', email: 'COBROS@Mako.com' });
-  assert.deepEqual(l, { binancePayId: '123 456', linkBinance: 'https://app.binance.com/uni-qr/68G3kuwL', linkTransferencia: 'https://mpago.la/abc', alias: 'mako.cobros', cvu: null, titular: 'MaKo SRL', whatsapp: '5491122334455', email: 'cobros@mako.com' });
+  assert.deepEqual(l, { binancePayId: '123 456', linkBinance: 'https://app.binance.com/uni-qr/68G3kuwL', linkTransferencia: 'https://mpago.la/abc', alias: 'mako.cobros', cvu: null, titular: 'MaKo SRL', whatsapp: '5491122334455', email: 'cobros@mako.com', checkoutPublico: false });
   const m = datosLimpios({ whatsapp: '12345', email: 'no-es-email', alias: 42 });
   assert.equal(m.whatsapp, null, 'un WhatsApp con pocos dígitos');
   assert.equal(m.email, null);
@@ -124,8 +125,8 @@ test('el pedido: viaja el MEDIO (nunca el monto) y entra como «Quiero»; un med
 
 test('el aviso al equipo lleva el medio y el monto de lista, y dice que falta VERIFICAR (no promete activar solo)', () => {
   const c = fuente('lib/compra-plan.ts');
-  assert.match(c, /const directo = p\.medioDirecto && elegido/);
-  assert.match(c, /montoDelMedio\(p\.medioDirecto, \{ precioUsd: elegido\.precioUsd, precioArs: precioEnPesos\(elegido\) \}\)/, 'el monto sale del plan, no del cliente');
+  assert.match(c, /const medio = p\.medioDirecto \? medioDirectoQueVale\(p\.medioDirecto, await leerDatosDePagoDirecto\(\)\) : null;\s+const directo = medio && elegido/);
+  assert.match(c, /montoDelMedio\(medio, \{ precioUsd: elegido\.precioUsd, precioArs: precioEnPesos\(elegido\) \}\)/, 'el monto sale del plan, no del cliente');
   assert.match(c, /Falta VERIFICAR que la plata entró \(todavía no se verifica sola\) y darle de alta a mano\./);
   assert.match(c, /detalle: `Quiere \$\{nombrePlan\}\$\{dePago\}`/, '«Quieren entrar» también lo dice');
 });
@@ -154,6 +155,51 @@ test('la pantalla: la fila «Transferencia o Binance» (sin chip de descuento) s
   assert.doesNotMatch(f.slice(f.indexOf('quiero: true, medioDirecto,'), f.indexOf('quiero: true, medioDirecto,') + 200), /monto/, 'el monto no viaja');
   const p = fuente('app/planes/[plan]/page.tsx');
   assert.match(p, /const directo: OpcionDirecta \| undefined = mediosDirectos\.length \?/, 'sin medio con dato y monto, no hay opción');
+});
+
+// ── EL INTERRUPTOR DEL CHECKOUT PÚBLICO (20/11/2026) ─────────────────────────────────────────────────────────────────────
+// Martín: «por ahora… lo seguimos haciendo todo por pasarela y por el link de pago de Mercado Pago… no le brindamos ningún tipo de descuento…
+// que salga exactamente lo mismo todo». Los datos se cargan para que MaKo le diga a una agencia a dónde pagar; /planes no los ofrece.
+
+const CARGADOS_APAGADO: DatosDePagoDirecto = { ...DATOS, checkoutPublico: false };
+
+test('⛔ con los datos cargados y el interruptor APAGADO, /planes no ofrece «Transferencia o Binance» y el servidor no toma ese pedido', () => {
+  assert.deepEqual(mediosDisponibles(CARGADOS_APAGADO), ['binance', 'transferencia'], 'los datos están (los usa la agencia)');
+  assert.deepEqual(mediosDelCheckout(CARGADOS_APAGADO), [], 'cargar los datos prendía sola la opción del checkout');
+  assert.equal(medioDirectoQueVale('binance', CARGADOS_APAGADO), null, 'una pestaña de antes o un POST a mano no promete pagar por Binance');
+  assert.equal(medioDirectoQueVale('transferencia', CARGADOS_APAGADO), null);
+  // Prendido, como antes; y sin el dato de un medio, ese medio no vale.
+  assert.deepEqual(mediosDelCheckout(DATOS), ['binance', 'transferencia']);
+  assert.equal(medioDirectoQueVale('binance', DATOS), 'binance');
+  assert.equal(medioDirectoQueVale('binance', { ...DATOS, binancePayId: null, linkBinance: null }), null);
+  assert.equal(medioDirectoQueVale(null, DATOS), null);
+  // Sólo `true` lo prende: un setting viejo (sin el campo), un texto o un número quedan apagados.
+  assert.equal(datosLimpios({ binancePayId: 'X' }).checkoutPublico, false);
+  assert.equal(datosLimpios({ checkoutPublico: 'true' }).checkoutPublico, false);
+  assert.equal(datosLimpios({ checkoutPublico: 1 }).checkoutPublico, false);
+  assert.equal(datosDeSetting(JSON.stringify({ binancePayId: 'X' })).checkoutPublico, false, 'lo guardado antes del 20/11 queda apagado');
+  assert.equal(datosLimpios({ checkoutPublico: true }).checkoutPublico, true);
+  // La página y el servidor preguntan por el checkout, no por los datos.
+  const p = fuente('app/planes/[plan]/page.tsx');
+  assert.match(p, /const mediosDirectos = mediosDelCheckout\(datosDirectos\)/);
+  assert.doesNotMatch(p, /mediosDisponibles\(/, '/planes no decide con «hay datos»');
+  assert.match(p, /const qrBinance = datosDirectos\.checkoutPublico && datosDirectos\.linkBinance \?/, 'ni dibuja el QR con el interruptor apagado');
+});
+
+test('⛔ guardar un dato en Settings › Payments no apaga ni prende el interruptor: lo conserva', () => {
+  const srv = fuente('lib/pago-directo.ts');
+  const g = srv.slice(srv.indexOf('export async function guardarDatosDePagoDirecto'));
+  assert.match(g, /typeof o\.checkoutPublico === 'boolean' \? o\.checkoutPublico : \(await leerDatosDePagoDirecto\(\)\)\.checkoutPublico/);
+  assert.match(g, /datosLimpios\(\{ \.\.\.o, checkoutPublico \}\)/);
+  const ed = fuente('app/admin/_polar/web/Settings/OrganizationPaymentSettings.tsx');
+  assert.match(ed, /type CampoDePagoDirecto = Exclude<keyof DatosDePagoDirecto, 'checkoutPublico'>/, 'el editor no lo trata como un campo de texto');
+  assert.match(ed, /El checkout de \/planes no ofrece esta opción: todo se cobra por la pasarela, al mismo precio\./, 'apagado, el editor dice para qué son los datos');
+});
+
+test('el mismo precio por cualquier medio: ningún texto del pago directo habla de descuento ni de 5 %', () => {
+  assert.doesNotMatch(fuente('lib/pago-directo-reglas.ts'), /5 ?%|descuento|OFF/i);
+  for (const f of ['app/planes/[plan]/CompraPlan.tsx', 'app/planes/[plan]/page.tsx', 'lib/compra-plan-reglas.ts']) assert.doesNotMatch(fuente(f), /5 ?% ?OFF|5 ?%|con el descuento/i, f);
+  for (const f of ['lib/agencia-mes-reglas.ts', 'lib/agencia-mes.ts', 'lib/agencia-mes-avisos.ts', 'lib/agencia-mes-pdf.ts', 'lib/agencia-mes-consulta-reglas.ts']) assert.doesNotMatch(fuente(f), /descuento|5 ?%/i, f);
 });
 
 // Roturas (18/11/2026), cada una restaurada: ver el hallazgo en docs/hallazgos-pagos.md.

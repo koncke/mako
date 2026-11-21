@@ -6,6 +6,49 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 [hallazgos-customer-success.md](hallazgos-customer-success.md); la seguridad del «Entrar como», en
 [hallazgos-seguridad.md](hallazgos-seguridad.md) → «Vista de agencia».
 
+## «¿Cuánto hay que pagar para activar la cuenta de X?» lo contesta el código, no el CRM; y una captura con una pregunta no es un comprobante (20/11/2026)
+
+Código Inmobiliario (ws 13), en su grupo de MaKo, con Martín mirando:
+- **«Mako pasame cuanto hay que pagar de Pablo Chavez para activar su cuenta»** (`grupo_mensajes` 1039 y 1042). MaKo buscó a Pablo como LEAD del CRM (#2665)
+  y contestó dos veces «no tengo de dónde sacar el monto». Era la CUENTA de MaKo de su cliente (ws 18, «Paga para entrar · US$ 23,50 hoy»), la entrada de la
+  regla del 5/11.
+- **La foto de esa pantalla con «confírmame si está bien»** (1047) recibió «Recibí tu comprobante. Lo revisa el equipo» (1048), y a Martín le llegó «para
+  revisar» (1049).
+
+Lo que se encontró:
+- **La herramienta existía y no se usó.** `ver_mensualidad_agencia` trae lo que debe cada cuenta. Pero «Pablo Chavez» es a la vez un lead y una cuenta-cliente,
+  y con «pagar» en la frase el turno eligió el CRM. Ahora lo contesta el CÓDIGO antes del clasificador y del modelo: `respuestaDelPagoDeLaAgencia`
+  (lib/agencia-mes-consulta.ts) en `procesarDoer`, sólo para quien administra.
+  - Cuándo es una pregunta así lo decide `pidePagoDeLaMensualidad` (lib/agencia-mes-consulta-reglas.ts): pide un monto o una confirmación, habla de pagar, y
+    habla de la cuenta (activar, pausa, que entre). La frase tiene que nombrar a un cliente de la agencia (`clientesNombrados`); si no, sigue al CRM.
+  - «Cuánto debo», «la mensualidad» va a lo que se debe hoy.
+  - «Cuánto pagó Pablo» y «cuánto le falta pagar a Pablo» siguen al CRM: no hablan de la cuenta.
+  - La respuesta trae el monto (lo que se debe, no la tarifa), el porqué en una línea (los días hasta el próximo 5 a su precio por día), a dónde se paga, y
+    «manda aquí la captura del pago: la cuenta se activa sola cuando el pago aparece». Si el texto trae un monto, lo confirma («Sí, está bien») o lo corrige.
+- ⚠️ **El diagnóstico obvio del brief era el camino equivocado.** El brief señalaba la entrada de la APP (app/api/grupos/[ws]/mensajes/route.ts:126). El 1047
+  dice «(foto en WhatsApp)»: entró por `comprobanteDeLaMensualidad` (lib/mako-doer-in.ts). Los dos caminos terminan en `atenderComprobanteDeAgencia`, y ahí
+  está el arreglo: la foto llega con su texto (`pie`) y `esPreguntaYNoPago` la manda al turno si pregunta algo y no tiene N.º de operación. Así queda antes de
+  guardar la lectura, de contestar y de avisar a Martín.
+  - Un pago de Binance con su orden que además pregunta («¿me confirmas que llegó?») sigue siendo un pago.
+  - La misma captura sin texto sigue como antes: a Martín. Un comprobante dudoso nunca se pierde en silencio.
+- ⚠️ **La lectura dijo `es_comprobante: true` de una pantalla de la app** (comprobantes_leidos id 6: sin fecha, sin medio, sin N.º, con «Vence hoy» en las dudas).
+  El prompt ahora dice que una pantalla con lo que HAY QUE pagar no es un comprobante. Lo que guarda es la regla del texto en el código, no el prompt:
+  `lecturaDe` toma como comprobante todo lo que no diga `false`.
+- ⚠️ **El Binance Pay ID no está cargado en producción.** El ajuste `planes.pago_directo` del negocio de la plataforma no existe (medido el 20/11, sólo lectura).
+  La respuesta lo lee de ahí. Mientras falte, dice «Págala por Binance» sin número: nunca uno escrito a mano. Lo carga Martín en Settings › Payments.
+- **Probado:** tests/agencia-pago-consulta.test.ts (21 casos, con lo real en un hijo: el comprobante y la consulta) y tres escenas nuevas de punta a punta en
+  tests/comprobante-en-la-app.test.ts (el POST, el cron y el turno reales). 16 roturas a propósito en el primero y 3 en el segundo, todas en rojo.
+
+### Sin hacer
+- **Verlo en producción** con un negocio de prueba con la mensualidad prendida: hay que escribir en producción, y eso pide el sí de Martín.
+- **El chat de la app** (lib/mako-turno-app.ts) no pasa por `procesarDoer`: ahí lo decide el modelo, con la descripción de `ver_mensualidad_agencia` (que ahora
+  nombra la pregunta). Sin la respuesta del código.
+- **El Pay ID** (arriba) y **el 451 de Binance** desde el servidor (docs/hallazgos-pagos.md, en la sección del 19/11): con eso, el «se activa sola» todavía
+  no se cumple.
+
+**Vive en:** lib/agencia-mes-consulta-reglas.ts · lib/agencia-mes-consulta.ts · lib/mako-doer-in.ts (`procesarDoer`, `comprobanteDeLaMensualidad`) ·
+lib/agencia-mes-comprobante.ts · lib/comprobante-reglas.ts (`PROMPT_COMPROBANTE`) · tests/agencia-pago-consulta.test.ts · tests/comprobante-en-la-app.test.ts.
+
 ## La mensualidad de una cuenta SUELTA con ciclo propio: Leila Fittipaldi (17/11/2026)
 
 **Vive en:** `lib/agencia-mes-reglas.ts` (`CicloPropio`, `inicioDelCiclo`, `diaLimite`, `mesQueSeAvisa`, `cuentaDelMes`, `tablaDelMes` y los textos,

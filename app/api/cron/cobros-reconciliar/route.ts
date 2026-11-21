@@ -29,6 +29,7 @@ import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
 import { aplicarSubidasPendientes } from '@/lib/agencia-plan';
 import { revisarAccesosPorPago } from '@/lib/plan-acceso';
 import { revisarPagosEnEspera } from '@/lib/agencia-mes-comprobante';
+import { revisarPagosSinCaptura } from '@/lib/binance-sin-captura';
 import { revisarSinCobro } from '@/lib/cuenta-sin-cobro';
 import { conciliarRetenciones } from '@/lib/retencion-plan';
 import { conciliarPrimerMes } from '@/lib/primer-mes';
@@ -82,6 +83,13 @@ export async function GET(req: NextRequest) {
   const espera = await revisarPagosEnEspera().catch((e) => ({ error: msg(e) }));
   if ('error' in espera) console.warn('[cron:cobros-reconciliar] comprobantes en espera:', espera.error);
   else if (espera.revisadas) console.log(`[cron:cobros-reconciliar] comprobantes en espera: ${JSON.stringify(espera)}`);
+  // EL PAGO DE BINANCE SIN CAPTURA (20/11/2026, lib/binance-sin-captura.ts; Martín: «si ya pagan por Binance debería ser todo automático»):
+  // los pagos que entraron a la cuenta en las últimas horas, de alguien que ya le pagó a MaKo por una agencia, con el monto exacto de lo
+  // que debe y sin usar → se aplican como con la captura; dos candidatos o un monto que no cierra → a Martín, una vez. DESPUÉS de la
+  // espera: si la agencia mandó la captura, gana ese camino. Sólo LEE Binance. Nunca tira.
+  const sinCaptura = await revisarPagosSinCaptura().then((r) => ({ ...r, filas: undefined })).catch((e) => ({ errores: 1, error: msg(e) }));
+  if (sinCaptura.error) console.warn('[cron:cobros-reconciliar] Binance sin captura:', sinCaptura.error);
+  else if ('aplicadas' in sinCaptura && (sinCaptura.aplicadas || sinCaptura.aMartin || sinCaptura.errores)) console.log(`[cron:cobros-reconciliar] Binance sin captura: ${JSON.stringify(sinCaptura)}`);
   const resultados: Resultado[] = [];
   const sinTurno: number[] = [];
   for (const ws of orden) {
@@ -151,5 +159,5 @@ export async function GET(req: NextRequest) {
   const partners = Date.now() - t0 < maxDuration * 1000 - RESERVA_MS ? await acreditarReferidos().catch((e) => ({ error: msg(e) })) : null;
   if (partners && 'acreditados' in partners && (partners.atados || partners.acreditados)) console.log(`[cron:cobros-reconciliar] MaKo Partners: ${JSON.stringify(partners)}`);
 
-  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, recibos, accesos, retencion, espera, sinCobro, partners, ms: Date.now() - t0 });
+  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, recibos, accesos, retencion, espera, sinCaptura, sinCobro, partners, ms: Date.now() - t0 });
 }
