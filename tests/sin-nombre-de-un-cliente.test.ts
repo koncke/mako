@@ -20,7 +20,6 @@ const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\
 /** Lo que NO lleva a ninguna pantalla de cliente, con su razón. */
 const AFUERA = [
   /^app[\\/]admin[\\/]dev[\\/]/,            // el registro de construcción: lo lee el equipo
-  /^lib[\\/]datos-mau/,                     // los datos de ESE negocio
 ];
 
 function archivos(dir: string): string[] {

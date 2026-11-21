@@ -136,7 +136,7 @@ test('el video siempre a la vista y el del día paso a paso (Martín, 18/11)', a
   const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8');
   const reto = leer('app/second-brain/reto/ChatDelReto.tsx');
   // 20/11, tarde (V4 y R57-21): con frases, el video del día lo pasa el motor EN SU MENSAJE (`lugar`), con lo tocado y el fin.
-  assert.match(reto, /mostrarTutorial\(tutorialDelDia\(dia\), \{ video: dia\.video, directo: true, lugar: lugarDelDia\(dia\), \.\.\.\(o\.alTocar \? \{ alTocar: o\.alTocar \} : \{\}\), alTerminar: \(\) => o\.alTerminar\?\.\(\) \}\)/, 'con frases, el video del día lo pasa el motor');
+  assert.match(reto, /mostrarTutorial\(tutorialDelDia\(dia\), \{ video: dia\.video, directo: true, lugar: lugarDelDia\(dia\), \.\.\.\(avisos\.alTocar \? \{ alTocar: avisos\.alTocar \} : \{\}\), alTerminar: \(\) => avisos\.alTerminar\?\.\(\) \}\)/, 'con frases, el video del día lo pasa el motor');
   // 20/11 (V5 y V14): el video del día sin marcas es VideoDelMomento, que flota al salir de la vista y marca «dale play».
   assert.ok(reto.includes('<VideoDelMomento clave={dia.video}'), 'el del día flota al salir de la vista (VideoDelMomento)');
   assert.match(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /useVideoQueFlota\(ref, v \? clave : null, titulo, onTerminaFuera\)/, 'los del onboarding también');

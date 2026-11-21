@@ -212,7 +212,6 @@ test('una puerta NUEVA que guarde credenciales tiene que decidir si arranca el h
   const SIN_HISTORICO: Record<string, string> = {
     'lib/cobros-conexion.ts': 'las pasarelas de pago',
     'lib/credenciales.ts': 'la migración de las envs viejas (la declaración vive acá)',
-    'lib/datos-mau.ts': 'la copia de los datos de Mauricio, que nunca arranca un onboarding',
     // Varias cuentas por proveedor (Cobros, 22-23/10/2026): conectar otra cuenta, renombrarla, su secreto del aviso.
     'app/api/integraciones/cuentas/route.ts': 'las cuentas de Stripe, Mercado Pago, Calendly y Cal.com: ninguno tiene histórico',
     'lib/cuentas-pago-server.ts': 'el nombre de una cuenta de Stripe o Mercado Pago',

@@ -615,6 +615,71 @@ El método completo está en `docs/series/desarmar-video-referente.md`; el relev
   por debajo de 3 GB y el vigía mató procesos en zona roja. Un relevo que necesita agentes se corre igual con ellos de a uno
   (la herramienta Agent), que la guardia admite con 1 GB.
 
-## Sin hacer
+## Serie con avatar de IA: elegir mirando la referencia (21/11/2026)
 
-- Generar los ganchos con IA: espera a que Martín elija los temas en el artefacto (los votos quedan en la colección `votos`).
+La página donde Martín elige es el artefacto «Serie con avatar IA» (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz). Lo que la
+arma vive fuera del repo, en `C:/dev/referentes-videos/artefacto/serie/`. Cómo está hecho cada uno de los 20 reels de referencia
+(forma, gancho, cuándo entra la persona, cortes, fondo, CTA) está en la tabla de `docs/series/referentes/README.md` → «La serie con
+avatar de IA».
+
+- **Martín no elige leyendo: elige mirando la referencia.** Dos páginas armadas desde los TEMAS le resultaron «súper confusas»:
+  - la del 19/11, con 20 tarjetas de porqué, ganchos, formato y costo;
+  - la del 21/11, con tarjetas cortas y el detalle escondido.
+
+  Él pidió que «el protagonismo se lo lleve la referencia». La forma nueva:
+  - una galería de los reels en 9:16, con un sello (N× y reproducciones);
+  - al tocar uno, la referencia y nuestra versión lado a lado, una línea de gancho bajo cada una;
+  - los dos guiones en pestañas cerradas;
+  - «Lo hago / No» fijo abajo.
+
+  Para MaKo: elegir contenido es comparar contra el original, no leer una ficha.
+- **Una sola referencia por tema: la que se calca, no la de más vistas.** Para «Lo tengo que pensar» va el reel de Hormozi con la
+  objeción entre comillas (329 mil, 0,9×), no su reel de 1,7 M, que es de otra cosa. Un reel con menos de 48 h muestra «nuevo» en
+  lugar del N×: su múltiplo todavía no dice nada.
+- **Los reels de 9:16 entran en un artefacto si se comprimen.** Con 480 px de ancho, crf 30 y audio mono a 64k (`comprimir.sh`),
+  cada reel quedó entre 0,7 y 6 MB. Los 20 pesan unos 72 MB y un publish acepta 64 MB, así que se suben en dos tandas a la misma
+  URL. El video va con `muted`, `preload="none"` y sin autoplay; el sonido, con un botón. A Martín le suenan los videos solos y lo
+  odia.
+- **El fotograma para la imagen no siempre es el del segundo 1,5.**
+  - Donde la persona entra tarde, se elige a mano: en el «reality» de Rama a los 7 s; en el taller de Hormozi a los 3,5 s, que es
+    cuando él aparece arriba de la mujer del micrófono.
+  - Donde no hay persona (el tutorial animado, la cámara de seguridad del Ferrari), la frase cambia: se pide poner a Martín en ese
+    fondo, no «reemplazar a la persona».
+- **La transcripción automática confunde las marcas:**
+  - «Cloud» por Claude, «Menichat» y «mini chat» por ManyChat;
+  - «lids» por leads, «Yamada» por llamada, «VCL» por VSL, «es PAM» por es spam;
+  - «Ramíros Cubria».
+
+  Se corrigen al mostrarlas (la lista `CORRECCIONES` de `armar-pagina.mjs`), nunca en el `meta.json`, y sin tocar lo que dicen.
+- **Trampa: la clave de ApiMart no está en ningún `.env.local`.** Es de la plataforma: está cifrada en `credenciales`, en el ws
+  de capa superadmin (`envCred('APIMART_API_KEY')`, `lib/apimart.ts`). Leerla y descifrarla desde un script local lo **bloquea el
+  control de permisos del modo automático** («acceso no autorizado»). Generar imágenes por script necesita que Martín lo habilite,
+  o que corra él `generar-imagenes.mts`. Si no, queda Flow por Chrome. No se esquiva pidiéndoselo a otro chat.
+
+- **En esta página entra sólo lo que NUESTRA versión haría con video generado por IA** (Martín, 21/11).
+  - Entra: sketches, ganchos exagerados (también los actuados sin IA) y escenas con efecto.
+  - Sale: el tutorial animado, que va a la serie del personaje en cubos hecha por código y no gasta video con IA. También sale la
+    pizarra, lo dicho a cámara, el estudio, las llamadas y las preguntas del público, que van a la serie de Martín a cámara.
+  - El criterio es `conVideoIA` en `armar-pagina.mjs`. De los 20 temas quedaron 9; los otros 11 están en `otras-series.json`, con
+    su serie de destino.
+  - Con este filtro, Hormozi casi no aporta: 1 sketch en 48 reels.
+- **Escribir lo que Martín le enseña a decir a un cliente.** Cada frase lleva «le preguntas» o «le dices». Si no, en voz alta el «tú»
+  salta del espectador al cliente y se entiende otra cosa. «Se presenta» suena a «dice su nombre»: va «llega a la llamada».
+- **Competitor Spy no marca qué REEL hizo «diez veces más» que su cuenta**: eso lo hace sólo con carruseles. Un guion no puede
+  atribuírselo a la app.
+- **La lista de reels de una cuenta necesita sesión de Instagram, y el navegador de la app ya no la tiene** (21/11: el cartel de
+  «Log in» y 12 publicaciones). Bajar cada reel no la necesita. Sin sesión no se puede ampliar el relevo.
+  - Tampoco sirve YouTube: Rama y Víctor no tienen pestaña de Shorts.
+  - El primer filtro barato ya está escrito: `tools/portadas.py` arma hojas de 20 portadas numeradas para clasificar la forma
+    antes de bajar nada.
+
+### Lo que quedó sin hacer (serie con avatar de IA)
+
+- **Las 20 imágenes de nuestra versión.** Ya están listos los fotogramas (`pub/cuadro/`), una frase por tema y el script
+  (`generar-imagenes.mts`: Nano Banana Pro 2K, US$0,02 cada una). Esperan que se destrabe la clave, o Flow.
+- **Los regalos del CTA:** 13 de los 20 guiones regalan algo que no existe todavía, una guía o una plantilla (CRM, FILTRO, IA,
+  CLIENTES, NICHO, EMBUDO, MARGEN, SISTEMA, EMPEZAR, MENTOR, PRECIO, CIERRE y CASO). Los otros 7 regalan la app, pero no tienen
+  cargada la respuesta automática. Cada uno está en el campo `dudas` de `guiones.json`.
+- **Ampliar el relevo a 150-200 reels por cuenta:** espera la sesión de Instagram (en el panel de la app o en el Chrome de Martín).
+- **Los guiones adaptados:** Martín tiene que aprobar cada uno antes de generar el video con avatar (Omni 1.2 Flash, US$0,024 por
+  segundo).

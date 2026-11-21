@@ -25,6 +25,7 @@
 import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { getWorkspaceActual, runWithWorkspace, wsObligatorio, WS_NINGUNO } from './workspace';
+import { SIN_GRUPOS_NUEVOS } from './altas-en-grupos';
 import { getNumeroDueno, setNumeroDuenoYSync, agregarParticipanteGrupo, getGrupoJidMaKo, numeroTieneWhatsApp, linkInvitacionGrupo, esNegocioDelV2 } from './mako-grupo';
 import type { SalidaSinAlta } from './participantes-grupo';
 import { normalizarDestinatarios, soloDigitos, type Destinatarios } from './notif-catalogo';
@@ -98,7 +99,9 @@ export type ResultadoGuardar = {
   ok: boolean;
   destinatarios: Destinatarios;
   /** qué pasó con el grupo de WhatsApp al sincronizar los números. */
-  grupo?: 'creado' | 'actualizado' | 'sin_cambios' | 'sin_numeros';
+  grupo?: 'creado' | 'actualizado' | 'sin_cambios' | 'sin_numeros' | 'sin_grupo';
+  /** `sin_grupo` (20/11/2026: MaKo no crea grupos nuevos): lo que la pantalla dice en lugar de «al grupo de MaKo». */
+  aviso?: string;
   error?: string;
   /**
    * Los que se guardaron en la lista pero NO entraron al grupo de WhatsApp, con
@@ -166,6 +169,9 @@ export async function setDestinatarios(d: Partial<Destinatarios>, nombreCliente:
   const sync = await setNumeroDuenoYSync(ws, principal, nombreCliente);
   // Un negocio del onboarding V2 no tiene grupo (20/11/2026, wa-15): los números quedan guardados y no se suma a nadie a ningún grupo.
   if (!teniaGrupo && (await esNegocioDelV2(ws))) return { ok: true, destinatarios: dest, grupo: 'sin_cambios' };
+  // MaKo no crea grupos nuevos (20/11/2026, Martín: «Sólo no crear más»): sin grupo, los números quedan guardados, no se suma a nadie y la
+  // pantalla lo dice. Un grupo que ya existía sigue como siempre (abajo).
+  if (!teniaGrupo && sync.ok && sync.accion === 'sin_grupo') return { ok: true, destinatarios: dest, grupo: 'sin_grupo', aviso: SIN_GRUPOS_NUEVOS };
 
   // ⚠️ Que el PRINCIPAL no haya podido entrar al grupo no borra el guardado: la
   // lista ya se escribió unas líneas más arriba y esa persona va a recibir sus

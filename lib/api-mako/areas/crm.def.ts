@@ -541,6 +541,93 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'guarda a qué funnels entran los leads nuevos de esa campaña o conjunto (el setting meta.campanas)',
   },
+  // «Asignar fuentes» → «Formularios» (20/11/2026): los formularios de anuncios de Meta, los de Web Generator y cualquier página
+  // con el Pixel, y sus reglas de calificación automática. Las MISMAS funciones que la pantalla (lib/fuentes-crm-server.ts).
+  // ⚠️ SON DE CONFIGURACIÓN: viajan al chat sólo cuando el pedido habla de formularios, de sus reglas o de descalificar. El id,
+  //    el título y la descripción son lo que puntúa la relevancia (`ordenarPorRelevancia`, lib/api-mako/registro.ts: raíces de 5
+  //    letras del pedido), así que NO llevan las palabras de los pedidos de todos los días: lead(s), entra, cuánt-, anunci-,
+  //    campañ-, etapa, asign-, calific-, histor-, tiene, está, último, nuevo. Con ellas (la primera versión, 20/11) le ganaban
+  //    el presupuesto de herramientas a ver_rendimiento_anuncios y a recomendar_mensajes_whatsapp (tests/ops-center-bateria,
+  //    tests/doer-hilo). Las palabras comunes van en los PARÁMETROS, que no puntúan. Por eso «columna» y no «etapa», y
+  //    `elegir_embudo_de_formulario` y no `asignar_formulario` («asign» lo suma el clasificador a todo «asigná este lead a…»).
+  {
+    id: 'listar_formularios', area: 'crm', tipo: 'lectura',
+    titulo: 'Formularios y su embudo',
+    descripcion: 'Los formularios que alimentan los embudos: de Facebook, de las landings de MaKo y de cualquier web con el Pixel, con su envío más reciente. Por formulario: su clave, si va a ese embudo o a cuáles, y si sus reglas para descalificar están prendidas. Sin embudoId, el principal. Antes de elegir_embudo_de_formulario y ver_reglas_formulario.',
+    parametros: [
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de ver_campanas_funnels). Sin él, el del negocio.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'elegir_embudo_de_formulario', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Elegir el embudo de un formulario',
+    descripcion: 'PROPONE prender o apagar un formulario en un embudo (queda pendiente hasta el «sí»): prendido, quien lo llene cae en la primera columna de ese embudo, aunque venga de otro lado. Lo que ya llegó se queda donde quedó. La clave sale de listar_formularios. Solo el administrador.',
+    parametros: [
+      { nombre: 'clave', tipo: 'string', obligatorio: true, max: 520, descripcion: 'la clave del formulario (de listar_formularios): meta:…, form:…, agenda:…, pago:… o web:….' },
+      { nombre: 'prendido', tipo: 'boolean', obligatorio: true, descripcion: 'true para que sus leads entren a ese CRM; false para que dejen de entrar.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de ver_campanas_funnels). Sin él, el del negocio.' },
+      { nombre: 'nombre', tipo: 'string', max: 160, descripcion: 'el nombre del formulario, para mostrarlo.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda a qué CRM entran los leads de ese formulario (meta.formularios, landing.piezas o landing.config, según el tipo)',
+  },
+  {
+    id: 'ver_reglas_formulario', area: 'crm', tipo: 'lectura',
+    titulo: 'Reglas de un formulario',
+    descripcion: 'Las reglas de un formulario en un embudo, para descalificar o ubicar solo a quien lo llena según sus respuestas: rutas en orden (gana la primera que se cumple), con condiciones «pregunta es / no es / contiene / mayor / menor… respuesta», el mínimo que debe cumplirse (todas, alguna o al menos N) y su columna de destino; más la columna si no cumple ninguna. Trae las preguntas con sus respuestas frecuentes y las columnas del embudo. Antes de guardar_reglas_formulario.',
+    parametros: [
+      { nombre: 'clave', tipo: 'string', obligatorio: true, max: 520, descripcion: 'la clave del formulario (de listar_formularios).' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de ver_campanas_funnels). Sin él, el del negocio.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'guardar_reglas_formulario', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Guardar las reglas de un formulario',
+    descripcion: 'PROPONE guardar las reglas de un formulario en un embudo (queda pendiente hasta el «sí»), por ejemplo «si la zona es X, descalificado» o «si cumple 3 de 4, a la primera columna»: desde ahí quien lo llene va solo a la columna que diga su regla, y queda escrito cuál fue. Reemplaza las anteriores. Preguntas y columnas: de ver_reglas_formulario. Para lo que ya llegó, reaplicar_reglas_formulario. Solo el administrador.',
+    parametros: [
+      { nombre: 'clave', tipo: 'string', obligatorio: true, max: 520, descripcion: 'la clave del formulario (de listar_formularios).' },
+      {
+        nombre: 'reglas', tipo: 'object', obligatorio: true, descripcion: 'las reglas completas, con la forma de ver_reglas_formulario.',
+        campos: [
+          { nombre: 'activa', tipo: 'boolean', descripcion: 'true para que los leads nuevos se muevan solos; false las guarda apagadas.' },
+          {
+            nombre: 'rutas', tipo: 'object[]', max: 20, descripcion: 'las rutas, en orden: gana la primera que se cumple.',
+            campos: [
+              { nombre: 'modo', tipo: 'string', enum: ['todas', 'alguna', 'al_menos'], descripcion: 'cuántas condiciones tienen que cumplirse: todas, alguna o al menos «minimo».' },
+              { nombre: 'minimo', tipo: 'number', entero: true, minimo: 1, descripcion: 'con al_menos: cuántas.' },
+              {
+                nombre: 'condiciones', tipo: 'object[]', max: 20, descripcion: 'las condiciones sobre las respuestas.',
+                campos: [
+                  { nombre: 'pregunta', tipo: 'string', max: 300, descripcion: 'la pregunta, como la nombra el formulario (de ver_reglas_formulario).' },
+                  { nombre: 'op', tipo: 'string', enum: ['es', 'no_es', 'contiene', 'no_contiene', 'mayor', 'menor', 'responde', 'no_responde'], descripcion: 'la condición.' },
+                  { nombre: 'valores', tipo: 'string[]', max: 30, descripcion: 'las respuestas (con es, alcanza con una); con mayor o menor, un número; con responde o no_responde, ninguna.' },
+                ],
+              },
+              { nombre: 'etapa', tipo: 'string', max: 80, descripcion: 'key de la etapa a la que va el lead (de ver_reglas_formulario).' },
+            ],
+          },
+          { nombre: 'siNinguna', tipo: 'string', max: 80, descripcion: 'key de la etapa si no cumple ninguna ruta; vacío = se queda donde entró.' },
+        ],
+      },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de ver_campanas_funnels). Sin él, el del negocio.' },
+      { nombre: 'nombre', tipo: 'string', max: 160, descripcion: 'el nombre del formulario, para el historial de los leads.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda las reglas de calificación de ese formulario en ese CRM (el setting crm.reglas_formulario); los leads nuevos de ese formulario se mueven solos a su etapa',
+  },
+  {
+    id: 'reaplicar_reglas_formulario', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Reaplicar las reglas de un formulario',
+    descripcion: 'PROPONE aplicar las reglas guardadas de un formulario a quienes ya lo llenaron (queda pendiente hasta el «sí»; la propuesta dice el número y a qué columna van). Sólo ubica a los que siguen en la primera columna o en una columna de esas reglas: los que avanzaron no se tocan, y queda escrito qué regla los ubicó. Solo el administrador.',
+    parametros: [
+      { nombre: 'clave', tipo: 'string', obligatorio: true, max: 520, descripcion: 'la clave del formulario (de listar_formularios).' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de ver_campanas_funnels). Sin él, el del negocio.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'mueve de etapa a los leads de ese formulario que sus reglas mandan a otra, y lo deja en el historial de cada uno',
+  },
 
   // ── Acciones heredadas ─────────────────────────────────────────────────────────
   {
