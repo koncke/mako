@@ -762,6 +762,23 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - **Trampa:** una regla `.panel { display: flex !important }` le gana a `[hidden] { display: none !important }` del esqueleto
       del artefacto si viene después, y deja el panel de filtros siempre a la vista. Se escribe `.panel:not([hidden])`. Lo mismo
       vale para cualquier elemento que la página esconde con `hidden`.
+17. **La galería como mosaico de columnas, y un filtro que no corta nada** (21/11). Con las piezas de Carrizo (reels 16:9,
+    carruseles 4:5 y 3:4) la grilla de filas iguales dejaba huecos. Quedó así:
+    - cada pieza en su proporción, acomodada por JS en la columna más baja, de izquierda a derecha, para respetar el orden
+      elegido. Con `columns` de CSS se leería de arriba abajo y el orden se desarma;
+    - 5 columnas a 1440, 4 a ~1024 y 2 en el teléfono. El corte se toma del ancho de la grilla, no de la ventana: a 1440 la
+      grilla mide 1168 px, y con el corte en 1180 salían 4 columnas;
+    - en el filtro, el orden va en una lista vertical con círculo, los creadores de a uno por renglón (cara de 32 px, el número a
+      la derecha) y los chips de tipo y estado a su ancho, sin cortar.
+    - Para revisarlo: en la consola, `[...document.querySelectorAll('#panel .op')].filter(b => b.scrollWidth > b.clientWidth + 1)`
+      lista cualquier botón con el texto cortado.
+18. **El guion técnico de los reels se sacó de las tiras de cuadros** (21/11). Lo escribió un subagente con la hoja de cuadros,
+    `cortes_s` y `audio.json` de cada reel (los 20 con escenas guardadas), y quedó en el campo `tecnico` de la colección spy.
+    - **Trampa:** el piso de audio dice si hay ALGO debajo de la voz (arriba de −40 dB), pero no si es música o ambiente. En 14
+      de los 20 reels quedó «música o ambiente debajo de la voz». Sólo los de Hormozi dan voz sola (−48 a −50 dB).
+    - **Trampa:** las canciones de la biblioteca de Instagram no vienen en el mp4. Un tramo «sin fondo» en un montaje con texto
+      se marca «música de Instagram probable (no viene en el archivo)».
+    - Los textos en pantalla con voseo («Abrí», «Comentá») se citan tal cual: son citas de la referencia, no texto nuestro.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
