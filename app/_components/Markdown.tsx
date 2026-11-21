@@ -103,12 +103,13 @@ export function Markdown({ text, compacto = false, enlaces = false, aire = false
   const flush = () => {
     if (bullets.length) {
       const items = bullets;
-      blocks.push(<ul key={`ul-${blocks.length}`} style={{ ...lista, paddingLeft: 20 }}>{items.map((b, i) => <li key={i} style={item}>{renderInline(b, `li-${blocks.length}-${i}`, enlaces, iconos)}</li>)}</ul>);
+      // Con su punto (21/11, producción): Tailwind deja las listas sin marca, y salían sangradas como saltos de línea.
+      blocks.push(<ul key={`ul-${blocks.length}`} style={{ ...lista, paddingLeft: 20, listStyleType: 'disc' }}>{items.map((b, i) => <li key={i} style={item}>{renderInline(b, `li-${blocks.length}-${i}`, enlaces, iconos)}</li>)}</ul>);
       bullets = [];
     }
     if (numeradas.length) {
       const items = numeradas;
-      blocks.push(<ol key={`ol-${blocks.length}`} start={desde} style={{ ...lista, paddingLeft: 22 }}>{items.map((b, i) => <li key={i} style={item}>{renderInline(b, `ol-${blocks.length}-${i}`, enlaces, iconos)}</li>)}</ol>);
+      blocks.push(<ol key={`ol-${blocks.length}`} start={desde} style={{ ...lista, paddingLeft: 22, listStyleType: 'decimal' }}>{items.map((b, i) => <li key={i} style={item}>{renderInline(b, `ol-${blocks.length}-${i}`, enlaces, iconos)}</li>)}</ol>);
       numeradas = [];
     }
     if (tabla.length) {
