@@ -852,6 +852,30 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - **Trampa:** con la línea de contexto dentro de la columna de la referencia, las dos columnas quedaban a distinta altura
       (centradas). Va `align-items: start`. En el teléfono, el gancho sin salto de línea ensanchaba la columna: va en 2 líneas.
     - Las tarjetas medían 491 o 495 según si toda la fila tenía títulos de un renglón: el título lleva `min-height: 2lh`.
+24. **La referencia de la Serie 1 y la Serie 4 ya es el reel en video, no una imagen** (21/11; Martín lo pidió dos veces).
+    - **El diagnóstico obvio era el equivocado:** no hacía falta buscar en Instagram. Los dos reels ya estaban bajados en
+      `C:/dev/series-ref/` (`paralisis/` y `zapater/`, con su `.info.json`), con hojas de cuadros en `hojas/` y
+      transcripciones en `trans/`. La «imagen de referencia» de la galería es una hoja de cuadros de uno de ellos.
+    - Cómo se identificó cada uno: comparando las hojas de cuadros. La Serie 1 es [Df2WwjMNmQN](https://www.instagram.com/reel/Df2WwjMNmQN/)
+      («Le sigues el juego hasta abrir la escotilla»: los móviles de colores, la escotilla con candado, las linternas, A/B).
+      No es «El búho» ni la del sargento. La Serie 4 es [DfC0kMiBsoW](https://www.instagram.com/reel/DfC0kMiBsoW/)
+      («respondiendo preguntas de seguidores», parte 1). La parte 2, `Dfh0kycBfxT`, era la que nombraba el relevo del 19/11.
+    - Se comprimen como las demás referencias: 480 px de ancho, H.264 `-crf 30 -preset veryfast -threads 2`, AAC 96k, sin
+      recortar. Van al almacén y en `armar-cm.mjs` el `REF` lleva `videoUrl` y `posterUrl`.
+25. **Fecha de publicación, y un ×N contra lo que se está mirando** (21/11). Martín: «hay algunos que tal vez sí son virales…
+    pero son muy viejos». Y de su captura: «1102× con 3000 me gustas» le ganaba a «6× con casi 30.000».
+    - **El diagnóstico:** el `nx` de la base compara cada pieza contra los reels de SU cuenta de esos días. Sirve para ver qué
+      tema funcionó dentro de una cuenta, pero no ordena bien una galería con varias cuentas: una cuenta chica con un pico
+      queda primera. Ahora la página calcula `RINDE = métrica / mediana` de las piezas del mismo tipo que se están mirando
+      (con el creador y la fecha elegidos): reels por vistas y carruseles por me gusta, sin mezclar nunca. El `nx` de la base
+      queda en el detalle como «×N sus reels de esos días».
+    - El sello «6× lo normal» va arriba a la derecha del video. En el teléfono dice sólo «6×».
+    - La antigüedad («hace 2 sem», con la fecha exacta al pasar el cursor) va en la fila de métricas, a la derecha, y en el
+      detalle junto al creador. El orden «Más nuevos» y el filtro «Publicado» (una sola opción, con «Todo») van con
+      `pasa(t, v)` en lugar de `de(t)`, porque un rango no se compara por igualdad.
+    - La fila de abajo es como la de Instagram (▷ vistas, ♡ me gusta, 💬 comentarios, «29,7 mil», «1,2 M»). Nunca se corta: si
+      no entra, la fecha baja a una segunda línea, y en el teléfono todas las filas reservan dos líneas para que las tarjetas
+      midan lo mismo. Van 4 tarjetas por fila a 1440 (276 px), 3 a 1024 y 2 a 375.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
