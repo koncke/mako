@@ -747,6 +747,10 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
   2. Para un audio: `Artifact` → `read` con `path` igual al `audio.id`, que lo guarda en disco. Se transcribe con faster-whisper.
   3. `ArtifactData` → `update` del comentario con `transcripcion` y el `if_version` leído. Hasta entonces, la página muestra
      «Transcripción pendiente».
+- **Cómo se mira la versión PUBLICADA:** el navegador de la app no tiene sesión en claude.ai (21/11), así que se abre en el
+  Chrome de Martín, sólo leyendo. Ahí no se puede inspeccionar con JS: la página corre en un iframe de otro origen, así que se mira
+  con capturas y clics. Y la ventana de Chrome no baja a 375 de ancho, así que el teléfono se mira en la copia local, con los
+  mismos archivos del almacén servidos en `_blob/<id>`.
 - **Trampa de la vista local:** el artefacto envuelve la página en un esqueleto con `[hidden]{display:none!important}`. Una copia
   local sin ese esqueleto muestra el panel de filtros abierto. Para mirar en local, se envuelve con el mismo esqueleto.
 
