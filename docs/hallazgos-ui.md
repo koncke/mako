@@ -5790,3 +5790,31 @@ titular), no se tiñe.
   PantallaCrear la cierra con Escape, también el sintético.
 - **El video de la esquina usa el reproductor de la maqueta** (F2, ./VideoEnLaEsquina.tsx): chico cuando está quieto, grande cuando
   corre, con «Agrandar/Achicar».
+
+## La barra del administrador en la revisión: un solo RESET, «Autocompletar» y el salto que cierra lo que flotaba (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Pedido** (Martín probando con «Ir a un paso» en el ws 3, por el Cerebro): en la barra, UN «RESET» que hace lo de «Reiniciar
+  onboarding»; el que vaciaba el negocio entero, fuera de la barra; «Datos de Mauricio» fuera, y en su lugar «Autocompletar»; y que
+  saltar a un paso reinicie el recorrido entero y cierre cualquier video flotante.
+- **Dónde vive:** la barra es app/_components/ImpersonationBanner.tsx. El «RESET» es ReiniciarOnboarding.tsx. PanelAgencia.tsx quedó sólo
+  con «Probar tema» (Cliente de Diseño). El borrado total es «Borrar todos los datos» en el menú «Acciones del negocio»
+  (app/admin/_polar/web/Customer/CustomerPage/CustomerHeader.tsx). «Autocompletar» está en app/_components/Autocompletar.tsx, con
+  lib/onboarding-v2/autocompletar.ts y `respuestaDeEjemplo` en lib/onboarding-v2/saltar.ts.
+- **Trampa 1: el borrado desde /admin/customers no está «adentro» del negocio.** /api/datos-mau decide el negocio con
+  `getWorkspaceActual()`, que en la barra era el de la pestaña. Desde la ficha hay que mandarlo con `conWs('/api/datos-mau', negocio.ws)`:
+  el proxy acepta el `?ws=` sólo con sesión de administrador. Sin eso, el pedido iba al negocio de quien mira, y el guard (la lista blanca
+  `esClienteDePrueba`) lo rechazaba sin que se entendiera por qué.
+- **Trampa 2: los ejemplos ADENTRO del chat eran un atajo dentro del onboarding**, justo lo que la barra prohíbe («el recorrido tiene que
+  verse EXACTAMENTE igual que el de un cliente real»). Ahora el chat sólo OFRECE la respuesta de la pregunta de ahora a un store chico, y
+  sólo con la puerta `ejemplos` (la decide la página: `puedeVerLaRevision`). La barra la dibuja si hay. El chat queda igual que el de un
+  cliente.
+- **Trampa 3 (para escribir tests):** el `sinComentarios` de los tests deja `{}` donde había un comentario de JSX. Un regex sobre dos
+  hermanos de JSX con un comentario en el medio tiene que aceptar esa línea (`(?:\{\}\n\s*)?`).
+- **El «Hola de nuevo» flotando en el día 1 NO se reprodujo.** El salto ya borraba lo visto en la base («Reiniciar onboarding») y en el
+  navegador (`limpiarClavesDelOnboarding`). La recarga es completa, así que un video de antes no sobrevive. Lo que sí faltaba:
+  - El salto se TRAGABA sus avisos. Si no encuentra al dueño, el recorrido queda sin ver, y en el día 1 la llegada vuelve.
+  - Ahora los dice antes de ir, y cierra el tutorial o el video que corría (`cerrarTutorial`).
+  - Queda para los Playwright contra el ws 3: saltar al día 1 y mirar que la esquina esté vacía.
+- **Sin hacer:** «Datos de Mauricio» no tiene más botón. Las acciones `completar`, `eliminar` y `todo` de /api/datos-mau siguen vivas y sin
+  quien las llame (lib/datos-mau.ts). Hay que decidir si se borran o vuelven en otro lugar.
+- tests/revision-reset-y-autocompletar.test.ts (roto de a una rotura, 8).

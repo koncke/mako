@@ -27,10 +27,15 @@ const fuente = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 const bloque = (s: string, desde: string) => { const i = s.indexOf(desde); assert.ok(i >= 0, `no está: ${desde}`); return s.slice(i, s.indexOf('\n  }\n', i)); };
 
-test('1. RESET limpia también lo del onboarding en este navegador, antes de ir al onboarding', () => {
-  const r = bloque(sinComentarios(fuente('app/_components/PanelAgencia.tsx')), 'async function resetear()');
-  const i = r.indexOf('limpiarClavesDelOnboarding([window.localStorage, window.sessionStorage]);');
-  assert.ok(i > 0 && i < r.indexOf("window.location.href = conWs('/onboarding', ws);"));
+// 21/11/2026: el RESET que vaciaba todo salió de la barra (Martín) y es «Borrar todos los datos» en /admin/customers/<ws>; sigue
+// limpiando lo del onboarding en este navegador (tests/revision-reset-y-autocompletar.test.ts prueba dónde vive y quién lo ve).
+test('1. «Borrar todos los datos» (el RESET viejo) limpia también lo del onboarding en este navegador, cuando el server dijo que sí', () => {
+  const h = sinComentarios(fuente('app/admin/_polar/web/Customer/CustomerPage/CustomerHeader.tsx'));
+  const desde = h.indexOf('const onBorrarDatos = useCallback(');
+  assert.ok(desde > 0, 'no está onBorrarDatos');
+  const r = h.slice(desde, h.indexOf('}, [negocio, router])', desde));
+  const i = r.indexOf('limpiarClavesDelOnboarding([window.localStorage, window.sessionStorage])');
+  assert.ok(i > r.indexOf('if (!j.ok) {') && i < r.indexOf('setBorrado(`'), 'después del sí del server y antes de decir lo que se llevó');
 });
 
 test('2. «Salir de la vista» navega SÓLO si el servidor sacó la cookie; si no, el botón vuelve', () => {

@@ -2726,6 +2726,12 @@ van dos marcas en el mismo render).
   portada en corto (`compactarCerebro`), comparado en su test con el original, y lo que la persona no dijo no se rellena. Sobre una pieza
   que arma el servidor, entra por portal a su marco y por debajo de sus controles. tests/brain-del-recorrido.test.ts.
 
+- **Lo de la revisión va en la barra del administrador, nunca adentro de la pantalla del cliente** (21/11/2026, Martín: «Yo quiero ver
+  exactamente igual lo que recibe el usuario»). Un atajo para probar (responder con un ejemplo, saltar a un paso) lo OFRECE la pantalla
+  sólo con la puerta `puedeVerLaRevision` y lo DIBUJA la barra (`Autocompletar`, `SaltarAPaso`). Lo que borra en masa vive en
+  /admin/customers/<ws>, sólo para `esClienteDePrueba`, escribiendo el nombre y con `conWs` del negocio.
+  tests/revision-reset-y-autocompletar.test.ts.
+
 # Mirando un negocio como administrador, el estado del onboarding es el del DUEÑO
 
 Martín, 20/11/2026, probando en Lalaland «como administrador»: la vista como administrador muestra LO MISMO que ve el cliente. Lo que se

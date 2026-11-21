@@ -98,8 +98,9 @@ test('5. nunca a un cliente: la ruta cierra del lado del server, y la pantalla d
   const p = sinComentarios(fuente('app/onboarding/page.tsx'));
   assert.match(p, /const adminDeMaKo = !!\(await getSesionAdmin\(\)\.catch\(\(\) => null\)\);/);
   assert.match(p, /<ChatArranqueV2 [^>]*ejemplos=\{puedeVerLaRevision\(\{ ws, admin: adminDeMaKo \}\)\} \/>/);
+  // 21/11/2026 (Martín): los ejemplos ya no van adentro del chat sino en «Autocompletar», en la barra; el chat lo ofrece sólo con la puerta.
   const c = sinComentarios(fuente('app/onboarding/ChatArranqueV2.tsx'));
-  assert.match(c, /const ejemplo = ejemplos \? ejemploDe\(etapa\) : null;/);
+  assert.match(c, /if \(!ejemplos\) return;\n[\s\S]{0,400}ponerAutocompletar\(/);
 });
 
 // ⚠️ PROBADO ROMPIÉNDOLO (20/11/2026, base 5/0; al restaurar, 5/0). Cada rotura, de a una, cae:

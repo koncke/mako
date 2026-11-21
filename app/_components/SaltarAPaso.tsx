@@ -14,6 +14,7 @@ import { conWs } from '@/lib/ws-tab';
 import { limpiarClavesDelOnboarding } from '@/lib/reinicio-en-el-navegador';
 import { clavesVistasDelReto, type PASOS_DE_REVISION } from '@/lib/onboarding-v2/saltar';
 import { AvisoFlotante } from './AvisoFlotante';
+import { cerrarTutorial } from '@/app/_ui/tutorial/store';
 
 const MONO = "'Geist Mono', monospace";
 const caja: CSSProperties = {
@@ -43,12 +44,18 @@ export function SaltarAPaso() {
     setYendo(true);
     try {
       const r = await fetch(conWs('/api/admin/saltar-onboarding', ws), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ paso }) });
-      const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string; destino?: string; reto?: { inicio: string; dia: number } | null } | null;
+      const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string; destino?: string; reto?: { inicio: string; dia: number } | null; avisos?: string[] } | null;
       if (!r.ok || !j?.ok || !j.destino) throw new Error(j?.error || 'No pude ir a ese paso.');
+      // EL RECORRIDO ENTERO DE NUEVO (21/11/2026, Martín: en su captura quedó el «Hola de nuevo» en la esquina, en el día 1). Lo visto de
+      // los tutoriales y de la llegada ya lo borró el server (saltar-server.ts → «Reiniciar onboarding»); acá, el tutorial o el video que
+      // estuviera corriendo o flotando, y lo que guarda ESTE navegador.
+      cerrarTutorial();
       try {
         limpiarClavesDelOnboarding([window.localStorage, window.sessionStorage]);
         if (j.reto) for (const k of clavesVistasDelReto(j.reto.inicio, j.reto.dia)) window.localStorage.setItem(k, new Date().toISOString());
       } catch { /* sin almacenamiento: el paso queda igual en el server */ }
+      // Lo que el server no pudo dejar listo (el recorrido sin ver, sin dueño) se dice, no se traga: se lee antes de ir.
+      if (j.avisos?.length) { setAviso(`Fui al paso, con avisos: ${j.avisos.join(' · ')}`); await new Promise((ok) => setTimeout(ok, 3500)); }
       window.location.assign(conWs(j.destino, ws));
     } catch (e) {
       setAviso(e instanceof Error ? e.message : String(e));

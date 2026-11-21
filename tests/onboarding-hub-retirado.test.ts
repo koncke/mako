@@ -45,7 +45,6 @@ const sinComentarios = (src: string) => src
 const AL_WIZARD: ReadonlyArray<{ archivo: string; por: string }> = [
   { archivo: 'lib/tab-access.ts', por: 'el guard manda al wizard mientras el onboarding esté pendiente' },
   { archivo: 'app/inicio/page.tsx', por: 'la portada manda al wizard mientras esté pendiente' },
-  { archivo: 'app/_components/PanelAgencia.tsx', por: 'el reset deja el onboarding pendiente y va derecho al wizard' },
   { archivo: 'app/m/configurar/page.tsx', por: 'sólo se dibuja con el onboarding pendiente: abre el wizard' },
   { archivo: 'lib/movil-rutas.ts', por: 'el respaldo de escritorio de /configurar, que es el wizard' },
   { archivo: 'lib/movil-desvio.ts', por: 'la lista de rutas que el teléfono abre igual (el wizard)' },

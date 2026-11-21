@@ -59,6 +59,27 @@ export function ejemploDe(etapa: string): string | null {
   return null;
 }
 
+/**
+ * «AUTOCOMPLETAR» (21/11/2026, Martín: «Datos de Mauricio» sale y en su lugar va esto, desde la barra): la respuesta de ejemplo de la
+ * pregunta de ahora, como si la persona la hubiera dado. Las que se escriben, con su texto; las de opciones, con la opción (el mismo
+ * toque: la del ejemplo si está, si no la primera); las de varias, con las del ejemplo que estén. El WhatsApp y el código, nunca: tienen
+ * su propio camino. null = nada que autocompletar.
+ */
+export function respuestaDeEjemplo(o: { etapa: string; opciones: readonly string[] | null; varias: number }): { cuerpo: Record<string, unknown>; mostrar: string } | null {
+  const E = EJEMPLOS_DE_REVISION;
+  const escrito = ejemploDe(o.etapa);
+  if (escrito) return { cuerpo: { texto: escrito }, mostrar: escrito };
+  if (o.etapa === 'telefono' || o.etapa === 'codigo' || !o.opciones?.length) return null;
+  const ops = o.opciones;
+  if (o.varias > 0) {
+    const del = (o.etapa === 'interes' ? (E.intereses as readonly string[]) : []).filter((t) => ops.includes(t));
+    const elegidas = (del.length ? del : [ops[0]]).slice(0, o.varias);
+    return { cuerpo: { opciones: elegidas }, mostrar: elegidas.join(' · ') };
+  }
+  const i = Math.max(0, o.etapa === 'origen' ? ops.indexOf(E.origen) : 0);
+  return { cuerpo: { opcion: i, opcionTexto: ops[i] }, mostrar: ops[i] };
+}
+
 /** «+54 9 11 5555 0101», como lo escribe la persona en su tarjeta. */
 function visible(numero: string): string {
   const d = numero.replace(/\D/g, '');

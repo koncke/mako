@@ -11,6 +11,9 @@
 //     grilla vieja y va donde Polar pone las acciones del cliente;
 //   · «Delete Customer» → «Eliminar negocio» (`eliminar`), con el ConfirmModal de Polar que pide escribir el nombre (la ruta lo
 //     pide igual).
+//   · «Borrar todos los datos» (21/11/2026, Martín: el reset viejo sale de la barra del administrador y viene aquí): vacía el negocio
+//     entero y deja su onboarding de cero (/api/datos-mau → lib/reset-workspace.ts), SÓLO en las cuentas de prueba (`esClienteDePrueba`,
+//     y el server lo cierra igual con la misma lista blanca) y escribiendo el nombre. Contra ESE negocio: `conWs` con su número.
 // Se sacó «Add Credits»: MaKo no tiene créditos por cliente. ⚠️ Lo que falla se dice debajo del menú (Admin no tiene el toast).
 // «Administrar», en el clic derecho de la lista (../menu-contextual-negocios.ts), llega con `?editar=1`: abre «Editar negocio» y
 // saca el parámetro de la URL (un F5 no lo vuelve a abrir).
@@ -38,6 +41,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { cambiarQuery } from '@/app/admin/_polar/web/Customer/useClientSidePagination'
 import { PARAM_EDITAR } from '../menu-contextual-negocios'
 import { accionDelNegocio, irALaLista } from './acciones'
+import { esClienteDePrueba } from '@/lib/auth-session'
+import { conWs } from '@/lib/ws-tab'
+import { limpiarClavesDelOnboarding } from '@/lib/reinicio-en-el-navegador'
 
 interface CustomerHeaderProps {
   negocio: NegocioCabecera
@@ -54,6 +60,8 @@ export const CustomerHeader = ({ negocio }: CustomerHeaderProps) => {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [eliminado, setEliminado] = useState<string | null>(null)
+  const [borrado, setBorrado] = useState<string | null>(null)
+  const dePrueba = esClienteDePrueba(negocio.ws)
   const {
     show: showEditCustomerModal,
     hide: hideEditCustomerModal,
@@ -63,6 +71,11 @@ export const CustomerHeader = ({ negocio }: CustomerHeaderProps) => {
     show: showDeleteCustomerModal,
     hide: hideDeleteCustomerModal,
     isShown: isDeleteCustomerModalShown,
+  } = useModal()
+  const {
+    show: showBorrarDatosModal,
+    hide: hideBorrarDatosModal,
+    isShown: isBorrarDatosModalShown,
   } = useModal()
   const {
     show: showPauseModal,
@@ -101,6 +114,30 @@ export const CustomerHeader = ({ negocio }: CustomerHeaderProps) => {
     setEliminado(resumenDeBorrado(negocio.nombre, r.datos))
   }, [negocio])
 
+  const onBorrarDatos = useCallback(async () => {
+    setError(null)
+    setBorrado(null)
+    try {
+      const r = await fetch(conWs('/api/datos-mau', negocio.ws), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset' }),
+      })
+      const j = (await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }))) as { ok?: boolean; error?: string; borrado?: Record<string, number>; archivos?: number }
+      if (!j.ok) {
+        setError(j.error || 'No se pudieron borrar los datos.')
+        return
+      }
+      const filas = Object.values(j.borrado ?? {}).reduce((a, b) => a + b, 0)
+      // Lo del onboarding que guarda ESTE navegador (la llegada, el «dale play», lo ya escrito): si no, al entrar volvía a medias.
+      try { limpiarClavesDelOnboarding([window.localStorage, window.sessionStorage]) } catch { /* sin almacenamiento */ }
+      // Se dice LO QUE SE LLEVÓ, como «Eliminar negocio».
+      setBorrado(`«${negocio.nombre}» quedó vacío: ${filas} registros y ${j.archivos ?? 0} archivos. Su onboarding empieza de cero.`)
+      router.refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudieron borrar los datos.')
+    }
+  }, [negocio, router])
+
   if (eliminado) return <NegocioEliminado resumen={eliminado} onIr={() => irALaLista(router)} />
 
   return (
@@ -128,6 +165,11 @@ export const CustomerHeader = ({ negocio }: CustomerHeaderProps) => {
               {pausado ? 'Reactivar cuenta' : 'Pausar cuenta'}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            {dePrueba && (
+              <DropdownMenuItem destructive onClick={showBorrarDatosModal}>
+                Borrar todos los datos
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem destructive onClick={showDeleteCustomerModal}>
               Eliminar negocio
             </DropdownMenuItem>
@@ -156,6 +198,27 @@ export const CustomerHeader = ({ negocio }: CustomerHeaderProps) => {
           onConfirm={onPausar}
         />
         <ConfirmModal
+          isShown={isBorrarDatosModalShown}
+          hide={hideBorrarDatosModal}
+          title={`¿Borrar todos los datos de «${negocio.nombre}»?`}
+          body={
+            <div className="text-sm leading-relaxed">
+              <Box flexDirection="column" rowGap="s" color="text-secondary">
+                <p>No se puede deshacer, y en el momento:</p>
+                <ol className="list-inside list-disc pl-4">
+                  <li>Se vacía todo lo que generó: leads, CRM, cursos, automatizaciones, conversaciones y archivos</li>
+                  <li>Se borran su configuración, sus credenciales y su sesión de WhatsApp</li>
+                  <li>Su onboarding empieza de cero; el negocio y sus personas quedan</li>
+                </ol>
+              </Box>
+            </div>
+          }
+          onConfirm={onBorrarDatos}
+          confirmPrompt={negocio.nombre}
+          destructiveText="Borrar todo"
+          destructive
+        />
+        <ConfirmModal
           isShown={isDeleteCustomerModalShown}
           hide={hideDeleteCustomerModal}
           title={`¿Eliminar el negocio «${negocio.nombre}»?`}
@@ -178,6 +241,7 @@ export const CustomerHeader = ({ negocio }: CustomerHeaderProps) => {
         />
       </Box>
       {error && <Alert variant="danger" title="No se pudo" description={error} onDismiss={() => setError(null)} />}
+      {borrado && <Alert variant="success" title="Datos borrados" description={borrado} onDismiss={() => setBorrado(null)} />}
     </Box>
   )
 }

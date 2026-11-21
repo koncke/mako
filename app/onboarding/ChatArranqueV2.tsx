@@ -49,7 +49,8 @@ import { MS_SIN_PLAY, useMensajeDelVideo } from '@/app/_ui/tutorial/useMensajeDe
 import { useBajarAlUltimo } from '@/app/_chat/useBajarAlUltimo';
 import { useColaDeSalida, type FilaDeCola } from '@/app/_chat/useColaDeSalida';
 import { MOMENTO_AGENDADO, MOMENTO_CODIGO, MOMENTO_NOMBRE } from '@/lib/onboarding-v2/momentos';
-import { ejemploDe } from '@/lib/onboarding-v2/saltar';
+import { respuestaDeEjemplo } from '@/lib/onboarding-v2/saltar';
+import { ponerAutocompletar } from '@/lib/onboarding-v2/autocompletar';
 import { senalConTope } from '@/lib/senal-con-tope';
 import { useNotaConEspera } from '@/app/_chat/useNotaConEspera';
 import { Markdown } from '@/app/_components/Markdown';
@@ -106,8 +107,9 @@ const horaDe = (d: Date) => d.toLocaleTimeString('es', { hour: '2-digit', minute
 
 export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, ejemplos = false }: {
   inicial: VistaArranque;
-  /** LA REVISIÓN (20/11/2026): las respuestas de ejemplo de la maqueta, un toque y avanza. Lo decide la PÁGINA con la puerta
-   *  (`puedeVerLaRevision`: alguien de MaKo en un negocio de prueba); sin ella, nada. Nunca a un cliente. */
+  /** LA REVISIÓN (20/11/2026): las respuestas de ejemplo de la maqueta, con «Autocompletar» en la barra del administrador (21/11: el chat
+   *  queda igual que el de un cliente). Lo decide la PÁGINA con la puerta (`puedeVerLaRevision`: alguien de MaKo en un negocio de
+   *  prueba); sin ella, nada. Nunca a un cliente. */
   ejemplos?: boolean;
   /** En un teléfono: el primer paso acá y «Continuar el onboarding desde la PC» al final (18/11). Lo decide la página. */
   seguirEnPc?: boolean;
@@ -207,8 +209,6 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, ejemplos 
     }
   };
 
-  // La respuesta de ejemplo de la pregunta que se escribe (el nombre, el negocio), sólo en la revisión: un toque la manda.
-  const ejemplo = ejemplos ? ejemploDe(etapa) : null;
   // Un texto que no viene de la caja (la respuesta de ejemplo, la nota de voz ya transcrita): sale como si se hubiera escrito, y si
   // falla queda en la caja.
   const mandarEste = (t: string) => {
@@ -217,7 +217,6 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, ejemplos 
     cola.mostrarYa([MOMENTO_NOMBRE.mensaje]);
     void responder({ texto: t }, t).then((ok) => { if (!ok) setTexto(t); });
   };
-  const mandarEjemplo = mandarEste;
   // LA NOTA DE VOZ CON `voz`, COMO LAS DEMÁS CAJAS (21/11/2026, el inventario de botones): no se graba mientras MaKo contesta
   // (`apagada`), se puede cancelar mientras se transcribe, y una que falla queda en la barra para volver a mandarla o borrarla
   // (app/_chat/useNotaConEspera.ts). Antes la caja la transcribía sola, con el micrófono prendido mientras MaKo contestaba.
@@ -455,6 +454,24 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, ejemplos 
   const progreso = Math.max(0, PASOS.indexOf(etapa)) / (PASOS.length - 1);
   // El recuadro, con su mensaje y después de su pausa (la cola: onboarding-3).
   const enRecuadro = fase === 'chat' && !ocupado && ultimoMako?.opciones?.length && ultimoMako.recuadro && cola.conPieza(ultimoMako.id) ? ultimoMako : null;
+  // «AUTOCOMPLETAR» EN LA BARRA (21/11/2026, Martín: en lugar de «Datos de Mauricio»; el chat, IGUAL que el de un cliente). Sólo en la
+  // revisión (`ejemplos`, la puerta de la página): la respuesta de ejemplo de la pregunta de ahora, como si la persona la diera.
+  const ejemploAhora = fase === 'chat' && !ocupado && etapa !== 'listo' && etapa !== 'cierre'
+    ? respuestaDeEjemplo({ etapa, opciones: enRecuadro ? enRecuadro.opciones ?? null : null, varias: enRecuadro?.recuadro?.varias ?? 0 })
+    : null;
+  // Lo que hace el toque, siempre con lo de este dibujo (la cola y `responder` cambian); el efecto de abajo sólo cambia con la respuesta.
+  type Ejemplo = { cuerpo: Record<string, unknown>; mostrar: string };
+  const autocompletarCon = useRef<(r: Ejemplo) => void>(() => {});
+  useEffect(() => {
+    autocompletarCon.current = (r) => { primeroListo(); cola.mostrarYa([MOMENTO_NOMBRE.mensaje]); void responder(r.cuerpo, r.mostrar); };
+  });
+  const textoEjemplo = ejemploAhora ? JSON.stringify(ejemploAhora) : null;
+  useEffect(() => {
+    if (!ejemplos) return;
+    const r = textoEjemplo ? (JSON.parse(textoEjemplo) as Ejemplo) : null;
+    ponerAutocompletar(r ? () => autocompletarCon.current(r) : null);
+    return () => ponerAutocompletar(null);
+  }, [ejemplos, textoEjemplo]);
   // Lo marcado y lo escrito de cada pregunta, aquí y no en el recuadro: se desmonta mientras envía, y si el envío falla vuelve con esto.
   const borradores = useRef(new Map<string, Borrador>());
   const guardarBorrador = (id: string) => (b: Borrador) => { borradores.current.set(id, b); };
@@ -520,12 +537,6 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, ejemplos 
               onUna={(i) => void responder({ opcion: i, opcionTexto: enRecuadro.opciones![i] }, enRecuadro.opciones![i])}
               onVarias={(vs) => void responder({ opciones: vs }, vs.join(' · '))}
               onOtra={(t) => void responder({ texto: t }, t)} />}
-            {ejemplo && fase === 'chat' && !ocupado && (
-              <div className="arr-v2__ejemplos" role="group" aria-label="Respuesta de ejemplo de la revisión">
-                <span>Revisión · respuesta de ejemplo:</span>
-                <button type="button" className="arr-v2__ejemplo" onClick={() => mandarEjemplo(ejemplo)}>{ejemplo}</button>
-              </div>
-            )}
             {/* La caja del Ops Center, la de una línea (Martín, 19/11: «la barra de chat abajo… está como muy alta»). */}
             <div className={`co-caja${etapa === 'listo' && enTelefono ? ' arr-v2__caja--dos' : ''}`} onFocusCapture={soltarPrimero} onPointerDownCapture={soltarPrimero}>
               <CajaChat texto={texto} onTexto={(v) => { setError(null); setTexto(v); }} onMandar={mandarTexto} placeholder={placeholder} enterManda
@@ -770,9 +781,6 @@ const CSS_V2 = `
 .arr-v2__error-ico { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--bad); color: #fff; display: grid; place-items: center; font: 800 12px/1 'Geist', system-ui, sans-serif; margin-top: 1px; }
 .arr-v2__error-t { flex: 1; min-width: 0; }
 .arr-v2__error > button { flex: none; border: 0; background: none; color: var(--dim); cursor: pointer; font: inherit; padding: 0 2px; }
-.arr-v2__ejemplos { max-width: 760px; margin: 0 auto 8px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; font-size: var(--fs-meta); color: var(--faint); }
-.arr-v2__ejemplo { border: 1px dashed var(--border-strong); border-radius: 999px; padding: 4px 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
-.arr-v2__ejemplo:hover { background: var(--surface-2); }
 .arr-v2__aviso { max-width: 760px; margin: 0 auto 8px; font-size: var(--fs-sm); color: var(--dim); text-align: center; }
 /* La tarjeta del código. */
 .arr-v2__wa { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: flex-start; height: 42px; padding: 0 18px; border-radius: 999px; border: 0;
