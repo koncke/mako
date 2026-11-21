@@ -12832,3 +12832,9 @@ Lo fija tests/binance-pay-region.test.ts.
 - **Tener los datos de cobro no es ofrecerlos** (20/11/2026): /planes y el pedido preguntan `mediosDelCheckout` / `medioDirectoQueVale`
   (lib/pago-directo-reglas.ts, interruptor `checkoutPublico`, apagado), nunca `mediosDisponibles`. Un campo nuevo en un ajuste que el editor
   no manda se conserva al guardar (`guardarDatosDePagoDirecto`). El precio es el mismo por cualquier medio: nada de descuento ni recargo.
+
+## MaKo no crea grupos de WhatsApp: un solo punto, `crearGrupoEnLaVoz` (20/11/2026)
+- Martín: «Sólo no crear más». Crear un grupo pasa SÓLO por `crearGrupoEnLaVoz` (lib/mako-grupo.ts), que corta con `SE_CREAN_GRUPOS`
+  (lib/altas-en-grupos.ts, apagado) antes de hablar con WhatsApp. Nunca un `/group/create` en otro lado: tests/altas-en-grupos.test.ts lo exige.
+- Los grupos que ya existen y sumar gente a ellos siguen igual (eso es el freno `mako.grupos.altas`, otra cosa). Donde antes se creaba un grupo,
+  se dice `SIN_GRUPOS_NUEVOS`: «Los avisos de MaKo llegan por su chat privado». No es un error.
