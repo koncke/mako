@@ -48,6 +48,8 @@ export const ANCHO_PANEL = 340;
 /** La grilla (232) y las pestañas. */
 export const ALTO_PANEL = 290;
 export const MARGEN_PANEL = 8;
+/** La marca en <html> mientras el panel está abierto: con ella se esconde la ayuda «?» de la pestaña (centro.css). */
+export const ATTR_EMOJIS_ABIERTO = 'data-emojis-abierto';
 /** Entre el botón y el panel, que abre hacia arriba. */
 const SEPARACION = 8;
 type Caja = { left: number; top: number; right: number; bottom: number };
@@ -90,6 +92,16 @@ export function BotonEmojis({ campo, valor, onValor, apagado }: {
   const [cat, setCat] = useState('caras');
   const [recientes, setRecientes] = useState<string[]>([]);
   const caja = useRef<HTMLDivElement>(null);
+  // Con la caja apagada (mientras se transcribe una nota, o en el cierre), el panel se cierra (20/11/2026, el inventario de botones):
+  // abierto, se podía poner un emoji en un campo apagado, que después pisaba el texto de la nota.
+  useEffect(() => { if (apagado) setAbierto(false); }, [apagado]);
+  // Abierto, la ayuda «?» de la pestaña (`.mk-tuto-ayuda`, MotorTutorial) se esconde (20/11/2026, el Cerebro en producción: a 375
+  // quedaba encima del borde derecho del panel). La regla, en centro.css.
+  useEffect(() => {
+    if (!abierto) return;
+    document.documentElement.setAttribute(ATTR_EMOJIS_ABIERTO, '');
+    return () => document.documentElement.removeAttribute(ATTR_EMOJIS_ABIERTO);
+  }, [abierto]);
   // Su lugar, medido antes de pintarse (useLayoutEffect): nunca se ve un cuadro recortado.
   const [lugar, setLugar] = useState<CSSProperties | undefined>(undefined);
   useLayoutEffect(() => {

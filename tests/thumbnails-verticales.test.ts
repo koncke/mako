@@ -108,7 +108,8 @@ test('4. la réplica de una vertical: UNA lámina de 1080 × 1920, y la persona 
   assert.deepEqual([marcado!.left, marcado!.top, marcado!.width, marcado!.height], [324, 576, 540, 1344], 'en el lugar del retrato del original');
   assert.ok(!armar(false).some((o) => o.name === PERSONA_A_GENERAR), 'sin persona pedida, ningún recuadro');
   const servidor = leer('lib/carruseles/replica-servidor.ts');
-  assert.match(servidor, /lugarDePersona: pedidoBase\.conAvatar, \.\.\.\(fiel \? \{ planchas \} : \{\}\)/, 'la réplica le dice al armado si el dueño quiere persona');
+  // 20/11/2026: las planchas pueden venir repartidas por el copy del dueño (lib/carruseles/copy-pegado.ts → `conElCopy`).
+  assert.match(servidor, /lugarDePersona: pedidoBase\.conAvatar, \.\.\.\(planchasFinales \? \{ planchas: planchasFinales \} : \{\}\)/, 'la réplica le dice al armado si el dueño quiere persona');
   assert.match(servidor, /else if \(ej\.que === 'vertical'\) \{ const \{ verticalPorId \} = await import\('\.\.\/thumbnails\/verticales-servidor'\); v = await verticalPorId\(ej\.id\); \}/);
   assert.match(servidor, /const proporcion = vertical \? '9:16' : miniatura \? '16:9' : '4:5';/);
   assert.match(servidor, /planchas = conMarcas && replica\.proporcion === proporcion/, 'la plancha (el original sin su texto) también en la vertical');

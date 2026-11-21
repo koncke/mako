@@ -2711,6 +2711,35 @@ van dos marcas en el mismo render).
   chat: nunca pausado y en ningún lado. tests/video-en-el-chat.test.ts.
 - **Un globo con un video tiene el ancho del video** (`:has(.mk-vmom)`, centro.css: 400 del reproductor + el padding del globo). El
   texto se acomoda debajo; nunca un globo más ancho que su video.
+- **Todo control que la persona puede tocar tiene salida y no hace de más** (20/11/2026, el inventario de botones; la tabla en
+  docs/hallazgos-onboarding.md). Una marca del motor lleva `alOmitir` («Lo hago después» y Escape), y la X de un «dale play» que frena
+  algo avisa con `alCerrar` y lo destraba. Un menú o desplegable del chat se cierra tocando afuera y con Escape (`useCerrarAfuera`,
+  app/copywriter/editor/cerrar-afuera.ts) y al elegir algo. Tocar la velocidad, la barra o la pantalla completa de un video quieto no es
+  «verlo». Un reproductor del chat lleva pantalla completa (`pantallaCompleta`, con la vuelta del iPhone). Un control nuevo del onboarding
+  o del reto suma su fila a la tabla y su test.
+
+- **Un paso que pide clic no tiene «Siguiente»** (21/11/2026, Martín): se sigue sólo tocando lo marcado, también con el video mandando;
+  «Siguiente» va en las marcas que explican, «Omitir recorrido» siempre. **Y un hueco del velo se mide sobre lo que SE VE** (el globo,
+  no su contenido) y se vuelve a medir con `animationend` y `transitionend`: un `transform` no avisa a nadie más.
+  tests/marcas-centradas-y-sin-siguiente.test.ts.
+
+- **Un texto de MaKo en un globo se dibuja con `<Markdown>`** (21/11/2026, Martín): negrita, cursiva, `++subrayado++`, viñetas y números,
+  sin HTML crudo; nunca en un `<p>`, donde un `**` se ve crudo. Un texto que también sale por correo de texto plano (el del día del reto)
+  no lleva marcas. tests/formato-en-los-globos.test.ts.
+
+- **Una animación de la maqueta se porta con SUS datos y SUS tiempos** (21/11/2026): el Second Brain del recorrido usa el cerebro de la
+  portada en corto (`compactarCerebro`), comparado en su test con el original, y lo que la persona no dijo no se rellena. Sobre una pieza
+  que arma el servidor, entra por portal a su marco y por debajo de sus controles. tests/brain-del-recorrido.test.ts.
+
+- **Lo de la revisión va en la barra del administrador, nunca adentro de la pantalla del cliente** (21/11/2026, Martín: «Yo quiero ver
+  exactamente igual lo que recibe el usuario»). Un atajo para probar (responder con un ejemplo, saltar a un paso) lo OFRECE la pantalla
+  sólo con la puerta `puedeVerLaRevision` y lo DIBUJA la barra (`Autocompletar`, `SaltarAPaso`). Lo que borra en masa vive en
+  /admin/customers/<ws>, sólo para `esClienteDePrueba`, escribiendo el nombre y con `conWs` del negocio.
+  tests/revision-reset-y-autocompletar.test.ts.
+
+- **Un solo video con sonido a la vez** (21/11/2026, Martín): un reproductor nuevo no coordina nada por su cuenta. El play global lo
+  maneja app/_ui/tutorial/un-video-a-la-vez.ts: pausa a los demás, y en la esquina queda sólo el último. Un video de adorno va `muted`, o
+  pausa al de verdad. tests/un-video-a-la-vez.test.ts.
 
 # Mirando un negocio como administrador, el estado del onboarding es el del DUEÑO
 
@@ -2719,6 +2748,15 @@ guarda por persona en el onboarding (empezó el V2, vio el recorrido, la barra o
 (lib/seguir-en-pc.ts), que da el dueño del negocio que se mira. Nunca con la persona de la sesión ni con un «mirando, nunca».
 **Se lee del dueño siempre; se ESCRIBE en el dueño sólo en los negocios de prueba** (`escribeComoElCliente`: ws 3 y ws 9). En cualquier
 otro cliente, lo que hace el administrador no toca el perfil del cliente (la D7, docs/diseno-curso-skool.md).
+
+# Las herramientas de la revisión nunca le aparecen a un cliente
+
+«Ir a un paso» (el desplegable de la barra del administrador) y las respuestas de ejemplo del onboarding V2 (20/11/2026, Martín: «como en
+el artefacto») se ven SÓLO con `puedeVerLaRevision` (lib/onboarding-v2/saltar.ts): alguien de MaKo (`getSesionAdmin`) en un negocio de
+PRUEBA (`WS_PRUEBA_COMO_CLIENTE`: el 3 y el 9; nunca el 11 de Leila, que es una clienta). La puerta va en el SERVER: la ruta
+(/api/admin/saltar-onboarding, en GET y en POST, con el negocio que dice el server) y la página que pasa `ejemplos`. La pantalla no
+decide nada: sin el sí del server no dibuja. Una herramienta de revisión nueva usa la misma puerta. Un paso nuevo del onboarding o del
+reto se suma a `PASOS_DE_REVISION` con su estado, y lo mira la máquina de verdad en tests/revision-saltar-y-ejemplos.test.ts.
 
 # Algo nuevo que guarde estado del onboarding o del reto se suma a «Reiniciar onboarding»
 
@@ -7419,7 +7457,11 @@ Escape de la casa viven en `document` y en captura, y `stopPropagation` frena la
 propagación a otros NODOS, nunca a los listeners hermanos del mismo. Medido el 27/09/2026
 en el selector de portada: una tecla cerraba el panel **y la ficha del cliente**, o sea que
 perdías el cliente por cerrar un selector. El de arriba de todo frena con
-`stopImmediatePropagation()`.
+`stopImmediatePropagation()`. **Y escucha en la captura de `window`, no en la de `document`**
+(21/11/2026): `stopImmediatePropagation` sólo frena a los que se registraron DESPUÉS en el
+mismo nodo, y lo que se abre encima se registra después del modal que ya estaba. Así un
+Escape para cerrar un desplegable cerraba el modal de «Asignar fuentes» con la regla a medio
+armar (tests/desplegable-escape-en-modal.test.ts).
 
 ⚠️ **Y UN EFECTO QUE MIDE UN NODO MONTADO POR UN PORTAL DEPENDE DEL ESTADO QUE MONTA EL
 PORTAL.** El patrón `const [montado, setMontado] = useState(false)` + `if (!montado) return
@@ -8936,6 +8978,15 @@ condiciones para que no mienta:
 
 ⚠️ **Y un «Cargando…» escrito no es un loader.** Un texto no dice que algo está pasando: dice
 que algo dice que está pasando. Va el giro, siempre.
+
+⚠️ **UNA ESCRITURA QUE TIENE QUE SENTIRSE EN EL ACTO NO HACE FILA DETRÁS DE LAS LECTURAS.**
+(21/11/2026) «Mandar a la papelera» en la ficha de un lead «no reaccionaba al primer clic»: el
+clic sí entraba, pero la server action esperaba detrás de las que la ficha manda al abrir
+(medido: cinco en serie en sus primeros 9 s) y el cartel ya se había cerrado. Si la pantalla
+tiene lecturas por server action en vuelo, la escritura va por una RUTA (`fetch`, en paralelo;
+`router.push` después, que en la fila de Next pasa adelante) — `app/api/crm/papelera/route.ts`.
+Y **un cartel de confirmación se cierra cuando la acción TERMINÓ, no cuando empezó**: abierto
+y con su `loading` mientras trabaja (tests/papelera-ficha-primer-toque.test.ts).
 
 # Un SQL escrito en un documento ES código, y se audita igual
 
@@ -12777,7 +12828,8 @@ Lo fija tests/binance-sin-captura.test.ts.
 Y la cuenta se lee SIEMPRE con `pagosRecibidosEnBinance` (lib/binance-pay.ts), nunca con un fetch propio a Binance: el proyecto corre en
 `pdx1` y desde EE. UU. Binance contesta 451; ese lector va por la ruta de São Paulo (/api/cron/binance-pagos, `gru1`) cuando hace falta.
 Esa ruta es la ÚNICA función fuera de pdx1 (tests/region-funciones.test.ts, `EXCEPCIONES`): no le sumes nada que consulte la base, y
-una función nueva en otra región es una excepción NUEVA, escrita con su porqué, nunca una región puesta por su cuenta.
+una función nueva en otra región es una excepción NUEVA, escrita con su porqué, nunca una región puesta por su cuenta. La región de UNA
+función va en vercel.json (`functions[<ruta>].regions`): Vercel ignoró `export const preferredRegion` (21/11, la ruta siguió en pdx1).
 Lo fija tests/binance-pay-region.test.ts.
 
 ## Lo que se le paga a MaKo lo contesta el código; una foto con una pregunta no es un comprobante (20/11/2026)
@@ -12790,3 +12842,9 @@ Lo fija tests/binance-pay-region.test.ts.
 - **Tener los datos de cobro no es ofrecerlos** (20/11/2026): /planes y el pedido preguntan `mediosDelCheckout` / `medioDirectoQueVale`
   (lib/pago-directo-reglas.ts, interruptor `checkoutPublico`, apagado), nunca `mediosDisponibles`. Un campo nuevo en un ajuste que el editor
   no manda se conserva al guardar (`guardarDatosDePagoDirecto`). El precio es el mismo por cualquier medio: nada de descuento ni recargo.
+
+## MaKo no crea grupos de WhatsApp: un solo punto, `crearGrupoEnLaVoz` (20/11/2026)
+- Martín: «Sólo no crear más». Crear un grupo pasa SÓLO por `crearGrupoEnLaVoz` (lib/mako-grupo.ts), que corta con `SE_CREAN_GRUPOS`
+  (lib/altas-en-grupos.ts, apagado) antes de hablar con WhatsApp. Nunca un `/group/create` en otro lado: tests/altas-en-grupos.test.ts lo exige.
+- Los grupos que ya existen y sumar gente a ellos siguen igual (eso es el freno `mako.grupos.altas`, otra cosa). Donde antes se creaba un grupo,
+  se dice `SIN_GRUPOS_NUEVOS`: «Los avisos de MaKo llegan por su chat privado». No es un error.

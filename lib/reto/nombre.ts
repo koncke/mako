@@ -11,6 +11,7 @@ import 'server-only';
 import { getSetting } from '../settings';
 import { estaImpersonando } from '../workspace';
 import { nombreDelArranque, primerNombreDe } from './nombre-reglas';
+import { loQueSabeDelArranque, type LoQueSabe } from '../onboarding-v2/brain-del-recorrido';
 
 const CLAVE_ARRANQUE = 'onboarding.arranque';
 
@@ -23,4 +24,12 @@ export async function nombreDelReto(nombreDeLaSesion: string | null | undefined)
   if (delOnboarding) return delOnboarding;
   if (await estaImpersonando().catch(() => true)) return '';
   return primerNombreDe(nombreDeLaSesion);
+}
+
+/**
+ * Lo que MaKo sabe de la persona al terminar su onboarding (el del negocio, como el nombre): lo dice el Second Brain del recorrido
+ * (app/second-brain/BrainDelRecorrido.tsx). `nombre`: el de `nombreDelReto`, si el onboarding no trae.
+ */
+export async function loQueSabeMaKo(nombre: string): Promise<LoQueSabe> {
+  return loQueSabeDelArranque(await getSetting(CLAVE_ARRANQUE).catch(() => null), nombre);
 }

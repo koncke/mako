@@ -3741,6 +3741,17 @@ por cerrar el selector de portada.
 `stopPropagation`.** `esElDeArriba()` dice si te toca contestar; no impide que conteste
 otro.
 
+**⚠️ Y no alcanza si el de arriba se registró DESPUÉS (21/11/2026).** `stopImmediatePropagation` frena sólo a los que
+vienen detrás en la lista del MISMO nodo y la misma fase, y esa lista va en orden de registro. El desplegable
+(`app/components/Dropdown.tsx`) escuchaba el Escape en la captura de `document`, igual que el `Modal` de la casa
+(`app/_ui/Modal.tsx`); pero se registra al ABRIRSE, y el modal al montarse: cuando el desplegable cortaba, el modal ya
+había cerrado. Visto verificando «Asignar fuentes» en producción: un Escape para cerrar el desplegable de una respuesta
+cerró el modal entero y se perdió la regla a medio armar. El comentario del desplegable decía «en captura es el único
+lugar desde donde se queda con la tecla», y era cierto contra un modal en BURBUJA (el de `BoardShell`, 25/09), no contra
+uno en captura. La cura es la fase de antes: **la captura de `window` corre antes que la de `document`**, sin importar
+quién se registró primero (`MenuFiltro` y `TarjetaKanban` ya lo hacían así). **La regla completa: lo que se abre ENCIMA
+de algo que ya escucha en `document` escucha en la captura de `window` y frena ahí.** (tests/desplegable-escape-en-modal.test.ts)
+
 ### 3. Un alto «que justo entra» no entra
 
 Con el cuerpo en 330 px y 13 muestras, el contenido medía 338: ocho píxeles de scroll, que
@@ -5790,3 +5801,71 @@ titular), no se tiñe.
   PantallaCrear la cierra con Escape, también el sintético.
 - **El video de la esquina usa el reproductor de la maqueta** (F2, ./VideoEnLaEsquina.tsx): chico cuando está quieto, grande cuando
   corre, con «Agrandar/Achicar».
+
+## La barra del administrador en la revisión: un solo RESET, «Autocompletar» y el salto que cierra lo que flotaba (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Pedido** (Martín probando con «Ir a un paso» en el ws 3, por el Cerebro): en la barra, UN «RESET» que hace lo de «Reiniciar
+  onboarding»; el que vaciaba el negocio entero, fuera de la barra; «Datos de Mauricio» fuera, y en su lugar «Autocompletar»; y que
+  saltar a un paso reinicie el recorrido entero y cierre cualquier video flotante.
+- **Dónde vive:** la barra es app/_components/ImpersonationBanner.tsx. El «RESET» es ReiniciarOnboarding.tsx. PanelAgencia.tsx quedó sólo
+  con «Probar tema» (Cliente de Diseño). El borrado total es «Borrar todos los datos» en el menú «Acciones del negocio»
+  (app/admin/_polar/web/Customer/CustomerPage/CustomerHeader.tsx). «Autocompletar» está en app/_components/Autocompletar.tsx, con
+  lib/onboarding-v2/autocompletar.ts y `respuestaDeEjemplo` en lib/onboarding-v2/saltar.ts.
+- **Trampa 1: el borrado desde /admin/customers no está «adentro» del negocio.** /api/datos-mau decide el negocio con
+  `getWorkspaceActual()`, que en la barra era el de la pestaña. Desde la ficha hay que mandarlo con `conWs('/api/datos-mau', negocio.ws)`:
+  el proxy acepta el `?ws=` sólo con sesión de administrador. Sin eso, el pedido iba al negocio de quien mira, y el guard (la lista blanca
+  `esClienteDePrueba`) lo rechazaba sin que se entendiera por qué.
+- **Trampa 2: los ejemplos ADENTRO del chat eran un atajo dentro del onboarding**, justo lo que la barra prohíbe («el recorrido tiene que
+  verse EXACTAMENTE igual que el de un cliente real»). Ahora el chat sólo OFRECE la respuesta de la pregunta de ahora a un store chico, y
+  sólo con la puerta `ejemplos` (la decide la página: `puedeVerLaRevision`). La barra la dibuja si hay. El chat queda igual que el de un
+  cliente.
+- **Trampa 3 (para escribir tests):** el `sinComentarios` de los tests deja `{}` donde había un comentario de JSX. Un regex sobre dos
+  hermanos de JSX con un comentario en el medio tiene que aceptar esa línea (`(?:\{\}\n\s*)?`).
+- **El «Hola de nuevo» flotando en el día 1 NO se reprodujo.** El salto ya borraba lo visto en la base («Reiniciar onboarding») y en el
+  navegador (`limpiarClavesDelOnboarding`). La recarga es completa, así que un video de antes no sobrevive. Lo que sí faltaba:
+  - El salto se TRAGABA sus avisos. Si no encuentra al dueño, el recorrido queda sin ver, y en el día 1 la llegada vuelve.
+  - Ahora los dice antes de ir, y cierra el tutorial o el video que corría (`cerrarTutorial`).
+  - Queda para los Playwright contra el ws 3: saltar al día 1 y mirar que la esquina esté vacía.
+- **Sin hacer:** «Datos de Mauricio» no tiene más botón. Las acciones `completar`, `eliminar` y `todo` de /api/datos-mau siguen vivas y sin
+  quien las llame (lib/datos-mau.ts). Hay que decidir si se borran o vuelven en otro lugar.
+- tests/revision-reset-y-autocompletar.test.ts (roto de a una rotura, 8).
+
+## Un solo video a la vez, y en la esquina sólo el último (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Síntoma** (Martín en el ws 3): «me reproduje un video de arriba y después estoy reproduciendo el de abajo, pero se marca abajo a la
+  derecha el video de arriba».
+- **Causa:** cada video decidía SOLO si flotaba (app/_ui/tutorial/useVideoQueFlota.ts, por IntersectionObserver). Nada coordinaba entre
+  ellos: darle play a uno no pausaba al otro. El de arriba seguía corriendo o flotando mientras corría el de abajo.
+- **Ahora** (app/_ui/tutorial/un-video-a-la-vez.ts, lo instala <MotorTutorial> una vez): un play con sonido pausa a los demás. Si lo
+  que flota en la esquina es OTRO video, deja de flotar. El de abajo, a la vista, no flota porque flotar ya exigía salir de la vista.
+  En el video flotante del motor ya no va «Omitir recorrido»: la X alcanza.
+- **Trampas:**
+  - `play` no burbujea: se oye en captura sobre el documento.
+  - Los videos MUDOS (adorno en bucle) quedan afuera. Si no, uno que arranca solo pausaba al de verdad.
+  - El `<video>` de la esquina no se suelta a sí mismo (`.mk-pip`, `.mk-tuto__video`).
+- **Decisión que queda escrita:** dejar de flotar es `terminar(…, 'omitido')`, lo mismo que su X. Avisa a quien lo pidió: el día 1
+  sigue marcando Offer Coach (D1-03). El recorrido del motor en la ESQUINA también termina como omitido (queda visto). En su mensaje, a la
+  vista, sólo se pausa.
+- **Sin hacer:** probarlo tocando, con dos videos en el hilo del reto (los Playwright contra el ws 3). Las notas de voz (`<audio>`) no
+  entran en la regla.
+- tests/un-video-a-la-vez.test.ts (roto de a una rotura, 5).
+
+## «Datos de Mauricio» se borró, y lo que colgaba de esa ruta (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Decisión** (Martín, por el Cerebro): «esa parte ya no debería existir». Además traía datos de un cliente a una cuenta de prueba.
+  Se borraron /api/datos-mau, lib/datos-mau.ts (traer, devolver y «todo») y app/_components/DatosDeMau.tsx, que ya nadie montaba.
+- **Lo que colgaba de esa ruta y sigue:** el borrado total de un negocio de prueba («Borrar todos los datos», /admin/customers/<ws>) y el
+  «Probar tema» del Cliente de Diseño. Los dos van por /api/admin/negocio-de-prueba, con la MISMA puerta:
+  - super admin;
+  - la lista blanca `esClienteDePrueba`;
+  - nunca uno en la cartera vigente de una agencia.
+  `PERFIL_EXTRA`, lo que el RESET le saca a la gente, pasó a lib/reset-workspace.ts.
+- **Trampa (para borrar o sumar una ruta):** tests/cuenta-revision-escrituras.test.ts enumera las rutas con lo que conoce GIT.
+  - Un archivo borrado sin `git rm` da ENOENT en cinco de sus casos.
+  - Una ruta nueva sin `git add` no se enumera.
+  - Primero el índice; después `MAKO_REGENERAR_SNAPSHOT=1`, y el diff del snapshot tiene que mostrar sólo esas líneas.
+- **Decidido (el Cerebro, 21/11):** el Cliente de Diseño se llenaba con «todo» de /api/datos-mau (lo cuenta
+  app/api/admin/cliente-diseno/route.ts). Esa vía ya no existe, y no se arma otra ahora. Si algún día el diseño necesita un negocio con
+  datos, van datos INVENTADOS (una semilla de prueba), NUNCA copiados de un cliente real como hacía datos-mau.
+- Las bitácoras y algunos comentarios todavía nombran «Datos de Mau» como historia; el test mira sólo el código.
+- tests/sin-datos-de-mauricio.test.ts.
