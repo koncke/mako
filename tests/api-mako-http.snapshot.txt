@@ -268,6 +268,7 @@ editar_texto_guion_anuncio
 editar_venta_lead
 editar_video_automatico
 elegir_cuenta_meta
+elegir_embudo_de_formulario
 elegir_formato_creativo_anuncio
 elegir_kit_marca
 elegir_pagina_meta
@@ -345,6 +346,7 @@ guardar_plan_pagos
 guardar_preset_subtitulos
 guardar_producto
 guardar_publico_audios
+guardar_reglas_formulario
 guardar_tema_landing
 guardar_termino_glosario
 guardar_version_landing
@@ -418,6 +420,7 @@ listar_eventos_pixel_meta
 listar_experimentos
 listar_formatos_creativo
 listar_formatos_video
+listar_formularios
 listar_formularios_meta
 listar_fuentes_kpi
 listar_guiones_analizados
@@ -607,6 +610,7 @@ ranking_creaciones
 reabrir_decision_media_buyer
 reabrir_onboarding_chatbot
 reactivar_datos_sin_marcar
+reaplicar_reglas_formulario
 reconciliar_plantillas
 recortar_clip_video
 recuperar_de_papelera_crm
@@ -779,6 +783,7 @@ ver_publico_conjunto_meta
 ver_puente_flow
 ver_ranking_comunidad
 ver_rechazos_pago_landing
+ver_reglas_formulario
 ver_rendimiento_anuncios
 ver_rendimiento_redes
 ver_repriorizacion_plan

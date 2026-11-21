@@ -3741,6 +3741,17 @@ por cerrar el selector de portada.
 `stopPropagation`.** `esElDeArriba()` dice si te toca contestar; no impide que conteste
 otro.
 
+**⚠️ Y no alcanza si el de arriba se registró DESPUÉS (21/11/2026).** `stopImmediatePropagation` frena sólo a los que
+vienen detrás en la lista del MISMO nodo y la misma fase, y esa lista va en orden de registro. El desplegable
+(`app/components/Dropdown.tsx`) escuchaba el Escape en la captura de `document`, igual que el `Modal` de la casa
+(`app/_ui/Modal.tsx`); pero se registra al ABRIRSE, y el modal al montarse: cuando el desplegable cortaba, el modal ya
+había cerrado. Visto verificando «Asignar fuentes» en producción: un Escape para cerrar el desplegable de una respuesta
+cerró el modal entero y se perdió la regla a medio armar. El comentario del desplegable decía «en captura es el único
+lugar desde donde se queda con la tecla», y era cierto contra un modal en BURBUJA (el de `BoardShell`, 25/09), no contra
+uno en captura. La cura es la fase de antes: **la captura de `window` corre antes que la de `document`**, sin importar
+quién se registró primero (`MenuFiltro` y `TarjetaKanban` ya lo hacían así). **La regla completa: lo que se abre ENCIMA
+de algo que ya escucha en `document` escucha en la captura de `window` y frena ahí.** (tests/desplegable-escape-en-modal.test.ts)
+
 ### 3. Un alto «que justo entra» no entra
 
 Con el cuerpo en 330 px y 13 muestras, el contenido medía 338: ocho píxeles de scroll, que

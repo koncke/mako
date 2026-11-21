@@ -34,6 +34,9 @@ import type { IntencionChat } from '@/app/_chat/SelectorIntencion';
 import { esRespuestaSoloPro, marcarSoloPro } from '@/app/_components/solo-pro';
 import { separarCita } from '@/lib/centro-mensajes';
 import { PLAZO_PEDIDOS_MS, burbujasDe, cuerpoPedidos, interpretacionDe, textoActual } from './pedidos';
+import { CONTRASTE_MINIMO, arreglarContraste } from '@/lib/image-editor/contraste';
+import type { CambioImagen } from '@/lib/image-editor/chat/aplicar';
+import { filasDeContraste, medirFondosDeTextos } from './contraste';
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -432,9 +435,25 @@ export async function aceptarPropuesta(editor: EditorEngine, visto: MensajeMako)
     cambiarMensaje(disenoId, m.id, { estado: 'pendiente', aviso: `Ya no se puede aplicar: ${fallas[0] ?? 'el diseño cambió'}` });
     return;
   }
+  // ⛔ LO QUE SE APLICA SE MIDE (20/11/2026, la llamada con Leila: «no se lee, y le puse a aumentar contraste»). Las páginas que
+  // cambian se dibujan sin sus textos y cada texto que no llega a 3:1 contra lo que tiene detrás pasa a blanco o casi negro, o
+  // lleva un velo (lib/image-editor/contraste.ts). En el mismo paso de deshacer. Si la persona tocó algo mientras se medía, va
+  // como estaba: el arreglo es sobre lo de antes.
+  let final = r.doc;
+  let deContraste: CambioImagen[] = [];
+  try {
+    const tocadas = paginasQueCambian(doc, r.doc);
+    if (tocadas.size) {
+      const fondos = await medirFondosDeTextos(editor, r.doc as unknown as Parameters<typeof medirFondosDeTextos>[1], tocadas);
+      if (editor.getDocument() === doc && fondos.size) {
+        const x = arreglarContraste(r.doc as unknown as { pages: Array<{ objects: Record<string, unknown>[] }> }, fondos, { objetivo: CONTRASTE_MINIMO, nuevoId: nuevoIdObjeto });
+        if (x.cambios.length) { final = x.doc as unknown as typeof r.doc; deContraste = filasDeContraste(x.cambios); }
+      }
+    }
+  } catch (e) { console.warn('[image-editor/chat] medir el contraste', e); }
   editor.stopEditingText();
-  const otroTamano = tamanoDe(r.doc) !== tamanoDe(doc);
-  editor.applyDocument(r.doc as unknown as Parameters<EditorEngine['applyDocument']>[0], { label: 'MaKo IA', ...(r.pagina ? { activePageId: r.pagina } : {}) });
+  const otroTamano = tamanoDe(final) !== tamanoDe(doc);
+  editor.applyDocument(final as unknown as Parameters<EditorEngine['applyDocument']>[0], { label: 'MaKo IA', ...(r.pagina ? { activePageId: r.pagina } : {}) });
   // Como `pages.resize` del motor: con otro tamaño, el lienzo se vuelve a encuadrar (si no, queda con el zoom de antes).
   if (otroTamano) editor.view.fit(editor.state.zoomMode === 'fit-width' ? 'fit-width' : 'fit-page');
   const descartes = [...r.descartes, ...fallas];
@@ -442,8 +461,16 @@ export async function aceptarPropuesta(editor: EditorEngine, visto: MensajeMako)
     estado: 'aplicada',
     aplicada: { version: editor.state.docVersion },
     descartes: descartes.length ? descartes : m.descartes,
+    ...(deContraste.length ? { cambios: [...(m.cambios ?? []), ...deContraste] } : {}),
   });
-  editor.toast('Cambio aplicado', 'success');
+  editor.toast(deContraste.length ? `Cambio aplicado. ${deContraste.length === 1 ? 'Un texto no se leía: lo arreglé' : `${deContraste.length} textos no se leían: los arreglé`}.` : 'Cambio aplicado', 'success');
+}
+
+/** Las páginas (ids) que una propuesta cambia o agrega: las únicas que hace falta medir. */
+function paginasQueCambian(antes: unknown, despues: unknown): Set<string> {
+  type P = { id: string };
+  const previas = new Map(((antes as { pages?: P[] }).pages ?? []).map((p) => [String(p.id), JSON.stringify(p)]));
+  return new Set(((despues as { pages?: P[] }).pages ?? []).filter((p) => previas.get(String(p.id)) !== JSON.stringify(p)).map((p) => String(p.id)));
 }
 
 /** «Restaurar»: el deshacer de ESE paso, si nada cambió después. Si no, se avisa que es Ctrl+Z. */
