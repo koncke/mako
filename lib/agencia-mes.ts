@@ -751,7 +751,7 @@ export type CorridaDeAgencia = {
 };
 
 /** Las agencias con la mensualidad prendida (estricto: «no pude leer» tira). */
-async function agenciasConMensualidad(): Promise<number[]> {
+export async function agenciasConMensualidad(): Promise<number[]> {
   const plataforma = await wsSuperAdmin();
   const { data, error } = await getSupabaseServer().from('app_settings').select('key, value')
     .eq('workspace_id', plataforma).like('key', 'agencia.mensualidad.%.config').limit(500);

@@ -7,8 +7,8 @@
 // input y además solo aceptaba un número. Un negocio reparte: el dueño quiere el
 // reporte, la asistente los avisos de reuniones, el contador la cobranza.
 //
-// El PRIMER número es el principal: es con el que se crea el grupo de WhatsApp de
-// MaKo. Los demás se suman como participantes de ese mismo grupo.
+// El PRIMER número es el principal. Si el negocio ya tiene su grupo de WhatsApp de MaKo, los demás se suman a ese grupo; desde el
+// 20/11/2026 MaKo no crea grupos nuevos: sin grupo, los números quedan guardados y los avisos van por el chat privado.
 //
 // ⚠️ ACÁ VIVÍA `DestinatariosModal`, el modal que preguntaba «¿a quién le avisa
 // MaKo?» con las DOS listas juntas. Se fue el 29/09/2026: los destinatarios se

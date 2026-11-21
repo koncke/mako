@@ -84,3 +84,32 @@ test('sin el autollamado, lo que iba para MaKo entra a la cola igual (lo levanta
 //     suelta» (nadie leía el comprobante: 0 llamadas). Los otros 3 siguen verdes: son la regla de antes.
 //   · `puedeSerComprobante` también para un invitado → sigue VERDE: `comprobanteDeLaApp` lo vuelve a frenar con su letra. Son dos guardas a
 //     propósito; sacar las dos daría rojo en «la foto de un invitado».
+
+// ── Código Inmobiliario, 20/11/2026 (tests/agencia-pago-consulta.test.ts tiene las reglas y lo real) ──────────────────────
+
+test('⛔ la captura con una pregunta: la lectura recibe el texto, no era un pago, y MaKo contesta lo que se paga sin el modelo', () => {
+  const s = R().preguntaConFoto;
+  assert.equal(s.llamadas.length, 1);
+  assert.match(s.llamadas[0].pie ?? '', /confirmame si esta bien/, 'la lectura no recibió el texto de la foto: no sabe que es una pregunta');
+  assert.equal(s.consulta.length, 1, 'el turno no consultó lo que se paga');
+  assert.match(s.consulta[0].texto, /Pablo Chavez para ponerlo como activo tiene que pagar USD 23,50/);
+  const mako = s.hilo.filter((f: { autor: string }) => f.autor === 'mako').map((f: { texto: string }) => f.texto);
+  assert.deepEqual(mako, ['Sí, está bien. Para activar la cuenta de Pablo Chavez son US$ 23,50 si pagas hoy.']);
+  assert.ok(!s.hilo.some((f: { texto: string }) => f.texto === RECIBI), '«Recibí tu comprobante» por una pregunta');
+  assert.equal(s.modelo, 0, 'lo contestó el modelo: buscaba a Pablo como lead');
+});
+
+test('⛔ «cuánto hay que pagar de Pablo Chavez para activar su cuenta», sólo texto: lo contesta el código, no el CRM', () => {
+  const s = R().pregunta1039;
+  assert.equal(s.consulta.length, 1);
+  assert.match(s.consulta[0].texto, /cuanto hay que pagar de Pablo Chavez para activar su cuenta/);
+  const mako = s.hilo.filter((f: { autor: string }) => f.autor === 'mako').map((f: { texto: string }) => f.texto);
+  assert.deepEqual(mako, ['Sí, está bien. Para activar la cuenta de Pablo Chavez son US$ 23,50 si pagas hoy.']);
+  assert.equal(s.modelo, 0);
+});
+
+test('un invitado no ve lo que paga el negocio: ni se consulta', () => {
+  const s = R().invitadoPago;
+  assert.equal(s.consulta, 0);
+  assert.ok(!s.mako.some((t: string) => /US\$ 23,50/.test(t)));
+});
