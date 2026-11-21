@@ -2062,6 +2062,9 @@ con ciclo propio (Leila) manda al grupo de MaKo se aplica SÓLO si el pago está
   vercel.json, el export de Next no pesa. Lo que Vercel documenta para pisar la región en UNA función es `functions["app/api/cron/binance-pagos/route.ts"]
   .regions = ["gru1"]` en vercel.json («This overrides the project-level `regions` setting for the matched functions», vercel.com/docs/project-
   configuration/vercel-json#functions): es lo que quedó. La cadena entera (cron → ruta con el secreto → respuesta) ya andaba; sólo faltaba la región.
+  ✅ **Medido en producción el 21/11** (deploy de 1459a483c): la ruta contesta `x-vercel-id: gru1::gru1` (el cron de cobros sigue en `gru1::pdx1`);
+  el cron de las 01:47 UTC leyó Binance sin 451 (request-logs: la ruta 200 en 1,7 s, sin aviso) y guardó `binance.pagadores.13 = {ids: [206956446],
+  nombres: [jz_]}`; en seco, los 5 pagos de Código de noviembre salen usados y no queda nada por aprender. Ningún aviso a Martín.
   ⚠️ **La primera subida (a2cb44fc4) dio rojo en tests/region-funciones.test.ts**, el guardia que tiene a TODAS las funciones al lado de la base
   (pdx1, ~5 ms por consulta contra ~97 ms): una región por su cuenta en app/ o lib/ (también en un comentario) lo rompe. Quedó UNA excepción
   escrita, esta ruta, con su porqué (desde el 21/11, la de vercel.json: el export sigue prohibido); y la lectura directa se separó en lib/binance-pay-directo.ts para que la función de São Paulo no cargue

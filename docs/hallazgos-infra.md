@@ -3153,7 +3153,9 @@ abierto lo mismo para `app_settings` y las credenciales (~90 consultas por turno
   ⛔ **La región de UNA función va en vercel.json (`functions[<ruta>].regions`), NO en `export const preferredRegion`**: con `"regions":
   ["pdx1"]` en el proyecto, Vercel ignoró el export (21/11, request-logs: la ruta corrió en pdx1 a las 00:17 y 00:47 UTC y Binance dio 451),
   aunque el Next 16.2.6 lo lee y lo pasa al despliegue. Para ver dónde corrió una función: que devuelva `VERCEL_REGION`, o los `logs` de cada
-  fila de `GET api.vercel.com/logs/request-logs` (el `region` no viene como campo).
+  fila de `GET api.vercel.com/logs/request-logs` (el `region` no viene como campo). ⚡ **Sin secreto ni logs: el `x-vercel-id` del 401.** Una ruta del
+  cron contesta el 401 desde la función, así que `curl -sD - <ruta> | grep -i x-vercel-id` dice `<borde>::<región de la función>::<id>`: medido
+  el 21/11, la de Binance pasó de `gru1::pdx1` a `gru1::gru1` con el deploy que la movió (el borde es `gru1` desde Argentina).
 - `/api/auth/me` todavía son 5 idas y la pide el layout en cada carga: podría viajar con el primer cuadro.
 - Las pantallas que esperan en serie en el SERVER (render de página): /plan (`app/plan/page.tsx`, ~10 esperas y el
   autocompletado que ESCRIBE en el render), /dashboard (y la moneda de Meta en el render, `lib/moneda-meta.ts:81`),
