@@ -2713,6 +2713,11 @@ van dos marcas en el mismo render).
   «verlo». Un reproductor del chat lleva pantalla completa (`pantallaCompleta`, con la vuelta del iPhone). Un control nuevo del onboarding
   o del reto suma su fila a la tabla y su test.
 
+- **Un paso que pide clic no tiene «Siguiente»** (21/11/2026, Martín): se sigue sólo tocando lo marcado, también con el video mandando;
+  «Siguiente» va en las marcas que explican, «Omitir recorrido» siempre. **Y un hueco del velo se mide sobre lo que SE VE** (el globo,
+  no su contenido) y se vuelve a medir con `animationend` y `transitionend`: un `transform` no avisa a nadie más.
+  tests/marcas-centradas-y-sin-siguiente.test.ts.
+
 # Mirando un negocio como administrador, el estado del onboarding es el del DUEÑO
 
 Martín, 20/11/2026, probando en Lalaland «como administrador»: la vista como administrador muestra LO MISMO que ve el cliente. Lo que se

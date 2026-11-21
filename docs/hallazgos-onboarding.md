@@ -3,6 +3,22 @@
 El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-state.ts`) y
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
+## Las marcas: el hueco corrido sobre los puntitos y «Siguiente» donde había que tocar (21/11/2026, claude5, chat «onboarding-v2»)
+
+- **El hueco corrido** (Martín, en producción, ws 3: «estoy seguro de que pasa en otros lugares»). Había dos causas, y la obvia, la
+  geometría del motor, no era. `recorteDe` ya contenía el elemento entero y centrado: el test lo mide a 1440 y a 375.
+  - **La entrada de cada día y de cada coach** (EntradaEscribiendo) armaba el hueco con la FOTO y los PUNTITOS, no con el GLOBO que los
+    tiene. El padding blanco del globo quedaba afuera, el hueco se veía corrido y la foto, encima. Ahora la foto y el globo
+    (`cajaDeLaFila`, app/_ui/tutorial/hueco-de-la-fila.ts).
+  - **Nadie volvía a medir al terminar una animación.** Un `transform` no avisa ni al ResizeObserver ni al MutationObserver: un globo que
+    entra deslizándose se medía a mitad de camino y el hueco quedaba corrido para siempre. El motor y la entrada escuchan
+    `animationend` y `transitionend`.
+- **«Siguiente» en un paso que pide clic** (Martín: «la idea es que el usuario aprenda a cliquear donde debe cliquear»). Con el video
+  mandando, «Siguiente» salía igual (`conVideo || !esperaClic`). Ahora un paso que pide clic se sigue SÓLO tocando ahí. «Siguiente»
+  sale en las marcas que explican, y «Omitir recorrido» sale siempre. Los tests de antes (tutorial-pausas «7») miraban qué HACE
+  «Siguiente», no CUÁNDO sale, y por eso no cayeron.
+- tests/marcas-centradas-y-sin-siguiente.test.ts (roto de a una rotura, 6). Medido con números, no mirado: lo mira el Cerebro.
+
 ## El inventario de botones del onboarding V2, la llegada y el primer día (20/11/2026, noche, claude5, chat «onboarding-v2»)
 
 Martín: «Tienes que fijarte todas las opciones que tiene el usuario, todos los botones que puede apretar». Tres lectores de código, uno
