@@ -104,7 +104,7 @@ export type PedidoCompra = {
   /** true = «lo quiero» sin pasarela: deja el pedido en el CRM, no abre un pago (`pedirPlanSinPasarela`). */
   quiero: boolean;
   /**
-   * «Transferencia o Binance · 5 % OFF» (18/11/2026): por dónde va a pagar. Sólo viaja con `quiero`; el MONTO nunca viaja (se calcula en el
+   * «Transferencia o Binance» (18/11/2026), al mismo precio de lista: por dónde va a pagar (el servidor sólo lo toma con el checkout prendido). Sólo viaja con `quiero`; el MONTO nunca viaja (se calcula en el
    * servidor con el plan: `montoDelMedio`, lib/pago-directo-reglas.ts). La activación sigue siendo de Martín, a mano.
    */
   medioDirecto?: MedioDirecto | null;

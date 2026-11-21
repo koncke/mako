@@ -21,6 +21,7 @@
 
 import type { Apertura, Boton } from '../aperturas/reglas';
 import { TOPE_ROTULO } from '../aperturas/reglas';
+import { TOPE_COPY, esCopyDeLaminas } from './copy-pegado';
 
 // ── Lo que se sabe al abrir la pestaña ────────────────────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,12 @@ export type RespuestasGuiado = {
   escribiendo?: 'oferta' | 'cambio' | null;
   /** Lo que escribió fuera de una pregunta: se anota y va con el pedido. */
   extras?: readonly string[];
+  /**
+   * EL COPY PEGADO (20/11/2026, ./copy-pegado.ts): un texto con sus láminas marcadas («Slide 1», «Lámina 2», «---»). Va ENTERO y con
+   * sus renglones, aparte de los extras: no es un tema para reescribir. La llamada con Leila: en los extras se aplanaba y se cortaba
+   * en 300 letras, y la IA inventaba el resto.
+   */
+  copy?: string;
   /** «Ahora no»: las preguntas se pausan (la pestaña sigue; «Seguir» las vuelve a abrir). */
   pausado?: boolean;
   /** Tocó «Generar»: la pantalla arranca. */
@@ -283,6 +290,12 @@ export function responder(h: HechosGuiado, r: RespuestasGuiado, b: Boton<never>)
 
 /** Lo que se escribe en la caja: la respuesta de «Lo escribo yo», o un pedido extra (la pregunta sigue). */
 export function escribir(h: HechosGuiado, r: RespuestasGuiado, texto: string): RespuestasGuiado {
+  // Un COPY de láminas (20/11/2026) va entero y con sus renglones, nunca aplanado ni cortado en `TOPE_LIBRE`: es el texto de la
+  // pieza, no una respuesta. Pegado con el armado andando, lo rehace con el copy (otra vuelta).
+  if (r.escribiendo !== 'oferta' && esCopyDeLaminas(texto)) {
+    const copy = Array.from(texto.replace(/\r\n?/g, '\n').trim()).slice(0, TOPE_COPY).join('');
+    return { ...r, copy, pausado: false, ...(r.listo ? { vuelta: (r.vuelta ?? 0) + 1 } : {}) };
+  }
   const t = Array.from(texto.replace(/\s+/g, ' ').trim()).slice(0, TOPE_LIBRE).join('');
   if (!t) return r;
   const pregunta = preguntaDe(h, r);
@@ -380,6 +393,8 @@ export type PedidoGuiado = {
   cambio: 'textos' | 'marca' | 'libre';
   /** Lo escrito: el cambio a mano y los extras, en una frase para el prompt (ya acotada). */
   pedido: string | null;
+  /** El copy pegado, entero y con sus renglones (./copy-pegado.ts): el texto de cada lámina, palabra por palabra. */
+  copy?: string | null;
 };
 
 /**
@@ -400,6 +415,7 @@ export function pedidoDelGuiado(h: HechosGuiado, r: RespuestasGuiado): PedidoGui
     avatar: r.porDefecto || preguntaAvatar(h) ? r.avatar ?? null : null,
     cambio: !r.cambio || r.cambio === 'textos' ? 'textos' : r.cambio === 'marca' ? 'marca' : 'libre',
     pedido: libres.length ? libres.join(' · ').slice(0, TOPE_PEDIDO) : null,
+    ...(r.copy ? { copy: r.copy } : {}),
   };
 }
 
@@ -427,7 +443,9 @@ export function leerPedidoGuiado(crudo: unknown): PedidoGuiado {
   const texto = (v: unknown, tope: number) => (typeof v === 'string' && v.trim() ? Array.from(v.replace(/\s+/g, ' ').trim()).slice(0, tope).join('') : null);
   const avatar = o.avatar === 'cara' || o.avatar === 'look' || o.avatar === 'ninguno' ? o.avatar : null;
   const cambio = o.cambio === 'marca' || o.cambio === 'libre' ? o.cambio : 'textos';
-  return { ofertaId: id, ofertaLibre: id ? null : texto(o.ofertaLibre, TOPE_LIBRE), avatar, cambio, pedido: texto(o.pedido, TOPE_PEDIDO) };
+  // El copy conserva sus renglones (sin ellos no se sabe dónde termina cada lámina) y sólo se acota.
+  const copy = typeof o.copy === 'string' && esCopyDeLaminas(o.copy) ? Array.from(o.copy.replace(/\r\n?/g, '\n').trim()).slice(0, TOPE_COPY).join('') : null;
+  return { ofertaId: id, ofertaLibre: id ? null : texto(o.ofertaLibre, TOPE_LIBRE), avatar, cambio, pedido: texto(o.pedido, TOPE_PEDIDO), ...(copy ? { copy } : {}) };
 }
 
 // ── La lectura: ¿tiene una persona? (la IA del negocio mira las primeras láminas) ─────────────────────────────────────

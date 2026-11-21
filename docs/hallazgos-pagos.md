@@ -1915,6 +1915,31 @@ estaban commiteados (docs/hallazgos-infra.md, la trampa ya anotada).
 el 4/12»): eso pide leer si el negocio tiene prendido `cuota-por-vencer`, y es otra pieza. «Quitar» una excepción no existe en la
 API de MaKo (sólo en la ficha).
 
+## ⛔ Cargar los datos de cobro PRENDÍA el checkout directo: ahora va con su interruptor, apagado (20/11/2026)
+
+Martín (20/11): «por ahora… lo seguimos haciendo todo por pasarela y por el link de pago de Mercado Pago… no le brindamos ningún tipo de
+descuento… que salga exactamente lo mismo todo». Los datos de Binance y de transferencia se cargan para que MaKo le diga a una agencia a
+dónde pagar (lib/agencia-mes-consulta.ts). Pero hasta hoy, apenas había un dato, /planes ofrecía sola «Transferencia o Binance»
+(`mediosDisponibles` en app/planes/[plan]/page.tsx): tener los datos era lo mismo que ofrecerlos. Lo que cambió:
+- **El interruptor:** `checkoutPublico` vive en el mismo ajuste (`planes.pago_directo`) y está apagado por defecto. Sólo un `true` lo prende:
+  un setting de antes del 20/11, un texto o un número quedan apagados.
+- **/planes** pregunta `mediosDelCheckout` (vacío si está apagado): ni la fila ni el QR.
+- **El servidor** tampoco toma un pedido «por Binance» con el interruptor apagado (`medioDirectoQueVale` en `pedirPlanSinPasarela`). Una pestaña
+  de antes o un POST armado a mano quedan como un «Quiero» común, sin prometer otro medio.
+- **La agencia no depende del interruptor:** la consulta de pago dice el Pay ID igual. tests/agencia-pago-consulta.test.ts lo prueba con los
+  datos cargados y el checkout apagado.
+- ⚠️ **La trampa: el editor de Settings › Payments manda SÓLO los campos de texto.** Con un campo nuevo en el ajuste, cada guardado lo habría
+  apagado (o prendido) sin que nadie lo tocara. `guardarDatosDePagoDirecto` conserva el valor guardado cuando lo que llega no lo trae, y si
+  no puede leerlo, queda apagado. El editor no tiene botón para prenderlo: se prende escribiendo el ajuste (lo decide Martín).
+- **El mismo precio por cualquier medio:** `RECARGO_PASARELA` ya era 0. Los «5 %» y «descuento» que quedaban eran comentarios viejos del 18/11
+  y se fueron. Un test barre que ningún texto del pago directo ni de los avisos de la agencia hable de descuento ni de 5 %.
+  - **NO se tocó** el «Descuento del primer mes» del checkout (`conPromo`, app/planes/[plan]/Checkout.tsx): es otra promo, no depende del
+    medio. Si «ningún tipo de descuento» la incluye, es otra decisión.
+- **Probado:** tests/pago-directo.test.ts (14; 3 casos nuevos) y tests/agencia-pago-consulta.test.ts (21). 10 roturas a propósito, todas en rojo.
+
+**Vive en:** lib/pago-directo-reglas.ts (`checkoutPublico`, `mediosDelCheckout`, `medioDirectoQueVale`) · lib/pago-directo.ts (el guardado) ·
+app/planes/[plan]/page.tsx · lib/compra-plan.ts (`pedirPlanSinPasarela`) · app/admin/_polar/web/Settings/OrganizationPaymentSettings.tsx.
+
 ## «Transferencia o Binance» en el checkout, para todos (18/11/2026) — el «5 % OFF» de la mañana se DIO VUELTA a la tarde (ver la sección siguiente)
 
 Martín: «agregar ahí la opción de transferencia para el resto de personas, incluso que no son por partners… ofrecerle también a ellos un descuento… es el 5 %».
@@ -2015,12 +2040,72 @@ con ciclo propio (Leila) manda al grupo de MaKo se aplica SÓLO si el pago está
   las 48 h, a Martín. Una lectura con dudas pero en dólares también se busca: si calza se aplica; si no, a Martín como antes. Sin la clave → a Martín en el acto.
 - ⚠️ **Claude no mueve plata:** lib/binance-pay.ts llama a UN endpoint (`GET /sapi/v1/pay/transactions`) y un test lo exige leyendo el archivo (sin comentarios: la
   cabecera nombra `permitsUniversalTransfer`, que la clave TIENE y no se usa).
+- ⛔ **Desde el servidor, Binance contesta 451** (visto el 20/11 en producción, en el aviso a Martín del comprobante de Código, `grupo_mensajes` 1049).
+  El texto: «Service unavailable from a restricted location according to 'b. Eligibility'». La medición del 19/11 se hizo desde la PC; Vercel sale desde una
+  región que Binance bloquea. Por eso, en producción `verificarEnBinance` da siempre `falla`:
+  - una lectura limpia queda esperando 48 h y después va a Martín;
+  - una dudosa va a Martín en el acto;
+  - **nada se aplica solo**.
+
+  El cron del pago sin captura (lib/binance-sin-captura.ts, también del 20/11) lee la misma API y queda igual de ciego.
+  **La causa:** vercel.json pone el proyecto entero en `pdx1` (Portland, EE. UU.), y Binance bloquea EE. UU. No era la clave ni la firma: desde la PC
+  (Argentina) la misma lectura contesta 200.
+  **El arreglo (20/11, noche):** la cuenta se lee desde São Paulo. Una ruta interna, sólo de lectura, `/api/cron/binance-pagos` (el secreto del
+  cron, sin agenda en Vercel, región `gru1` en vercel.json), lee directo (`leerDeBinanceDirecto`); desde cualquier otra región, `pagosRecibidosEnBinance`
+  le pide los pagos a ella (lib/binance-pay-region.ts, `caminoDeBinance` + `leerPorLaRuta`); desde la PC, directo. El resto del proyecto sigue en
+  `pdx1`, cerca de la base. El plan del equipo es **Pro** (medido en la API de Vercel): deja una región por función. Una respuesta de la ruta sin la
+  lista nunca es «cero pagos»: es falla. tests/binance-pay-region.test.ts (8 casos, roto 13 veces).
+  ⛔ **El diagnóstico obvio era el equivocado: `export const preferredRegion = 'gru1'` NO movió la función.** El Next 16.2.6 del repo lee el export y
+  lo pasa al despliegue (node_modules/next/dist/build/index.js), y con eso se dio por hecho. Medido el 21/11 en los request-logs de Vercel
+  (`GET api.vercel.com/logs/request-logs`, `requestPath=/api/cron/binance-pagos`): los crons de las 00:17 y las 00:47 UTC llegaron a la ruta con el
+  secreto (200), pero la ruta corrió en **pdx1** y Binance contestó 451; el cron lo dejó escrito «… (desde pdx1)». Con `"regions": ["pdx1"]` en
+  vercel.json, el export de Next no pesa. Lo que Vercel documenta para pisar la región en UNA función es `functions["app/api/cron/binance-pagos/route.ts"]
+  .regions = ["gru1"]` en vercel.json («This overrides the project-level `regions` setting for the matched functions», vercel.com/docs/project-
+  configuration/vercel-json#functions): es lo que quedó. La cadena entera (cron → ruta con el secreto → respuesta) ya andaba; sólo faltaba la región.
+  ✅ **Medido en producción el 21/11** (deploy de 1459a483c): la ruta contesta `x-vercel-id: gru1::gru1` (el cron de cobros sigue en `gru1::pdx1`);
+  el cron de las 01:47 UTC leyó Binance sin 451 (request-logs: la ruta 200 en 1,7 s, sin aviso) y guardó `binance.pagadores.13 = {ids: [206956446],
+  nombres: [jz_]}`; en seco, los 5 pagos de Código de noviembre salen usados y no queda nada por aprender. Ningún aviso a Martín.
+  ⚠️ **La primera subida (a2cb44fc4) dio rojo en tests/region-funciones.test.ts**, el guardia que tiene a TODAS las funciones al lado de la base
+  (pdx1, ~5 ms por consulta contra ~97 ms): una región por su cuenta en app/ o lib/ (también en un comentario) lo rompe. Quedó UNA excepción
+  escrita, esta ruta, con su porqué (desde el 21/11, la de vercel.json: el export sigue prohibido); y la lectura directa se separó en lib/binance-pay-directo.ts para que la función de São Paulo no cargue
+  nada de la base ni de la navegación (lib/app-url.ts arrastraba `movil-rutas` → `nav`): sus imports los fija el test.
 - **Medido el 19/11 contra la cuenta real (sólo lectura):** el 16/11 reenviado → «no entró» (no se cuenta dos veces); el 11/11 ya anotado → a Martín; un pago de 426
   que no se hizo → «no entró». **No probado de punta a punta con un comprobante real** (el próximo es el de Leila, el 26/11).
 - **Sin hacer:** la verificación contra Mercado Pago (transferencias al CVU) y el checkout de «Transferencia o Binance» con el calce (sigue oculto, el setting
   `planes.pago_directo` vacío); el pago de Leila en BTC.
 **Vive en:** lib/binance-pay-reglas.ts · lib/binance-pay.ts · lib/agencia-mes-comprobante.ts (`verificarEnBinance`, `aplicarPagoVerificado`, `esperarElPago`,
 `revisarPagosEnEspera`) · app/api/cron/cobros-reconciliar/route.ts · tests/binance-pay-calce.test.ts.
+
+## El pago de Binance SIN captura: el cron mira la cuenta solo (20/11/2026)
+
+Martín (20/11): «si ya pagan por Binance debería ser todo automático». Hasta acá la activación sola arrancaba SÓLO con la captura en el grupo: si la agencia
+pagaba y no la mandaba, nadie miraba la cuenta. Ahora el cron de cobros, después de la espera (la captura gana), lee los pagos recibidos de las últimas 48 h y los
+calza contra lo que debe cada agencia con la mensualidad prendida (`revisarPagosSinCaptura`).
+
+- **El calce son cuatro cosas a la vez:** QUIÉN PAGA (el Binance ID, o el nombre si Binance no lo da, de alguien que ya le pagó a MaKo por esa agencia); MONTO
+  EXACTO (`asignarPago` da «cubre»: parcial, de más, nada pendiente o dos combinaciones → a Martín); VENTANA (48 h para atrás y más de 15 min de entrado: la
+  captura puede venir en camino); NO USADO (el mismo registro que la captura: `ordenesAnotadas` + `numerosUsados`). Un pago de alguien que nunca le pagó a MaKo
+  por una agencia **no es de nadie**: no se toca ni se le avisa a Martín (puede ser cualquier otro cobro por Binance).
+- **Quién paga se aprende del LIBRO, no de la captura.** El brief pedía «aprende el binanceId del primer calce con captura»: no hizo falta tocar el camino con
+  captura. Las órdenes del libro de cada agencia (entraron con captura o con el «aprobado» de Martín) cruzadas con la cuenta dan su `payerInfo`, y se guarda en
+  `binance.pagadores.<agencia>` (sobrevive a los 90 días de historia de Binance). Medido: Código paga desde **JZ_ (206956446)**; sus 5 pagos de noviembre (94 y 144
+  del 5/11 en el recibo N.º 0002, cargados a mano; 40, 15,67 y 59,54 en el libro) salen todos «usados», también el del 16/11 anotado con un dígito de más.
+- ⚠️ **«Sin cerrar» no es `aplicado_a` vacío.** El primer intento frenaba a la agencia ENTERA si tenía un comprobante del grupo leído y sin aplicar en 72 h. Medido
+  en Código: los comprobantes que Martín cerró a mano (el 15,67 y el 59,54) siguen con `aplicado_a` vacío para siempre, y uno de hoy (US$ 23,5, `dudoso`, sin
+  número) la habría dejado 72 h sin activación automática por CUALQUIER pago. Ahora espera sólo el pago del que habla el comprobante (su número, con un dígito
+  de diferencia, o su monto), y un comprobante cuyo número ya está usado cuenta como cerrado.
+- **Una vez, aunque el cron corra dos veces:** la orden la anota `aplicarPagoDeAgencia` con compare-and-set; el aviso a Martín, `binance.sincaptura.<orden>` con
+  compare-and-set. ⚠️ El que aplica tiene que preguntar **primero** si la orden ya está en el libro: si relee lo que se debe antes, la segunda corrida ve «no se
+  debía nada» y le manda a Martín un aviso falso de un pago que la otra acababa de aplicar (el test de dos corridas a la vez lo encontró).
+- **Reusa, no duplica:** `aplicarPagoVerificado` (exportado, con `medio` y `autor`): el libro, el recibo, las cuentas en pausa que vuelven y el texto «Recibí tu
+  pago de US$ X **por Binance**. Quedó pagado…». A Martín, con la pendiente de siempre (`proponerComprobanteAMartin`): su «aprobado» lo aplica.
+- **Medido en seco el 20/11** (`scripts/binance-sin-captura-en-seco.mts`, nada escrito): noviembre, 5 de 5 usados, 0 a aplicar, 0 a Martín; la ventana del cron, vacía.
+  En memoria, con lo que Código debe hoy (la entrada de Pablo Chávez, US$ 23,5): un pago de JZ_ por 23,5 espera (es el del comprobante de hoy); sin ese
+  comprobante, se aplicaría a la entrada; el mismo monto de otra persona, ajeno.
+- **Sin hacer:** no probado con un pago real sin captura (el próximo de Código). Leila (ciclo propio) no tiene pagos por Binance en los 90 días: su pagador se
+  aprende con su próximo pago con captura. El comprobante de US$ 23,5 de hoy de Código no tiene pago en la cuenta todavía (lo tiene Martín).
+**Vive en:** lib/binance-sin-captura-reglas.ts (puro) · lib/binance-sin-captura.ts · app/api/cron/cobros-reconciliar/route.ts · tests/binance-sin-captura.test.ts
+(14 casos, roto 12 veces) · scripts/binance-sin-captura-en-seco.mts.
 
 ## Los pesos del checkout, al dólar cripto del MOMENTO (19/11/2026)
 
