@@ -367,7 +367,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
     if (!errores.includes(m)) errores.push(m);
-    console.warn(`[carruseles] «Editar» sin la IA del negocio (ws=${ws}, ${ej.que} ${ej.id}): ${m.slice(0, 600)}`);
+    console.warn(`[carruseles] «Editar» sin la IA del negocio (ws=${ws}, ${ej.que} ${'id' in ej ? ej.id : ej.creador}): ${m.slice(0, 600)}`);
     return conGuias(avisoSinIA(m, o.negocioAjeno ?? null), errores);
   }
   // La palabra que el dueño pide comentar la pone el código (./replica.ts, `palabraDelTema`): la IA la cambió una vez de tres.
