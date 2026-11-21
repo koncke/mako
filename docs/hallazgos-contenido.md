@@ -1024,6 +1024,16 @@ elegido en otra lámina, el filtro lo escondía.
   abría directo con `#angulos` (pasó en v49 y v50). Ahora se cuenta antes de cambiar de sección. Toda sección que no está en
   `S` tiene que evitar las funciones que leen `S[sec]`.
 
+**El reel para mentores high ticket (los pistachos) está en «Reels terminados»** (21/11). No viene de la galería de
+animaciones: va a mano en `armar-cm.mjs` (`reels.push`).
+- **Cuál es la versión vigente:** `montaje/REEL-v-hormozi-palma.mp4` (37,8 s, con el clip de Hormozi aprobado). El relevo
+  del reel todavía dice v6, pero está desactualizado: lo vigente lo registra `docs/relevo/cerebro.md`. En la carpeta hay
+  también una v7 del 9/11 que nunca se mandó.
+- La referencia es el reel de Josep (@tachocream, [DdTdIIPDzHU](https://www.instagram.com/reel/DdTdIIPDzHU/)), que ya
+  estaba en `C:/dev/reel-mentores/josep/josep-reel.mp4`, con su transcripción en `palabras-josep.json`.
+- El Guion técnico de un reel terminado ahora usa `ref.estructura` si la hay (bloques con tiempos), con lo nuestro de cada
+  bloque en `copia`. Si no la hay, sigue mostrando `origen`.
+
 **Cuando el chat de carruseles termina una pieza** (21/11, «9 agentes de IA»): se trae la página de su artefacto
 (`Artifact read`, `path: index.html`) a `content-machine/carruseles/index.html` y se rearma. Al publicar se pasan en `files`
 sólo las imágenes de esa pieza, `carr/<id>/mako-NN.jpg` y `ref-NN.jpg`, como `{artifact, path}`: el servidor las vuelve a
