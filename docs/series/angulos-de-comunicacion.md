@@ -1,144 +1,171 @@
-# Tus ángulos de comunicación
+# Ángulos de comunicación: mapa y territorios (para iterar)
 
-## 1. Qué es un ángulo
-El **tema** es de qué hablas (por ejemplo, anuncios). El **ángulo** es desde dónde lo cuentas para que el cliente que paga sienta «esto me pasa a mí»: un problema, una creencia que rompes o un enemigo. El **formato** es el envase, y el **gancho**, los primeros 3 segundos. Rama repite los mismos 6 o 7 temas «hasta que te dé asco» (Deikp8yTWyN, 625 comentarios).
+21/11/2026. No es una propuesta cerrada. Son 3 territorios para discutir y 8 preguntas que hacen falta para afinarlos.
 
-## 2. Cuenta personal (@martin.koncke)
+**Fuentes.**
+- **[dump]:** `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/0ee425c6-e397-47f3-945c-412b6db51178/scratchpad/angulos/spy-dump/spy/<id>.json`
+- **[corpus g. N]:** el grupo N de `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/0ee425c6-e397-47f3-945c-412b6db51178/scratchpad/afirm/final-stats.json`
+- **[gurús]:** las carpetas `gurus-a/` y `gurus-b/` del mismo scratchpad.
+- **[#N]:** tu link N en `C:/dev/inspiracion/links-martin-19-11.txt`. La ficha de cada uno está en `relevo.json`.
+- Las rutas sueltas son de `C:/dev/wt-push-q/`. Un id suelto es una pieza de Instagram o un video de YouTube.
 
-**Posicionamiento: el que prueba los caminos y te muestra el número.**
-- Tu frase: «Todos los caminos funcionan. Lo que no funciona es elegir a ciegas». Ya es tuya: «me atrevo a decir que probé todos los funnels que existen» (VSL), y «decidir con datos» es tu muletilla.
-- Lo que solo tú tienes es un **laboratorio**: lo que se prueba en la cuenta MaKo lo cuentas en la personal como resultado («Probé 8 mensajes con US$50 cada uno y ganó este»). Así se unen las dos cuentas.
-- **El enemigo es una creencia, nunca una persona:** «probá otro funnel», cambiar de camino cada mes, copiar la receta de moda. Tu público sigue a Rama, Víctor, Carrizo y Doglio, y tú vendes una mentoría: el mentor es víctima del consejo, nunca el villano.
-- Compartes temas con Rama (qué contenido trae plata, clientes que pagan, la IA). No los esquives: son los que más le rinden. La diferencia es la prueba: él opina y tú muestras el número.
-- **Ojo:** el número va como giro, no como gancho. Abrir contando lo que se gastó rinde poco (Carrizo, Db_zc0up4hg, nx 0,9).
+## 1. Dónde investigué
 
-**Educación en qué:** en cómo un negocio que cobra caro **elige su camino según su plata y sabe qué pieza le trajo cada venta**. Tu tema madre es «de quien te ve a quien te paga», como el de Dakota es «anuncios». Las ramas: anuncios, videos de tu tema, oferta y precio, la llamada y medir.
-- ¿Una serie solo de anuncios y otra solo de orgánico? No: son ramas del mismo tema dentro de Educación, alternando semanas.
-- De Dakota, copia el guion: síntoma («si te pasa X, este video es para ti»), qué es, por qué pasa, un ejemplo con números y la regla. Con el explicador animado, su mediana subió de 1.072 a 20.400 vistas.
+- **Spy:** 503 piezas en el dump (Ramiro, Doglio, Carrizo, Collado, Heras Media, Víctor y Hormozi) y 10.250 en producción. En español son 3.664 piezas de 12 cuentas [corpus]. Hay 30 de los 49 competidores de tu Spy que todavía no leí.
+- **Transcripciones:** 159 videos de Dakota y 55 de Heras Media (`C:/dev/referentes-videos/`).
+- **Los 32 referentes de los chats** (`lib/asesores/catalogo.ts`): su YouTube de agosto a noviembre [gurús]. Instagram estuvo bloqueado, salvo Vilma, que tiene 815 piezas en el Spy.
+- **Tus 76 links:** son 69 cuentas.
+- **Marcos de trabajo:**
+  - [Schwartz, *Breakthrough Advertising*](https://taylorpearson.me/bookreview/breakthrough-advertising/)
+  - [Todd Brown](https://thecopywriterclub.com/direct-response-marketing-todd-brown/)
+  - [Great Leads](https://writewithai.substack.com/p/great-leads-kickstart-part-1-the)
+  - [Big Ideas de Agora](https://thecopywriterclub.com/how-to-find-big-ideas-joe-schriefer/)
+  - [Play Bigger](https://learn.g2.com/birds-eye-view-of-category-design)
+  - La matriz de ángulos de Dakota (DfXrim6xnyH).
+- **Lo que NO miré:** lo que dicen los compradores. El Spy no guarda el texto de los comentarios, y nadie leyó tus llamadas de Fathom, tus tickets ni `docs/feedback-usando-mako.md` buscando las palabras de quien compra. Ramiro saca de ahí sus ángulos ganadores (Ddp48kET9HA). Es el hueco más grande de este informe (pregunta 3).
 
-**Quién habla:** en Gancho IA, tu avatar exagera y después hablas tú en serio, con **vos** (en tu boca, el tú suena a guion leído). Educación y Ventas las dice el personaje en cubos con tu voz clonada, con **tú**. Educación no vende: cierra con «sígueme».
+## 2. Lo que encontré
 
-**Mezcla:** 50 % Educación (ángulos 3 y 4), 30 % Gancho IA (1 y 2), 20 % Ventas (5).
+**Tres palabras que uso en todo el informe:**
+- **Etapa del mercado (Schwartz):** cuántas promesas parecidas ya escuchó tu público.
+  - En la etapa 1 alcanza con prometer.
+  - En la 2, la promesa se agranda.
+  - En la 3 y la 4, se explica *cómo* funciona (el mecanismo) y después se mejora.
+  - En la 5, el público ya no cree nada, y gana el que logra que se reconozca en él (la identificación).
+- **Nivel de conciencia:** cuánto sabe tu público del problema y de la solución. Va de «no sabe que tiene un problema» a «sabe qué quiere comprar».
+- **Palanca:** con qué convence una frase. Puede ser una promesa, un mecanismo o la identificación.
 
-### Ángulo 1: «Un camino más y ya llegan los clientes» · Gancho IA
-- **Creencia:** el camino no es tu problema; lo es cambiarlo cada mes sin saber cuál te trajo la plata. **Contra:** «probá otro funnel».
+**Cómo leer la tabla:**
+- **nx:** las vistas de un reel comparadas con los reels vecinos de su cuenta. 1 es lo normal.
+- **comx:** los comentarios comparados con la mediana de la cuenta.
+- Los grupos se armaron con búsquedas de palabras, así que los conteos son un piso. Varios grupos son chicos (n es la cantidad de piezas).
+
+| Lo que se repite | Quién lo dice | Cuánto rinde | Palanca | Estado |
+|---|---|---|---|---|
+| Mentalidad, dinero, entorno | 10 cuentas, 148 piezas [g. 21] | nx 1,29 | identificación | saturada |
+| La IA hace el trabajo del editor o del setter | 7 cuentas, 195 piezas (160 de Vilma) [g. 17] | nx 0,91. Los picos regalan la herramienta (DavJtYrRwC4: nx 7,2, palabra CLAUDE) | mecanismo | **sube** (del 4,4 % al 15,6 % de las piezas) |
+| Cobra caro, nunca bajes el precio | 8 cuentas, 44 piezas [g. 13] | comx 0,48 | promesa | saturada y **en baja** (del 1,2 % al 0,6 %) |
+| Lo viral no vende / viral dentro del nicho | Ramiro, Vilma, Heras; Víctor en contra [g. 01 y 22] | comx 0,63 | bandos | saturada |
+| Nada de VSL ni anuncios a frío | 6 piezas [g. 04] | Doglio la pone como ejemplo de lo gastado (K0phdziI3Fw) | promesa | quemada |
+| «Facturé X» en el gancho | 79 de 503 ganchos [dump] | sin patrón: Carrizo rinde más con la cifra (1,15 contra 0,9) y Doglio menos (0,8 contra 1,0), recalculado sobre [dump] | promesa agrandada | saturada |
+| Reels de prueba | 6 cuentas, 22 piezas (14 de Doglio) [g. 08] | nx 2,1 · comx 4,7 | mecanismo | **sube** |
+| El problema es tu ángulo | 7 cuentas, 13 piezas [g. 10] | comx 2,9. Dd0IEaOTdYz da nx 17,3 | identificación | **sube** |
+| La venta se cae en el cierre | 8 cuentas, 38 piezas [g. 18] | nx 1,38 | mecanismo | **sube** |
+| Menos es más (equipo chico) | 6 cuentas, 14 piezas [g. 16] | nx 2,8 · comx 3,8 | identificación | rinde. Es de Carrizo (DNSCCwZt0jb, nx 9,7) |
+| Mide la plata, no las vistas | Ramiro: 5 reels entre el 10 y el 17/11, y regala la plantilla con la palabra CRM (Dfi5E4sioYt, 87.600 vistas; `docs/series/referentes/ramiro.md`, l. 212-241) | — | mecanismo | **es el tema estrella de Ramiro este mes** |
+| El referente vende su propio software | SaleADS.ai [#54], NicDar, Lead Game, vilma.ai, Felipe [gurús]. Ramiro regala un tablero tipo Spy (DeLT9flT_Ag) | — | — | nueva |
+| Los referentes se contradicen | 1 de 4.078 piezas [corpus]. DdfoDvfTAVZ lo roza y termina eligiendo un bando | — | — | vacía |
+
+**Cuenta personal: el mercado está en la etapa 5.** Las señales:
+- Las cifras de facturación ya no rinden de forma pareja.
+- «Nada de VSL» está quemado.
+- El público ya aprendió los niveles de conciencia: Heras Media los enseña uno por uno (DehsTdwTTyN).
+
+Para la etapa 5, Schwartz propone la identificación. Tu público conoce el problema y demasiadas soluciones. Great Leads diría que con ese público alcanza con abrir con la promesa, pero en la etapa 5 ya no se cree ninguna. Por eso hay que abrir con una historia, una proclamación o un secreto, sin mostrar el producto.
+
+**Cuenta MaKo: no hay una sola etapa, cada funcionalidad tiene la suya.** La idea de que un mecanismo de verdad nuevo reinicia el mercado es de Todd Brown y de Agora, no de Schwartz. Sirve sólo donde el mecanismo existe.
+
+| Funcionalidad | Quién ya lo dice | Etapa | Cómo abrir |
+|---|---|---|---|
+| Setter y WhatsApp con IA | Growing Setters (74_9rZHhzTA), Gorriz [#12], Santa IA [#63] | 4-5 | con una charla real, nunca con «contesta a las 3 a. m.» |
+| CRM | «Los CRM murieron», de Santa IA [#63] | 4 | no vender el CRM: vender lo que cruza (territorio A) |
+| Anuncios con las ventas del CRM | SaleADS.ai [#54] crea y optimiza anuncios, pero en lo que relevé nadie en español muestra la venta de cada anuncio | 2-3 | mecanismo (territorio A) |
+| Spy y Carruseles por outlier | cherrystudio [#65] y samuauren [#70] en español; Jev en inglés [#71, #73]; el tablero de Ramiro | 2-3 | promesa directa y demostración, sin sofisticar (territorio B) |
+| Offer Coach, Funnel Coach y chats con referentes | Hormozi regala su [plan de crecimiento](https://www.acquisition.com/roadmap); ChatGPT | 3-4 | mecanismo mejorado (territorio C) |
+| Video y personaje con IA | curiosfer [#46]; wallsframeacademy se burla de «tu video lo editó una IA» [#30] | 4 | todavía sin territorio |
+| Web | seyva.studio [#64] | 3-4 | todavía sin territorio |
+| «Todo en uno» | Cosmos [#45] | 3 | no decir la frase: mostrar cómo pasa el cliente de una parte a otra (VSL, l. 74) |
+| Copywriter, Second Brain | no los relevé | — | pendiente |
+
+**El público de la cuenta MaKo** conoce la solución y ya lo decepcionó la IA. Por eso no le sirve abrir con problema y solución. Le sirve un **secreto con dos mecanismos** (Todd Brown): por qué falló lo que probó y qué lo arregla.
+
+## 3. Territorios posibles
+
+La cuenta personal todavía no tiene un territorio propio de identificación: depende de lo que contestes en las preguntas 1 y 2. Por ahora toma el B.
+
+### A. «Meta te dice qué anuncio trajo el lead, no cuál trajo la venta» (cuenta MaKo)
+
+- **El hueco:** Ramiro ya le enseñó a tu público a medir la plata de cada pieza, pero a mano y con una planilla que regala (Dfi5E4sioYt). En lo que relevé, nadie en español muestra ese cruce hecho solo.
+- **El mecanismo, la «trazabilidad sin planilla»:**
+  - MaKo cruza cada anuncio con las ventas del CRM (`lib/funciones-mako.ts`, l. 249-258).
+  - La atribución por anuncio cubre el 90 % de los leads (`docs/hallazgos-crm.md:6334`).
+  - Por reel, el dato se guarda (el reel del comentario que abrió la charla: `comentario_post_id`, `lib/zernio-entrante.ts:138`), pero ninguna pantalla lo muestra.
+  - Lo respalda tu VSL: «cada parte tenía que saber lo que pasó en la anterior» (`docs/vsl/guion-vsl-principal.md`, l. 74).
+- **La tesis:** «Tu planilla de trazabilidad muere el día que te olvidas de llenarla. La venta tiene que contarte sola de qué anuncio vino».
+- **El nivel de conciencia:** conoce la solución (la planilla de Ramiro, el Administrador de anuncios) y se decepcionó. Se abre con un secreto: Meta ve el clic y el lead, no la venta que se cerró por WhatsApp.
 - **Ganchos:**
-  - «Dale. Un camino más. Probemos un camino más y ya van a llegar los clientes.» (Rama, DeDsOLyz_3n, «Un real más…», nx 12,5)
-  - «—Tirame las cartas: ¿anuncios, videos o una clase en vivo? —Eso no lo dicen las cartas. Lo dicen tus números.» (Rama, DdT5K3NTKZV: pedirle el camino a alguien absurdo, nx 8,7)
-  - «Me llamo Martín y soy adicto a cambiar de camino.» (Rama, DddBgs-zZIJ, «soy adicto a los anuncios», nx 3,4)
-- **Parte seria:** «Probé todos los funnels que existen, y todos funcionan. Lo que no funciona es cambiar cada mes sin saber cuál te trajo la plata».
-- **CTA:** MAPA (qué camino conviene según cuánto tienes para probar).
+  1. «La mayoría no lo sabe, pero Meta te dice qué anuncio trajo el lead y nunca cuál trajo la venta de US$3.000. Comenta VENTA y te muestro cómo verlo.» Toma la forma de DavJtYrRwC4 (Doglio, nx 7,2): un secreto más un regalo con palabra clave, que fue lo que hizo funcionar esa pieza.
+  2. Sólo cuando exista la pantalla por reel: «Este reel tuvo 4.000 vistas y trajo 2 ventas. El de 90.000, ninguna». Toma la forma de Dd0IEaOTdYz (nx 17,3): una imagen concreta que contradice lo que se espera.
+- **Riesgos:**
+  - El tema es de Ramiro. La diferencia es que él regala la planilla y MaKo lo hace solo.
+  - Se acerca al ángulo 2 que rechazaste («las vistas no son clientes»). Aquello era una opinión para la personal; esto es una demostración para la cuenta MaKo.
+  - El enemigo no puede ser «la IA que elige por vistas», porque Video y Carruseles de MaKo abren con «Encuentra tu siguiente OUTLIER» (`lib/funciones-mako.ts`, l. 265 y 290).
 
-### Ángulo 2: «Las vistas no son clientes» · Gancho IA
-- **Creencia:** lo que sube las vistas no trae a quien paga caro. **Contra:** perseguir vistas.
-- **Por qué es tuyo:** sumaste más de 80 M de vistas en más de 20 rubros. El tema es de Rama; tu diferencia es haberlo hecho a escala.
+### B. «Lo que más se repite en tu nicho» (la personal cuenta el hallazgo; la cuenta MaKo muestra cómo lo encontró el Spy)
+
+- **El hueco:** los que desarman a referentes lo hacen con uno solo: cherrystudio [#65] y samuauren con Hormozi [#70]. Ramiro regala un tablero de las cuentas que te inspiran (DeLT9flT_Ag). Nadie en español compara un nicho entero con totales.
+- **El mecanismo, el «informe del Spy»:** un hallazgo por mes sobre las 10.250 piezas, con totales y sin nombres. Regla: sólo se publica lo que se sostiene creador por creador.
+- **Lo que ya hay, todavía sin verificar creador por creador:**
+  - Los tres temas más publicados rinden normal: la IA (195 piezas), la mentalidad (148) y el escenario (104) dan entre nx 0,91 y 1,29. «Menos es más», con 14 piezas, da 2,8 [g. 17, 21, 12 y 16]. Pero 160 de las 195 piezas de IA son de Vilma, y hay que separarla.
+  - Las piezas que dicen «el contenido de valor ya no sirve» dan comx 0,23 (n=16, g. 05).
+  - Ya se cayó: «abrir con la facturación no rinde más». Depende del creador.
+- **La tesis:** «Lo que más se repite en tu nicho no es lo que mejor rinde. No lo ves porque miras a tu referente, no a todos».
+- **El nivel de conciencia:** en la personal conocen el problema, así que se abre con el secreto. En la cuenta MaKo, el Spy en español está en la etapa 2-3: alcanza con una promesa directa y su demostración.
 - **Ganchos:**
-  - «No necesitás 80 millones de vistas para vender tu mentoría.» (Rama, Dd0IEaOTdYz, «No necesitas mostrar una Ferrari…», nx 17,3. Rinde la imagen concreta, y tus 80 M lo son.)
-  - Solo si es verdad: «Dejé de perseguir vistas, y fue la mejor decisión que tomé.» (Carrizo, DYqMChdoDpM, nx 8,4, 3.643 comentarios)
-- **CTA:** TEMAS (los temas que atraen a quien te puede pagar).
+  1. Personal, sólo si se sostiene: «Medí 3.600 reels en español de los mentores que más sigues. Lo que más publican no es lo que mejor les rinde». Toma la forma de DJDTe8Ft5T4 (Carrizo, nx 3,6), una estadística de choque.
+  2. Cuenta MaKo: «Todos en tu nicho dicen que el contenido de valor ya no sirve. ¿De verdad? Lo medí en todas las cuentas a la vez». Toma la forma de [#65], que pone a prueba la promesa de alguien con su propio material.
+- **Riesgos:**
+  - Nombrar a un referente rompe la relación.
+  - `docs/hallazgos-competitors-spy.md:691` cita los términos de Instagram (§4.2). Publicar esos datos lo decides tú.
+  - El molde «Así se ve cuando le das a…» ya aparece en tus links [#70, #71, #73]: se está quemando.
 
-### Ángulo 3: «El anuncio que vende no es el más barato» · Educación
-- **Creencia:** importa la plata que trajo cada anuncio o video, no lo que costó cada contacto ni las vistas. **Contra:** guiarte por esos números y culpar al closer.
-- **Por qué es tuyo:** MaKo muestra las ventas de cada anuncio, y el laboratorio pone los números reales.
+### C. «Un marco no es tu oferta» (cuenta MaKo)
+
+- **El hueco:**
+  - Cada referente ya vende su app: SaleADS.ai [#54], NicDar, Lead Game, vilma.ai y Felipe [gurús]. Nadie dice lo que eso deja: marcos sueltos y ninguna herramienta que conozca tu oferta.
+  - Vilma habla de una IA que sabe «cómo hablas y qué vendes» (DexnNfwyXNF), no de una que lea tu precio y tu garantía.
+- **El mecanismo:**
+  - La regla «ATERRIZA» baja cada marco «a los números y a la oferta de este negocio» (`lib/asesores/contexto.ts`, l. 20).
+  - El Offer Coach y el Funnel Coach leen tus ofertas guardadas con `listar_ofertas` y `ver_analisis_oferta` (l. 44 y 75).
+  - Falta confirmar que lean los leads.
+  - Los marcos de los referentes son de Pro (l. 91-97).
+- **La tesis:** «Ya sabes lo que dice cada mentor. Lo que nunca tuviste es ese marco aplicado a tu oferta, con tus números».
+- **El nivel de conciencia:** ya compró cursos y usa ChatGPT. Se abre con un secreto con dos mecanismos: ChatGPT te devuelve el marco porque no sabe tu oferta, y MaKo sí la lee.
 - **Ganchos:**
-  - «Un anuncio te trae contactos a 2 dólares; otro, a 9. El de 9 te vendió tres mentorías.» (dos números que chocan, como Doglio en DOJakAskSso, nx 4,0). Con las cifras de la prueba, no inventadas.
-  - «Subes un video por día y no sabes cuál te trajo la última venta.» (trazabilidad, Rama, Dfi5E4sioYt, nx 5,3)
+  1. «Le hice la misma pregunta a ChatGPT y a MaKo. Uno me dio un marco; el otro me dijo que mi oferta de US$2.000 no tiene garantía.» Toma la forma de [#64]: alguien le pregunta a la IA por qué lo suyo no funciona y recibe una respuesta concreta. Hay que grabarlo de verdad.
+  2. «Este año compré el curso de tres mentores y la app de dos. Ninguna sabe lo que me dijo la otra.» Toma la forma de [#45] (una usuaria cuenta sus suscripciones) y de tu gancho de las suscripciones (`docs/series/serie-3-ventas.md`, l. 36).
+- **Riesgos:**
+  - Nunca decir «32 mentores mirando tu oferta». Los chats están «inspirados en» el referente, que «no participa ni respalda este producto» (`lib/asesores/contexto.ts`, l. 7-9 y 17). Hay que decir «los marcos de 32 referentes».
+  - «Todo en una app» ya es de Cosmos [#45].
 
-### Ángulo 4: «Cobrar caro filtra» · Educación
-- **Creencia:** si nadie compra, casi nunca es el anuncio: es la oferta. Y el precio alto aleja a quien no iba a pagar. **Contra:** bajar el precio, el descuento con prueba gratis y vender tu hora.
-- **Por qué es tuyo:** «primero la oferta, después el funnel» es la regla de tu Funnel Coach. La prueba con Mauricio depende de la versión que elijas (ver «Cómo seguimos»).
-- **Ganchos:**
-  - «Después de 40 minutos de llamada dices el precio y te contestan: "me encanta, pero no lo puedo pagar".» (Doglio, DRzqJpMka7J, nx 8,5)
-  - «Dale, excelente sesión. Nos vemos la semana que viene.» (lo dice un coach que vende su hora; Rama, De3AhO5TXmI, nx 7,4)
-- Si lo llevas a Gancho IA, la palabra es OFERTA.
+## 4. Lo que descarté y por qué
 
-### Ángulo 5: «Encontré una aplicación que…» · Ventas
-- **Cómo suena:** un partner que recomienda, nunca un vendedor. «Se llama Máko», una sola vez. Cierre: «comenta PALABRA y te la paso».
-- **Tus dos prioridades:** «si quieres que te enseñe a hacer este tipo de videos, comenta…» y los tickets por familia, ya hechos: Vender (US$225,99 contra 97), Cursos (US$150, ALUMNOS) y Contenido (CONTENIDO).
-- **Ganchos:**
-  - «¿Cómo hacer un video animado como este? Es facilísimo.» (Rama, Dfk06zNGQZo, nx 6,3, 1.443 comentarios). Palabra: VIDEO.
-  - «Es una locura la cantidad de dinero que se nos va en suscripciones. Yo en su momento pagaba…» (tu gancho, para los tickets).
-  - «La mayoría no lo sabe, pero hay una aplicación que te arma la página de tu mentoría en dos pasos.» (Doglio, DavJtYrRwC4, nx 7,2, 4.201 comentarios). Palabra: PÁGINA.
-- **La palabra nombra lo que se lleva:** en Rama, EDITAR junta 12,2 comentarios cada 1.000 vistas; YO, de 1,0 a 2,7.
+**Por qué la propuesta anterior era genérica** (`docs/series/angulos-de-comunicacion.md`):
+- **Partía de lo que hace MaKo, no de lo que tu público ya escuchó.** No midió qué está saturado. «Cobrar caro filtra» es de Hormozi y está en baja [g. 13]. «Las vistas no son clientes» es de Ramiro.
+- **No tenía en cuenta la etapa del mercado.** Le ofrecía promesas de etapa 2 y 3 a un público en etapa 5.
+- **Cada ángulo era una opinión sin un mecanismo que la probara.** «Todos los caminos funcionan» no se puede demostrar.
+- **Copiaba la forma de los reels de Rama, no lo que los hacía funcionar** (el regalo, la palabra clave).
 
-## 3. Cuenta MaKo: la prueba de los 8 ángulos
+**Lo que también descarto de este borrador:**
+- **«Todos tienen razón, en su etapa»:** repite tu ángulo 1 rechazado, con el mismo molde (DdT5K3NTKZV).
+  - Enseñar por etapas ya es de Hormozi ([sus 4 etapas](https://rosetta.to/u/alexhormozi/the-4-stages-of-entrepreneurship)).
+  - La «mesa de los 32» no existe y choca con `contexto.ts`.
+  - De los 131 cursos, se leyeron unas 320 clases de 66 (`docs/series/serie-2-temas.md`, l. 6-8).
+  - Queda como pieza suelta: «los mentores que más sigues se contradicen en X, y todos tienen razón».
+- **«De 30 personas a una»:** es una pieza de origen, no un territorio. Carrizo ya la contó (DOULQAPidD3), y el «equipo de agentes» es de Gorriz [#12]. Depende de la pregunta 1.
+- **«Tu setter contesta a las 3 a. m.»:** está saturado como producto.
+- **«El CRM murió»:** es de Santa IA [#63].
+- **«Sueldos, no software»:** es de Gorriz [#12].
+- **«Viral o nicho»:** los bandos ya están armados.
+- **«Facturé X»:** no hay un patrón que sostenga el gancho.
 
-**Cómo se prueba, para que solo cambie el ángulo:**
-- Los 8 van en **Animados** con animación liviana: misma plantilla (personaje, pantalla de la app y texto), misma duración, mismo horario y el mismo molde de gancho, el síntoma de Dakota.
-- 3 reels por ángulo, intercalados en las mismas 4 semanas: 6 por semana.
-- Cada reel pide una palabra que nombra un regalo. El regalo y la respuesta automática se arman antes de publicar.
-- **Anuncios fijos:** 8 imágenes de puro texto, todas a la vez en una campaña, con presupuesto parejo (US$50 a 100 cada una) y el mismo diseño. Solo cambia el titular.
-- Los 2 o 3 que ganen pasan a animación completa, a A o B y a Comentarios.
-- En la bio y en los anuncios fijos va textual: «El mejor software para vender High Ticket». En el gancho no: ahí es jerga.
+## 5. Preguntas para ti
 
-**Los 8 ángulos:**
-
-1. **«Tu plata elige el camino».** Es el único ángulo que solo tú tienes.
-   - «Si no sabes si poner tu plata en anuncios, en videos o en una clase en vivo, este video es para ti.»
-   - Funnel Coach trabaja tu oferta, elige cómo conseguir clientes y calcula el presupuesto de anuncios. PLAN. Ref.: Rama, DfvwqMQDDyi (nx 2,2).
-2. **«Qué anuncio te trajo cada venta».**
-   - «Si tus anuncios te traen contactos baratos y nadie te compra, este video es para ti.»
-   - Ves las ventas de cada anuncio, no solo lo que costó cada contacto. ANUNCIO. Ref.: Dakota, DfVW3--PoZ1 (nx 7,7).
-3. **«Qué camino usa tu competencia».**
-   - «Si no sabes cómo consigue clientes tu competencia, este video es para ti.»
-   - Spy te dice qué camino usa (evento, clase en vivo, aplicación y llamada, reto) citando lo que lo delata, y desde cuándo tiene cada pieza a la vista. No prometas que trae sus anuncios solo ni que analiza sus ganchos. ESPÍA. Ref.: Dakota, DfQFbKlP7a7 (nx 29,4).
-4. **«No es el anuncio, es la oferta».**
-   - «Si bajaste el precio y aun así nadie te compra, este video es para ti.»
-   - La IA le pone nota a tu oferta y la trabaja contigo. OFERTA. Ref.: Hormozi, Dfpk7PcTfsK («Nunca bajes el precio», nx 1,8).
-5. **«Tu carrusel de la semana, sin agencia».**
-   - «Si pasas horas armando un carrusel y nadie lo comenta, este video es para ti.»
-   - Ves los carruseles que mejor les funcionan a las cuentas que sigues, y la IA escribe tu versión. CARRUSEL. Ref.: Collado, DOEYezkiIK- (3.511 comentarios).
-6. **«Nadie se queda sin respuesta».**
-   - «Si te comentan 200 personas y le contestas a 12, este video es para ti.»
-   - Cada persona que comenta tu reel recibe tu mensaje al instante, y cada lead, su seguimiento. RESPONDER. Ref.: Doglio, Dfsj7Kmv93E (nx 1,8).
-7. **«Tu página, con el precio a la vista».**
-   - «Si todavía le pagas a alguien para que te arme la página de tu mentoría, este video es para ti.»
-   - La creas con IA en dos pasos, y la IA la diagnostica y la arregla. PÁGINA. Ref.: Rama, Deo9wHDTZ_O (nx 3,6).
-8. **«Pocas vistas, clientes que pagan».**
-   - «Si tus videos tienen vistas y ningún cliente, este video es para ti.»
-   - MaKo te guía el guion de 6 bloques para hablarle a quien te puede comprar. GUION. Ref.: Víctor, DJUhEpARdHG (32.598 comentarios, nx 9,6).
-
-**Para los ganadores:**
-- **A o B:** ficción del nicho con continuación, con la fórmula de paralisisaldormir en primera persona: algo normal, «y» lo raro, «y» la trampa. No es un quiz ni recomienda MaKo. Ejemplo: «Pongo 1.000 dólares en anuncios para mi mentoría, y en una hora me escriben 200 personas, y ninguna puede pagar». A) apago el anuncio; B) subo el precio.
-- **Comentarios:** el personaje contesta un comentario real del ángulo ganador. Nunca vende el AI Avatar.
-
-## 4. «Todos los caminos llevan a Roma», con tensión
-Dicha así, es una opinión sin enemigo. Gana tensión cuando contradice un consejo común:
-1. **«Todos los caminos funcionan. Cambiar de camino cada mes, no.»** Gancho IA y VSL.
-2. **«El camino lo elige tu plata, no la moda.»** Educación y el ángulo 1 de MaKo.
-3. **«Lo que funciona se sabe probando chico.»** Lo prueba MaKo y lo cuentas tú.
-
-## 5. Qué NO hacer
-- **Listar funciones.** Cada pieza, un problema. Por eso no va «11 aplicaciones en una»: los tickets van por familia.
-- **Hacer de una persona el enemigo.** Se ataca el consejo («te dijeron que con una clase en vivo se arreglaba todo»), sin un gurú reconocible.
-- **Repetir un gancho o una referencia en las dos cuentas.** La personal da la opinión o el resultado; MaKo muestra cómo se hace.
-- **Inventar biografía.** Solo lo que dijiste: más de 80 M de vistas, más de 20 rubros, «fundé y fundí una startup… treinta personas maravillosas».
-- **Prometer lo que MaKo no hace:** Video no trae los videos que mejor funcionan en tu rubro, y el AI Avatar no se vende.
-- **Mentalidad o tu vida sin hilo:** la mentalidad de Víctor tiene 49.300 vistas de mediana, contra 85.100 de su cuenta; la vida de Collado, nx 0,4.
-- **Una palabra genérica** (INFO, CLASE, CONSULTA) o sin su regalo armado.
-- **Jerga en el gancho** (funnel, VSL, high ticket, CRM; «webinar» es «clase en vivo») y **vender en Educación**.
-
-## Cómo seguimos
-
-**Antes de grabar, decides tú:**
-- **Mauricio:** ¿«la misma oferta, decidiendo con datos» (tu VSL) o «cobraba US$300 y hoy más de US$7.000» (el Accelerator)? Las cifras que aprobaste el 16/11 van de menos de US$9k al mes a más de US$100k vendidos. Una sola versión por cuenta.
-- **Lo viral:** ¿dejaste de perseguir vistas? Si no, se cae el segundo gancho del ángulo 2.
-- **Gancho IA** se paga con ApiMart: elige qué ganchos de los ángulos 1 y 2 se generan.
-- **MaKo:** confirma que la prueba va con animación liviana.
-
-**Las 3 primeras piezas de la cuenta personal:**
-1. Gancho IA, ángulo 1: «Un camino más…» (Rama, DeDsOLyz_3n, nx 12,5). CTA MAPA, con el mapa ya armado.
-2. Educación, ángulo 4: «Me encanta, pero no lo puedo pagar» (Doglio, DRzqJpMka7J, nx 8,5). El ángulo 3 espera los números del laboratorio.
-3. Ventas, ángulo 5: «¿Cómo hacer un video animado como este?» (Rama, Dfk06zNGQZo, nx 6,3), con VIDEO. Los tickets hechos se intercalan.
-
-**Las 3 primeras de la cuenta MaKo (semana 1):**
-1. «Tu plata elige el camino» (Rama, DfvwqMQDDyi).
-2. «Qué anuncio te trajo cada venta» (Dakota, DfVW3--PoZ1, nx 7,7).
-3. «Qué camino usa tu competencia» (Dakota, DfQFbKlP7a7, nx 29,4).
-
-**Cómo medimos:**
-- **Anuncios fijos (semana 1):** salen los 8 a la vez; a los 7 días, CTR y costo por prueba iniciada.
-- **Reels de MaKo (semanas 1 a 4):** vistas a las 48 h contra la mediana de los 24 de la prueba (una cuenta nueva no tiene reels vecinos para el nx), y seguidores nuevos. Los comentarios solo desempatan: con CRM, Rama junta menos de 2,5 cada 1.000 vistas, y trazabilidad es su tema con más vistas.
-- **Pagos (semana 4):** los 2 finalistas reciben US$300 o más cada uno; a los 30 días, cuántas pruebas pagaron. Gana el que trae pagos, no el más barato.
-- **Personal:** Educación, por seguidores nuevos; Gancho IA y Ventas, por comentarios con la palabra cada 1.000 vistas.
-- **Cada resultado se cuenta en la personal** (ángulo 3): el laboratorio es el contenido.
+1. **¿Por qué cerró la startup de 30 personas, en tus palabras?** Si hay un error concreto, sale la pieza de origen y el territorio de identificación de la cuenta personal. Si no, la personal arranca con el B.
+2. **¿Qué consejo de un referente seguiste y te salió caro?** Es la identificación que le falta a la personal, y define si la pieza «se contradicen» tiene un caso real.
+3. **¿Qué palabras exactas usaron Mauricio y Leandro para decidir comprar? ¿Puedo leer las llamadas de Fathom, los tickets y `docs/feedback-usando-mako.md` buscando eso?** Todo este mapa sale de lo que publican los creadores, y nada de lo que dicen los compradores. Con esas palabras se escribe el titular de cada territorio.
+4. **¿El territorio A sale ya con anuncios, o primero se construye la pantalla de «ventas por reel»?** Si sale ya, usa el gancho 1. Si esperas la pantalla, sale con el gancho 2, que es más fuerte.
+5. **Los datos del Spy, ¿van con el nombre del referente, sin nombre o sólo con totales?** Define el territorio B, la relación con los referentes y el riesgo con los términos de Instagram.
+6. **En la cuenta MaKo, ¿le hablamos primero al que ya usa herramientas y quedó decepcionado, o al que lleva todo en WhatsApp y Excel?** Lo primero pide abrir con un secreto (A y C). Lo segundo, con el problema, y cambia todos los ganchos.
+7. **De estas frases, ¿cuáles te parecen mentira?** «Cobra caro y nunca bajes el precio», «Lo viral no vende», «Orgánico primero, nada de anuncios a frío», «La IA hace el trabajo del editor», «Haz reels de prueba», «Tu negocio debe funcionar sin ti». Las que marques se vuelven aperturas de proclamación en la personal.
+8. **¿Qué territorio probamos primero, y qué número puedes mostrar con una captura** (los 80 M de vistas, las ventas de Mauricio mes a mes, los clientes de MaKo)? Define el orden y qué prueba lleva cada pieza.
