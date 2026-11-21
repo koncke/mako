@@ -17,6 +17,13 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
   del grupo de WhatsApp: no entrena con lo que recibe). La decisión es pura (`escuchaElDeMaKoAlFinal`, lib/nota-de-voz-de-mako.ts):
   sólo una nota (`pii`, no `sinGroq`), no la del grupo (ésa ya lo probó primero), nunca con D6b. La paga el cupo de MaKo Tokens: la
   cascada corre adentro del medidor, que cobra lo que no paga una clave del negocio.
+- **Trampa: «después de las claves del negocio» también es «cuando las suyas FALLAN».** La primera versión (367a6868d) llamaba al
+  Whisper de MaKo siempre que las claves del negocio no devolvían texto: un negocio con su Groq que fallaba mandaba la nota a la
+  suya Y a la de la plataforma. Eso es mezclar: lo marcó tests/ia16-cada-uno-su-ia.test.ts (el ws12, `12-GROQ` + `9-GROQ`). Ahora la
+  cascada cuenta las cuentas del negocio que probó (`cuentasDelNegocio`), y el de MaKo entra SÓLO con cero. Si las suyas fallan,
+  la persona lee «No pude escuchar la nota de voz» (`errorDeDictado(msg, { delNegocio })`), nunca «Conecta la tuya».
+  ia16 tenía además un caso viejo, «sin su IA, nada va a la plataforma», que Martín pisó ese día («para eso ya usamos los MaKo
+  Tokens»). Quedó al día: la red GRATIS sigue sin escuchar datos de clientes, y la nota va al Whisper de MaKo dentro del medidor.
 - **Trampa del mensaje:** con el Whisper de MaKo en la cascada, «ninguna IA pudo» ya no quiere decir «no hay con quién». Sus errores
   van con `MARCA_EL_DE_MAKO`, y con esa marca la persona lee «grábala de nuevo», no «conecta la tuya». Sin MaKo Tokens, lee lo que dice
   el medidor, con sus dos salidas (antes, «grábala de nuevo»).

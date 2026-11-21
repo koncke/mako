@@ -24,8 +24,10 @@ export const NO_PUDE_ESCUCHAR = 'No pude escuchar la nota de voz. Grábala de nu
  * hubo NI ésa. Si la de MaKo probó y falló (sus errores van con `MARCA_EL_DE_MAKO`), que la grabe de nuevo; y sin MaKo Tokens, lo
  * que dice el medidor (lib/mako-tokens-medidor.ts), con sus dos salidas.
  */
-export function errorDeDictado(msg: string): string {
+export function errorDeDictado(msg: string, o?: { delNegocio?: number }): string {
   const sinSaldo = /Te quedaste sin MaKo Tokens[^]*$/.exec(msg);
   if (sinSaldo) return sinSaldo[0];
+  // Con una clave del negocio que falló (`delNegocio`: sus errores), ya tiene IA: no es «conecta la tuya» (el Cerebro, 20/11).
+  if ((o?.delNegocio ?? 0) > 0) return NO_PUDE_ESCUCHAR;
   return /ninguna IA pudo/i.test(msg) && !msg.includes(MARCA_EL_DE_MAKO) ? SIN_OIDO : NO_PUDE_ESCUCHAR;
 }

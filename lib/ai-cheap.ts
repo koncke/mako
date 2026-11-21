@@ -2312,9 +2312,12 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   // El nombre de la marca se corrige ACÁ, que es por donde entra mal: Whisper escucha "MaKo" y
   // escribe «Maco», esa cadena termina siendo el TÍTULO de una tarea y desde ahí el Perro la
   // repite en su razón y en el deadline. Ver `corregirMarca` en lib/mako-gramatica.ts.
+  // Cuántas cuentas DEL NEGOCIO se probaron: con alguna, el Whisper de MaKo no entra (ni si fallan; lib/nota-de-voz-de-mako.ts).
+  let cuentasDelNegocio = 0;
   for (const nombre of orden as ProvName[]) {
     // Igual que el chat: todas las CUENTAS de este proveedor antes de saltar al siguiente.
     for (const p of await provsDe(nombre)) {
+      cuentasDelNegocio++;
       const r = await escucharCon(p, base64, buf, mime, o, errores);
       if (!r) continue;
       // ⚠️ UN 200 CON UN BUCLE ADENTRO ES UN FALLO, NO UNA TRANSCRIPCIÓN (08/10/2026). Gemini
@@ -2343,7 +2346,7 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   // ── 1b. LA NOTA DE VOZ DE UN CLIENTE SIN IA PROPIA: el Whisper de MaKo (20/11/2026, lib/nota-de-voz-de-mako.ts) ──
   // Sin clave del negocio, la nota (`pii`) no tenía con quién: «necesito una IA conectada» en todas las cajas con micrófono. La
   // escucha el Groq de la plataforma (no entrena con lo que recibe) y la paga el cupo de MaKo Tokens (el medidor, arriba).
-  if (escuchaElDeMaKoAlFinal({ ...o, soloSuIA: soloSuIA() })) {
+  if (escuchaElDeMaKoAlFinal({ ...o, soloSuIA: soloSuIA(), sinClavesDelNegocio: cuentasDelNegocio === 0 })) {
     const deMako = await escucharConElDeMaKo(base64, buf, mime, o, erroresPlataforma);
     if (deMako != null) return deMako;
   }

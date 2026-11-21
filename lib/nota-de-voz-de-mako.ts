@@ -14,10 +14,12 @@
 export const MARCA_EL_DE_MAKO = 'el de MaKo · ';
 
 /**
- * ¿La nota la escucha el Whisper de MaKo cuando las claves del negocio no pudieron (o no hay)? Sólo una nota de voz de un cliente
+ * ¿La nota la escucha el Whisper de MaKo? Sólo cuando el negocio NO TIENE NINGUNA clave (`sinClavesDelNegocio`): con una suya, sólo
+ * la suya, y si falla se le dice que no se pudo escuchar (el Cerebro, 20/11: «el Whisper de MaKo entra únicamente cuando el negocio
+ * no tiene ninguna, nunca además»; mezclarlas lo marcó tests/ia16-cada-uno-su-ia.test.ts). Y sólo una nota de voz de un cliente
  * (`pii`), nunca un audio que no es nota (`sinGroq`: el de un anuncio), ni la del grupo (ésa lo escucha PRIMERO, `notaDeVozDelGrupo`),
  * ni con D6b (`soloSuIA`: el negocio corre con su Claude o su GPT, y eso es una regla de privacidad suya).
  */
-export function escuchaElDeMaKoAlFinal(o: { pii?: boolean; sinGroq?: boolean; notaDeVozDelGrupo?: boolean; soloSuIA: boolean }): boolean {
-  return !!o.pii && !o.sinGroq && !o.notaDeVozDelGrupo && !o.soloSuIA;
+export function escuchaElDeMaKoAlFinal(o: { pii?: boolean; sinGroq?: boolean; notaDeVozDelGrupo?: boolean; soloSuIA: boolean; sinClavesDelNegocio: boolean }): boolean {
+  return !!o.pii && o.sinClavesDelNegocio && !o.sinGroq && !o.notaDeVozDelGrupo && !o.soloSuIA;
 }

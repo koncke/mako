@@ -6476,8 +6476,9 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts). **Y el audio:** `transcribirAudio` (lib/ai-cheap.ts)
   tiene `pii` en false por defecto, así que toda nota de voz de una persona del negocio o de un lead la lleva en `true`
-  (22/10/2026: la del chat del Ops Center salió sin él; docs/hallazgos-ia.md, la entrada de IA7). **Y con `pii`, sin una clave
-  del negocio, la escucha el Whisper de MaKo** (el Groq de la plataforma, que no entrena; `escuchaElDeMaKoAlFinal`,
+  (22/10/2026: la del chat del Ops Center salió sin él; docs/hallazgos-ia.md, la entrada de IA7). **Y con `pii`, sin NINGUNA
+  clave del negocio, la escucha el Whisper de MaKo** (con una suya, SÓLO la suya, aunque falle: nunca el de MaKo además; el Groq de
+  la plataforma, que no entrena; `escuchaElDeMaKoAlFinal`,
   lib/nota-de-voz-de-mako.ts) y la paga el cupo de MaKo Tokens (20/11/2026: «el usuario debería poder enviar audios
   independientemente de si tiene la IA conectada»). Nunca con D6b. «Necesito una IA conectada» (SIN_OIDO) es sólo para cuando no
   hubo ni ésa: los errores del Whisper de MaKo van con `MARCA_EL_DE_MAKO`.
