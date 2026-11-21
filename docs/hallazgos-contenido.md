@@ -773,14 +773,14 @@ conservan su id anterior.
   "cuenta": "carrizo",                    // clave de la colección «creadores» (abajo)
   "usuario": "@juanxcarrizo",
   "tipo": "a-camara",                     // "avatar-ia" | "animacion" | "a-camara" | "carrusel"
-  "formato": "9:16",                      // "9:16" | "4:5" | "1:1"
+  "formato": "9:16",                      // "9:16" | "4:5" | "1:1" | "3:4" (láminas 1080×1440) | "16:9" (reels horizontales)
   "url": "https://www.instagram.com/reel/DGUM7vVucJx/",
   "fecha": "2026-11-12",                  // aaaa-mm-dd
   "reproducciones": 103000,               // número; en un carrusel, 0 si Instagram no da vistas
-  "metrica": "vistas",                    // "vistas" | "me gusta"
+  "metrica": "vistas",                    // "vistas" | "me gusta" (reels sin vistas en la grilla: reproducciones 0)
   "me_gusta": 4500,
   "comentarios": 812,                     // comment_count de yt-dlp; null si no se sabe
-  "nx": 3.2,                              // N× contra los 6 reels maduros más cercanos de la cuenta; null si tiene menos de 48 h
+  "nx": 3.2,                              // N× contra los 6 maduros más cercanos de la misma cuenta, en su métrica: vistas, o me gusta si no hay vistas; los carruseles, contra los 6 carruseles más cercanos. null si tiene menos de 48 h
   "gancho": "la primera frase, tal cual",
   "guion": "la transcripción entera (reels) o el texto de cada lámina, una por renglón (carruseles)",
   "forma": "sketch entero con IA",        // 2 a 5 palabras
@@ -811,6 +811,7 @@ conservan su id anterior.
 - **Qué hace la página:** filtra por «Tipo» y por creador, con sus caricaturas. Ordena por «Los que más superaron a su cuenta» (`nx`,
   el orden por defecto), por «Los más vistos» o por «Los más comentados», y muestra en cada tarjeta el número del orden elegido.
   «Elegir» manda la pieza a Reels o a Carruseles según su `tipo`.
+- **Cada pieza se ve con su tamaño:** la tarjeta y el escenario toman la proporción de `formato`. Uno que no está en la lista se dibuja como 9:16 (reel) o 4:5 (carrusel).
 - **Trampa:** si la `cuenta` no está en `creadores`, la tarjeta muestra iniciales en lugar de la cara. Sin `nx`, la pieza queda al
   final del orden por defecto.
 
