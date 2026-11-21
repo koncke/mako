@@ -716,6 +716,15 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
       si no entra, se resume el texto, no se achica la letra;
     - en el teléfono, una lámina grande con «Referencia | Nuestra», deslizar para pasar y el panel en una hoja que sube.
     Regla: la pregunta es «¿se entiende en 5 segundos, sin leer?». Si para entender una pieza hay que leer un bloque, está mal.
+12. **Spy para elegir, Reels y Carruseles para producir** (21/11, noche). La pestaña «Avatar IA» pasó a ser «Spy»: trae TODO lo
+    de la competencia (avatar IA, animación, a cámara y carruseles) y nada queda afuera por no llevar video con IA. Cada pieza tiene
+    «Elegir» (los «Lo hago» de `votos` cuentan como elegidos), y elegir la manda a «Reels» o «Carruseles» como «Por producir»,
+    con la referencia y un lugar vacío para nuestra versión (`revision/prod-<id>`). Además:
+    - los comentarios y la ficha van DEBAJO del escenario (en pantalla ancha, las dos columnas a la vez), no en un panel al costado;
+    - no hay flechas ni «1 de 11» para pasar de pieza: se vuelve con «‹ Todas». Sólo se pasan láminas de un mismo carrusel;
+    - la referencia de un reel va SIEMPRE en video; una captura no sirve para comparar.
+    - En el teléfono, si todavía no hay nuestra versión, el detalle abre en la referencia, no en un recuadro vacío.
+    Regla: Spy es para mirar y elegir; lo que no lleva IA también se muestra, con su tipo en el filtro.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 

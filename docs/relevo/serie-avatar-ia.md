@@ -1,6 +1,6 @@
 # Relevo — serie con avatar IA (chat hijo del Cerebro)
 
-Actualizado: 21/11/2026 ~06:15 UTC, cuenta claude5 (92 %). Las cuatro cuentas en cola dan 0 para avatar IA: espera la decisión de abrir una sección «Martín a cámara» o buscar cuentas con sketches de IA.
+Actualizado: 21/11/2026 ~06:40 UTC, cuenta claude5 (92 %). Martín decidió: Spy trae TODO lo de la competencia, clasificado por tipo.
 
 ## Dónde está
 - **La página: «Content Machine»,** https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz. Tres pestañas:
@@ -25,6 +25,23 @@ Actualizado: 21/11/2026 ~06:15 UTC, cuenta claude5 (92 %). Las cuatro cuentas en
 | Hormozi | 48 del 19/11: 19 a cámara en estudio, 13 taller en vivo, 3 podcast… y 1 con viñetas de cómic | con la regla de una hoja: 0 escenas con IA en 48. No entra en avatar IA | — |
 | Juan Carrizo (@juanxcarrizo), Francisco Doglio (@franciscodoglio), Guille Collado (@guille.colladomk) | 87, 168 y 52 | la hoja más nueva y la más vieja: 0 pasan; textos: 0 señales. No entran en avatar IA (todo a cámara) | — |
 | Julián Alborna | EN ESPERA: Martín tiene que pasar el usuario (las únicas son de un artista visual sin reels) | — | — |
+
+## Content Machine v25 (21/11 ~06:40 UTC): Spy · Reels · Carruseles
+- Spy = 104 piezas: los 93 de avatar IA y los 11 de `otras-series.json` (1 animación y 10 a cámara). Sus videos y pósteres están
+  en el almacén de archivos (claves `vid/<código>.mp4` y `poster/<código>.jpg` en `content-machine/assets.json`).
+- «Elegir» guarda `votos/<id>` con `estado: "si"`. Lo elegido aparece en Reels (o en Carruseles, si su tipo es carrusel) como
+  «Por producir»; su decisión va en `revision/prod-<id>`.
+- Capturas: `side-session-notes/local_3f1a66d3-.../content-machine-spy-v25/`.
+
+## Las cuentas, paso por paso (para sumar a Spy por tandas)
+| Cuenta | Listado | Lo que falta para Spy |
+|---|---|---|
+| Rama | 243 reels | sumar los que NO pasaron el filtro de IA (están en `ramiro/ampliado/clasificacion-*.json`, con su forma): bajar, recortar a 25 s, subir al almacén y armar |
+| Víctor y Heras Media | 225 y 246 | lo mismo; de Heras Media, 15 dudas no se pudieron bajar |
+| Carrizo, Doglio, Collado | 87, 168, 52 (hojas hechas) | clasificar por tipo con subagentes (criterio nuevo: avatar · animación · a cámara), bajar lo mejor por N× y subir |
+| Hormozi | 48 del 19/11 (con forma) | bajar sus reels y sumar como «a cámara» |
+| Carruseles de todas | sin listar | listar la grilla de PUBLICACIONES (no la de reels) desde el Chrome de Martín, sólo leyendo; `yt-dlp --dump-single-json` da una entrada por lámina, pero las de imagen vienen recortadas al cuadrado: la lámina entera se baja abriendo la publicación |
+| Serie 1 (avión) y Serie 4 | — | la referencia es una captura: buscar el reel exacto de @paralisisaldormir (una «parte 1») y de @manuelzapater («Respondiendo preguntas de seguidores», 3,2 M) desde el Chrome y bajarlo con yt-dlp |
 
 ## Pendiente
 - **El lugar del artefacto:** los formatos ya están en el almacén de archivos. Los clips de cuentas nuevas van directo ahí
