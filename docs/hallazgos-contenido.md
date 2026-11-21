@@ -970,6 +970,22 @@ y la app tiene que copiar el modelo:
     ocupaba todo el ancho con las cuentas como chips sangrados debajo, y Martín dijo que rompía el diseño.
   - El submenú mide su ancho después de dibujarse (264 a 360 px), así un usuario largo como @victorherasemprendedor entra en
     un renglón, y se ubica con ese ancho real.
+
+## Comentarios: Claude decide a qué se refieren (21/11/2026)
+
+Martín: «puse el comentario y desapareció». **El comentario no se había perdido:** estaba en `comentarios/zw7l80nk7c6pxhih7ko8`,
+guardado con `lamina: 10` porque Martín lo escribió viendo la lámina 10. Hablaba de TODO el carrusel. Con «Esta lámina»
+elegido en otra lámina, el filtro lo escondía.
+- **Regla:** la lámina en la que uno está mirando no dice de qué habla el comentario. Fuera el selector «Esta lámina /
+  Todas»: el hilo muestra siempre todos los comentarios de la pieza, del más nuevo al más viejo.
+- `refiere_a` lo decide Claude (capacidad `sample`, `modelTier: 'quick'`) con el texto del comentario y el de cada lámina:
+  «Todo el carrusel», «Portada», «Lámina N», «CTA», «Gancho», «Diseño» (en reels: «Todo el reel», «Guion», «Edición»…).
+  Si es una lámina, también va en `lamina` (desde 0), y el chip salta a esa lámina. Dónde estaba mirando queda en
+  `lamina_vista`. Sin Claude, `refiere_a: "sin clasificar"`, y lo etiqueta el chat que lo atiende. Los comentarios viejos
+  sin `refiere_a` se clasifican al abrirlos, de a tres.
+- `estado`: «nuevo» al crearlo; el chat que lo atiende lo pasa a «visto» o «hecho». Se ve como chip.
+- **Trampa:** la capacidad `sample` lee texto e imágenes, no audio. La transcripción de los audios adjuntos la hace el chat
+  (faster-whisper en la PC) y la escribe en `transcripcion`. Los comentarios dictados ya llegan como texto.
 - Lo que ya había quedó así: El avión = MaKo · A o B; los tres de Educación = Personal · Educación; Cubos = MaKo · Animados;
   El ticket = Personal · Ventas; Comentarios = MaKo · Comentarios; los 11 carruseles = Personal · Ventas. El dudoso es
   «Ofertas que se venden» (tuits de Hormozi), que podría ser Educación.
