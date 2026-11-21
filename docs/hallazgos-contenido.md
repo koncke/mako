@@ -795,6 +795,19 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - Regla: entre una pieza y la siguiente no queda texto suelto. Si el pie no está dentro de un borde, no se sabe de quién es.
     - Las galerías públicas de Foreplay no cargan en el navegador de la app (quedan en negro), y el Top Ads de TikTok pide
       cuenta después de 4 o 5 tarjetas.
+20. **Spy es para mirar y elegir; producir empieza con «＋ Hacer mi versión»** (21/11). El detalle de Spy muestra sólo la
+    referencia y un botón grande. Sin comparación, sin panel de comentarios y sin guion: eso es de Reels y Carruseles.
+    - El botón escribe `produccion/<id de la pieza>` y abre la pieza en Reels (o en Carruseles, si es carrusel) en la pestaña
+      «Guion», con el original y el técnico de la referencia ya cargados. Ahí la pieza figura «En preparación».
+    - Si la pieza ya está en producción, el botón pasa a ser «Ya está en Reels · verla →». Los «Lo hago» viejos de `votos`
+      cuentan igual que la cola.
+    - **Trampa:** la pieza de Spy y la de Reels son el MISMO objeto. Para saber si se acaba de entrar a Reels no alcanza con
+      ver si cambió la pieza: hay que comparar también la sección. Si no, la pieza abría en «Comentarios» en vez de «Guion».
+    - **Trampa (otra vez la de la ronda 16):** `.panel-der { display: flex !important }` le ganaba a `[hidden]`, y en el teléfono
+      el panel de comentarios asomaba debajo del botón. **Regla:** todo componente con un `display` con `!important` lleva al lado
+      su `[hidden] { display: none !important }`.
+    - En el teléfono las tres pestañas (Comentarios, Guion, Guion técnico) entran en una fila de 326 px con letra de 13,5 px y
+      9 px de relleno. «Aprobado» baja a su propia fila, a la derecha.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
@@ -864,6 +877,9 @@ conservan su id anterior.
 - **`creadores/<cuenta>`:** `{ "nombre": "Juan Carrizo", "usuario": "@juanxcarrizo", "foto": "/_blob/<id>", "orden": 4 }`. La foto es
   la caricatura de MaKo (`public/asesores/<nombre>.png` del repo). Si un creador no tiene caricatura, va su foto de perfil. Ya están
   los 7: ramiro, victor, herasmedia, hormozi, carrizo, doglio y collado.
+- **`produccion/<id>`** (la escribe la página, no el chat de la competencia): `{ "pieza": "<id>", "tipo": "avatar|carrusel",
+  "cuenta": "@...", "estado": "en-preparacion", "por": "<id de usuario>", "cuando": "<ISO>" }`. Es la cola de lo que se va a
+  producir: lo que está ahí sale en Reels o Carruseles. El id del documento es el mismo de la pieza de `spy`.
 - **Cómo se escribe:** `ArtifactData` → `batch` con `{op: "set", collection: "spy", doc_id, file_path}`, hasta 50 por llamada, con
   cada documento en un `.json` local. Para cambiar una pieza que ya existe, se lee primero y se escribe con su `if_version`.
 - **Qué hace la página:** filtra por «Tipo» y por creador, con sus caricaturas. Ordena por «Los que más superaron a su cuenta» (`nx`,

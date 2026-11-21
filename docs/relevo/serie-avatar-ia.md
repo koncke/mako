@@ -1,8 +1,8 @@
 # Relevo — serie con avatar IA (chat hijo del Cerebro)
 
-Actualizado: 21/11/2026 ~07:25 UTC, cuenta claude5 (93 %). Content Machine v30: Spy lee de la base; guion editable y «Aplicar al guion» (capacidad sample); la competencia la baja otro chat.
+Actualizado: 21/11/2026 ~08:40 UTC, cuenta claude5 (más del 93 %). Content Machine v34: Spy en tarjetas cerradas del mismo tamaño; el detalle de Spy muestra sólo la referencia y «＋ Hacer mi versión», que escribe en la colección `produccion` y abre la pieza en Reels o Carruseles, «En preparación», en la pestaña «Guion». Capturas a 1440 y 375 en la carpeta compartida del Cerebro, `content-machine-v34/`.
 
-**A medias (v30):** el guion técnico por lámina lo describe Claude la primera vez que Martín abre cada lámina (`tecnico/<clave>-<lámina>`); el de reels espera el campo `tecnico` del chat de la competencia; Serie 1 y Serie 4 siguen sin video de referencia (buscar sus reels desde el Chrome de Martín).
+**A medias (v34):** no se pudo capturar ninguna referencia de diseño (las galerías de Foreplay quedan en negro en el navegador de la app, Atria no tiene galería pública y el Top Ads de TikTok pide cuenta). El guion técnico por lámina lo describe Claude la primera vez que Martín abre cada lámina (`tecnico/<clave>-<lámina>`). Faltan el guion técnico de los otros 84 reels y de las piezas de Carrizo, y el video de referencia de la Serie 1 y la Serie 4 (buscarlos desde el Chrome de Martín, sólo leyendo). Los archivos de la página: `C:/dev/referentes-videos/artefacto/content-machine/` (`cuerpo.html`, `extra.css`, `armar-cm.mjs`, parches `parche-*.py`).
 
 ## Dónde está
 - **La página: «Content Machine»,** https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz. Tres pestañas:
