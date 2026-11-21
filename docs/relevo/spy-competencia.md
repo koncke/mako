@@ -1,6 +1,6 @@
 # Relevo — Spy de Content Machine con TODA la competencia (chat hijo del Cerebro, claude5)
 
-Actualizado: 21/11/2026 ~08:25 UTC. Cuenta claude5 en 94 % (al 97 % se guarda todo y se corta).
+Actualizado: 21/11/2026 ~08:45 UTC. Cuenta claude5 en 94 % (al 97 % se guarda todo y se corta).
 
 ## Qué es
 Llenar la tab **Spy** de Content Machine (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz) con todo lo de la competencia de
@@ -32,17 +32,18 @@ UN solo proceso pesado a la vez (bajar, transcribir, ffmpeg o subir); `tools/pro
 5. `spy-lotes.py preparar` → un subagente Haiku por ≤10 lotes sube y anota «archivo id» → `spy-lotes.py mapa`.
 6. `spy.py armar <cuenta>` → `spy-lotes.py escrituras <cuenta>` → `ArtifactData batch` con cada `escribir-NN.json`.
 
-## Cuentas
+## Cuentas (criterio v2: avatar-ia con escena a-camara|sketch, animacion, carrusel)
 | Cuenta | En la base | Pendiente |
 |---|---|---|
-| Carrizo | 103 (83 a cámara, 17 carruseles de fotos, 2 animación, 1 avatar IA) | — |
-| Doglio | 10 carruseles | 197 reels clasificados (163 a cámara, 34 animación); subiendo recortes (16 lotes) y después escribir |
-| Collado | 40 carruseles | 49 reels clasificados (todos a cámara); subir 4 lotes y escribir. 3 reels restringidos no bajan |
-| Rama | — | 102 reels por bajar (14 ya bajados), 71 carruseles por bajar |
-| Heras Media | — | 191 reels por bajar (15 no bajan desde el 19/11), 2 carruseles |
-| Víctor | — | 161 reels por bajar, 11 carruseles (rehacer con láminas enteras) |
-| Hormozi | — | 114 reels por bajar (lista de 162 del 21/11), ~57 publicaciones |
-| Biblioteca de MaKo | — | 893 carruseles de `carruseles_biblioteca_piezas`: portadas a 600 px + láminas enteras de los 150 mejores (bajado a medias antes del apagón: rehacer `spy-biblioteca.py bajar`, saltea lo que ya está). Resto con `laminas_pendientes: true`: al «Elegir», subir sus láminas y avisar a Content Machine |
+| Carrizo | 103: 49 avatar IA a cámara, 37 animación, 17 carruseles de fotos | — |
+| Doglio | 207: 137 a cámara, 60 animación, 10 carruseles (me gusta ocultos: sin N×) | — |
+| Collado | 89: 39 a cámara, 10 animación, 40 carruseles | 3 reels restringidos no bajan |
+| Dakota Hermes (@dakota.hermes) | — | PRIORIDAD de Martín. 357 reels (`dakota/lista-ig-21-11.txt`, con vistas) bajando con procesar-suave; 58 carruseles en la grilla (hay códigos de 39 caracteres). Después: `spy.py reels/carruseles/ocr dakota`, clasificar con `criterio-tipos-v2.md`, subir, armar, escribir, avisar a Content Machine (foto de perfil en el filtro) y relevo en `docs/series/referentes/dakota-hermes.md` |
+| Rama | 84 viejas reclasificadas | 102 reels por bajar (14 ya bajados), 71 carruseles |
+| Heras Media | (en las viejas) | 191 reels por bajar (15 no bajan desde el 19/11), 2 carruseles |
+| Víctor | (en las viejas) | 161 reels por bajar, 11 carruseles (con láminas enteras) |
+| Hormozi | (en las viejas) | 114 reels por bajar (lista de 162 del 21/11), ~57 publicaciones |
+| Biblioteca de MaKo | — | 893 carruseles: portadas a 600 px + láminas enteras de los 150 mejores (bajado a medias antes del apagón: `spy-biblioteca.py bajar` saltea lo que ya está; después `armar`). Resto con `laminas_pendientes: true`: al «Elegir», subir sus láminas y avisar a Content Machine |
 | Julián Alborna | — | en espera: Martín tiene que pasar el usuario |
 
 Las piezas viejas (104) ya tenían `comentarios`; se les sumó `cta` (72 por este chat, 16 de tema por Content Machine).
