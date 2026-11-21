@@ -4,6 +4,26 @@ El código vive fuera del repo, en `C:/dev/artefactos-animaciones` (galería, ki
 `docs/series/`. Lo del motor de la galería en sí (kit, render, trampas de Three.js) está en
 [editor-video/animaciones-por-codigo.md](editor-video/animaciones-por-codigo.md) → «La galería de formatos».
 
+## Ángulos de comunicación de Martín (21/11/2026, corrida de 9 agentes sobre 503 piezas de Spy)
+
+El documento para Martín es [series/angulos-de-comunicacion.md](series/angulos-de-comunicacion.md). Acá va lo que se aprendió y sirve
+para cualquier cuenta (y para llevar a MaKo):
+- **El diagnóstico obvio era el equivocado:** «la cuenta personal tiene que esquivar los temas de Rama». El crítico mostró que sus temas
+  (qué contenido trae plata, trazabilidad, clientes que pagan) son justamente los que más le rinden (trazabilidad, mediana 55.250). Lo que
+  diferencia no es el tema, es la PRUEBA: él opina, Martín muestra el número de lo que probó.
+- **Abrir con lo que se gastó rinde poco** (Carrizo, Db_zc0up4hg, nx 0,9): el número va como giro, no como gancho.
+- **La palabra del CTA tiene que nombrar lo que se lleva:** en Rama, EDITAR junta 12,2 comentarios cada 1.000 vistas; YO, de 1,0 a 2,7.
+  Una palabra genérica (INFO, CLASE) o sin el regalo armado no sirve.
+- **Explicador animado:** Dakota Hermes pasó de una mediana de 1.072 a 20.400 vistas cuando cambió a ese formato (síntoma → qué es →
+  por qué pasa → ejemplo con números → regla). Es el molde para la serie Educación y para la prueba de la cuenta MaKo.
+- **Mentalidad y vida sin hilo rinden menos:** Víctor, mentalidad, mediana 49.300 contra 85.100 de su cuenta; la vida de Collado, nx 0,4.
+- **Vos o tú:** lo que Martín dice A CÁMARA va con vos (docs/vsl/voz-de-martin.md: el tú «en su boca suena a guion leído»); lo que dice
+  el personaje con la voz clonada, con tú. La regla general «siempre tú» no aplica a su parte a cámara.
+- **Una cuenta nueva no tiene nx** (no hay reels vecinos): para la prueba de la cuenta MaKo se mide contra la mediana de las piezas de la
+  misma prueba, con el mismo formato, horario y duración, para que sólo cambie el ángulo.
+- **Sin hacer:** etiquetar cada pieza de Spy con su ángulo (para filtrar por ángulo en Content Machine) y decidir con Martín las cuatro
+  preguntas de «Cómo seguimos» del documento.
+
 ## Serie 3 (ventas, «encontré una aplicación») — 19/11/2026
 
 **El Martín en cubos dentro de una escena 3D propia.** El kit da `KIT.martin` con su propio renderer y su propia escena.
@@ -615,6 +635,532 @@ El método completo está en `docs/series/desarmar-video-referente.md`; el relev
   por debajo de 3 GB y el vigía mató procesos en zona roja. Un relevo que necesita agentes se corre igual con ellos de a uno
   (la herramienta Agent), que la guardia admite con 1 GB.
 
-## Sin hacer
+## Serie con avatar de IA: elegir mirando la referencia (21/11/2026)
 
-- Generar los ganchos con IA: espera a que Martín elija los temas en el artefacto (los votos quedan en la colección `votos`).
+La página donde Martín elige es el artefacto «Serie con avatar IA» (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz). Lo que la
+arma vive fuera del repo, en `C:/dev/referentes-videos/artefacto/serie/`. Cómo está hecho cada uno de los 20 reels de referencia
+(forma, gancho, cuándo entra la persona, cortes, fondo, CTA) está en la tabla de `docs/series/referentes/README.md` → «La serie con
+avatar de IA».
+
+- **Martín no elige leyendo: elige mirando la referencia.** Dos páginas armadas desde los TEMAS le resultaron «súper confusas»:
+  - la del 19/11, con 20 tarjetas de porqué, ganchos, formato y costo;
+  - la del 21/11, con tarjetas cortas y el detalle escondido.
+
+  Él pidió que «el protagonismo se lo lleve la referencia». La forma nueva:
+  - una galería de los reels en 9:16, con un sello (N× y reproducciones);
+  - al tocar uno, la referencia y nuestra versión lado a lado, una línea de gancho bajo cada una;
+  - los dos guiones en pestañas cerradas;
+  - «Lo hago / No» fijo abajo.
+
+  Para MaKo: elegir contenido es comparar contra el original, no leer una ficha.
+- **Una sola referencia por tema: la que se calca, no la de más vistas.** Para «Lo tengo que pensar» va el reel de Hormozi con la
+  objeción entre comillas (329 mil, 0,9×), no su reel de 1,7 M, que es de otra cosa. Un reel con menos de 48 h muestra «nuevo» en
+  lugar del N×: su múltiplo todavía no dice nada.
+- **Los reels de 9:16 entran en un artefacto si se comprimen.** Con 480 px de ancho, crf 30 y audio mono a 64k (`comprimir.sh`),
+  cada reel quedó entre 0,7 y 6 MB. Los 20 pesan unos 72 MB y un publish acepta 64 MB, así que se suben en dos tandas a la misma
+  URL. El video va con `muted`, `preload="none"` y sin autoplay; el sonido, con un botón. A Martín le suenan los videos solos y lo
+  odia.
+- **El fotograma para la imagen no siempre es el del segundo 1,5.**
+  - Donde la persona entra tarde, se elige a mano: en el «reality» de Rama a los 7 s; en el taller de Hormozi a los 3,5 s, que es
+    cuando él aparece arriba de la mujer del micrófono.
+  - Donde no hay persona (el tutorial animado, la cámara de seguridad del Ferrari), la frase cambia: se pide poner a Martín en ese
+    fondo, no «reemplazar a la persona».
+- **La transcripción automática confunde las marcas:**
+  - «Cloud» por Claude, «Menichat» y «mini chat» por ManyChat;
+  - «lids» por leads, «Yamada» por llamada, «VCL» por VSL, «es PAM» por es spam;
+  - «Ramíros Cubria».
+
+  Se corrigen al mostrarlas (la lista `CORRECCIONES` de `armar-pagina.mjs`), nunca en el `meta.json`, y sin tocar lo que dicen.
+- **Trampa: la clave de ApiMart no está en ningún `.env.local`.** Es de la plataforma: está cifrada en `credenciales`, en el ws
+  de capa superadmin (`envCred('APIMART_API_KEY')`, `lib/apimart.ts`). Leerla y descifrarla desde un script local lo **bloquea el
+  control de permisos del modo automático** («acceso no autorizado»). Generar imágenes por script necesita que Martín lo habilite,
+  o que corra él `generar-imagenes.mts`. Si no, queda Flow por Chrome. No se esquiva pidiéndoselo a otro chat.
+
+- **En esta página entra sólo lo que NUESTRA versión haría con video generado por IA** (Martín, 21/11).
+  - Entra: sketches, ganchos exagerados (también los actuados sin IA) y escenas con efecto.
+  - Sale: el tutorial animado, que va a la serie del personaje en cubos hecha por código y no gasta video con IA. También sale la
+    pizarra, lo dicho a cámara, el estudio, las llamadas y las preguntas del público, que van a la serie de Martín a cámara.
+  - El criterio es `conVideoIA` en `armar-pagina.mjs`. De los 20 temas quedaron 9; los otros 11 están en `otras-series.json`, con
+    su serie de destino.
+  - Con este filtro, Hormozi casi no aporta: 1 sketch en 48 reels.
+- **Escribir lo que Martín le enseña a decir a un cliente.** Cada frase lleva «le preguntas» o «le dices». Si no, en voz alta el «tú»
+  salta del espectador al cliente y se entiende otra cosa. «Se presenta» suena a «dice su nombre»: va «llega a la llamada».
+- **Competitor Spy no marca qué REEL hizo «diez veces más» que su cuenta**: eso lo hace sólo con carruseles. Un guion no puede
+  atribuírselo a la app.
+- **La lista de reels de una cuenta necesita sesión de Instagram, y el navegador de la app ya no la tiene** (21/11: el cartel de
+  «Log in» y 12 publicaciones). Bajar cada reel no la necesita. Sin sesión no se puede ampliar el relevo.
+  - Tampoco sirve YouTube: Rama y Víctor no tienen pestaña de Shorts.
+  - El primer filtro barato ya está escrito: `tools/portadas.py` arma hojas de 20 portadas numeradas para clasificar la forma
+    antes de bajar nada.
+
+### Ampliar el relevo a cientos de reels (21/11/2026)
+
+Cómo se releva una cuenta (el usuario correcto, la lista con sesión, el filtro por portada, el N× y cuánto rinde cada cuenta)
+quedó en [hallazgos-competitors-spy.md](hallazgos-competitors-spy.md) → «Relevar a mano la cuenta de Instagram de un referente».
+
+### Lo que Martín corrigió de la página, ronda por ronda (19 al 21/11)
+
+Cada ronda dejó una regla para cualquier página donde Martín elige o revisa contenido:
+
+1. **Demasiado texto.** Las tarjetas con porqué, ganchos, formato y costo, y después con el detalle escondido: «súper confusa» las
+   dos veces. Se rehizo DE CERO, no se recortó. Regla: si se entiende leyendo, está mal planteada; tiene que entenderse mirando.
+2. **La referencia manda.** Galería de los reels en 9:16 y, al tocar uno, la referencia y nuestra versión lado a lado. Los guiones
+   van en pestañas cerradas y la decisión queda fija abajo.
+3. **Todo en claro.** Nada de páginas en modo oscuro. Regla: las páginas de trabajo van en modo claro.
+4. **Un solo filtro.** Un botón «Filtrar» que combina creador, forma y estado, en lugar de una fila de chips por cada cosa.
+5. **El video se ve al pasar el cursor, sin sonido.** El audio va con un botón y el video con `preload="none"`. Un video que suena
+   solo es lo que más le molesta.
+6. **Afuera lo que no lleva video con IA.** El criterio está en `conVideoIA` y en `criterio-video-ia.md`.
+7. **Content Machine.** Una sola página con tres pestañas (Avatar IA, Animaciones, Carruseles) y el mismo patrón en las tres.
+8. **Todo se ve adentro.** Los 91 formatos se reproducen en la página, sin links a otro artefacto, y cada póster es su propio
+   archivo, nunca una imagen con todos juntos.
+9. **La devolución por voz, en todo.** Cada reel, formato, carrusel y lámina tiene sus comentarios, escritos, dictados o con audio.
+10. **El detalle no se lee plano y tiene UNA sola zona** (21/11, tarde). El análisis, el guion y el CTA en texto corrido, más
+    «Nota para cambiar», «Comentarios» y otro cuadro de texto con la esquinita para estirar: «eso no tiene sentido». Quedó así:
+    - abajo de la comparación, tarjetas: «Por qué funciona la referencia» en puntos con título (Gancho, Estructura, Cierre,
+      Estética), el guion numerado (lámina por lámina, escena por escena o frase por frase, con la lámina que se está viendo
+      marcada), el CTA como una palabra grande y «Qué cambiamos y por qué»;
+    - UNA zona por pieza: la decisión arriba y los comentarios como un hilo, con una barra para escribir y el micrófono al lado, como
+      WhatsApp. El campo crece solo hasta un tope y después hace scroll adentro (`resize: none`). En una pantalla ancha la zona queda
+      fija a la derecha; en el teléfono va al final;
+    - lo mismo en las tres secciones.
+    Regla: nada que el usuario tenga que estirar, y un solo lugar para opinar. La nota vieja de `revision` aparece como primer
+    globo del hilo, «Nota anterior», para no perderla.
+11. **«Horriblemente diseñado»: el escenario manda** (21/11, noche). Las cuatro tarjetas de texto en 2×2 debajo de las láminas
+    (párrafos largos, un «2–10» que metía nueve láminas en un párrafo, un CTA medio vacío) se fueron. Quedó así:
+    - arriba, referencia | nuestra del MISMO tamaño y enteras (`object-fit: contain`, 4:5 o 9:16, hasta ~70vh), con flechas;
+    - UNA línea bajo el escenario: el texto de ESA lámina (escrito a mano por lámina en `fichas-cortas.json`, porque el armado
+      automático desde el guion dejaba comillas cortadas y frases de 150 letras) o el gancho del reel;
+    - una tira de miniaturas con la actual marcada y un punto en las que tienen comentarios;
+    - a la derecha, un panel fijo con «Comentarios | Ficha». La ficha va en viñetas de 12 palabras como máximo, reescritas a mano:
+      si no entra, se resume el texto, no se achica la letra;
+    - en el teléfono, una lámina grande con «Referencia | Nuestra», deslizar para pasar y el panel en una hoja que sube.
+    Regla: la pregunta es «¿se entiende en 5 segundos, sin leer?». Si para entender una pieza hay que leer un bloque, está mal.
+12. **Spy para elegir, Reels y Carruseles para producir** (21/11, noche). La pestaña «Avatar IA» pasó a ser «Spy»: trae TODO lo
+    de la competencia (avatar IA, animación, a cámara y carruseles) y nada queda afuera por no llevar video con IA. Cada pieza tiene
+    «Elegir» (los «Lo hago» de `votos` cuentan como elegidos), y elegir la manda a «Reels» o «Carruseles» como «Por producir»,
+    con la referencia y un lugar vacío para nuestra versión (`revision/prod-<id>`). Además:
+    - los comentarios y la ficha van DEBAJO del escenario (en pantalla ancha, las dos columnas a la vez), no en un panel al costado;
+    - no hay flechas ni «1 de 11» para pasar de pieza: se vuelve con «‹ Todas». Sólo se pasan láminas de un mismo carrusel;
+    - la referencia de un reel va SIEMPRE en video; una captura no sirve para comparar.
+    - En el teléfono, si todavía no hay nuestra versión, el detalle abre en la referencia, no en un recuadro vacío.
+    Regla: Spy es para mirar y elegir; lo que no lleva IA también se muestra, con su tipo en el filtro.
+13. **El filtro, con caras y sin «Como vienen»** (21/11, noche). Martín pidió los creadores con su nombre completo y su caricatura,
+    y que el orden por defecto sea el N×, dicho en palabras: «Los que más superaron a su cuenta», con un «?» que lo explica.
+    Se sumó «Los más comentados», para los videos de ventas con palabra CTA, y cada tarjeta muestra el número del orden elegido.
+14. **Un panel con tres pestañas, del ancho de las dos piezas** (21/11, noche). Comentarios y ficha lado a lado no servía: el
+    panel quedaba con un bloque blanco debajo de la barra de escribir y no se veía que había algo más abajo. Quedó así:
+    - el escenario baja a ~60vh, para que en la primera pantalla ya asome el borde del panel;
+    - UN panel con «Comentarios · Guion · Guion técnico», de borde a borde de las dos piezas (se mide con JS);
+    - la decisión sube a la barra de arriba, al lado de «‹ Todas»;
+    - la barra de escribir queda pegada al fondo del panel, que tiene alto fijo (500 px), y el hilo hace scroll adentro;
+    - «Guion» va en dos columnas: el original, por bloques, contra el nuestro. En carruseles es lámina por lámina;
+    - «Guion técnico» va en dos columnas: lo que se ve en la referencia (con sus tiempos) contra lo que hacemos nosotros, con lo
+      que cambia marcado.
+    - **Trampa:** con el panel del navegador escondido, `requestAnimationFrame` no corre. Medir el panel en un rAF lo dejaba sin
+      ajustar en la vista local, así que se mide al pintar.
+15. **El guion se edita ahí mismo** (21/11, noche). «Súper importante: si no, no tiene sentido de que esté ahí». Quedó así:
+    - NUESTRO guion es un campo que crece solo y se guarda solo en `guiones/<sección>-<id>` (carruseles por lámina en `laminas`;
+      reels por bloque en `bloques`), con «Guardado» a la vista;
+    - desde Comentarios, «Editar el guion de esta lámina» abre ese texto, y cada comentario trae «Aplicar al guion»: Claude
+      (capacidad `sample` de la página) reescribe el texto con el comentario y lo deja guardado para revisar;
+    - en carruseles, el guion y el guion técnico muestran UNA lámina, sincronizada con el escenario: si se pasa la lámina en un
+      lugar, se pasa en los dos;
+    - el guion técnico de un carrusel compara, por lámina, las dos miniaturas en 4 renglones: composición, imagen, textos y
+      colores, con lo que cambia resaltado. Lo describe Claude con las dos imágenes la primera vez que se abre, y queda guardado
+      en `tecnico/<clave>-<lámina>`;
+    - arriba ya no están «Content Machine», el conteo ni «Cambiar»: queda «‹ Atrás» y, en el panel, sólo «Aprobado»;
+    - no se ve ninguna barra de scroll (`scrollbar-width: none`), y el filtro va en una grilla pareja, con los creadores en 0 al
+      final y atenuados.
+    - **Trampa:** la barra de escribir se cortaba porque se medía mientras su pestaña estaba escondida (alto 0). Ahora nunca se
+      mide escondida ni baja de 44 px.
+    - **Trampa:** «el original tiene que estar siempre». A 5 de los 7 reels terminados les faltaba la transcripción de la
+      referencia: se transcribió con faster-whisper y se tradujo a mano (`content-machine/transcr/originales.json`). Los otros
+      dos (Serie 1 y Serie 4) siguen sin video de referencia. Un reel de Víctor no tiene voz: queda marcado `sin_voz`.
+16. **«Filtrar» va en la fila de las pestañas, pegado a la derecha** (21/11). El conteo va chico, a su izquierda, y en el teléfono
+    el botón queda sólo con el ícono. Antes estaba en una segunda fila, a la izquierda, porque el pedido se entendió mal.
+    - **Trampa:** una regla `.panel { display: flex !important }` le gana a `[hidden] { display: none !important }` del esqueleto
+      del artefacto si viene después, y deja el panel de filtros siempre a la vista. Se escribe `.panel:not([hidden])`. Lo mismo
+      vale para cualquier elemento que la página esconde con `hidden`.
+17. **La galería como mosaico de columnas, y un filtro que no corta nada** (21/11). Con las piezas de Carrizo (reels 16:9,
+    carruseles 4:5 y 3:4) la grilla de filas iguales dejaba huecos. Quedó así:
+    - cada pieza en su proporción, acomodada por JS en la columna más baja, de izquierda a derecha, para respetar el orden
+      elegido. Con `columns` de CSS se leería de arriba abajo y el orden se desarma;
+    - 5 columnas a 1440, 4 a ~1024 y 2 en el teléfono. El corte se toma del ancho de la grilla, no de la ventana: a 1440 la
+      grilla mide 1168 px, y con el corte en 1180 salían 4 columnas;
+    - en el filtro, el orden va en una lista vertical con círculo, los creadores de a uno por renglón (cara de 32 px, el número a
+      la derecha) y los chips de tipo y estado a su ancho, sin cortar.
+    - Para revisarlo: en la consola, `[...document.querySelectorAll('#panel .op')].filter(b => b.scrollWidth > b.clientWidth + 1)`
+      lista cualquier botón con el texto cortado.
+18. **El guion técnico de los reels se sacó de las tiras de cuadros** (21/11). Lo escribió un subagente con la hoja de cuadros,
+    `cortes_s` y `audio.json` de cada reel (los 20 con escenas guardadas), y quedó en el campo `tecnico` de la colección spy.
+    - **Trampa:** el piso de audio dice si hay ALGO debajo de la voz (arriba de −40 dB), pero no si es música o ambiente. En 14
+      de los 20 reels quedó «música o ambiente debajo de la voz». Sólo los de Hormozi dan voz sola (−48 a −50 dB).
+    - **Trampa:** las canciones de la biblioteca de Instagram no vienen en el mp4. Un tramo «sin fondo» en un montaje con texto
+      se marca «música de Instagram probable (no viene en el archivo)».
+    - Los textos en pantalla con voseo («Abrí», «Comentá») se citan tal cual: son citas de la referencia, no texto nuestro.
+    - **Trampa del filtro:** el estilo base de lo elegido pone el texto en `--panel` (blanco) sobre fondo `--ink`. Al cambiarle
+      sólo el fondo a blanco, el texto desapareció: «Superaron a su cuenta» se veía como un recuadro vacío. Lo elegido lleva ahora
+      fondo `--ours-soft`, borde `--ours` y el texto siempre en `--ink`, en todo el panel.
+19. **El mosaico no funcionó: cada pieza es una tarjeta cerrada del mismo tamaño** (21/11). Martín: «no se entiende si lo que
+    está flotando abajo corresponde al video de arriba o al de abajo… debería ser una tarjeta». Y una pieza de otra proporción
+    («la quinta distinta») rompía la grilla. Como en las bibliotecas de anuncios (Foreplay, el Top Ads de TikTok):
+    - la tarjeta tiene fondo blanco, borde suave y esquinas redondeadas;
+    - el medio va en un recuadro fijo 9:16 que los reels llenan. Lo horizontal o cuadrado va centrado sobre su propia imagen
+      desenfocada, con un sello de formato («16:9», «Carrusel · 7»);
+    - el pie va ADENTRO de la tarjeta: la cara y el nombre del creador, el gancho en 2 líneas y una fila de métricas (N×, vistas,
+      comentarios), con la del orden elegido en negrita;
+    - todas las tarjetas miden lo mismo (495 px a 1440). En el teléfono van 2 columnas y se esconde la palabra «vistas» para que
+      la fila no se corte.
+    - Regla: entre una pieza y la siguiente no queda texto suelto. Si el pie no está dentro de un borde, no se sabe de quién es.
+    - Las galerías públicas de Foreplay no cargan en el navegador de la app (quedan en negro), y el Top Ads de TikTok pide
+      cuenta después de 4 o 5 tarjetas.
+20. **Spy es para mirar y elegir; producir empieza con «＋ Hacer mi versión»** (21/11). El detalle de Spy muestra sólo la
+    referencia y un botón grande. Sin comparación, sin panel de comentarios y sin guion: eso es de Reels y Carruseles.
+    - El botón escribe `produccion/<id de la pieza>` y abre la pieza en Reels (o en Carruseles, si es carrusel) en la pestaña
+      «Guion», con el original y el técnico de la referencia ya cargados. Ahí la pieza figura «En preparación».
+    - Si la pieza ya está en producción, el botón pasa a ser «Ya está en Reels · verla →». Los «Lo hago» viejos de `votos`
+      cuentan igual que la cola.
+    - **Trampa:** la pieza de Spy y la de Reels son el MISMO objeto. Para saber si se acaba de entrar a Reels no alcanza con
+      ver si cambió la pieza: hay que comparar también la sección. Si no, la pieza abría en «Comentarios» en vez de «Guion».
+    - **Trampa (otra vez la de la ronda 16):** `.panel-der { display: flex !important }` le ganaba a `[hidden]`, y en el teléfono
+      el panel de comentarios asomaba debajo del botón. **Regla:** todo componente con un `display` con `!important` lleva al lado
+      su `[hidden] { display: none !important }`.
+    - En el teléfono las tres pestañas (Comentarios, Guion, Guion técnico) entran en una fila de 326 px con letra de 13,5 px y
+      9 px de relleno. «Aprobado» baja a su propia fila, a la derecha.
+21. **El carrusel se desliza dentro de la tarjeta de Spy, sin abrir el detalle** (21/11). Martín: «así como lo tenemos en
+    MaKo… desplazar los carruseles para ver las otras láminas». Es una copia de `Laminas()` en
+    `app/image-editor/carruseles/ExplorarCarruseles.tsx`:
+    - una pista con `scroll-snap-type: x mandatory`, que se desliza con el dedo;
+    - flechas ‹ › que aparecen al pasar el cursor y quedan a la vista sin mouse (`@media (hover: none)`). Se esconden en la
+      primera y en la última lámina. El clic en la flecha frena la propagación: no abre el detalle;
+    - puntitos con la lámina actual (con más de 10 láminas va «3/12»);
+    - se cargan la portada y la siguiente. Las demás llevan `data-src` y se cargan al llegar, junto con la que sigue;
+    - un carrusel con sólo la portada no lleva flechas, sino el sello «Portada · las láminas llegan al elegirlo».
+    - **Trampa:** el evento `scroll` no sube al contenedor. Para escuchar todas las pistas de la galería con un solo
+      listener, va en fase de captura: `addEventListener('scroll', fn, true)`.
+    - **Trampa:** declaré una `const pasarLamina` y ya había otra con ese nombre en el mismo bloque. El `SyntaxError` tumba el
+      script entero: la galería quedó con 0 piezas y sin ningún aviso en la página. El chequeo de `armar-cm.mjs` no lo vio.
+      Antes de publicar, mirar la consola de la vista local.
+    - **Para probarlo en la vista local:** los carruseles de Carrizo sólo están en la base, y la vista local no la tiene. Se arma
+      una copia de prueba (`pub/vista-prueba.html`) con una pieza pasada a carrusel con láminas locales y otra con sólo la
+      portada. Nunca se publica esa copia.
+22. **En el detalle de Spy, el lugar de nuestra versión ES el botón** (21/11). Martín: «el placeholder ahí debería ser como un
+    botón gigantesco que sea todo el placeholder». El botón chico debajo de la referencia sola no se veía como el paso siguiente.
+    - El escenario es el mismo de Reels y Carruseles: la referencia a la izquierda y, a la derecha, un recuadro del mismo tamaño y
+      proporción (324 × 576 a 1440), con borde punteado, un «＋» grande, «Hacer mi versión» y la línea de qué pasa al tocarlo.
+      Al pasar el cursor se rellena con el azul de la marca. Si ya está en producción, el recuadro dice «Ya está en Reels».
+    - En el teléfono va debajo de la referencia, a lo ancho y con su proporción, con tope de 62 % del alto de la pantalla.
+    - **Regla:** la acción principal de una vista va en el lugar donde va a aparecer su resultado, no en un botón suelto.
+    - Al guardar, el texto cambia en la `<b>` del botón, no en todo el botón: con `textContent` sobre el botón se borraba el «＋».
+23. **Tres tipos: Avatar IA · Animación · Carrusel; «A cámara» no es un tipo** (21/11). Martín: «no entiendo la diferencia
+    entre a cámara y avatar IA». Él no se graba: todo lo que tiene una persona se hace con su avatar.
+    - «A cámara» pasa a ser Avatar IA con `escena: "a-camara"`. El resto de Avatar IA es `escena: "sketch"`. En el filtro,
+      «Escena: Sketch · Habla a cámara» aparece debajo de Tipo sólo cuando está elegido Avatar IA. Si se saca Avatar IA, la
+      escena se borra sola. Las piezas de otro tipo no se filtran por escena: su `de()` devuelve `null` y `cumple()` las deja pasar.
+    - La página normaliza al cargar (`tipo: "camara"` → avatar con escena), así sirve con los datos viejos y con los migrados.
+    - **Las 68 referencias de la galería de animaciones están en Spy** como piezas `anim-ref-<formato>` de tipo animación. Su
+      creador sale del campo `origen` del formato (HeyGen HyperFrames, Joseph, Tyler Mommsen, MoSidd…). 57 no tienen `origen`
+      y quedan como «Biblioteca de formatos». Las arma `armar-cm.mjs`, no la base. Cuando llega la colección `spy`, la página
+      las vuelve a sumar, porque si no la base las pisaría. En el detalle llevan «Nuestro formato →» al formato que salió de ellas.
+    - **Trampa:** la referencia de un formato es una imagen, no un video (57 en 4:5 y 11 en 16:9). Sin `video`, la tarjeta no
+      lleva `data-video` ni botón de reproducir, y el detalle muestra la imagen.
+    - **«Hacer mi versión» con método:** dentro del recuadro, «con avatar IA» y «animado», con la opción del tipo marcada.
+      Se guarda en `produccion.metodo` (`avatar`, `anim` o `carrusel`).
+    - **Trampa:** un botón no puede llevar otros botones adentro. El recuadro pasó a ser un `div` con un botón transparente
+      que lo cubre entero (`.cubre`) y las opciones encima, con `pointer-events` sólo en ellas.
+    - **Trampa:** con la línea de contexto dentro de la columna de la referencia, las dos columnas quedaban a distinta altura
+      (centradas). Va `align-items: start`. En el teléfono, el gancho sin salto de línea ensanchaba la columna: va en 2 líneas.
+    - Las tarjetas medían 491 o 495 según si toda la fila tenía títulos de un renglón: el título lleva `min-height: 2lh`.
+24. **La referencia de la Serie 1 y la Serie 4 ya es el reel en video, no una imagen** (21/11; Martín lo pidió dos veces).
+    - **El diagnóstico obvio era el equivocado:** no hacía falta buscar en Instagram. Los dos reels ya estaban bajados en
+      `C:/dev/series-ref/` (`paralisis/` y `zapater/`, con su `.info.json`), con hojas de cuadros en `hojas/` y
+      transcripciones en `trans/`. La «imagen de referencia» de la galería es una hoja de cuadros de uno de ellos.
+    - Cómo se identificó cada uno: comparando las hojas de cuadros. La Serie 1 es [Df2WwjMNmQN](https://www.instagram.com/reel/Df2WwjMNmQN/)
+      («Le sigues el juego hasta abrir la escotilla»: los móviles de colores, la escotilla con candado, las linternas, A/B).
+      No es «El búho» ni la del sargento. La Serie 4 es [DfC0kMiBsoW](https://www.instagram.com/reel/DfC0kMiBsoW/)
+      («respondiendo preguntas de seguidores», parte 1). La parte 2, `Dfh0kycBfxT`, era la que nombraba el relevo del 19/11.
+    - Se comprimen como las demás referencias: 480 px de ancho, H.264 `-crf 30 -preset veryfast -threads 2`, AAC 96k, sin
+      recortar. Van al almacén y en `armar-cm.mjs` el `REF` lleva `videoUrl` y `posterUrl`.
+25. **Fecha de publicación, y un ×N contra lo que se está mirando** (21/11). Martín: «hay algunos que tal vez sí son virales…
+    pero son muy viejos». Y de su captura: «1102× con 3000 me gustas» le ganaba a «6× con casi 30.000».
+    - **El diagnóstico:** el `nx` de la base compara cada pieza contra los reels de SU cuenta de esos días. Sirve para ver qué
+      tema funcionó dentro de una cuenta, pero no ordena bien una galería con varias cuentas: una cuenta chica con un pico
+      queda primera. Ahora la página calcula `RINDE = métrica / mediana` de las piezas del mismo tipo que se están mirando
+      (con el creador y la fecha elegidos): reels por vistas y carruseles por me gusta, sin mezclar nunca. El `nx` de la base
+      queda en el detalle como «×N sus reels de esos días».
+    - El sello «6× lo normal» va arriba a la derecha del video. En el teléfono dice sólo «6×».
+    - La antigüedad («hace 2 sem», con la fecha exacta al pasar el cursor) va en la fila de métricas, a la derecha, y en el
+      detalle junto al creador. El orden «Más nuevos» y el filtro «Publicado» (una sola opción, con «Todo») van con
+      `pasa(t, v)` en lugar de `de(t)`, porque un rango no se compara por igualdad.
+    - La fila de abajo es como la de Instagram (▷ vistas, ♡ me gusta, 💬 comentarios, «29,7 mil», «1,2 M»). Nunca se corta: si
+      no entra, la fecha baja a una segunda línea, y en el teléfono todas las filas reservan dos líneas para que las tarjetas
+      midan lo mismo. Van 4 tarjetas por fila a 1440 (276 px), 3 a 1024 y 2 a 375.
+26. **Tarjetas negras con el ícono de imagen rota: el dato estaba mal, pero la página no puede mostrarlo roto** (21/11).
+    Unas piezas de Collado y Doglio venían con `medios.poster: "/_blob/→"`. El chat de la competencia corrige los datos, y la
+    página se defiende sola:
+    - `medioOk()` sólo acepta una id real (`/_blob/` + 32 hex), una ruta de la versión (`vid/…`) o una `https`. Lo demás
+      queda en null al leer la base (`limpiarMedios`) y también en los datos que vienen dentro de la página.
+    - Si una imagen falla al cargar, un listener de `error` en fase de captura (el evento no sube) saca la imagen y muestra el
+      recuadro. Nunca queda el ícono roto. En un carrusel se saca esa lámina; si no queda ninguna, va el recuadro.
+    - El recuadro: un degradé suave, la cara del creador al centro y «Video en camino». Las piezas sin medios van al final
+      de cualquier orden.
+    - **Trampa:** la cara usa su propia clase (`cara-sm`). Con `.cara`, otro estilo la mandaba arriba a la izquierda.
+27. **El filtro: Creador con botones; lo demás, renglones con un submenú en cascada** (21/11). Martín: «los botones solamente
+    me gustan para los creadores; el resto debería ser otro desplegable que se abre al costado».
+    - Tipo, Escena, Publicado, Estado y Orden son renglones («Publicado · Últimos 3 meses ›»). Al pasar el cursor o tocar, se
+      abre al costado del panel un submenú (`position: fixed`, en el `body`) alineado con su renglón: una opción por renglón,
+      ✓ en la elegida y el número de piezas a la derecha. Elegir una cierra el submenú y actualiza el renglón.
+    - Ahora todos son de una sola opción (con «Todos»). Antes Tipo y Estado se podían elegir de a varios.
+    - Se abre hacia donde haya 264 px libres. Si no hay lugar a ningún lado (el teléfono, la hoja de abajo), el renglón abre
+      una segunda pantalla dentro de la misma hoja, con «‹ Filtros».
+    - Los creadores van en dos columnas a partir de 641 px. En una sola columna empujaban los renglones fuera de la vista,
+      y con la barra de scroll escondida no se sabía que había más abajo.
+    - **Trampa para probarlo:** el submenú se cierra con `resize`, y ajustar el tamaño del navegador de prueba dispara
+      `resize`. La captura tiene que ir sin cambiar el tamaño entre abrirlo y fotografiarlo.
+28. **Las 68 referencias de animación llevan su creador real** (21/11; antes figuraban como «Formatos de animación»).
+    - **De dónde salió cada una:** el formato que trae `num` es una réplica del paquete de la competencia de
+      [@mdmukeem__001](https://www.instagram.com/mdmukeem__001/) («Md Mukeem»): 57 piezas. Las otras 11 traen `origen`:
+      HyperFrames de HeyGen (7, el repositorio `heygen-com/hyperframes` o su canal), Joseph | Video Editing, Tyler Mommsen y
+      MoSidd (YouTube). La del «recibo» es una idea de nuestra investigación y va a «Otros», al final de la lista y sin cara.
+    - **Trampa:** el `origen` de Joseph también nombra HyperFrames. Si la regla de HyperFrames va primero, se lo come. Las
+      reglas de un autor puntual van antes que las de la herramienta.
+    - Las fotos: los avatares de YouTube salen con `yt-dlp --flat-playlist --playlist-items 0 -J <canal>` (miniatura
+      `avatar_uncropped`). En Instagram, la dirección de la foto viene bloqueada para el script: se tomó de una captura
+      ampliada del perfil, sólo leyendo. Los cinco están en la colección `creadores` (orden 20 a 24).
+    - Estas piezas no están en la base: las arma `armar-cm.mjs` (`creadorDeRef`). Las 128 animaciones de la colección
+      `spy` son de la competencia.
+    - Con 13 creadores, el panel no alcanzaba: subió a 780 px de alto como máximo y los botones de creador se achicaron
+      (cara de 26 px). Si se suman más creadores, revisar que el último renglón (Orden) siga a la vista.
+29. **En Spy un reel siempre se reproduce y un carrusel siempre pasa sus láminas** (21/11). Martín: «entro a la referencia y
+    no hay nada» (Punch Captions de Md Mukeem: una imagen fija y borrosa).
+    - **El diagnóstico obvio era el equivocado:** no faltaba bajar 57 reels. El «paquete» de @mdmukeem__001 es UN carrusel-
+      catálogo ([DfvtkWWkyJf](https://www.instagram.com/p/DfvtkWWkyJf/), 11 láminas con 6 tarjetas cada una), y cada
+      «referencia» era la miniatura de una tarjeta. El pack de videos lo manda por DM: no hay reel público. Las 57 salieron de
+      Spy y entró el carrusel de verdad, con las láminas que la investigación ya tenía en
+      `C:/dev/artefactos-animaciones/investigacion/competencia/carrusel/`. De las 23 imágenes de esa carpeta, las láminas son
+      la 1, las pares de la 4 a la 20 y la 22. Las impares son recortes repetidos, y la 2 y la 3 son de otras publicaciones.
+    - Las otras referencias de formato tenían su video en `investigacion/codigo/videos/<x>/video.mp4`: 10 de 11. Los bloques
+      de HyperFrames traen además `preview.video` en su `registry-item.json`. El ejemplo nyt-graph no tiene video público
+      (403): salió de Spy.
+    - En la colección `spy` no hubo nada que arreglar: las 436 piezas que no son carrusel tienen un `/_blob/` real o una ruta
+      `vid/` publicada.
+    - **Regla en la página:** un reel sin video va al final, con el sello «Sin video todavía». En su detalle va el recuadro
+      con la cara del creador, nunca la imagen como si fuera la referencia. Para ordenar, `tieneMedio` mira el video en los
+      reels y las láminas en los carruseles.
+30. **Las series de contenido en Reels y Carruseles, y el «72×» como el chip rojo de MaKo** (21/11).
+    - Cinco series (docs/series/): 1 Elige A o B · 2 Educación · 3 Ventas · 4 Comentarios · 5 Gancho con avatar (estilo Rama).
+      En el filtro van como el renglón «Serie ›», de una sola opción, con «Sin serie».
+    - **De dónde sale la serie de cada pieza:** los 7 reels terminados, por su id (`serie1-*` 1, `edu-*` 2, `s3-*` 3,
+      `serie4-*` 4). Los 11 carruseles, todos en la 3; el dudoso es «Ofertas que se venden» (tuits de Hormozi), que podría
+      ser Educación. Lo que entra desde Spy usa la serie elegida al «Hacer mi versión».
+    - La propuesta por defecto: carrusel o con CTA → 3; avatar de Rama → 5; animación → 2; el resto → 2.
+    - Se guarda en la colección `series` (`<sección>-<id>`: `anim-`, `carr-`, `prod-`) y, para lo que entra desde Spy, también
+      en `produccion.serie`. En el detalle de Reels y Carruseles se cambia con el selector junto a «Aprobado».
+    - El chip «N×» copia `.mult` de `app/image-editor/carruseles/explorar.module.css` en su nivel «record»: `#e11d48`, 22 px
+      de alto, radio 6, letra de 12 px con peso 750. Sin «lo normal»: lo explica el «?» del orden.
+    - **Trampa:** dentro del recuadro-botón, el `select` de la serie necesita `pointer-events: auto`, igual que el método.
+      Si no, el clic lo agarra el botón que cubre el recuadro.
+
+## Cuentas y series (21/11/2026) — el modelo que va a MaKo
+
+Martín: «súper importante diferenciar cuentas, porque todo luego lo vamos a llevar a MaKo». Content Machine ya funciona así,
+y la app tiene que copiar el modelo:
+
+- **Un usuario puede tener varias cuentas de Instagram, y cada cuenta tiene sus series de contenido.** Las de Martín:
+  - **Personal** (@martin.koncke): Gancho IA (gancho exagerado con avatar, estilo Rama) · Educación · Ventas (incluye el
+    ticket y los carruseles de ventas).
+  - **MaKo** (el usuario todavía no está decidido; se edita en el submenú «Cuenta» y queda en `cuentas/mako`):
+    Animados · A o B · Comentarios.
+  - Los nombres son cortos a propósito: van en un sello de la tarjeta («Personal · Ventas», con un color por cuenta).
+- **Cada pieza propia lleva cuenta y serie.** En el filtro van dos renglones, «Cuenta ›» y «Serie ›». Con una cuenta elegida,
+  Serie muestra sólo las suyas. Se guarda en `series/<sección>-<id>` y, para lo que entra desde Spy, en `produccion.serie` y
+  `produccion.cuenta`. La cuenta de la competencia pasó a `produccion.cuenta_ref`.
+  - Al «Hacer mi versión» se elige con un solo selector agrupado por cuenta, con una propuesta por defecto: carrusel o con
+    CTA → Ventas; animación → Animados; Rama o sketch → Gancho IA; el resto → Educación.
+  - Los códigos viejos (`'1'` a `'5'` del 21/11 a la mañana) se leen como A o B, Educación, Ventas, Comentarios y Gancho IA.
+- **La competencia se agrupa por persona, y cada persona puede tener varias cuentas.** Víctor Heras = @victorherasemprendedor
+  + @herasmedia. En el filtro de Spy hay un solo botón «Víctor Heras» (con el total) y debajo sus dos cuentas, para elegir
+  una o las dos. La tarjeta dice «Víctor Heras · @herasmedia» con la cara de Víctor.
+  - Hoy el vínculo está en la página (`PERSONA_DE = { herasmedia: 'victor' }`). En MaKo tiene que ser un dato del creador:
+    una persona con una lista de cuentas, no una cuenta suelta por creador.
+  - En el filtro, la persona con varias cuentas es una baldosa más de la grilla, del mismo tamaño que las otras, con un
+    indicador «2 cuentas ›». El indicador abre al costado el mismo submenú en cascada (una cuenta por renglón, ✓ en las
+    elegidas, se puede elegir más de una y el submenú queda abierto). Tocar la baldosa elige todas sus cuentas. Primero
+    ocupaba todo el ancho con las cuentas como chips sangrados debajo, y Martín dijo que rompía el diseño.
+  - El submenú mide su ancho después de dibujarse (264 a 360 px), así un usuario largo como @victorherasemprendedor entra en
+    un renglón, y se ubica con ese ancho real.
+
+## Comentarios: Claude decide a qué se refieren (21/11/2026)
+
+Martín: «puse el comentario y desapareció». **El comentario no se había perdido:** estaba en `comentarios/zw7l80nk7c6pxhih7ko8`,
+guardado con `lamina: 10` porque Martín lo escribió viendo la lámina 10. Hablaba de TODO el carrusel. Con «Esta lámina»
+elegido en otra lámina, el filtro lo escondía.
+- **Regla:** la lámina en la que uno está mirando no dice de qué habla el comentario. Fuera el selector «Esta lámina /
+  Todas»: el hilo muestra siempre todos los comentarios de la pieza, del más nuevo al más viejo.
+- `refiere_a` lo decide Claude (capacidad `sample`, `modelTier: 'quick'`) con el texto del comentario y el de cada lámina:
+  «Todo el carrusel», «Portada», «Lámina N», «CTA», «Gancho», «Diseño» (en reels: «Todo el reel», «Guion», «Edición»…).
+  Si es una lámina, también va en `lamina` (desde 0), y el chip salta a esa lámina. Dónde estaba mirando queda en
+  `lamina_vista`. Sin Claude, `refiere_a: "sin clasificar"`, y lo etiqueta el chat que lo atiende. Los comentarios viejos
+  sin `refiere_a` se clasifican al abrirlos, de a tres.
+- `estado`: «nuevo» al crearlo; el chat que lo atiende lo pasa a «visto» o «hecho». Se ve como chip.
+- **Trampa:** la capacidad `sample` lee texto e imágenes, no audio. La transcripción de los audios adjuntos la hace el chat
+  (faster-whisper en la PC) y la escribe en `transcripcion`. Los comentarios dictados ya llegan como texto.
+- Lo que ya había quedó así: El avión = MaKo · A o B; los tres de Educación = Personal · Educación; Cubos = MaKo · Animados;
+  El ticket = Personal · Ventas; Comentarios = MaKo · Comentarios; los 11 carruseles = Personal · Ventas. El dudoso es
+  «Ofertas que se venden» (tuits de Hormozi), que podría ser Educación.
+
+### Content Machine: una página para todo el contenido (21/11/2026)
+
+- **El mismo link pasó a ser «Content Machine»**, con tres pestañas: Avatar IA, Animaciones y Carruseles. Las tres usan el mismo patrón:
+  galería donde manda la referencia, comparación referencia | nuestra versión y la decisión fija abajo. El armado está en
+  `C:/dev/referentes-videos/artefacto/content-machine/armar-cm.mjs`.
+- **Los archivos de otro artefacto se copian del lado del servidor:** `files: {"<ruta nuestra>": {artifact, path}}`, sin bajar nada.
+  Así entran los 7 reels terminados de la galería de animaciones y las 170 láminas de los carruseles. Si el otro chat rehace una
+  lámina, hay que volver a copiarla: la copia no se actualiza sola.
+- **Los topes que mandan:**
+  - Un publish admite 64 MB y 255 archivos.
+  - Una versión admite 256 MB y 511 archivos.
+  - El 21/11 quedaron unos 456 archivos y unos 220 MB. Por eso los formatos y los videos nuevos van al almacén de archivos (abajo).
+- **Los 7 reels terminados son los de `mp4/para-ig` de la galería.** Su referencia en video sale del texto `origen` de cada uno: un
+  Short de YouTube o un reel de Instagram, bajados con `yt-dlp`. Para YouTube, el formato es `bv*+ba/b` con `merge_output_format`
+  mp4; `b[ext=mp4]` falla porque YouTube separa audio y video. Dos de ellos sólo tienen imagen de referencia.
+- **Lo que se marca:** Avatar IA guarda en `votos` («si» / «no»). Los reels terminados y los carruseles guardan en `revision`
+  («aprobado» / «cambiar» y una nota), un documento por pieza: `anim-<id>` o `carr-<id>`.
+
+### Contrato de la colección spy (21/11/2026)
+
+La pestaña Spy de Content Machine (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz) lee sus piezas de la BASE del artefacto, no de
+la página. Así el chat de la competencia suma piezas con `ArtifactData` y sube los medios al almacén sin republicar, y aparecen
+solas. **Sólo el chat de Content Machine publica la página.**
+
+**`spy/<id>`, un documento por pieza.** El id es `<cuenta>-<código>`, por ejemplo `carrizo-DGUM7vVucJx`. Las 104 piezas viejas
+conservan su id anterior.
+
+```json
+{
+  "creador": "Juan Carrizo",              // nombre completo, como lo muestra la tarjeta
+  "cuenta": "carrizo",                    // clave de la colección «creadores» (abajo)
+  "usuario": "@juanxcarrizo",
+  "tipo": "a-camara",                     // "avatar-ia" | "animacion" | "a-camara" | "carrusel"
+  "formato": "9:16",                      // "9:16" | "4:5" | "1:1" | "3:4" (láminas 1080×1440) | "16:9" (reels horizontales)
+  "url": "https://www.instagram.com/reel/DGUM7vVucJx/",
+  "fecha": "2026-11-12",                  // aaaa-mm-dd
+  "reproducciones": 103000,               // número; en un carrusel, 0 si Instagram no da vistas
+  "metrica": "vistas",                    // "vistas" | "me gusta" (reels sin vistas en la grilla: reproducciones 0)
+  "me_gusta": 4500,
+  "comentarios": 812,                     // comment_count de yt-dlp; null si no se sabe
+  "cta": "AHORRO",                        // la palabra del CTA (del texto de la publicación o del final del reel); null si no tiene. La página la muestra en la franja del guion
+  "nx": 3.2,                              // N× contra los 6 maduros más cercanos de la misma cuenta, en su métrica: vistas, o me gusta si no hay vistas; los carruseles, contra los 6 carruseles más cercanos. null si tiene menos de 48 h
+  "gancho": "la primera frase, tal cual",
+  "guion": "la transcripción entera (reels) o el texto de cada lámina, una por renglón (carruseles)",
+  "forma": "sketch entero con IA",        // 2 a 5 palabras
+  "idioma": "es",                         // "es" | "en"
+  "medios": {
+    "video": "/_blob/<id>",               // recorte de 25 s, 480 px (sólo reels)
+    "poster": "/_blob/<id>",              // portada
+    "laminas": ["/_blob/<id>"]            // sólo carruseles, en orden y enteras (no el recorte cuadrado de yt-dlp)
+  },
+  "agregado": "2026-11-21T07:00:00Z",
+  "por": "chat-competencia",
+  "estructura": [{ "de": 0, "a": 11, "que": "gancho IA: el Papa busca a Ramiro" }],   // opcional: el guion técnico de la referencia, en segundos
+  "guion_original": "",                                          // opcional: la transcripción en inglés si «guion» está traducido
+  "tecnico": [{ "de": 0, "a": 3.5, "plano": "", "texto": "", "corte": "", "musica": "" }],   // opcional: guion técnico escena por escena (plano, texto en pantalla, corte, música)
+  "nuestro": { "imagen": null, "gancho": null, "guion": [] },   // opcional: lo completa Content Machine al producir
+  "costo": { "seg_avatar": 0, "usd": 0 },                        // opcional
+  "tema": "", "orden": 0                                         // opcional
+}
+```
+
+- **Los medios van al almacén de archivos del artefacto** (`Artifact` → `publish` con `asset: true`, hasta 25 por llamada). En
+  `medios` va la url `/_blob/<id>` que devuelve la subida. Las 104 piezas viejas apuntan a rutas de la versión (`vid/…`,
+  `poster/…`): sirven igual, pero lo nuevo va siempre al almacén.
+- **`creadores/<cuenta>`:** `{ "nombre": "Juan Carrizo", "usuario": "@juanxcarrizo", "foto": "/_blob/<id>", "orden": 4 }`. La foto es
+  la caricatura de MaKo (`public/asesores/<nombre>.png` del repo). Si un creador no tiene caricatura, va su foto de perfil. Ya están
+  los 7: ramiro, victor, herasmedia, hormozi, carrizo, doglio y collado.
+- **`produccion/<id>`** (la escribe la página, no el chat de la competencia): `{ "pieza": "<id>", "tipo": "avatar|carrusel",
+  "cuenta": "@...", "estado": "en-preparacion", "por": "<id de usuario>", "cuando": "<ISO>" }`. Es la cola de lo que se va a
+  producir: lo que está ahí sale en Reels o Carruseles. El id del documento es el mismo de la pieza de `spy`.
+  Desde el 21/11 lleva también `metodo`: `avatar`, `anim` o `carrusel`. Una pieza con avatar se puede hacer animada.
+- **Tipos en `spy` desde el 21/11:** `avatar-ia` (con `escena: "sketch"` o `"a-camara"`), `animacion` y `carrusel`. Si un
+  documento viejo trae `a-camara` como tipo, la página lo lee como avatar con escena «a-camara».
+- **Criterio v2 (21/11, chat de la competencia):** las 257 piezas tienen `fecha` (AAAA-MM-DD, del `upload_date` de yt-dlp).
+  `vistas` (número o null) va aparte de `me_gusta` y `comentarios`: la página toma `vistas` y, si es null, `reproducciones`.
+  También vienen `fijado` (estaba fijado en la grilla) y, en la biblioteca de MaKo, `laminas_pendientes: true` cuando sólo
+  está la portada: la tarjeta dice «Portada · láminas en camino» y el detalle, «Láminas en camino». Un `nx` sin 6 vecinos
+  con dato real queda en null: así salió el 1102× de los carruseles de Doglio, que ocultan los me gusta.
+- **Cómo se escribe:** `ArtifactData` → `batch` con `{op: "set", collection: "spy", doc_id, file_path}`, hasta 50 por llamada, con
+  cada documento en un `.json` local. Para cambiar una pieza que ya existe, se lee primero y se escribe con su `if_version`.
+- **Qué hace la página:** filtra por «Tipo» y por creador, con sus caricaturas. Ordena por «Los que más superaron a su cuenta» (`nx`,
+  el orden por defecto), por «Los más vistos» o por «Los más comentados», y muestra en cada tarjeta el número del orden elegido.
+  «Elegir» manda la pieza a Reels o a Carruseles según su `tipo`.
+- **Cada pieza se ve con su tamaño:** la tarjeta y el escenario toman la proporción de `formato`. Uno que no está en la lista se dibuja como 9:16 (reel) o 4:5 (carrusel).
+- **Trampa:** si la `cuenta` no está en `creadores`, la tarjeta muestra iniciales en lugar de la cara. Sin `nx`, la pieza queda al
+  final del orden por defecto.
+
+### Comentarios por voz en todo Content Machine (21/11/2026)
+
+- **Cada comentario es un documento de la colección `comentarios`** del artefacto:
+  - `seccion`: `avatar`, `anim` (reel terminado), `fmt` (formato) o `carr` (carrusel);
+  - `pieza`: el id de la pieza, y `titulo`, para leerlo sin abrir la página;
+  - `lamina`: el número de lámina desde 0, sólo en carruseles;
+  - `texto`, y `voz: true` si se dictó;
+  - `audio: {id, url}` si se adjuntó un audio;
+  - `transcripcion`: `null` hasta que un chat la complete;
+  - `por` (el id opaco de quien lo dejó) y `cuando` (fecha ISO).
+  En la galería, cada tarjeta con comentarios lleva un globito con el número.
+- **No existe una capacidad de micrófono crudo para la página.** Por eso hay dos caminos:
+  - **Dictar** (capacidad `dictation`): la voz se transcribe en vivo dentro del cuadro de texto, y la página nunca recibe el audio.
+    Anda en una pestaña de Chromium o en la ventana principal de la app de escritorio, y sólo para gente de la organización. Si no
+    está disponible, el botón no aparece.
+  - **Adjuntar audio:** `<input type="file" accept="audio/*" capture>`. En el teléfono abre la grabadora. Se sube con
+    `assets.upload` y queda en el almacén del artefacto. Sólo los editores tienen `assets`; a los demás no les aparece el botón.
+- **Cómo lo lee un chat:**
+  1. `ArtifactData` → `list` de `comentarios` con la URL del artefacto.
+  2. Para un audio: `Artifact` → `read` con `path` igual al `audio.id`, que lo guarda en disco. Se transcribe con faster-whisper.
+  3. `ArtifactData` → `update` del comentario con `transcripcion` y el `if_version` leído. Hasta entonces, la página muestra
+     «Transcripción pendiente».
+- **Cómo se mira la versión PUBLICADA:** el navegador de la app no tiene sesión en claude.ai (21/11), así que se abre en el
+  Chrome de Martín, sólo leyendo. Ahí no se puede inspeccionar con JS: la página corre en un iframe de otro origen, así que se mira
+  con capturas y clics. Y la ventana de Chrome no baja a 375 de ancho, así que el teléfono se mira en la copia local, con los
+  mismos archivos del almacén servidos en `_blob/<id>`.
+- **Trampa de la vista local:** el artefacto envuelve la página en un esqueleto con `[hidden]{display:none!important}`. Una copia
+  local sin ese esqueleto muestra el panel de filtros abierto. Para mirar en local, se envuelve con el mismo esqueleto.
+
+### Videos y pósteres en el almacén de archivos, no en la versión (21/11/2026)
+
+- **Una versión admite 511 archivos y 256 MB.** Los 91 formatos son 247 archivos: 89 videos, 90 pósteres y 68 referencias. No
+  entraban. El **almacén de archivos** del artefacto (capacidad `assets`) no cuenta en la versión y sobrevive a cada publicación:
+  - se sube con `Artifact` → `publish` con `asset: true` y `file_paths`, hasta 25 por llamada (los 247 fueron 10 llamadas);
+  - cada archivo vuelve con su `/_blob/<id>`, que la página usa tal cual;
+  - el mapa «archivo → url» queda en `assets.json`, con copia en `C:/dev/referentes-videos/artefacto/content-machine/`, y lo lee
+    `armar-cm.mjs`;
+  - un archivo del almacén se borra sólo a propósito, con su id.
+- Para sacar de la versión archivos que la sesión no publicó (los que vinieron copiados de otro artefacto), primero hay que
+  listarlos (`list` con `scope: "files"`). Si no, la publicación se niega a quitarlos.
+- Martín: **nunca juntar pósteres en una sola imagen.** Cada uno es su archivo.
+- **El análisis de cada carrusel se arma con estructura, no como texto** (`armar-cm.mjs`). El artefacto de carruseles lo trae en un
+  `<details>` con párrafos que empiezan con `<strong>` («Por qué funciona la referencia.», «Guion (MaKo).», «CTA.»). De ahí salen
+  los puntos con título, el guion numerado (la lista, con su «2–6.» al principio) y el CTA, que se parte en la flecha «→».
+  **Si el CTA dice «promete la guía» (y no «no promete»), la ficha lleva «Falta la guía».** El 21/11 eran HORMOZI y GRUPO.
+  Si el chat de carruseles cambia ese formato, la ficha queda vacía sin dar error: se mira `ficha` en los datos después de armar.
+- Al rehacer láminas, se vuelven a copiar sólo las `mako-NN.jpg`, porque las de la referencia no cambian. Se confirma por el peso
+  (`Artifact read` con `path`): la lámina 3 de Hormozi de la versión 6 pesa 45.553 bytes.
+- Los clips de las cuentas nuevas van directo al almacén. Los 93 clips de Avatar IA siguen en la versión: si hace falta lugar, se
+  mudan.
+
+### Lo que quedó sin hacer (serie con avatar de IA)
+
+- **Las 20 imágenes de nuestra versión.** Ya están listos los fotogramas (`pub/cuadro/`), una frase por tema y el script
+  (`generar-imagenes.mts`: Nano Banana Pro 2K, US$0,02 cada una). Esperan que se destrabe la clave, o Flow.
+- **Los regalos del CTA:** 13 de los 20 guiones regalan algo que no existe todavía, una guía o una plantilla (CRM, FILTRO, IA,
+  CLIENTES, NICHO, EMBUDO, MARGEN, SISTEMA, EMPEZAR, MENTOR, PRECIO, CIERRE y CASO). Los otros 7 regalan la app, pero no tienen
+  cargada la respuesta automática. Cada uno está en el campo `dudas` de `guiones.json`.
+- **Las cuentas en cola** (Carrizo, Doglio, Collado) y Julián Alborna: ver [hallazgos-competitors-spy.md](hallazgos-competitors-spy.md)
+  → «Lo que quedó sin hacer».
+- **El contador de arriba en Animaciones** dice «0 de 7 aprobados» y «7 de 7»: cuenta sólo los reels terminados, no los 91 formatos
+  (el detalle de un formato sí dice «de 91»).
+- **Transcribir los audios de los comentarios:** nadie lo hace solo todavía. Lo hace el chat que lea los comentarios (los pasos,
+  arriba).
+- **Los guiones adaptados:** Martín tiene que aprobar cada uno antes de generar el video con avatar (Omni 1.2 Flash, US$0,024 por
+  segundo).
