@@ -779,6 +779,9 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
     - **Trampa:** las canciones de la biblioteca de Instagram no vienen en el mp4. Un tramo «sin fondo» en un montaje con texto
       se marca «música de Instagram probable (no viene en el archivo)».
     - Los textos en pantalla con voseo («Abrí», «Comentá») se citan tal cual: son citas de la referencia, no texto nuestro.
+    - **Trampa del filtro:** el estilo base de lo elegido pone el texto en `--panel` (blanco) sobre fondo `--ink`. Al cambiarle
+      sólo el fondo a blanco, el texto desapareció: «Superaron a su cuenta» se veía como un recuadro vacío. Lo elegido lleva ahora
+      fondo `--ours-soft`, borde `--ours` y el texto siempre en `--ink`, en todo el panel.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
