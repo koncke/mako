@@ -426,7 +426,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   async function regenerarElCarrusel(): Promise<ResultadoReplica | null> {
     if ('error' in replica) return null;
     const { regenerarLaminas } = await import('./regenerar-servidor');
-    const { PROMPT_LEER_TEXTO, PROMPT_HAY_PERSONA, hayPersonaEn, leidoDe, documentoRegenerado, avisoDeTextoQueFalta } = await import('./regenerar');
+    const { PROMPT_LEER_TEXTO, PROMPT_HAY_PERSONA, hayPersonaEn, leidoDe, documentoRegenerado, avisoDeTextoQueFalta, avisoDeLaminasSinLeer } = await import('./regenerar');
     const conCopyR = partes ? conElCopy(replica, partes, { ...medidas, max: LAMINAS_MAX }).replica : replica;
     const baseDe = partes ? laminaParaCadaParte(conCopyR.laminas.length, replica.laminas.length) : conCopyR.laminas.map((_, i) => i);
     const { leerDocumentoIA } = await import('../ai-cheap');
@@ -478,6 +478,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
     const titulo = `${anuncio ? 'Anuncio' : 'Carrusel'} · ${replica.titulo}`.slice(0, 120);
     const aviso = [
       avisoDeTextoQueFalta(hechas.map((h, i) => ({ lamina: i + 1, faltan: h.ok ? h.faltan : [] }))) ?? '',
+      avisoDeLaminasSinLeer(hechas.flatMap((h, i) => (h.ok && h.sinLeer ? [i + 1] : []))) ?? '',
       partes && partes.length > LAMINAS_MAX ? `Tu copy tiene ${partes.length} láminas: armé las primeras ${LAMINAS_MAX}, el máximo de un carrusel aquí.` : '',
     ].filter(Boolean).join(' ') || null;
     if (o.seco) return { ok: true, id: '(seco)', titulo, aviso, doc, vistas: imagenes.length, errores, replica: conCopyR, imagenes, marcadas: [] };

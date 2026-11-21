@@ -45,6 +45,10 @@ Flow. Va por ApiMart, con la clave de la plataforma y medido en MaKo Tokens (la 
 - ⚠️ **A la persona no la marca la IA principal** (sus «cuadros» no la nombraron en ninguna lámina de Ramiro). Con una persona que
   poner, se pregunta lámina por lámina (`PROMPT_HAY_PERSONA`). Sigue fallando a veces: en «equipo», cuatro láminas quedaron con el
   personaje pixelado del original; y una MANO (la de «Zoom progresivo») cuenta como persona.
+- ⚠️ **«No pude leer» contaba como «bien escrita»** (21/11, el de Hormozi): las láminas 5 y 6 salieron IGUALES a la referencia,
+  en inglés, con el aviso vacío. `revisar` devolvía vacío también cuando la lectura fallaba, y sin pares que cambiaran algo la
+  lámina se salteaba. Ahora devuelve `null` sin lectura: sin pares se escribe igual (`escribirSinPares`) y la lámina que no se
+  pudo leer se dice (`avisoDeLaminasSinLeer`, «mírala antes de publicar»). Test 8 de tests/carruseles-regenerar.test.ts.
 - ⚠️ La revisión mira que cada texto ESTÉ, no DÓNDE: en el del caballo, «1 lista o tips» quedó en el encabezado y el título dice
   «Oct / Graphic Design», y pasó la revisión.
 - Los cinco de Martín, lado a lado: https://claude.ai/artifact/VSm2NYaJj1UovnvzpMPhiY (ws 9: 17c8dae2, e95791ee, 09d8c7d4,

@@ -112,6 +112,19 @@ export function documentoRegenerado(o: { srcs: readonly string[]; ancho: number;
   };
 }
 
+/**
+ * Sin un par «original → nuevo» que cambie algo, ¿se escribe igual? Sí si la lectura de la original dice que falta un texto, y
+ * TAMBIÉN si no se pudo leer (`null`): saltearla entregaba la referencia tal cual, sin aviso (21/11/2026, Hormozi 5 y 6 en inglés).
+ */
+export const escribirSinPares = (faltan: readonly string[] | null): boolean => faltan === null || faltan.length > 0;
+
+/** Las láminas que no se pudieron leer para revisar su texto: se dicen, nunca se entregan como «bien escritas». */
+export function avisoDeLaminasSinLeer(laminas: readonly number[]): string | null {
+  if (!laminas.length) return null;
+  const cuales = laminas.length === 1 ? `la lámina ${laminas[0]}` : `las láminas ${laminas.slice(0, -1).join(', ')} y ${laminas[laminas.length - 1]}`;
+  return `No pude leer ${cuales} para revisar su texto: ${laminas.length === 1 ? 'mírala' : 'míralas'} antes de publicar.`;
+}
+
 /** El aviso de las láminas que no quedaron bien escritas después de los reintentos (nunca se entregan calladas). */
 export function avisoDeTextoQueFalta(faltan: ReadonlyArray<{ lamina: number; faltan: readonly string[] }>): string | null {
   const malas = faltan.filter((x) => x.faltan.length);

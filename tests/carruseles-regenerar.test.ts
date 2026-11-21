@@ -11,13 +11,14 @@
 //   4. la revisión: un texto que falta o está mal escrito (una tilde también) se detecta; mayúsculas y signos no cuentan;
 //   5. lo que devuelve la lectura se entiende (y lo que no, es vacío);
 //   6. el documento: una página por lámina con su imagen de fondo y el origen en las notas de la primera;
-//   7. el aviso de lo que no quedó bien escrito nombra la lámina y el texto; sin errores, no hay aviso.
+//   7. el aviso de lo que no quedó bien escrito nombra la lámina y el texto; sin errores, no hay aviso;
+//   8. «no pude leer» no es «bien escrita»: sin pares se escribe igual y la lámina sin leer se avisa (Hormozi 5 y 6, 21/11).
 //
 // Correr: node --import tsx --test tests/carruseles-regenerar.test.ts
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PROMPT_DE_PERSONA, avisoDeTextoQueFalta, cambiosReales, documentoRegenerado, leidoDe, promptDeTextos, textoQueFalta, textosEsperados } from '../lib/carruseles/regenerar';
+import { PROMPT_DE_PERSONA, avisoDeLaminasSinLeer, avisoDeTextoQueFalta, cambiosReales, escribirSinPares, documentoRegenerado, leidoDe, promptDeTextos, textoQueFalta, textosEsperados } from '../lib/carruseles/regenerar';
 
 const CAMBIOS = [
   { antes: '9 YOUTUBE', despues: '9 AGENTES' },
@@ -80,4 +81,14 @@ test('7 · el aviso de lo que no quedó bien escrito', () => {
   const a = avisoDeTextoQueFalta([{ lamina: 1, faltan: [] }, { lamina: 3, faltan: ['QUE TE ENSEÑAN MÁS'] }])!;
   assert.match(a, /lámina 3, «QUE TE ENSEÑAN MÁS»/);
   assert.match(a, /vuelve a generar esa lámina/);
+});
+
+test('8 · «no pude leer» no es «bien escrita»: sin pares se escribe igual, y la lámina sin leer se avisa', () => {
+  // Hormozi 5 y 6 (21/11/2026): sin pares que cambiaran algo y sin lectura, la referencia salió tal cual, en inglés, sin aviso.
+  assert.equal(escribirSinPares(null), true, 'sin poder leer la original, se salteaba');
+  assert.equal(escribirSinPares(['El resultado']), true);
+  assert.equal(escribirSinPares([]), false, 'leída y con todo escrito: no se gasta otra imagen');
+  assert.equal(avisoDeLaminasSinLeer([]), null);
+  assert.match(avisoDeLaminasSinLeer([5])!, /No pude leer la lámina 5 .*mírala antes de publicar/);
+  assert.match(avisoDeLaminasSinLeer([5, 6])!, /las láminas 5 y 6 .*míralas/);
 });
