@@ -12,6 +12,9 @@
 //   · el país del visitante (`x-vercel-ip-country`) lo pone el borde, no la función.
 // Volver atrás es sacar esta línea. Se movió en un commit y un tren APARTE para saber qué fue si algo cambia.
 // ROTURAS (23/10/2026; base 2 / 0): sin la línea de regions → 1 / 1; un `preferredRegion` en app/ → 1 / 1.
+// LA ÚNICA EXCEPCIÓN (20/11/2026): /api/cron/binance-pagos corre en São Paulo porque Binance contesta 451 desde EE. UU. Es UNA, está
+// escrita abajo con su porqué, y cualquier otra ruta sigue en rojo. ROTURAS (20/11; base 2 / 0): la palabra en otra ruta de app/ → 1 / 1;
+// en un comentario de lib/ → 1 / 1; la excepción sin su ruta (borrada o renombrada) → 1 / 1.
 // Correr: node --import tsx --test tests/region-funciones.test.ts
 // =============================================================================
 import test from 'node:test';
@@ -28,9 +31,17 @@ test('vercel.json fija las funciones en pdx1, la región de la base', () => {
   assert.deepEqual(v.regions, ['pdx1'], 'sin región, Vercel las corre en iad1: ~97 ms por consulta a la base de us-west-2');
 });
 
-test('ninguna ruta pide otra región por su cuenta', () => {
+/** Las rutas que corren en OTRA región, con su porqué. UNA por decisión escrita; lib/ nunca (ni en un comentario). */
+const EXCEPCIONES: Readonly<Record<string, string>> = {
+  'app/api/cron/binance-pagos/route.ts': 'Binance contesta 451 «restricted location» desde EE. UU. (pdx1): esta ruta lee la cuenta desde São Paulo (gru1). Es una lectura chica que NO toca la base (carga sólo el secreto del cron y lib/binance-pay-directo.ts; tests/binance-pay-region.test.ts lo fija): lo que consulta la base lo hace quien la llama, en pdx1 (20/11/2026)',
+};
+
+test('ninguna ruta pide otra región por su cuenta (salvo la excepción escrita)', () => {
   // Un `preferredRegion` en una ruta le gana a vercel.json y la vuelve a alejar de la base.
   // `git grep` sale con 1 cuando no encuentra nada: se mira la salida, no el código de salida.
-  const hits = (spawnSync('git', ['grep', '-l', 'preferredRegion', '--', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8' }).stdout ?? '').trim();
-  assert.equal(hits, '', `rutas con preferredRegion: ${hits}`);
+  const hits = (spawnSync('git', ['grep', '-l', 'preferredRegion', '--', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8' }).stdout ?? '').trim().split(/\r?\n/).filter(Boolean);
+  const otras = hits.filter((h) => !(h in EXCEPCIONES));
+  assert.deepEqual(otras, [], `rutas con preferredRegion fuera de las excepciones: ${otras.join(', ')}`);
+  // Una excepción que ya no está (borrada, renombrada) sale de la lista: si no, la próxima con ese nombre pasaría sin que nadie la decida.
+  for (const e of Object.keys(EXCEPCIONES)) assert.ok(hits.includes(e), `la excepción ${e} ya no pide otra región: sácala de EXCEPCIONES`);
 });

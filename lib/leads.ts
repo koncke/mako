@@ -1537,6 +1537,11 @@ export async function upsertLeadFromMeta(input: {
   meta_created_at?: string | number | null;
   /** Los `name` que el parser no reconoció. Van al historial del lead, no a una pantalla nueva. */
   meta_campos_no_reconocidos?: string[];
+  /**
+   * El formulario de Meta (lead form) por el que entró (20/11/2026, «Asignar fuentes»). Si está asignado a un funnel
+   * (lib/formulario-meta-funnel.ts), GANA a la campaña: es lo más preciso que hay. No se guarda en el lead: decide y listo.
+   */
+  meta_form_id?: string | null;
 }, opc: {
   /**
    * Sólo crear (el barrido de Zernio, lib/zernio-leads-barrido.ts): si la persona YA es un lead (por teléfono o email), se devuelve
@@ -1617,7 +1622,15 @@ export async function upsertLeadFromMeta(input: {
   // Se resuelve UNA vez y lo usan las dos ramas: el INSERT para decidir el tablero, el
   // UPDATE para dejar rastro si la persona volvió por un producto distinto. Tolerante:
   // sin poder leer la asignación devuelve `asignada: false` y todo sigue como hoy.
-  const porCampana = await funnelDeCampana({ campaignId: input.meta_campaign_id, adsetId: input.meta_adset_id });
+  // ⚠️ EL FORMULARIO ASIGNADO GANA A LA CAMPAÑA (20/11/2026, «Asignar fuentes» → «Formularios de anuncios de Meta»), como en
+  // las páginas (app/api/track/optin/route.ts). Misma forma de respuesta: lo de abajo no cambia. Import dinámico: ese módulo
+  // lee las credenciales de Meta (lib/meta-leads.ts), que importa éste.
+  const porFormulario = input.meta_form_id
+    ? await (await import('./formulario-meta-funnel')).funnelDeFormularioMeta(input.meta_form_id).catch(() => ({ asignada: false as const }))
+    : { asignada: false as const };
+  const porCampana = porFormulario.asignada
+    ? porFormulario
+    : await funnelDeCampana({ campaignId: input.meta_campaign_id, adsetId: input.meta_adset_id });
 
   if (existing) {
     // Completar contacto solo si estaba vacío — no pisar datos existentes

@@ -174,7 +174,7 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
   let anunciados = 0;
   let reanunciados = 0;
   // Los que ya estaban, por si su anuncio se cayó (F117): se miran todos juntos al final, en una lectura.
-  const yaEstaban: Array<CandidatoReintento & { nombre: string; telefono: string | null; fieldData: MetaFieldData | null; campana: string | null }> = [];
+  const yaEstaban: Array<CandidatoReintento & { nombre: string; telefono: string | null; fieldData: MetaFieldData | null; campana: string | null; formId?: string | null }> = [];
   const ahoraMs = Date.now();
   const errores: string[] = [];
 
@@ -210,6 +210,8 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
             nombre,
             telefono,
             empresa,
+            // El formulario del bucle (20/11/2026): asignado en «Asignar fuentes», decide el funnel (lib/formulario-meta-funnel.ts).
+            meta_form_id: form.id,
             meta_lead_id: lr.id,
             meta_ad_id: lr.ad_id ?? null,
             meta_ad_name: lr.ad_name ?? null,
@@ -232,7 +234,7 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
             existentes++;
             yaEstaban.push({
               id: lead.id, creadoAt: lead.created_at, formCreadoEn: lr.created_time ?? null,
-              nombre: lead.nombre, telefono: lead.telefono ?? null, fieldData: lr.field_data ?? null, campana: lr.campaign_name ?? null,
+              nombre: lead.nombre, telefono: lead.telefono ?? null, fieldData: lr.field_data ?? null, campana: lr.campaign_name ?? null, formId: form.id,
             });
           }
           // ⚠️ LO INMEDIATO TAMBIÉN DESDE ACÁ (17/10/2026, #868): una página sin suscribir no recibe el webhook nunca, y
@@ -243,10 +245,14 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
             if (ws != null) {
               const { alNacerLeadDeMeta } = await import('./meta-lead-nuevo');
               await alNacerLeadDeMeta(ws, { id: lead.id, nombre: lead.nombre, telefono: lead.telefono }, {
-                fieldData: lr.field_data ?? null, campana: lr.campaign_name ?? null,
+                fieldData: lr.field_data ?? null, campana: lr.campaign_name ?? null, formId: form.id,
               });
               anunciados++;
             }
+          } else if (created) {
+            // Un rescate viejo no se ANUNCIA, pero sí se CALIFICA (20/11/2026): ubicarlo en su etapa no le escribe a nadie.
+            const { calificarLeadDeMeta } = await import('./meta-lead-nuevo');
+            await calificarLeadDeMeta(lead.id, form.id, lr.field_data ?? null);
           }
         } catch (err) {
           errores.push(`lead ${lr.id}: ${err instanceof Error ? err.message : String(err)}`);
@@ -267,7 +273,7 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
         const { alNacerLeadDeMeta } = await import('./meta-lead-nuevo');
         for (const c of yaEstaban.filter((x) => sinAnunciar.has(x.id))) {
           try {
-            await alNacerLeadDeMeta(ws, { id: c.id, nombre: c.nombre, telefono: c.telefono }, { fieldData: c.fieldData, campana: c.campana }, { esReintento: true });
+            await alNacerLeadDeMeta(ws, { id: c.id, nombre: c.nombre, telefono: c.telefono }, { fieldData: c.fieldData, campana: c.campana, formId: c.formId }, { esReintento: true });
             reanunciados++;
           } catch (err) {
             errores.push(`lead ${c.id} (anuncio): ${err instanceof Error ? err.message : String(err)}`);
