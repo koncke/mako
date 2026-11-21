@@ -739,6 +739,24 @@ Cada ronda dejó una regla para cualquier página donde Martín elige o revisa c
       que cambia marcado.
     - **Trampa:** con el panel del navegador escondido, `requestAnimationFrame` no corre. Medir el panel en un rAF lo dejaba sin
       ajustar en la vista local, así que se mide al pintar.
+15. **El guion se edita ahí mismo** (21/11, noche). «Súper importante: si no, no tiene sentido de que esté ahí». Quedó así:
+    - NUESTRO guion es un campo que crece solo y se guarda solo en `guiones/<sección>-<id>` (carruseles por lámina en `laminas`;
+      reels por bloque en `bloques`), con «Guardado» a la vista;
+    - desde Comentarios, «Editar el guion de esta lámina» abre ese texto, y cada comentario trae «Aplicar al guion»: Claude
+      (capacidad `sample` de la página) reescribe el texto con el comentario y lo deja guardado para revisar;
+    - en carruseles, el guion y el guion técnico muestran UNA lámina, sincronizada con el escenario: si se pasa la lámina en un
+      lugar, se pasa en los dos;
+    - el guion técnico de un carrusel compara, por lámina, las dos miniaturas en 4 renglones: composición, imagen, textos y
+      colores, con lo que cambia resaltado. Lo describe Claude con las dos imágenes la primera vez que se abre, y queda guardado
+      en `tecnico/<clave>-<lámina>`;
+    - arriba ya no están «Content Machine», el conteo ni «Cambiar»: queda «‹ Atrás» y, en el panel, sólo «Aprobado»;
+    - no se ve ninguna barra de scroll (`scrollbar-width: none`), y el filtro va en una grilla pareja, con los creadores en 0 al
+      final y atenuados.
+    - **Trampa:** la barra de escribir se cortaba porque se medía mientras su pestaña estaba escondida (alto 0). Ahora nunca se
+      mide escondida ni baja de 44 px.
+    - **Trampa:** «el original tiene que estar siempre». A 5 de los 7 reels terminados les faltaba la transcripción de la
+      referencia: se transcribió con faster-whisper y se tradujo a mano (`content-machine/transcr/originales.json`). Los otros
+      dos (Serie 1 y Serie 4) siguen sin video de referencia. Un reel de Víctor no tiene voz: queda marcado `sin_voz`.
 
 ### Content Machine: una página para todo el contenido (21/11/2026)
 
@@ -794,6 +812,7 @@ conservan su id anterior.
   "por": "chat-competencia",
   "estructura": [{ "de": 0, "a": 11, "que": "gancho IA: el Papa busca a Ramiro" }],   // opcional: el guion técnico de la referencia, en segundos
   "guion_original": "",                                          // opcional: la transcripción en inglés si «guion» está traducido
+  "tecnico": [{ "de": 0, "a": 3.5, "plano": "", "texto": "", "corte": "", "musica": "" }],   // opcional: guion técnico escena por escena (plano, texto en pantalla, corte, música)
   "nuestro": { "imagen": null, "gancho": null, "guion": [] },   // opcional: lo completa Content Machine al producir
   "costo": { "seg_avatar": 0, "usd": 0 },                        // opcional
   "tema": "", "orden": 0                                         // opcional
