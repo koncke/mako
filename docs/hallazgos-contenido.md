@@ -673,6 +673,31 @@ avatar de IA».
   - El primer filtro barato ya está escrito: `tools/portadas.py` arma hojas de 20 portadas numeradas para clasificar la forma
     antes de bajar nada.
 
+### Ampliar el relevo a cientos de reels (21/11/2026)
+
+- **La lista sale del Chrome de Martín, sólo leyendo** (Claude in Chrome, pestaña Reels). El navegador de la app ya no tiene la sesión
+  de Instagram. El 21/11 la pestaña de Víctor dio 225 reels, hasta diciembre de 2021, contra los 36 del 19/11.
+- **Trampas de la grilla:**
+  - Hay sólo unas 24 tarjetas en la página a la vez: se juntan mientras se baja de a 0,7 pantallas.
+  - La portada es un `background-image`, no un `img`.
+  - La salida de `javascript_tool` se corta a unos 1.500 caracteres: la lista se saca en tandas de 50 «código|vistas».
+  - En español, Instagram escribe «17,2 mil» y «2,4 M». La coma decimal choca con separar por comas, así que se separa con «;».
+- **Heras Media es `@herasmedia`** (249 mil seguidores, bio «Soy @victorherasemprendedor»). `@victorherasmedia` es otra cuenta, de
+  50 seguidores: se confirma por la bio, no por el nombre.
+- **El primer filtro no baja nada.** `tools/ampliar.py` usa `yt-dlp` sin descargar y trae fecha, texto y portada. La duración viene en
+  0. Hace 193 reels en unos 4 minutos y arma hojas de 20 portadas numeradas.
+- **Clasificar por portada y texto** (criterio en `C:/dev/referentes-videos/criterio-video-ia.md`, con subagentes):
+  - Rama: 20 pasan, 57 en duda, 116 no. En sus textos, «Ficción 100% generada con IA» es la señal más fuerte.
+  - Víctor: 6 pasan, 22 en duda, 162 no. Casi todo es él a cámara con texto dorado.
+  - Sólo lo que pasa o está en duda se baja y se transcribe (`tools/procesar.py`). Las dudas se deciden con 8 cuadros de la hoja
+    (`tools/tiras-dudas.py`).
+- **Dos `yt-dlp` contra Instagram a la vez se frenan entre sí:** `procesar.py` pasó de unos 15 s a unos 30 s por reel mientras corría
+  `ampliar.py`.
+- **Un artefacto guarda 256 MB por versión.** De los reels nuevos se suben los primeros 35 s a 480 px, unos 1,7 MB cada uno, con el
+  link al completo.
+- **El N× es uno solo para todas las tarjetas:** contra la mediana de los 6 reels maduros más cercanos en fecha de la misma cuenta,
+  con las reproducciones de la grilla del día (`armar-ampliados.mjs`).
+
 ### Lo que quedó sin hacer (serie con avatar de IA)
 
 - **Las 20 imágenes de nuestra versión.** Ya están listos los fotogramas (`pub/cuadro/`), una frase por tema y el script
