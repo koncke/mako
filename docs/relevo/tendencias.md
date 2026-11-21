@@ -17,7 +17,7 @@ que rehace el chat de Content Machine (local_fc754a71-87b7-4a34-8133-0307a31abe1
    `lib/asesores/catalogo.ts`, los autores de Knowledge (`app/conocimientos/catalogo.ts` → `CURSOS_TODOS`), los 77 links
    (`C:/dev/inspiracion/relevo.json`), el Spy de producción (54 competidores, volcado en el scratchpad de los ángulos:
    `gurus-b/comp.json`) y la web. Se pasa al Cerebro ANTES de bajar nada.
-1b. [en curso] Piloto con lo que ya había (sin bajar nada): `armar-piezas.mjs` junta el Spy de producción (`C:/dev/tendencias/prod90.json`)
+1b. [hecho] Piloto con lo que ya había (sin bajar nada): `armar-piezas.mjs` junta el Spy de producción (`C:/dev/tendencias/prod90.json`)
    y lo bajado → `C:/dev/tendencias/piezas.jsonl` (2.532 piezas en 90 días). `lotes.mjs` → 14 lotes de 200 en `lotes/`; 7 agentes
    sonnet los clasifican con `instrucciones-clasificar.md` y `temas.json` → `clasif/lote-NN.json`. Si un lote no tiene su archivo
    en `clasif/`, se vuelve a lanzar SÓLO ese (el mismo prompt: leer instrucciones + temas, clasificar leyendo, validar con node).
@@ -54,3 +54,15 @@ que rehace el chat de Content Machine (local_fc754a71-87b7-4a34-8133-0307a31abe1
 - **Método del estado** (en `analizar.mjs`): Nuevo = visto por primera vez hace ≤ 60 días y con ≤ 3 referentes · En crecimiento =
   comentarios por día de los últimos 30 días ≥ 1,3× los de los 60 anteriores, sin bajar las piezas · En baja = piezas o
   comentarios < 0,7× · si no, Saturado. Los comentarios-palabra del CTA se separan de los de conversación con la muestra de texto.
+
+## Piloto (21/11, con lo que ya había)
+
+- 14 lotes clasificados (2.696 piezas; `C:/dev/tendencias/clasif/`). Los «nuevo:…» de los agentes se fundieron en
+  `alias.json` (71 entradas; versionado en `docs/tendencias/herramientas/alias.json`).
+- `analizar.mjs` → 43 tendencias con estado y 36 temas con pocas señales (`C:/dev/tendencias/tabla.json`). Es un piloto: IA
+  (edición y carruseles), YouTube y Low ticket casi no tienen datos todavía; la bajada del paso 2 los llena.
+- Temas que no estaban en la lista y aparecieron solos: aparecer en las respuestas de la IA, retener clientes, finanzas del
+  negocio, eventos presenciales, criterio y liderazgo con IA, crear software con IA.
+- Ajustes del método después del piloto: cada pieza aporta como mucho 5× la mediana de comentarios de su cuenta (un regalo con
+  15.000 comentarios decidía solo); el ritmo de comentarios es null (no 0) sin 2 piezas maduras por ventana; con menos de 6
+  piezas o un solo referente el tema va a `pocasSenales`.

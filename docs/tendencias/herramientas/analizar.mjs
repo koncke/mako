@@ -41,7 +41,13 @@ const porCuenta = {};
 for (const p of piezas) (porCuenta[`${p.clave}|${p.red}`] ||= []).push(p);
 for (const L of Object.values(porCuenta)) {
   const mv = med(L.map((p) => p.vistas).filter(Boolean));
-  for (const p of L) p.nx = mv && p.vistas ? p.vistas / mv : null;
+  const mc = med(L.map((p) => p.comentarios).filter((x) => x != null));
+  for (const p of L) {
+    p.nx = mv && p.vistas ? p.vistas / mv : null;
+    // Un solo reel de regalo con 15.000 comentarios no puede decidir el estado de un tema: cada pieza aporta como mucho 5 veces la
+    // mediana de comentarios de su cuenta (los ejemplos muestran el número real).
+    p.comTope = p.comentarios == null ? null : Math.min(p.comentarios, Math.max(5 * (mc || 0), 20));
+  }
 }
 
 const grupos = {};
@@ -65,15 +71,17 @@ const ckSector = {};
 for (const g of Object.values(grupos)) (ckSector[g.sector] ||= []).push(...g.piezas.filter((p) => !p.ingles).map(ck));
 for (const s of Object.keys(ckSector)) ckSector[s] = med(ckSector[s]);
 
-const filas = [];
+const filas = [], pocasSenales = [];
 for (const g of Object.values(grupos)) {
   const ES = g.piezas.filter((p) => !p.ingles), EN = g.piezas.filter((p) => p.ingles);
   const P = ES.length ? ES : EN; // el estado se mide en español; un tema sólo en inglés se mide en inglés y se marca
   const rec = P.filter((p) => p.d <= 30), ant = P.filter((p) => p.d > 30 && p.d <= 90);
   const mRec = P.filter((p) => p.madura && p.d >= MADURA && p.d < 30 + MADURA), mAnt = P.filter((p) => p.madura && p.d >= 30 + MADURA && p.d <= 90 + MADURA);
-  const suma = (L) => L.reduce((a, p) => a + (p.comentarios ?? 0), 0);
+  const suma = (L) => L.reduce((a, p) => a + (p.comTope ?? 0), 0);
   const ritmo = (a, b) => (b ? (a / 30) / (b / 60) : (a ? Infinity : null));
-  const ritmoPiezas = ritmo(rec.length, ant.length), ritmoCom = ritmo(suma(mRec), suma(mAnt));
+  // Sin al menos 2 piezas maduras en cada ventana, el ritmo de comentarios es «no se sabe» (null), nunca 0: una ventana reciente
+  // sin piezas maduras daba «En baja» a temas que sí tenían comentarios (reels de prueba, 21/11).
+  const ritmoPiezas = ritmo(rec.length, ant.length), ritmoCom = mRec.length >= 2 && mAnt.length >= 2 ? ritmo(suma(mRec), suma(mAnt)) : null;
   const muestra = P.flatMap((p) => (p.muestra || []).map((m) => ({ ...m, cta: p.cta, corte: corteDe[p.clave] })));
   const conv = muestra.length >= 10 ? muestra.filter((m) => !esPalabra(m.texto, m.cta)).length / muestra.length : null;
   const recientes = muestra.filter((m) => m.fecha).length >= 10 ? muestra.filter((m) => m.fecha && D(m.corte, m.fecha) <= 30).length / muestra.filter((m) => m.fecha).length : null;
@@ -82,9 +90,12 @@ for (const g of Object.values(grupos)) {
   const hoy = Object.values(corteDe).sort().at(-1);
   const edad = D(hoy, primera);
   // El estado, en este orden (igual que en docs/tendencias/mapa.md → «Cómo se decide el estado»):
+  // Con menos de 6 piezas o un solo referente no hay tendencia que medir: queda en `pocasSenales` (salvo que sea Nuevo).
   let estado;
-  if (!ES.length) estado = refsEN.length >= 2 ? 'Nuevo' : null; // todavía no llegó al español: «Nuevo» con llegaDelIngles
-  else if (edad <= 60 && refsES.length <= 3) estado = 'Nuevo';
+  const pocas = P.length < 6 || refsES.length < 2;
+  if (!ES.length) estado = refsEN.length >= 2 && EN.length >= 4 ? 'Nuevo' : null; // todavía no llegó al español: «Nuevo» con llegaDelIngles
+  else if (edad <= 60 && rec.length >= 2) estado = 'Nuevo';
+  else if (pocas) estado = null;
   else if (ritmoCom != null && ritmoCom >= 1.3 && (ritmoPiezas ?? 0) >= 1) estado = 'En crecimiento';
   else if ((ritmoPiezas != null && ritmoPiezas < 0.7) || (ritmoCom != null && ritmoCom < 0.7)) estado = 'En baja';
   else estado = 'Saturado';
@@ -92,7 +103,7 @@ for (const g of Object.values(grupos)) {
   const ejemplos = []; const usados = new Set();
   for (const p of ej) { if (ejemplos.length >= 3) break; if (usados.has(p.referente) && ej.length > 6) continue; usados.add(p.referente);
     ejemplos.push({ referente: p.referente, url: p.url, fecha: p.fecha, vistas: p.vistas, comentarios: p.comentarios, cta: p.cta, texto: (p.texto || '').replace(/\s+/g, ' ').slice(0, 220) }); }
-  if (!estado) continue;
+  if (!estado) { pocasSenales.push({ sector: g.sector, tema: g.tema, piezas: P.length, referentes: refsES.length, referentesIngles: refsEN.length }); continue; }
   filas.push({
     sector: g.sector, tema: g.tema, estado, llegaDelIngles: !ES.length,
     referentes: refsES.length, quienes: refsES, referentesIngles: refsEN.length, quienesIngles: refsEN,
@@ -106,5 +117,6 @@ for (const g of Object.values(grupos)) {
   });
 }
 filas.sort((a, b) => a.sector.localeCompare(b.sector) || b.referentes - a.referentes || b.piezas - a.piezas || a.tema.localeCompare(b.tema));
-fs.writeFileSync(`${DIR}/tabla.json`, JSON.stringify({ cortes: corteDe, ckSector, filas }, null, 1));
+fs.writeFileSync(`${DIR}/tabla.json`, JSON.stringify({ cortes: corteDe, ckSector, filas, pocasSenales }, null, 1));
+console.log(`${filas.length} tendencias · ${pocasSenales.length} temas con pocas señales`);
 for (const f of filas) console.log([f.sector, f.tema, f.estado, `${f.referentes}+${f.referentesIngles}en`, `p ${f.piezas30}/${f.piezas60} (${f.ritmoPiezas})`, `c ${f.comentarios30}/${f.comentarios60} (${f.ritmoComentarios})`, `c/k ${f.comentariosPorMil}`, `conv ${f.conversacion ?? '-'}%`].join(' · '));
