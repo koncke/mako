@@ -37,6 +37,7 @@ import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ASPECTO_RETO } from '@/lib/centro-munecos';
 import { Icon } from '@/app/_components/icons';
+import { Markdown } from '@/app/_components/Markdown';
 import { ID_RECORRIDO, textoLlegada } from '@/lib/onboarding-v2/llegada';
 
 const menosMovimiento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -210,7 +211,7 @@ export function LlegadaAlReto({ nombre, listo = true, onMostrada }: {
               </div>
               {/* Con el video en el mensaje, el motor no muestra «Omitir recorrido» entre paso y paso (sólo en la esquina): va aquí. */}
               {corre && senal && <button type="button" className="sbl-omitir" onClick={() => terminar(senal.id, 'omitido')}>Omitir recorrido</button>}
-              <div className="ch-md"><p>{textoLlegada(nombre)}</p></div>
+              <div className="ch-md"><Markdown text={textoLlegada(nombre)} /></div>
             </div>
           </div>
         </div>

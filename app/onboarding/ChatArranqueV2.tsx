@@ -52,6 +52,7 @@ import { MOMENTO_AGENDADO, MOMENTO_CODIGO, MOMENTO_NOMBRE } from '@/lib/onboardi
 import { ejemploDe } from '@/lib/onboarding-v2/saltar';
 import { senalConTope } from '@/lib/senal-con-tope';
 import { useNotaConEspera } from '@/app/_chat/useNotaConEspera';
+import { Markdown } from '@/app/_components/Markdown';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean; whatsapp?: VistaArranque['whatsapp'] };
 
@@ -496,7 +497,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, ejemplos 
                     const t = cola.conPieza(m.id) ? tarjeta(m) : null;
                     // La tarjeta del contacto de MaKo es SU mensaje (20/11/2026: en su propia burbuja): sin el texto, sólo la tarjeta.
                     if (m.tarjeta === 'contacto') return t ? filaMako(m.id, <div className="arr-v2__en-mensaje">{t}</div>) : null;
-                    return filaMako(m.id, <><div className="ch-md"><p>{m.texto}</p></div>{t && <div className="arr-v2__en-mensaje">{t}</div>}</>);
+                    return filaMako(m.id, <><div className="ch-md"><Markdown text={m.texto} /></div>{t && <div className="arr-v2__en-mensaje">{t}</div>}</>);
                   })}
                   {pendiente && filaYo('arr-pendiente', pendiente)}
                   {escribe && escribiendo('arr-pensando')}
