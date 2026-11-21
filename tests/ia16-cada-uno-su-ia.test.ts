@@ -6,8 +6,12 @@
 // la capa real (tests/_ia16-hijo.ts):
 //   1. Groq no contesta TEXTO —ni pedido a mano, ni por un pin de /modelos-ia— y sigue escuchando las notas de voz con la
 //      clave del negocio; el audio de un anuncio (`sinGroq`) no va a Groq;
-//   2. sin su IA, NADA va a la plataforma —con o sin datos de clientes, texto o audio—, y una copia de la clave de la
-//      plataforma no cuenta como suya; la red queda sólo para lo interno de MaKo (el ws9);
+//   2. sin su IA, NADA va a la red GRATIS de la plataforma —con o sin datos de clientes, texto o audio—, y una copia de la
+//      clave de la plataforma no cuenta como suya; la red queda sólo para lo interno de MaKo (el ws9). CAMBIÓ EL 20/11/2026 para
+//      la NOTA DE VOZ, por Martín: «el usuario debería poder enviar audios independientemente de si tiene la IA conectada o no,
+//      porque para eso ya usamos los MaKo Tokens» (memoria todo-gasta-mako-tokens): sin ninguna clave del negocio, la escucha el
+//      Whisper de MaKo (el Groq de la plataforma, que no entrena) DENTRO del medidor de MaKo Tokens. Con una clave suya, SÓLO la
+//      suya (el 1): el de MaKo nunca además, ni si la suya falla;
 //   3. con su Gemini, el texto y la nota de voz van a SU cuenta (las dos, en orden), nunca a la de la plataforma ni a la
 //      del entorno de la PC;
 //   4. el buscador de conocimiento embebe con la IA DEL NEGOCIO: su OpenAI primero, su Gemini si es lo único (prueba la
@@ -53,11 +57,21 @@ test('1. Groq no contesta texto y sigue escuchando las notas de voz (con la clav
   assert.ok(!(erroresConGroqPedido as string[]).some((e) => /groq/i.test(e)), `la cascada probó a Groq: ${erroresConGroqPedido}`);
 });
 
-test('2. sin su IA, nada va a la plataforma (con o sin datos de clientes); la red es sólo lo interno de MaKo', () => {
-  const { sinSuIA, redCliente, redPlataforma } = correr();
+test('2. sin su IA, nada va a la red gratis (con o sin datos de clientes); la nota de voz, al Whisper de MaKo DENTRO del medidor; la red es sólo lo interno de MaKo', () => {
+  const { sinSuIA, redCliente, redPlataforma, notaSinSuIA } = correr();
   for (const [caso, salio] of Object.entries(sinSuIA as Record<string, string[]>)) {
     assert.deepEqual(salio, [], `${caso}: salió a ${salio.join(', ')} sin una IA del negocio`);
   }
+  // La nota de voz sin su IA (20/11/2026, Martín: «el usuario debería poder enviar audios independientemente de si tiene la IA
+  // conectada o no, porque para eso ya usamos los MaKo Tokens»): al Whisper de MaKo (el Groq de la plataforma, que no entrena),
+  // nunca a Gemini; y lo paga su cupo: la cascada corre adentro del medidor de MaKo Tokens.
+  const nota = notaSinSuIA as Salida[];
+  assert.ok(nota.length > 0 && nota.every((x) => x.host === GROQ && x.camino.endsWith('/audio/transcriptions')), 'la nota de voz sin su IA no fue al Whisper de MaKo (o fue a otro lado)');
+  assert.deepEqual(claves(nota), ['9-GROQ_API_KEY-kkkkk'], 'la nota de voz sin su IA fue con otra clave que la de MaKo');
+  const ai = readFileSync(new URL('../lib/ai-cheap.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const stt = ai.slice(ai.indexOf('export async function transcribirAudio('));
+  const iMedidor = stt.indexOf('if (!medidorAbierto()) return conMedidorDeMt(opts?.feature, () => transcribirAudio(base64, mime, opts));');
+  assert.ok(iMedidor > 0 && iMedidor < stt.indexOf('escucharConElDeMaKo('), 'el Whisper de MaKo, fuera del medidor de MaKo Tokens');
   assert.deepEqual(redCliente, { texto: [], audio: [] }, 'la red de la plataforma corre para un negocio');
   assert.deepEqual(redPlataforma, { texto: ['gemini'], audio: ['gemini', 'groq'] }, 'lo interno de MaKo perdió su red (o la de texto trae a Groq)');
 });
