@@ -131,6 +131,24 @@ async function main() {
     pedidos,
   };
 
+  // ⛔ MaKo NO CREA GRUPOS NUEVOS (20/11/2026, Martín: «Sólo no crear más»). Los caminos que creaban, sin ningún freno puesto: Notificaciones de un
+  // negocio sin grupo (con dos números) y la verificación del onboarding. Los números quedan guardados, nadie entra a ningún grupo y la pantalla lo dice.
+  arrancar();
+  pedidos = [];
+  out.pantallaSinGrupo = {
+    res: await runWithWorkspace(SIN_GRUPO, () => setDestinatarios({ telefonos: [JOAN, ENTRA], emails: [] }, 'Nueva')),
+    pedidos,
+    numero: db.app_settings.find((f) => f.workspace_id === SIN_GRUPO && f.key === 'mako.numero_dueno')?.value ?? null,
+    grupo: db.app_settings.find((f) => f.workspace_id === SIN_GRUPO && f.key === 'mako.grupo_jid')?.value ?? null,
+  };
+  arrancar([{ workspace_id: SIN_GRUPO, key: 'mako.contacto.verificacion', value: JSON.stringify({ telefono: JOAN, destino: JOAN, codigo: '123456', expira: Date.now() + 60_000, verificado: false, nombre: 'Nueva' }) }]);
+  pedidos = [];
+  out.verificarSinGrupo = {
+    res: await g.verificarCodigoContacto(SIN_GRUPO, '123456'),
+    pedidos,
+    verificado: JSON.parse(String(db.app_settings.find((f) => f.workspace_id === SIN_GRUPO && f.key === 'mako.contacto.verificacion')?.value ?? '{}')).verificado ?? null,
+  };
+
   // Lo automático, prendido.
   out.equipoPrendido = await medir(AUTOMATICO, () => g.sumarEquipoDeAgenciaAlGrupo(CLIENTE, 'grupo-cliente@g.us', { adentro: [], cliente: 'Giselle' }));
   out.invitacionPrendida = await medir(AUTOMATICO, () => g.agregarParticipanteGrupo(CLIENTE, NO_DEJA));

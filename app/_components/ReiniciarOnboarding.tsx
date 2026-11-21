@@ -1,10 +1,12 @@
 'use client';
 
 // =============================================================================
-// «Reiniciar onboarding» — en la barra de la vista de administrador, al lado de RESET (20/11/2026)
+// «RESET» — en la barra de la vista de administrador (20/11/2026; el único reset de la barra desde el 21/11)
 // =============================================================================
 // Martín: «una opción en SuperAdmin para resetear al usuario sin que pierda su información… que pueda resetear el onboarding».
-// RESET (PanelAgencia) vacía el negocio entero y sólo existe en el Cliente de Prueba. Éste borra SÓLO el estado del onboarding y
+// 21/11, Martín: «prefiero quedarme simplemente con el botón de reset… el de reiniciar onboarding funciona mejor… que sea eso, pero
+// que simplemente diga reset». El que vaciaba el negocio entero salió de la barra: es «Borrar todos los datos» en /admin/customers/<ws>
+// (sólo en las cuentas de prueba). Éste borra SÓLO el estado del onboarding y
 // del reto (lib/reiniciar-onboarding.ts dice qué sí y qué no), así que va en cualquier cliente que el super admin esté mirando.
 // Quién puede lo decide el server (/api/admin/reiniciar-onboarding: super admin, nunca el negocio del dueño).
 //
@@ -33,6 +35,9 @@ const chip: CSSProperties = {
 };
 
 /** Lo que dice la confirmación: qué vuelve a empezar y qué NO se toca. */
+/** En un espacio de PRUEBA (21/11/2026, Martín: «le di a reset y comenzamos de cero»): RESET deja todo como una cuenta recién creada. */
+export const TEXTO_RESET_PRUEBA = 'Borra todo y empieza el onboarding de cero, como una cuenta recién creada: los chats sueltos y el historial de los coaches se van. Quedan los datos del negocio, el plan y su WhatsApp.';
+
 export const TEXTO_REINICIAR = 'Vuelve a empezar el onboarding y el reto de 7 días. No borra nada de lo suyo: leads y CRM, cursos, automatizaciones, funnels, ofertas, conversaciones, archivos, plan y cobros quedan como están. Su WhatsApp sigue verificado.';
 
 export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
@@ -42,6 +47,14 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
   const [hecho, setHecho] = useState(false);
   const ws = useWs();
   const [aviso, setAviso] = useState<{ texto: string; tono: 'info' | 'error' } | null>(null);
+  // ¿Un espacio de prueba? Lo dice el server (la misma puerta que «Borrar todos los datos»): ahí RESET borra también los chats.
+  const [dePrueba, setDePrueba] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    fetch('/api/admin/negocio-de-prueba', { cache: 'no-store' }).then((r) => r.json()).then((j: { disponible?: boolean }) => { if (vivo) setDePrueba(!!j.disponible); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+  const texto = dePrueba ? TEXTO_RESET_PRUEBA : TEXTO_REINICIAR;
   const btn = useRef<HTMLButtonElement | null>(null);
 
   function abrir() {
@@ -83,6 +96,8 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
       const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
       if (!j.ok) { setAviso({ texto: j.error || 'No se pudo reiniciar el onboarding.', tono: 'error' }); setBusy(false); return; }
       // Lo dice el MISMO panel (a la vista, donde se tocó), y lleva al onboarding. `busy` queda prendido: no se vuelve a tocar.
+      // Lo que el RESET de prueba no pudo borrar se dice, no se traga (21/11, producción: quedaban chats y la ruta contestaba ok).
+      if (j.chats?.avisos?.length) setAviso({ texto: `Se reinició, pero no pude borrar todo: ${j.chats.avisos.join(' · ')}`, tono: 'error' });
       setHecho(true);
       // Y ESTE navegador también (el de quien mira): si no, conserva el «dale play», lo ya escrito del arranque y la llegada de ese
       // negocio, y el onboarding arrancaba con «¿cómo te llamas?» antes del video (20/11/2026, el Cerebro en producción).
@@ -96,9 +111,9 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
 
   return (
     <>
-      <button ref={btn} type="button" onClick={() => (confirmar ? setConfirmar(false) : abrir())} title={TEXTO_REINICIAR}
+      <button ref={btn} type="button" onClick={() => (confirmar ? setConfirmar(false) : abrir())} title={texto}
         aria-expanded={confirmar} aria-controls={confirmar ? ID_PANEL : undefined} style={chip}>
-        Reiniciar onboarding
+        Reset
       </button>
       {confirmar ? (
         pos && createPortal(
@@ -108,15 +123,15 @@ export function ReiniciarOnboarding({ cliente }: { cliente: string }) {
             boxShadow: '0 18px 44px rgba(23,21,17,.32)', padding: '14px 16px', fontFamily: SANS,
           }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.35 }}>
-              {hecho ? `Listo: el onboarding de ${cliente} empieza de cero.` : `¿Reiniciar el onboarding de ${cliente}?`}
+              {hecho ? `Listo: el onboarding de ${cliente} empieza de cero.` : `¿Reset del onboarding de ${cliente}?`}
             </div>
             <p role={hecho ? 'status' : undefined} style={{ margin: '6px 0 14px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-              {hecho ? 'No se borró nada de lo suyo. Te llevo a su onboarding…' : TEXTO_REINICIAR}
+              {hecho ? (dePrueba ? 'Quedó como una cuenta recién creada. Te llevo a su onboarding…' : 'No se borró nada de lo suyo. Te llevo a su onboarding…') : texto}
             </p>
             {!hecho && <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button type="button" className="mk-btn mk-btn--sm mk-btn--secondary" onClick={() => setConfirmar(false)} disabled={busy}>No</button>
               <button type="button" className="mk-btn mk-btn--sm mk-btn--primary" onClick={() => void reiniciar()} disabled={busy}>
-                {busy ? 'Reiniciando…' : 'Sí, reiniciar'}
+                {busy ? 'Reseteando…' : 'Sí, reset'}
               </button>
             </div>}
           </div>,

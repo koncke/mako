@@ -13,6 +13,150 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## Toda la competencia en la tab Spy de Content Machine: lo que costó traerla (21/11/2026, chat spy-competencia)
+
+Para que Martín elija qué producir, la tab Spy de Content Machine (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz) trae TODO lo
+de siete cuentas (Carrizo, Doglio, Collado, Rama, Heras Media, Víctor y Hormozi), clasificado en avatar-ia, animacion, a-camara y
+carrusel. No es el Spy de los clientes (ese va por Apify): es el relevo a mano de los referentes, con las herramientas de
+`C:/dev/referentes-videos/tools/` (`spy.py`, `spy-lotes.py`, `ocr-windows.ps1`). El paso a paso está en
+[relevo/spy-competencia.md](relevo/spy-competencia.md). Esto se va a llevar a MaKo para los clientes, por Apify.
+
+### Carruseles: yt-dlp SÍ trae la lámina entera; la herramienta elegía mal
+- **El diagnóstico obvio era el equivocado.** El relevo del 19/11 dejó escrito que «yt-dlp baja las láminas recortadas al
+  cuadrado» y que para el tamaño real había que abrir cada publicación en el navegador. No: yt-dlp trae 14 miniaturas por
+  lámina, sin ancho ni alto, y `publicaciones.py` elegía la «más grande» por ancho × alto, que daba 0 en todas, así que se quedaba
+  con la PRIMERA: un recorte cuadrado (`stp=c0.512.3072.3072…s1080x1080`). Entre las otras está `p1080x1080`, que cabe en 1080 sin
+  recortar (1080 × 1440 o 1080 × 1350), y la que no lleva tamaño, que es la original (3072 × 4096, 1,9 MB).
+- **La regla** (`mejor_lamina` en `tools/spy.py`): primero `p1080x1080`; si no está, la más grande SIN recorte (`stp` que no
+  empieza con `c<número>`), contando como original la que no tiene tamaño. Lo de más de 1080 de ancho se achica a 1080.
+- **La segunda trampa, en las láminas de VIDEO** (Collado, Carrizo): ahí no hay `p1080` y yt-dlp sí da ancho y alto. «La primera
+  sin recorte» era la de 240 × 180. En Carrizo salieron 21 láminas de 240 a 720 px antes de verlo (`spy.py rehacer` las rehace).
+- **Del Chrome sólo sale la lista.** La salida de `javascript_tool` se corta a unos 1.500 caracteres y una URL de imagen de
+  Instagram firmada tiene unos 600: sacar las láminas desde la página era imposible. Con los códigos de la grilla, yt-dlp hace el
+  resto sin sesión.
+- **Los carruseles de una cuenta pueden no tener una sola letra.** Los 17 de Carrizo son fotos de su vida (autos, viajes, su
+  equipo): el OCR devolvió vacío y estaba bien. En esos, el guion es el texto de la publicación y la forma dice «carrusel de fotos».
+- **El texto de cada lámina lo lee el OCR de Windows** (`Windows.Media.Ocr`, español e inglés ya instalados): 156 láminas en 20 s,
+  sin tokens. RapidOCR en CPU tardaba 41 s por lámina (19/11). En PowerShell 5.1 hay que cargar `Windows.Globalization.Language`
+  como tipo de WinRT (si no, `New-Object` falla y cada lámina da vacío sin error) y pasar la ruta como `[string]`: la línea de
+  `Get-Content` trae `PSPath` y compañía, y `ConvertTo-Json` la escribe como objeto.
+
+### La grilla y la pestaña Reels no tienen lo mismo (otra vez)
+- Doglio: 168 reels en la pestaña Reels y 196 en la grilla; 29 reels viejos están SÓLO en la grilla, sin reproducciones a la vista
+  (la grilla no las muestra). Van con `metrica: "me gusta"` y su N× contra los me gusta de sus vecinos.
+- Las publicaciones (`/p/`) salen sólo en la grilla: Carrizo tiene 17 publicaciones y 87 reels; Rama, 4.112 publicaciones, casi
+  todas reels (de 312 tarjetas de la grilla, 71 carruseles). Para Rama y Hormozi se leyó la grilla hasta la fecha del último reel
+  de su lista, no entera.
+- **Las vistas ahora vienen con «mil»** («65,2 mil», «1,9 M»), no con «k». `numero()` de `ampliar.py` toma la «m» de «mil» como
+  millón: 65,2 mil sería 65 millones. En `spy.py` la regla mira «mil» antes que «m».
+- El bucle que junta la grilla tiene que entrar en 45 s por llamada (más, y `javascript_tool` corta con «renderer frozen»): de a
+  30 bajadas de 0,8 pantallas, guardando en `window.__S` entre llamadas.
+
+### Subir cientos de archivos sin llenar el chat
+- `Artifact` sube de a 25 sólo lo que está en la carpeta de trabajo o en el scratchpad de la sesión; un archivo de
+  `C:/dev/referentes-videos` va de a uno. Se copia a `<scratchpad>/sub/<cuenta>/` y se arman lotes de 25 (`spy-lotes.py preparar`).
+- No hace falta leer la página antes de subir assets: la primera subida anduvo sin `read`.
+- Cada respuesta trae «ruta → /_blob/<id>» por archivo (unos 6 KB por lote). Un subagente Sonnet sube los lotes y anota
+  «archivo id» en `assets-lineas.txt`; el chat principal sólo arma el mapa y escribe la base.
+- La base se escribe con `ArtifactData batch` de a 50, con cada documento en un `.json` local (`file_path`): no pasa por el chat.
+
+### Clasificar
+- Hojas de 10 reels × 8 cuadros sacados de la `hoja.jpg` de `procesar.py`, con un `.txt` al lado (gancho transcripto y texto de la
+  publicación). El criterio escrito está en `C:/dev/referentes-videos/spy/criterio-tipos.md`.
+- Carrizo: 86 reels en 9 hojas, un subagente Sonnet, 94 mil tokens y 33 s (unos 1.100 tokens por reel con todo). Dio 83 a cámara,
+  2 animación y 1 avatar IA («papá vs profe», que el propio subagente marcó como dudoso). Lo mismo que se vio el 21/11 con la regla
+  de una hoja: Carrizo graba todo a cámara.
+- La regla que más decide: a cámara con pantallas de apoyo de vez en cuando es a-camara («a cámara con b-roll»); es animacion sólo
+  si la pantalla o el gráfico manda en la mitad o más de los cuadros.
+
+### ⛔ El almacén de archivos de un artefacto tiene 1 GB, y se llena sin avisar antes
+- **Síntoma:** subiendo Dakota, el lote 44 guardó 7 de 20 archivos y el resto falló con «Delete an asset to free up space».
+- **Lo que pesaba:** ~964 MB de este chat (Dakota 471, Doglio 211, Collado 152, Carrizo 130) más los formatos de Content Machine.
+  Por formato: recorte de 25-35 s a 480 px, ~1,2 MB; póster a 480 px, 40 KB; lámina a 1080 px, 150-350 KB.
+- **El formato nuevo** (Cerebro, 21/11): recorte de **15 s a 480 px** (corta en el final de frase más cercano a 15 s, entre 12 y
+  18), unos 500-630 KB; pósteres a 480 px y láminas a 720 px. Las piezas llevan `recorte_s: 15`, y el detalle muestra «Ver
+  completo en Instagram». Doglio pasó de 195 a 101 MB y Dakota de 387 a 224 MB.
+- **Reemplazar con el almacén lleno** (no se puede subir antes de borrar): 1) se reescribe el documento con `video: null` (queda
+  el póster, la tarjeta no se rompe); 2) se borra el video viejo (`Artifact` delete con su id: anda sin confirmación, una llamada
+  por id); 3) se sube el nuevo; 4) se reescribe con el id nuevo; 5) se comprueba que nada apunte a un id borrado.
+  `tools/spy-reemplazo.py` arma cada fase. Sólo se borra lo que subió este chat y ninguna pieza usa: nunca lo de Content Machine.
+- **Para MaKo en producción** esto no va a un artefacto: va a Supabase Storage o a lo que traiga Apify.
+
+### ⛔ «/_blob/→» en la base: el mapeo tomaba la segunda palabra del renglón
+- **Síntoma (Martín):** muchas tarjetas negras en Spy, con el ícono de imagen rota. En 121 piezas (72 reels de Doglio y los 49 de
+  Collado) `medios.poster` y `medios.video` decían literalmente `"/_blob/→"`.
+- **Causa:** el subagente que subió esos lotes anotó en `assets-lineas.txt` el renglón entero de la respuesta
+  (`X.jpg → "/_blob/<id>" (id <id>)`) en lugar de «nombre id», y `spy-lotes.py mapa` tomaba la segunda palabra: la flecha. Los
+  ids estaban en el renglón: no hizo falta volver a subir nada.
+- **Lo que lo dejó pasar:** se validaron las líneas de los primeros lotes, pero no las del último subagente, y nada impedía
+  escribir un documento con un medio que no fuera un id real.
+- **La regla:** el mapeo saca el id con una expresión (los 32 hex del renglón, sin mirar el formato), y `spy.py armar` NO escribe
+  una pieza si algún medio no es `^/_blob/[0-9a-f]{32}$` o le falta el póster: la pieza espera hasta tener sus archivos. Las 93
+  piezas viejas de Content Machine con `vid/…` y `poster/…` son rutas de la versión y andan.
+- **Trampa de la PC:** un heredoc de Bash con `\b` dentro de un script de Python dejó caracteres de retroceso (0x08) en la
+  expresión, que no coincidía con nada y mapeó 0 archivos sin error. Las expresiones con barra invertida se escriben con el
+  editor, no por heredoc.
+
+### ⛔ El «1102×» de Doglio: Instagram oculta los me gusta y yt-dlp devuelve un 3
+- **Síntoma:** en Spy salió primera una pieza de Doglio con «1102×» y 3.308 me gusta.
+- **Causa:** Doglio oculta los me gusta. yt-dlp no devuelve vacío: devuelve `like_count: 3`. 9 reels y 7 de sus 10 carruseles
+  tenían ese 3, y el N× del carrusel se calculó contra una mediana de 3. En las otras seis cuentas no hay ni un 3.
+- **La regla** (`oculto()` y `nx_de()` en `tools/spy.py`): 3 me gusta o menos es «no se sabe» (`me_gusta: null`). El N× compara
+  siempre la MISMA métrica (vistas con vistas; un reel sin vistas en la grilla, sus me gusta contra los me gusta de los reels
+  vecinos; carruseles contra carruseles), con al menos 6 vecinos con dato real, sin los fijados y sin el propio. Si no alcanza,
+  `nx: null`: los carruseles de Doglio quedaron sin N×.
+- **Los fijados** van primero en la grilla aunque sean viejos y tienen las vistas infladas: salen de los vecinos. Se marcan con
+  `fijado: true` (los vistos con el ícono en la grilla, en `grilla-21-11.txt`, más los 3 primeros que son más viejos que el 4.º).
+- Cada pieza lleva por separado `vistas`, `me_gusta` y `comentarios`, porque la página calcula su propio «× lo normal» contra lo
+  que se está mirando. `reproducciones` sigue igual a `vistas` (o 0) por compatibilidad.
+
+### El criterio v2 de los tipos (Martín, 21/11): Martín no se graba
+- «Faltan un montón de animaciones y no entiendo la diferencia entre a cámara y avatar IA». El tipo dice CÓMO lo haríamos
+  nosotros, y Martín no se graba: todo lo que lleva una persona va con su avatar de IA. Quedan tres tipos:
+  - **avatar-ia** con `escena`: `"a-camara"` (una persona hablando: selfie, escritorio, podcast, recorte de llamada, pizarra con la
+    persona) o `"sketch"` (escena actuada, gancho actuado, ficción con IA);
+  - **animacion**: tutoriales por pasos, listas, pantallas de apps, datos y gráficos, texto con voz en off, b-roll con voz, pantalla
+    dividida con la cara chica arriba y diagramas abajo, vlog o montaje con música, y lo que ya es animación o dibujo;
+  - **carrusel**.
+- **La regla de la duda:** si no está claro y el mensaje se entiende sin ver la cara de una persona, es animacion. Con los 8
+  cuadros: si una persona hablando ocupa la mitad o más, avatar-ia; si la mitad o más son pantallas, gráficos, texto o b-roll,
+  animacion. El criterio para los subagentes está en `C:/dev/referentes-videos/spy/criterio-tipos-v2.md`.
+- **Lo que cambió al reclasificar** (Haiku, de 96 mil a 117 mil tokens por agente de ~100 reels): Carrizo pasó de 2 a 37
+  animaciones (de 86), Doglio de 34 a 60 (de 197: sus reels de pantalla dividida con pizarra abajo), Collado de 0 a 10 (de 49) y
+  las 84 piezas viejas de código quedaron en 32 a cámara, 32 sketch y 20 animación. El caso más ambiguo: una persona chica en un
+  estudio blanco con mucho texto animado.
+
+### ⛔ La laptop de Martín se apagó por temperatura: un proceso pesado a la vez
+- **Qué pasó (21/11, 07:27 UTC):** ventilador al máximo y apagón sin pantalla azul (Kernel-Power 41, código 0). Corrían a la vez
+  dos bajadas de `procesar.py` (yt-dlp, whisper en la GPU y ffmpeg), la bajada de la biblioteca con 8 hilos y un subagente
+  subiendo archivos. Es una MSI Thin 15 (i5-13420H, RTX 4060, 16 GB): fina, sin margen térmico.
+- **La regla de carga:** UN solo proceso pesado a la vez en total (o se baja, o se transcribe, o se pasa ffmpeg, o se sube);
+  whisper `small` de a un archivo con unos segundos de pausa; ffmpeg con `-threads 2`; yt-dlp de a uno; cada 20-30 minutos de
+  trabajo pesado, 2-3 minutos de pausa. `tools/procesar-suave.py` lo hace solo (varias cuentas en un proceso, 4 s entre reels y
+  150 s cada 25 minutos). Si la PC se pone lenta o el ventilador suena fuerte, se para y se avisa.
+- **Dos bajadas sobre la misma cuenta chocan:** la segunda llegó al reel que la primera estaba transcribiendo, le borró el
+  `audio.wav` y cortó con `FileNotFoundError` toda la cuenta. Una cuenta, un proceso.
+- **Después de un corte:** una carpeta con `video.mp4` y sin `meta.json` quedó a medias (se borra el video y se rehace). Las 15
+  carpetas vacías de Heras Media son las que ya no bajaban el 19/11, no del corte.
+
+### La página no muestra imágenes de otro dominio, y cada subida cuesta tokens
+- **Probado:** un documento con las láminas apuntando al depósito público de Supabase (`spy-miniaturas`) se dibujó en negro. La
+  página del artefacto bloquea imágenes de otro dominio: todo tiene que estar en su almacén (`/_blob/<id>`).
+- **Lo que cuesta subir** (de a 25 por llamada, un subagente que anota «archivo id»): Sonnet, 190 mil tokens para 303 archivos
+  (630 por archivo); Haiku, 149 mil para 198 y 183 mil para 255 (unos 720 por archivo: lo que pesa es releer las respuestas de
+  6 KB por lote en cada turno, no el modelo). Por eso, de la biblioteca de MaKo (893 carruseles, 7.088 láminas) va sólo la portada
+  de cada uno y las láminas enteras de los 150 mejores por N×; el resto lleva `laminas_pendientes: true` y se sube al elegirlo.
+- **La biblioteca de MaKo:** `carruseles_biblioteca_piezas` de producción, leída sólo con GET (`tools/leer-biblioteca.mjs`,
+  con el `.env.local` de producción). En producción NO existe la columna `revisada_en` que el código menciona (la app la da por
+  revisada). Las plantillas de «Ver ejemplo» no entran (negocios ficticios dibujados en el navegador, sin láminas) ni los
+  replicados (`image_disenos`: diseños nuestros).
+
+### Lo que quedó sin hacer
+- Julián Alborna: Martín tiene que pasar el usuario.
+- Los assets viejos de las 21 láminas chicas de Carrizo quedan en el almacén sin uso (se pueden borrar por id).
+
+---
+
 ## La relectura de los formatos no era «una vez»: lo que la IA no devolvía quedaba pidiendo para siempre (18/11/2026)
 
 - **Pendiente T12** (docs/pendientes-verificados-17-11.md), refutado el 17/11 y medido en el código de `main`.
@@ -2538,3 +2682,140 @@ La ficha muestra UNA línea con «Revisar la clave». Es la única excepción al
 **La regla que queda:** lo que la ficha pone en pantalla con una clase `spy-…` lleva su regla en la hoja de la ficha (`const CSS` de DetallePieza), con los mismos valores que SpyApp, para que en la computadora se vea igual. Los botones van acotados a `.spyd-nota .spy-boton`, no a `.spyd .spy-boton`: con una regla más ancha, un `spy-boton spy-boton-primario` dentro de la ficha perdería su fondo. Test: `tests/spy-ficha-estilos.test.ts`, que mira que cada clase `spy-…` de la ficha tenga su regla ahí.
 
 **Sin hacer:** `SuOferta` también usa `.spy-boton`, pero hoy no se monta en el teléfono (ver el comentario en `SpyM.tsx`). Si un día se monta, le pasa lo mismo.
+
+## El análisis con video para clientes: lo que se midió diseñándolo (21/11/2026)
+
+El diseño está en [spy/analisis-con-video.md](spy/analisis-con-video.md). Acá van las trampas.
+
+**⚠️ El diagnóstico obvio era el equivocado: «la clave de Apify está vencida desde el 13/11» no quería decir «Spy está roto para
+los clientes».** La clave de Spy es de CADA negocio (`APIFY_INSTAGRAM_TOKEN` en `credenciales`, por `credDelCliente`, que nunca
+cae a la de la plataforma). La rechazada es la del espacio 9. El único cliente con Spy, Leila (espacio 11), tiene la suya y anda: el
+19/11 le entraron reels nuevos. Se ve en un SELECT y sin tocar claves:
+- `credenciales` por `clave like 'APIFY%'`: qué negocio tiene clave, sin el valor;
+- `max(visto_primera_vez)` de `spy_piezas` por negocio: hasta cuándo entró algo;
+- `motivo` y `claveRechazada` en `app_settings` → `spy.transcripcion.*`.
+
+**Lo que sí quedó abierto:** el único guion que pidió Leila (16/11) falló al BAJAR el mp4 del CDN de Instagram desde Vercel
+(«No pude bajar el video de Instagram»), con Apify contestando bien. **No es el agente**: el CDN contesta 206 a
+`MaKoBot/1.0`, y a un agente de Chrome le contesta **302** (al revés de lo que uno espera). Puede ser el enlace vencido o la IP de
+Vercel. No se volvió a probar porque gasta el crédito de Apify de Leila. Es el paso del que depende todo el análisis con video:
+la primera prueba con la clave nueva del espacio 9 es bajar 3 reels desde producción.
+
+**ffmpeg ya corre en Vercel** (`app/api/cron/montaje/route.ts`, `ffmpeg-static`, `maxDuration` 800). Para medir un reel no hace
+falta el worker de Railway: el worker queda para el OCR y la música separada de la voz (`docs/diseno-desarmar-video.md`). Medido en
+la PC (3 reels de 89 a 151 s a 1080 px), la vista previa entera a 480 px son 40 a 48 s de CPU y los cuadros con los cortes, 14 a 17 s.
+Lo caro es decodificar el 1080 px, no la detección de escenas: por eso la vista previa va con sólo los primeros 35 s.
+
+**`MAX_BYTES_VIDEO` (25 MB) rechaza el 5 % de los reels:** 14 de 294 reels relevados pasan ese peso a 1080 px (la mediana es
+11,1 MB, en 75 s). En el guion de hoy, eso es «pesa demasiado» sin transcribir.
+
+**Dos cuentas del N× conviven, y no son la misma:**
+- la de la app (`lib/multiplo-rendimiento.ts`): 20 vecinas del mismo creador y formato, 7 como mínimo, nada de menos de una semana;
+- la del relevo a mano del 19 y el 21/11: la mediana de los 6 reels maduros más cercanos, afuera los de menos de 48 h.
+
+Para clientes va la de la app, porque Martín pidió el 5/11 «calculado igual en toda la app». ⚠️ `docs/hallazgos-contenido.md` dice
+que Spy no marca el N× de los REELS: **el código sí lo calcula** (las vistas, `p.tipo === 'reel'` → «corto»), y en producción 573
+de los 616 reels de Leila tienen vistas. Si no se ve, es la pantalla, y se verifica mirando antes de dar el dato por cierto.
+
+**«Formato» y «forma» son dos ejes distintos.** Los 19 formatos de Spy dicen QUÉ cuenta un reel (tutorial, lista, POV…). La forma
+del relevo dice CÓMO está hecho (sketch con IA, a cámara, animado, pizarra…), y es la que decide con qué herramienta de MaKo se
+replica. Meter la forma entre los 19 formatos rompería la marca `formatosV` y obligaría a releer todo.
+
+**Sin hacer:**
+- programar el diseño: espera las decisiones de Martín (§8 del diseño);
+- la clave del espacio 9: la carga Martín, porque es el dueño de la cuenta de Apify;
+- el guion que no pudo bajar sigue sin «Volver a intentar»: estaba en la lista desde el 14/11 y sigue igual.
+
+
+## Relevar a mano la cuenta de Instagram de un referente (21/11/2026, chat serie-avatar-ia)
+
+Para la serie con avatar de IA de Martín se relevaron seis cuentas sin Apify: 1.021 reels listados y 629 clasificados. Esto NO es
+el Spy de los clientes (ese usa Apify y vive en la app): es el relevo de los referentes de Martín. Las herramientas viven fuera del
+repo, en `C:/dev/referentes-videos/tools/` (`ampliar.py`, `portadas.py`, `procesar.py`, `tiras-dudas.py`), con el criterio en
+`C:/dev/referentes-videos/criterio-video-ia.md`. Las trampas de las herramientas de la PC (yt-dlp compartido, faster-whisper,
+ffmpeg) están en [hallazgos-contenido.md](hallazgos-contenido.md) → «Las herramientas compartidas de la PC».
+
+### 1. El usuario correcto: por la bio, nunca por el nombre
+
+| Persona | Cuenta real | La que parecía y no era |
+|---|---|---|
+| Ramiro Cubría (Rama) | `@ramiro.cubria` | `@ramirocubria` está vacía |
+| Víctor Heras | `@victorherasemprendedor` (494 mil) | `@victorheras` es un director de arte; `@victorherass`, otra persona |
+| Heras Media | `@herasmedia` (249 mil; bio «Soy @victorherasemprendedor») | `@victorherasmedia` tiene 50 seguidores |
+| Guille Collado | `@guille.colladomk` | el pedido decía `@guillecolladomk`, que no existe |
+| Juan Carrizo / Francisco Doglio | `@juanxcarrizo` / `@franciscodoglio` | — |
+| Julián Alborna | **sin confirmar** | las únicas cuentas con ese nombre son de un artista visual sin reels |
+
+- **La regla:** se confirma con tres datos: la bio (nicho de ventas, coaching o marketing), los seguidores y, si es una segunda
+  cuenta, que su bio nombre a la principal. Un nombre que no aparece no se adivina: se le pide el link a Martín. Alborna queda en
+  espera por eso.
+
+### 2. La lista de reels: con sesión, desde el Chrome de Martín y sólo leyendo
+
+- Sin sesión, Instagram muestra 12 publicaciones. El navegador de la app ya no tiene la sesión de Instagram (21/11), así que la lista
+  sale del Chrome de Martín con Claude in Chrome, pestaña «Reels». Sólo se lee: nada de me gusta, seguir, comentar ni guardar, y al
+  terminar se cierran las pestañas propias. Si aparece un captcha o una verificación, se para y se avisa.
+- **Trampas de la grilla:**
+  - La página tiene unas 24 tarjetas a la vez y va reemplazando las de arriba: se juntan mientras se baja de a 0,7 pantallas.
+  - La portada es un `background-image`, no un `img`.
+  - La salida de `javascript_tool` se corta a unos 1.500 caracteres: la lista se saca en tandas de 50 «código|vistas».
+  - Las vistas vienen abreviadas y con coma decimal («20,5k», «1,1M»): se separa con «;», nunca con coma.
+  - Los fijados salen primero aunque sean de 2024. Antes de buscar vecinos para el N×, se ordena por fecha, no por posición.
+- Listados el 21/11 (lo que había en la pestaña): Rama 243, Víctor 225 (hasta diciembre de 2021), Heras Media 246, Carrizo 87,
+  Doglio 168, Collado 52.
+
+### 3. El primer filtro no baja nada
+
+- `ampliar.py` usa `yt-dlp` sin descargar: fecha, texto de la publicación y portada. La duración viene en 0. Hace unos 193 reels
+  en 4 minutos y arma hojas de 20 portadas numeradas. Dos `yt-dlp` contra Instagram a la vez se frenan entre sí (de unos 15 s a
+  unos 30 s por reel).
+- **Clasifican subagentes Sonnet, de a dos por cuenta** (cada uno 5 a 7 hojas, 93 a 140 reels), con el criterio escrito. La
+  herramienta reportó de 76 mil a 85 mil tokens y de 18 a 27 segundos por subagente. Seis subagentes, unos 478 mil tokens para 629
+  reels: unos 760 por reel. Bajar y transcribir los 629 para decidir habría sido de 15 a 30 s de `yt-dlp` y whisper por reel.
+- **El criterio** (Martín, 21/11): entra sólo lo que NUESTRA versión haría con video generado por IA, porque eso cuesta (Omni,
+  US$0,024 por segundo). Lo que se hace por código o se graba a cámara va a otras series.
+  - **Sí:** el sketch entero (en Rama, el texto «Ficción 100% generada con IA» es la señal más fuerte); el gancho exagerado y
+    después a cámara (el noticiero falso del robo del Ferrari de Víctor); la escena con efecto (una ballena en la pileta).
+  - **No:** el tutorial animado (va al personaje en cubos, por código); lo dicho a cámara en selfie, escritorio o auto; la pizarra;
+    el recorte de una llamada o un podcast; la pregunta del público; el montaje de fotos con música.
+  - **Duda:** la persona está a cámara pero el texto sugiere que actúa, o la escena puede ser b-roll o actuación. Se baja y se mira
+    con 8 cuadros (`tiras-dudas.py`). Si sólo la portada es distinta y el resto parece a cámara, es «no».
+  - **Por qué existe la «duda»:** la portada no muestra el gancho. En Rama, 29 de sus 57 dudas terminaron pasando: sin la duda se
+    perdía más de la mitad de lo que entra.
+
+| Cuenta | Clasificados | Pasan | Duda | De las dudas, pasan | Entran |
+|---|---|---|---|---|---|
+| Rama | 193 | 20 | 57 | 29 de 57 | 49 (25 %) |
+| Víctor | 190 | 6 | 22 | 4 de 20 miradas | 10 (5 %) |
+| Heras Media | 246 | 20 | 50 | 6 de 35 (15 no bajaron) | 26 (11 %) |
+
+- Clasificados = listados menos los del relevo del 19/11, que ya estaban.
+- **El diagnóstico obvio era el equivocado: «más reels, más referencias».** En Víctor, que graba casi todo a cámara con texto
+  dorado, 190 reels dieron 10. Antes de listar 200 reels de una cuenta nueva, se clasifica UNA hoja de 20 portadas. Si pasa uno
+  o ninguno, no se sigue.
+
+### 4. El N×: uno solo para todas las tarjetas
+
+- Es contra la **mediana de los 6 reels maduros más cercanos en fecha de la misma cuenta**, sin el propio. Maduro quiere decir
+  publicado hasta el 19/11. Se usan las vistas de la grilla del 21/11 (`armar-ampliados.mjs`).
+- **Por qué cambió:** el relevo del 19/11 medía contra los reels de ±3 días, con las vistas leídas ese día. Al sumar 200 reels por
+  cuenta el 21/11 convivían vistas de dos días distintos. Además, una ventana de días fija queda casi vacía en las épocas en que la
+  cuenta publica poco, y seis vecinos son siempre seis. Con una sola lectura y vecinos fijos, todas las tarjetas se comparan igual
+  y un reel viejo no gana sólo por viejo.
+- Un reel con menos de 48 h muestra «nuevo» en lugar del N×.
+
+### 5. Bajar, transcribir y subir
+
+- Sólo lo que pasa o queda en duda se baja y se transcribe (`procesar.py`: `yt-dlp`, faster-whisper en la GPU y la hoja de cuadros).
+- Para la página se suben los primeros 25 s a 480 px y crf 30, unos 1,7 MB por reel, con el link al reel completo. Los videos
+  nuevos van al almacén de archivos del artefacto, no a la versión (ver [hallazgos-contenido.md](hallazgos-contenido.md) →
+  «Videos y pósteres en el almacén de archivos»).
+
+### Lo que quedó sin hacer
+
+- **Carrizo, Doglio y Collado no entran en la serie con avatar IA** (21/11, con la regla de una hoja). Se miró la hoja más nueva y
+  la más vieja de cada uno, y en las dos ninguna portada pasaba: todo es a cámara, vlog, pantalla o pizarra. Además, en los textos
+  de sus 307 reels no hay ninguna señal de escena con IA. No se clasificó el resto, lo que ahorró unos 240 mil tokens. Si Martín
+  los quiere para la serie de Martín a cámara, las hojas están en `C:/dev/referentes-videos/<cuenta>/ampliado/`.
+- **Hormozi:** no se amplió; en 48 reels tenía un solo sketch.
+- **Julián Alborna:** espera que Martín pase el usuario o el link.

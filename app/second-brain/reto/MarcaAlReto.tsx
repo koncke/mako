@@ -11,7 +11,14 @@ import { elChatPresentaElReto, senalAhora, senalarDondeTocar, usePresentaReto, u
 import { RETO_SUB } from '@/lib/reto/dias';
 import { useEnsayo, vistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
 
-export function MarcaAlReto({ empezo, listo }: { empezo: boolean; listo: boolean }) {
+/** UNA vez por pestaña (21/11/2026, Martín: «salga donde me salga, me marca que vuelva al reto de 7 días, no tiene sentido»): el `useRef`
+ *  sólo cuidaba un montaje, y al pasar a Offer Coach la marca volvía a salir. Va en sessionStorage (`mako.reto.`: lo limpia el reinicio). */
+const CLAVE_MARCADA = 'mako.reto.marcada.al-reto';
+const yaSeMarco = (): boolean => { try { return sessionStorage.getItem(CLAVE_MARCADA) === '1'; } catch { return false; } };
+const anotarMarcada = (): void => { try { sessionStorage.setItem(CLAVE_MARCADA, '1'); } catch { /* sin storage: queda el ref */ } };
+
+/** `enOtroLado`: la persona eligió otro chat (un coach, un chat, un grupo): el recorrido no la persigue. */
+export function MarcaAlReto({ empezo, listo, enOtroLado = false }: { empezo: boolean; listo: boolean; enOtroLado?: boolean }) {
   const ensayo = useEnsayo();
   const visto = useRecorrido('tutorial-ops-center', { autoabrir: false }).visto;
   // En el ensayo «desde cero», lo visto vive en el navegador (app/_ui/tutorial/desde-cero.ts).
@@ -21,13 +28,15 @@ export function MarcaAlReto({ empezo, listo }: { empezo: boolean; listo: boolean
   const presenta = usePresentaReto();
   const marcado = useRef(false);
   useEffect(() => {
-    if (!listo || empezo || marcado.current || senal || presenta || opsVisto !== true) return;
+    if (!listo || empezo || marcado.current || enOtroLado || yaSeMarco() || senal || presenta || opsVisto !== true) return;
     const t = window.setTimeout(() => {
-      if (senalAhora() || elChatPresentaElReto() || marcado.current) return;
+      if (senalAhora() || elChatPresentaElReto() || marcado.current || yaSeMarco()) return;
       marcado.current = true;
-      senalarDondeTocar({ sel: '[data-recorrido="sb-reto-chat"]', titulo: 'Tu reto de 7 días', texto: RETO_SUB, haz: 'Haz clic en Reto de 7 días', lado: 'derecha' }, () => {});
+      anotarMarcada();
+      // Con «Lo hago después»: volver al reto es una invitación, nunca un cartel que obliga.
+      senalarDondeTocar({ sel: '[data-recorrido="sb-reto-chat"]', titulo: 'Tu reto de 7 días', texto: RETO_SUB, haz: 'Haz clic en Reto de 7 días', lado: 'derecha' }, () => {}, { alOmitir: () => {} });
     }, 700);
     return () => window.clearTimeout(t);
-  }, [listo, empezo, senal, presenta, opsVisto, ensayo.v]);
+  }, [listo, empezo, enOtroLado, senal, presenta, opsVisto, ensayo.v]);
   return null;
 }

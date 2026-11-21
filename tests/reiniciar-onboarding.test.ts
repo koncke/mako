@@ -134,7 +134,9 @@ test('5. el navegador se limpia una vez por reinicio, antes de React (si no, le 
 
 test('6. el botón, al lado de RESET en la vista de administrador: dice que no borra nada y pide confirmación', () => {
   const barra = sinComentarios(leer('app/_components/ImpersonationBanner.tsx'));
-  assert.match(barra, /\{!modoAgencia && \(\n\s*<div [^>]*>\n\s*<PanelAgencia cliente=\{cliente\} \/>\n\s*<ReiniciarOnboarding cliente=\{cliente\} \/>/, 'en cualquier cliente (RESET, sólo en el de prueba)');
+  // 21/11/2026 (Martín): es EL «RESET» de la barra; el que vaciaba todo, en /admin/customers/<ws>. En lugar de «Datos de Mauricio»,
+  // «Autocompletar» (tests/revision-reset-y-autocompletar.test.ts).
+  assert.match(barra, /\{!modoAgencia && \(\n\s*<div [^>]*>\n\s*<PanelAgencia \/>\n\s*(?:\{\}\n\s*)?<Autocompletar \/>\n\s*(?:\{\}\n\s*)?<ReiniciarOnboarding cliente=\{cliente\} \/>/, 'en cualquier cliente');
   const b = sinComentarios(leer('app/_components/ReiniciarOnboarding.tsx'));
   assert.match(b, /export const TEXTO_REINICIAR = '[^']*No borra nada de lo suyo[^']*Su WhatsApp sigue verificado\.';/);
   assert.match(b, /\{confirmar \? \(/, 'con confirmación');

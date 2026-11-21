@@ -34,6 +34,7 @@ import { clavesAProbar, clavesDe, sinCopiasDeLaPlataforma } from '@/lib/ia-keys'
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import type { QuienContesto } from '@/lib/quien-contesto';
 import { PROVS_SU_IA, conD6bDelPedido, d6bDecidida, pasaPorLaPuerta, proveedorPermitido, soloSuIA } from '@/lib/solo-su-ia';
+import { MARCA_EL_DE_MAKO, escuchaElDeMaKoAlFinal } from '@/lib/nota-de-voz-de-mako';
 import { conMedidorDeMt, esSinSaldoDeMt, medidorAbierto } from '@/lib/mako-tokens-medidor';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { conSuIASinClave, CON_SU_IA_SIN_VISION } from '@/lib/fallo-ia-texto';
@@ -2223,6 +2224,30 @@ async function groqDeLaPlataforma(): Promise<Prov[]> {
   return out;
 }
 
+/**
+ * El Whisper de MaKo (el Groq de la plataforma) para la nota de voz de un cliente sin IA propia (`escuchaElDeMaKoAlFinal`): el
+ * texto, '' si la nota no traía voz, o null si no pudo. Sus errores van marcados (`MARCA_EL_DE_MAKO`): con ellos, «ninguna IA pudo»
+ * es que la de MaKo FALLÓ, y la persona no lee «conecta la tuya» (lib/dictado-error.ts).
+ */
+async function escucharConElDeMaKo(base64: string, buf: Buffer, mime: string, o: SttOpts, errores: string[]): Promise<string | null> {
+  const propios: string[] = [];
+  try {
+    for (const p of await groqDeLaPlataforma()) {
+      const oido = await escucharCon(p, base64, buf, mime, { ...o, motivo: `Whisper de MaKo (nota de voz sin IA propia) · ${o.motivo ?? ''}`.trim() }, propios);
+      if (!oido) continue;
+      // El mismo corte de bucles que las cuentas del negocio (lib/stt-degenerado.ts).
+      const enBucle = salidaDegenerada(oido.texto);
+      if (enBucle) { propios.push(`${rotulo(p)}: ${enBucle.motivo}`); continue; }
+      if (!oido.texto) return '';
+      o.alEscuchar?.(`${rotulo(p)} (MaKo)`);
+      return corregirMarca(oido.texto);
+    }
+    return null;
+  } finally {
+    errores.push(...propios.map((e) => `${MARCA_EL_DE_MAKO}${e}`));
+  }
+}
+
 /** El error de un STT que no pudo con NADA. `errores` son sólo los de las keys del negocio. */
 export class SttSinEscucha extends Error {
   constructor(public readonly errores: string[], public readonly erroresPlataforma: string[]) {
@@ -2287,9 +2312,12 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   // El nombre de la marca se corrige ACÁ, que es por donde entra mal: Whisper escucha "MaKo" y
   // escribe «Maco», esa cadena termina siendo el TÍTULO de una tarea y desde ahí el Perro la
   // repite en su razón y en el deadline. Ver `corregirMarca` en lib/mako-gramatica.ts.
+  // Cuántas cuentas DEL NEGOCIO se probaron: con alguna, el Whisper de MaKo no entra (ni si fallan; lib/nota-de-voz-de-mako.ts).
+  let cuentasDelNegocio = 0;
   for (const nombre of orden as ProvName[]) {
     // Igual que el chat: todas las CUENTAS de este proveedor antes de saltar al siguiente.
     for (const p of await provsDe(nombre)) {
+      cuentasDelNegocio++;
       const r = await escucharCon(p, base64, buf, mime, o, errores);
       if (!r) continue;
       // ⚠️ UN 200 CON UN BUCLE ADENTRO ES UN FALLO, NO UNA TRANSCRIPCIÓN (08/10/2026). Gemini
@@ -2315,6 +2343,13 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
 
   // ── 2. La red de plataforma ── (la nota de voz de un grupo ya probó el Groq de la plataforma, y Gemini no va)
   if (o.notaDeVozDelGrupo) throw new SttSinEscucha(errores, erroresPlataforma);
+  // ── 1b. LA NOTA DE VOZ DE UN CLIENTE SIN IA PROPIA: el Whisper de MaKo (20/11/2026, lib/nota-de-voz-de-mako.ts) ──
+  // Sin clave del negocio, la nota (`pii`) no tenía con quién: «necesito una IA conectada» en todas las cajas con micrófono. La
+  // escucha el Groq de la plataforma (no entrena con lo que recibe) y la paga el cupo de MaKo Tokens (el medidor, arriba).
+  if (escuchaElDeMaKoAlFinal({ ...o, soloSuIA: soloSuIA(), sinClavesDelNegocio: cuentasDelNegocio === 0 })) {
+    const deMako = await escucharConElDeMaKo(base64, buf, mime, o, erroresPlataforma);
+    if (deMako != null) return deMako;
+  }
   const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
   const wsSA = await wsSuperAdmin().catch(() => null);
   const wsActual = await getWorkspaceActual().catch(() => null);

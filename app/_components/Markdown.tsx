@@ -38,7 +38,7 @@ const CODIGO_EN_LINEA = { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Cons
 /** Una *cursiva* sólo si el asterisco abre una palabra y el otro la cierra: «lib/*.ts y app/*.tsx» no es una cursiva. */
 const CURSIVA = /(^|[\s(\[«"'])(\*[^*\s](?:[^*]*[^*\s])?\*)(?=$|[\s.,;:!?)\]»"'])/g;
 
-/** Inline: `código`, **negrita** y *cursiva*. Lo demás pasa como texto; con `enlaces`, los links http(s) y
+/** Inline: `código`, **negrita**, *cursiva* y ++subrayado++. Lo demás pasa como texto; con `enlaces`, los links http(s) y
  *  `[texto](url)` van como <a> (17/10/2026, el Ops Center: «un link pegado en el chat siempre se ve azul y clickeable»;
  *  lib/links-texto.ts). El código no se interpreta por adentro: lo que va entre comillas invertidas sale tal cual. */
 export function renderInline(text: string, k: string, enlaces = false, iconos = false): ReactNode[] {
@@ -63,9 +63,13 @@ export function renderInline(text: string, k: string, enlaces = false, iconos = 
   };
   const conNegrita = (p: string, kk: string): ReactNode[] => p.split(/(\*\*[^*]+\*\*)/g).map((q, i) =>
     /^\*\*[^*]+\*\*$/.test(q) ? <strong key={`${kk}-${i}`}>{conCursiva(q.slice(2, -2), `${kk}-${i}`)}</strong> : <span key={`${kk}-${i}`}>{conCursiva(q, `${kk}-${i}`)}</span>);
+  // EL SUBRAYADO, «++así++» (21/11/2026, Martín: negritas, cursivas, subrayado, viñetas y números en los mensajes). Sólo si el texto
+  // lo trae: lo demás conserva el DOM de siempre.
+  const conSubrayado = (p: string, kk: string): ReactNode[] => (!p.includes('++') ? conNegrita(p, kk) : p.split(/(\+\+[^+\n]+\+\+)/g).map((q, i) =>
+    /^\+\+[^+\n]+\+\+$/.test(q) ? <u key={`${kk}-u${i}`}>{conNegrita(q.slice(2, -2), `${kk}-u${i}`)}</u> : <span key={`${kk}-s${i}`}>{conNegrita(q, `${kk}-s${i}`)}</span>));
   return text.split(/(`[^`\n]+`)/g).flatMap((p, i): ReactNode[] => (/^`[^`\n]+`$/.test(p)
     ? [<code key={`${k}-c${i}`} style={CODIGO_EN_LINEA}>{p.slice(1, -1)}</code>]
-    : conNegrita(p, `${k}-${i}`)));
+    : conSubrayado(p, `${k}-${i}`)));
 }
 
 /**
@@ -99,12 +103,13 @@ export function Markdown({ text, compacto = false, enlaces = false, aire = false
   const flush = () => {
     if (bullets.length) {
       const items = bullets;
-      blocks.push(<ul key={`ul-${blocks.length}`} style={{ ...lista, paddingLeft: 20 }}>{items.map((b, i) => <li key={i} style={item}>{renderInline(b, `li-${blocks.length}-${i}`, enlaces, iconos)}</li>)}</ul>);
+      // Con su punto (21/11, producción): Tailwind deja las listas sin marca, y salían sangradas como saltos de línea.
+      blocks.push(<ul key={`ul-${blocks.length}`} style={{ ...lista, paddingLeft: 20, listStyleType: 'disc' }}>{items.map((b, i) => <li key={i} style={item}>{renderInline(b, `li-${blocks.length}-${i}`, enlaces, iconos)}</li>)}</ul>);
       bullets = [];
     }
     if (numeradas.length) {
       const items = numeradas;
-      blocks.push(<ol key={`ol-${blocks.length}`} start={desde} style={{ ...lista, paddingLeft: 22 }}>{items.map((b, i) => <li key={i} style={item}>{renderInline(b, `ol-${blocks.length}-${i}`, enlaces, iconos)}</li>)}</ol>);
+      blocks.push(<ol key={`ol-${blocks.length}`} start={desde} style={{ ...lista, paddingLeft: 22, listStyleType: 'decimal' }}>{items.map((b, i) => <li key={i} style={item}>{renderInline(b, `ol-${blocks.length}-${i}`, enlaces, iconos)}</li>)}</ol>);
       numeradas = [];
     }
     if (tabla.length) {

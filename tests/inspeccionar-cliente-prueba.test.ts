@@ -43,7 +43,8 @@ test('«Salir de la vista» sólo sube a la agencia si el cliente es suyo HOY', 
 });
 
 test('el panel de pruebas (con el Reset) del Cliente de Prueba no se esconde por una fila revocada', () => {
-  const src = sinComentarios(leer('app/api/datos-mau/route.ts'));
+  // Desde el 21/11 la puerta vive en la ruta del negocio de prueba («Datos de Mauricio» se borró).
+  const src = sinComentarios(leer('app/api/admin/negocio-de-prueba/route.ts'));
   const i = src.indexOf('async function wsDePrueba');
   const cuerpo = src.slice(i, src.indexOf('\n}\n', i));
   assert.match(cuerpo, /if \(\(await agenciasDeCliente\(ws\)\)\.some\(esCarteraVigente\)\) return null;/,

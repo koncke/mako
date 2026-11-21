@@ -109,7 +109,8 @@ test('la columna: flechas si se arrastra, campañas en la entrada, el curso en G
 // Rotura: «Quitar la selección» sin la condición → 1 fallo.
 test('el fondo: lo del «⋯» de la barra, en su orden, y «Quitar selección» sólo con selección', () => {
   // El orden del «⋯» desde el 24/10/2026: lo que trae leads, lo que los saca, y la configuración.
-  assert.deepEqual(opcionesCrm({ sobre: 'fondo', seleccionados: 0 }), ['nuevo_lead', null, 'importar', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas']);
+  // «Asignar fuentes» también acá, al lado de importar (20/11/2026: «en los 3 puntos de arriba a la derecha también»).
+  assert.deepEqual(opcionesCrm({ sobre: 'fondo', seleccionados: 0 }), ['nuevo_lead', null, 'importar', 'asignar_fuentes', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas']);
   assert.deepEqual(opcionesCrm({ sobre: 'fondo', seleccionados: 4 }).slice(-2), [null, 'lote_limpiar']);
 });
 

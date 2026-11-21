@@ -39,8 +39,8 @@ test('1. el tutorial no tiene presentación: ni «Cómo funciona», ni «Empezar
   // Arranca solo: con frases, el video manda apenas está; sin ellas, el primer paso.
   assert.match(m, /useEffect\(\(\) => \{ if \(conFrases && !modoVideo && i === -1 && vidRef\.current\) siguiente\(\); \}/);
   assert.match(m, /if \(i !== -1 \|\| conFrases \|\| modoVideo\) return;\n\s*const t = window\.setTimeout\(\(\) => \{ setEl\(null\); setGeo\(\{ hueco: null, tarjeta: null \}\); setI\(0\); \}, ESPERA_VIDEO_MS\);/);
-  // Para saltearlo, se cierra el video del costado.
-  assert.match(m, /onCerrar=\{\(\) => fin\('omitido'\)\} onOmitir=\{\(\) => fin\('omitido'\)\}/);
+  // Para saltearlo, se cierra el video del costado (su X: desde el 21/11 sin «Omitir recorrido» en el video, tests/un-video-a-la-vez.test.ts).
+  assert.match(m, /onCerrar=\{\(\) => fin\('omitido'\)\} \/>/);
   // Y en ningún otro lado de la app un tutorial dice «Cómo funciona …» armado con su nombre.
   const otros = archivos(join(RAIZ, 'app')).filter((f) => /Cómo funciona \$\{/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(otros, []);

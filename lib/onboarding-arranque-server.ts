@@ -7,6 +7,7 @@
 // Las llaman la página (/onboarding, para el primer dibujo) y la ruta (/api/onboarding/arranque).
 // =============================================================================
 
+import { vistaDelWhatsappSimulado } from './onboarding-v2/whatsapp-simulado';
 import QRCode from 'qrcode';
 import { after } from 'next/server';
 import { linkApp } from './app-url';
@@ -449,8 +450,9 @@ export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Pr
   const etapa = etapaDeArranque(e, h);
   // El pedido del WhatsApp (la tarjeta del código) se lee ANTES de armar la conversación: su `numeroLinea` es la línea que abre «Abrir
   // WhatsApp» (el link `wa.me`), y el mensaje del código dice ESE número (20/11/2026, la llamada con Leila: `v2Codigo`).
+  // En la revisión, el WhatsApp simulado de un número nuevo (21/11, lib/onboarding-v2/whatsapp-simulado.ts): sin leer la verificación de verdad.
   const whatsapp = etapa === 'codigo' && e.telefonoEntrante
-    ? await getWorkspaceActual().then((ws) => (ws == null ? null : estadoVerificacionEntrante(ws))).catch(() => null)
+    ? e.simulacion ? vistaDelWhatsappSimulado(e) : await getWorkspaceActual().then((ws) => (ws == null ? null : estadoVerificacionEntrante(ws))).catch(() => null)
     : null;
   const { antes, despues } = mensajesDeArranque(e, { ...h, lineaMaKo: whatsapp?.numeroLinea ?? null });
   // Con el onboarding ya terminado anota sólo el POST que lo cierra (`'cierre'`): el congelado del historial depende de que

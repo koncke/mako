@@ -1,6 +1,79 @@
 # Relevo del Cerebro
 
 
+## 21/11/2026 ~08:45 UTC — LEER PRIMERO (claude5 al 94 %)
+
+**La PC se apagó por CALOR a las 07:27 UTC** (Kernel-Power 41, código 0; muchos procesos de video a la vez). Regla: UN proceso pesado a la vez en
+toda la PC (memoria pc-se-apaga-por-calor). Después del apagón: Runner despertado, vigía y cron del chequeo de las 11:05 rearmados (los crons de
+sesión mueren con la app: si esta sesión se reinicia, volver a crear el de las 11:17 UTC que recorre el onboarding).
+**Content Machine** (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz; memoria solo-content-machine; a Martín SÓLO este link): tabs Spy ·
+Reels · Carruseles. La publica SÓLO avatar-ia-videos (local_fc754a71…); Spy lee la colección `spy` de la base, que llena el chat
+**spy-competencia** (local_557794c1…), con el contrato en docs/hallazgos-contenido.md. 503 piezas: Rama, Heras Media, Víctor, Hormozi, Carrizo,
+Doglio y Collado; bajando @dakota.hermes (357 reels + 58 carruseles). Después: lo que falta de Rama, Heras Media, Víctor y Hormozi, y la
+biblioteca de MaKo (portadas de 893 + láminas de 150). Julián Alborna sin usuario. Las imágenes de «nuestra versión» por ApiMart siguen FRENADAS
+hasta que Martín se lo autorice EN ese chat. «Hacer mi versión» escribe en la cola `produccion`.
+
+## 21/11/2026 ~05:45 UTC — LEER PRIMERO (cuenta claude5, semanal al 91 %; reinicia el 24/11 17:59 UTC)
+
+**Deploy hecho a pedido de Martín** («despliega en producción… todo en un solo deploy»): `f37c3439c`, READY 05:24 UTC. El cron de
+las 11:05 sólo compila si main trae algo nuevo (lib/desplegar-main.ts), así que lo que se arregle antes sale solo ahí.
+
+**Onboarding, recorrido en producción** (ws 3: /admin/customers/3 › «Acciones del negocio» › «Entrar a su cuenta»; videos silenciados
+con un MutationObserver y la pestaña cerrada al final). Bien: un solo RESET, «Autocompletar», sin «Datos de Mauricio», «Ir a un paso»
+con todos los pasos, video en el chat, formato. **Tres fallas devueltas al chat onboarding-v2** (sale a las 11:05 y se vuelve a recorrer):
+1) un video a la vez NO pausa el FLOTANTE (es otro `<video>`): play al 1, bajar, play al 2 → el flotante sigue; 2) «Abrir WhatsApp» en la
+revisión contesta solo «Listo, ya lo cargué» sin el modal que simula WhatsApp; 3) «Ir a un paso › 3» desde /second-brain cae en
+«¿Guardaste…?». Sin mirar todavía: emojis a 375, micrófono, reto, «Borrar todos los datos».
+
+**Content Machine** = https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz (antes «Serie con avatar IA»), lo publica SÓLO el chat
+avatar-ia-videos. Pestañas Avatar IA (93 reels: Rama, Heras Media @herasmedia, Víctor; filtro «nuestra versión con video de IA»;
+lo demás en C:/dev/referentes-videos/artefacto/serie/otras-series.json) · Animaciones (7 reels completos + 91 formatos) · Carruseles (11,
+copiados de VSm2NYaJj1UovnvzpMPhiY). Pedidos en curso: comentarios por AUDIO en todo, los formatos adentro (depósito de assets, tope de 511
+archivos por versión), el detalle bien formateado con UNA zona de comentarios, recopiar carruseles v5. En cola: @juanxcarrizo,
+@franciscodoglio, @guille.colladomk, Hormozi; **Julián Alborna sin encontrar: Martín tiene que pasar el usuario.** Imágenes de «nuestra
+versión» por ApiMart FRENADAS: el clasificador del chat no lo deja leer la clave; Martín tiene que escribírselo EN ESE chat (un reenvío
+del Cerebro no vale). Relevo y cosecha del chat en `punta/serie-avatar-ia`.
+
+**Carruseles:** los 11 de Martín pasan («si tapo el texto, ¿la imagen cuenta lo mismo?»), artefacto VSm2NYaJj1UovnvzpMPhiY v5; dos CTA
+(HORMOZI, GRUPO) prometen guías que no existen; cosecha en docs/hallazgos-carruseles.md (`c8128db7a`, punta/carruseles-leila). **Leila:**
+sus arreglos (copy pegado, lámina en blanco, fotos repetidas) están en prod; el chat los prueba en ws 9 y al pasar **el Cerebro le avisa
+en su grupo (ws 11)**.
+
+**Spy con video para clientes:** decidido por Martín: Apify. Diseño en `punta/spy-analisis-video` (docs/spy/analisis-con-video.md),
+espera decisiones de Martín; la clave rechazada es la del ws 9, a clientes no les rompe nada.
+
+## 21/11/2026 ~02:40 UTC — LEER PRIMERO (cuenta claude5, semanal al ~88 %)
+
+**Deploys: UNO por día, el cron de las 11:05 UTC. `desplegar-ya` sólo si Martín lo pide en ese pedido** (memoria vercel-costo-builds:
+el 20/11 se hicieron 53 builds a ~US$0,84 cada uno). Lo que espera el deploy del 21/11 11:05: un video a la vez, RESET único +
+«Autocompletar» + «Ir a un paso» que reinicia, la animación de Second Brain, el formato de los mensajes, el replicador de carruseles
+con IA (ApiMart) y el corte de grupos nuevos. **Después del deploy:** recorrerlo en el ws 3 (videos silenciados, una pestaña) y
+avisar a los clientes lo que se resolvió para ellos (memoria ticket-cerrado-siempre-se-avisa: TODO lo de un cliente termina con aviso).
+
+**Lo que se mira en producción después del deploy del 21/11 11:05 UTC** (ws 3, sesión de Martín en el navegador de la app, videos
+silenciados, UNA pestaña y cerrarla al terminar; el banco local scripts/banco-onboarding ya cubre 48 chequeos):
+1. el panel de emojis a 375 dentro del Ops Center; 2. el micrófono (grabar, transcribir, mandar, con y sin IA); 3. «Guardar contacto»
+en el teléfono; 4. «Entrar a MaKo» hasta la app; 5. el recorrido sobre el Ops Center real con la capa del Second Brain y la flecha;
+6. «Ir a un paso» a una marca del medio de otra pestaña (Día 2 · Integraciones); 7. «Ir a un paso» al código por WhatsApp (modal,
+pegar, «¿Guardaste…?»); 8. «Autocompletar» en origen e intereses; 9. el reto: «¿Qué hacemos ahora?», el desplegable de días, el
+catálogo y las marcas de las tareas; 10. el formato en los globos; 11. «Borrar todos los datos» en /admin/customers/3 (sólo cuentas
+de prueba, pide el nombre). Y un video a la vez (play a uno, después a otro: el primero se pausa y no flota).
+
+**Chats vivos y en qué están** (los ids en list_sessions linked):
+- **onboarding-v2:** los pedidos de Martín del 21/11 (memoria onboarding-16-11-decisiones, bloque 21/11): falta «Ir a un paso» con todos
+  los pasos individuales y el paso del WhatsApp igual que un cliente nuevo (con un modal que simula WhatsApp); borrar /api/datos-mau;
+  después los tests Playwright contra el ws 3.
+- **carruseles-r-plica-fiel:** el replicador regenera cada lámina con ApiMart (Nano Banana Pro) desde su referencia; rehace los 11
+  carruseles de Martín en el ws 9 (ya salió «9 AGENTES DE IA», diseño 17c8dae2) y arma el artefacto lado a lado. Al terminar,
+  avisar a Leila en su grupo (ws 11): se le prometió.
+- **fuentes-crm, wa-no-callarse, reto-tutoriales:** en pausa, todo entregado.
+
+**Hecho y avisado el 20-21/11:** tickets #120 y #121 cerrados con aviso; a Código (ws 13) el aviso de Asignar fuentes (Juanfran) y
+de los pagos; a Leila (ws 11) que el onboarding está listo. Datos de cobro cargados (planes.pago_directo, checkout público APAGADO,
+sin descuento ni recargo). Binance lee desde São Paulo (gru1) y activa sin captura. Grupos de WhatsApp: no se crean más; los que
+existen siguen (Martín: «Sólo no crear más»).
+
+
 ## 19/11/2026 ~02:30 UTC — LEER PRIMERO (cuenta claude5, semanal al 0 %; se reinicia el 24/11 a las 18:00 UTC)
 
 Martín pasó de claude2 a claude5 y escribió «Continua… Haz los artefactos, y continúa con los tutoriales del reto de 7 días
