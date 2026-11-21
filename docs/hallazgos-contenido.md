@@ -1035,6 +1035,12 @@ el grande es NUESTRO reel o nuestra portada, y la referencia va en la miniatura;
 grande es la referencia. Formatos va al final, plegado detrás de «Formatos ▸». Viene: Ángulos pasa a llamarse
 «Tendencias», con datos por sector (no tocarla hasta que lleguen).
 
+**Dakota Hermes y los recortes de 15 s** (21/11). Entraron 408 piezas de Dakota (`spy/dakota-*`, cuenta `dakota`). Va con
+`creadores/dakota` creado sin foto (sale «DH»): la foto de perfil queda pendiente, porque Claude in Chrome no estaba
+conectado. **Trampa:** el almacén de archivos del artefacto tiene un tope de 1 GB y se llenó. Los recortes del Spy pasan a 15 s
+(480 px, ~500 KB, `recorte_s: 15`), y el detalle muestra «Ver completo en Instagram ↗» con el `url`. Lo nuevo propio (videos
+de referencia, láminas) también cuenta para ese tope.
+
 **El reel para mentores high ticket (los pistachos) está en «Reels terminados»** (21/11). No viene de la galería de
 animaciones: va a mano en `armar-cm.mjs` (`reels.push`).
 - **Cuál es la versión vigente:** `montaje/REEL-v-hormozi-palma.mp4` (37,8 s, con el clip de Hormozi aprobado). El relevo
