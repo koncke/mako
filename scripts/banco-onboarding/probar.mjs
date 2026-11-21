@@ -177,6 +177,13 @@ const ESCENARIOS = {
       const visible = await pg.evaluate(() => getComputedStyle(document.querySelector('.sbr-tuyo')).opacity === '1');
       chequear('brain', 'y se ve', visible);
       await pg.screenshot({ path: path.join(CAPT, 'brain-2-tuyo.png') });
+      // «Atrás» desde la flecha al grafo: la animación se repite (21/11, Martín: «para repetir la animación»).
+      await pg.evaluate(() => window.__banco.flecha());
+      await esperar(300);
+      await pg.evaluate(() => window.__banco.grafo());
+      const repite = await pg.waitForFunction(() => document.querySelector('.sbr')?.getAttribute('data-fase') === 'todo', null, { timeout: 1500 }).then(() => true).catch(() => false);
+      const vuelve = await pg.waitForFunction(() => document.querySelector('.sbr')?.getAttribute('data-fase') === 'tuyo', null, { timeout: 2000 }).then(() => true).catch(() => false);
+      chequear('brain', 'al volver al paso del grafo, la animación se repite', repite && vuelve);
       await pg.evaluate(() => window.__banco.cerrar());
       await esperar(900);
       chequear('brain', 'terminado el recorrido, la capa se va', (await pg.$('.sbr')) === null);

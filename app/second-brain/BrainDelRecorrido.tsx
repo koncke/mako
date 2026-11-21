@@ -19,12 +19,14 @@
 // =============================================================================
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react';
 import { createPortal } from 'react-dom';
-import { useSenal } from '@/app/_ui/tutorial/store';
+import { usePasoDelMotor, useSenal } from '@/app/_ui/tutorial/store';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { armarBrain, camaraDe, DEMORA_FASE_MS, type Brain, type CerebroCorto, type LoQueSabe } from '@/lib/onboarding-v2/brain-del-recorrido';
 import CEREBRO_JSON from './brain-del-recorrido.json';
 
 const CEREBRO = CEREBRO_JSON as unknown as CerebroCorto;
+/** El paso del recorrido que marca el grafo («Lo que MaKo sabe de ti»): al volver a él, la animación se repite. */
+const I_GRAFO = TUTORIAL_RECORRIDO.pasos.findIndex((p) => p.sel.includes('sb-grafo'));
 /** El teléfono de la maqueta (`angosta`). */
 const ANGOSTA = 720;
 /** Lo que dura el desvanecerse al terminar el recorrido. */
@@ -135,12 +137,21 @@ export function BrainDelRecorrido({ sabe }: { sabe: LoQueSabe }) {
     return () => window.clearTimeout(t);
   }, [corre, marco, puesta]);
 
-  // A los 1,2 s de ponerse, empieza a apagarse.
+  // Al ponerse, arranca directo (21/11: sin el cuadro quieto de antes). Y SE REPITE cada vez que el recorrido vuelve al paso del grafo
+  // (21/11, Martín: «quise ir de vuelta para atrás en el paso del second brain para repetir la animación»): vuelve al cuadro de partida.
+  const pasoMotor = usePasoDelMotor();
+  const enElGrafo = corre && pasoMotor === I_GRAFO;
+  const [vuelta, setVuelta] = useState(0);
+  const estabaEnElGrafo = useRef(enElGrafo);
+  useEffect(() => {
+    if (enElGrafo && !estabaEnElGrafo.current) { setFase('todo'); setVuelta((n) => n + 1); }
+    estabaEnElGrafo.current = enElGrafo;
+  }, [enElGrafo]);
   useEffect(() => {
     if (!puesta) return;
     const t = window.setTimeout(() => setFase('tuyo'), DEMORA_FASE_MS);
     return () => window.clearTimeout(t);
-  }, [puesta]);
+  }, [puesta, vuelta]);
 
   // La cámara, con el tamaño del lienzo.
   useEffect(() => {

@@ -15,7 +15,7 @@ import { ImpersonationBanner } from '@/app/_components/ImpersonationBanner';
 import { BrainDelRecorrido } from '@/app/second-brain/BrainDelRecorrido';
 import { LlegadaAlReto } from '@/app/second-brain/LlegadaAlReto';
 import { ModoDelUsuario } from '@/app/_components/ModoDelUsuario';
-import { cerrarTutorial, mostrarTutorial, senalAhora } from '@/app/_ui/tutorial/store';
+import { anotarPasoDelMotor, cerrarTutorial, mostrarTutorial, senalAhora } from '@/app/_ui/tutorial/store';
 import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { etapaDeArranqueV2, mensajesDeArranqueV2, type EstadoArranque, type HechosArranque } from '@/lib/onboarding-arranque';
 import { vistaDelWhatsappSimulado } from '@/lib/onboarding-v2/whatsapp-simulado';
@@ -92,7 +92,8 @@ if (p === 'videos') {
     <div style={{ height: '100vh', paddingTop: 52, boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}><ChatArranqueV2 inicial={vistaActual} ejemplos persona={{ nombre: '', email: 'prueba@ejemplo.test' }} /></div>
   </>);
 } else if (p === 'brain') {
-  w.__banco = { recorrido: () => mostrarTutorial(TUTORIAL_RECORRIDO), cerrar: () => cerrarTutorial(), senal: () => senalAhora()?.tipo ?? null };
+  const iGrafo = TUTORIAL_RECORRIDO.pasos.findIndex((x) => x.sel.includes('sb-grafo'));
+  w.__banco = { recorrido: () => { mostrarTutorial(TUTORIAL_RECORRIDO); anotarPasoDelMotor(iGrafo); }, flecha: () => anotarPasoDelMotor(iGrafo + 1), grafo: () => anotarPasoDelMotor(iGrafo), cerrar: () => { anotarPasoDelMotor(null); cerrarTutorial(); }, senal: () => senalAhora()?.tipo ?? null };
   raiz.render(<>
     <div className="cbg-marco" data-recorrido="sb-grafo" style={{ position: 'relative', width: 900, height: 600, margin: 20, background: '#1b1b1b', borderRadius: 12, overflow: 'hidden' }}>
       <div className="cbg-barra" style={{ position: 'absolute', top: 10, left: 10, right: 10, zIndex: 3, height: 40, background: '#444', borderRadius: 10 }}>

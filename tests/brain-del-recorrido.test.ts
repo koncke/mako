@@ -97,8 +97,12 @@ test('5. en la app: sobre el grafo de verdad, debajo de su barra, la primera vez
   assert.match(comp, /createPortal\(/);
   const z = /\.sbr\s*\{[^}]*z-index:\s*(\d+)/.exec(comp);
   assert.ok(z && Number(z[1]) < 3, 'por DEBAJO de la barra del grafo (z-index 3): la flecha de volver es el paso que sigue');
-  assert.match(comp, /setTimeout\(\(\) => setFase\('tuyo'\), DEMORA_FASE_MS\)/, 'a los 1,2 s empieza a apagarse');
-  assert.equal(DEMORA_FASE_MS, 1200);
+  assert.match(comp, /setTimeout\(\(\) => setFase\('tuyo'\), DEMORA_FASE_MS\)/, 'empieza a apagarse');
+  // 21/11 (producción): arranca DIRECTO, sin el cuadro quieto de 1,2 s («primero aparece un Second Brain chiquito»).
+  assert.ok(DEMORA_FASE_MS <= 100, `arranca directo (${DEMORA_FASE_MS} ms)`);
+  // Y se repite al volver al paso del grafo («Atrás» o «Ir a un paso»).
+  assert.match(comp, /if \(enElGrafo && !estabaEnElGrafo\.current\) \{ setFase\('todo'\); setVuelta\(\(n\) => n \+ 1\); \}/);
+  assert.match(comp, /\}, \[puesta, vuelta\]\);/);
   assert.match(comp, /new ResizeObserver\(/, 'la cámara se mide con el lienzo');
   const chat = sinComentarios(fuente('app/second-brain/ChatSecondBrain.tsx'));
   assert.match(chat, /verMapa \? \([\s\S]{0,900}\{mapa && retoV2 && loQueSabe && <BrainDelRecorrido sabe=\{loQueSabe\} \/>\}/, 'en la vista del grafo, sólo con el V2');
