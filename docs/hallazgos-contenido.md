@@ -4,6 +4,26 @@ El código vive fuera del repo, en `C:/dev/artefactos-animaciones` (galería, ki
 `docs/series/`. Lo del motor de la galería en sí (kit, render, trampas de Three.js) está en
 [editor-video/animaciones-por-codigo.md](editor-video/animaciones-por-codigo.md) → «La galería de formatos».
 
+## Ángulos de comunicación de Martín (21/11/2026, corrida de 9 agentes sobre 503 piezas de Spy)
+
+El documento para Martín es [series/angulos-de-comunicacion.md](series/angulos-de-comunicacion.md). Acá va lo que se aprendió y sirve
+para cualquier cuenta (y para llevar a MaKo):
+- **El diagnóstico obvio era el equivocado:** «la cuenta personal tiene que esquivar los temas de Rama». El crítico mostró que sus temas
+  (qué contenido trae plata, trazabilidad, clientes que pagan) son justamente los que más le rinden (trazabilidad, mediana 55.250). Lo que
+  diferencia no es el tema, es la PRUEBA: él opina, Martín muestra el número de lo que probó.
+- **Abrir con lo que se gastó rinde poco** (Carrizo, Db_zc0up4hg, nx 0,9): el número va como giro, no como gancho.
+- **La palabra del CTA tiene que nombrar lo que se lleva:** en Rama, EDITAR junta 12,2 comentarios cada 1.000 vistas; YO, de 1,0 a 2,7.
+  Una palabra genérica (INFO, CLASE) o sin el regalo armado no sirve.
+- **Explicador animado:** Dakota Hermes pasó de una mediana de 1.072 a 20.400 vistas cuando cambió a ese formato (síntoma → qué es →
+  por qué pasa → ejemplo con números → regla). Es el molde para la serie Educación y para la prueba de la cuenta MaKo.
+- **Mentalidad y vida sin hilo rinden menos:** Víctor, mentalidad, mediana 49.300 contra 85.100 de su cuenta; la vida de Collado, nx 0,4.
+- **Vos o tú:** lo que Martín dice A CÁMARA va con vos (docs/vsl/voz-de-martin.md: el tú «en su boca suena a guion leído»); lo que dice
+  el personaje con la voz clonada, con tú. La regla general «siempre tú» no aplica a su parte a cámara.
+- **Una cuenta nueva no tiene nx** (no hay reels vecinos): para la prueba de la cuenta MaKo se mide contra la mediana de las piezas de la
+  misma prueba, con el mismo formato, horario y duración, para que sólo cambie el ángulo.
+- **Sin hacer:** etiquetar cada pieza de Spy con su ángulo (para filtrar por ángulo en Content Machine) y decidir con Martín las cuatro
+  preguntas de «Cómo seguimos» del documento.
+
 ## Serie 3 (ventas, «encontré una aplicación») — 19/11/2026
 
 **El Martín en cubos dentro de una escena 3D propia.** El kit da `KIT.martin` con su propio renderer y su propia escena.
@@ -986,6 +1006,18 @@ elegido en otra lámina, el filtro lo escondía.
 - `estado`: «nuevo» al crearlo; el chat que lo atiende lo pasa a «visto» o «hecho». Se ve como chip.
 - **Trampa:** la capacidad `sample` lee texto e imágenes, no audio. La transcripción de los audios adjuntos la hace el chat
   (faster-whisper en la PC) y la escribe en `transcripcion`. Los comentarios dictados ya llegan como texto.
+
+## La pestaña «Ángulos» (21/11/2026)
+
+- Va después de Carruseles (`#angulos`). Es `docs/series/angulos-de-comunicacion.md` (commit 9fef26253) puesto en tarjetas:
+  la definición arriba; Personal y MaKo en dos columnas con el color de su cuenta; abajo «Todos los caminos llevan a Roma,
+  con tensión», «Qué NO hacer» y «Cómo seguimos», con las 4 preguntas para Martín destacadas en amarillo.
+- El contenido está escrito a mano en la página (`ANG` en `cuerpo.html`), resumido para que entre en cada tarjeta sin
+  achicar la letra. **Si cambia el documento, hay que actualizar `ANG`:** no se lee solo.
+- Cada gancho busca su referencia en Spy por el código de la publicación (`id`, `<cuenta>-<código>` o la `url`). Si la
+  encuentra, muestra la miniatura y, al tocarla, abre la pieza en Spy. Si no, dice «Todavía no está en Spy»: pasa con
+  Dakota, que no está en la colección.
+- Pendiente (pedido para más adelante): etiquetar cada pieza de Spy con su ángulo y filtrar por ángulo.
 - Lo que ya había quedó así: El avión = MaKo · A o B; los tres de Educación = Personal · Educación; Cubos = MaKo · Animados;
   El ticket = Personal · Ventas; Comentarios = MaKo · Comentarios; los 11 carruseles = Personal · Ventas. El dudoso es
   «Ofertas que se venden» (tuits de Hormozi), que podría ser Educación.
