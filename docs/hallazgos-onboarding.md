@@ -4250,3 +4250,23 @@ agentes sacaron 53 puntos con cita y minuto, y cada uno se cruzó con el código
   - El recorrido arrancado por un salto no se anota visto al terminar.
   - Las marcas del medio no se tocaron en páginas de verdad (los Playwright contra el ws 3).
 - tests/revision-pasos-individuales.test.ts (roto de a una rotura, 5).
+
+## El WhatsApp de la revisión, como el de un número nuevo y sin mandar nada (21/11/2026, chat «onboarding-v2», claude5)
+
+- **Síntoma** (Martín en el ws 3): con el número del negocio de prueba ya verificado, el paso decía «ya está confirmado» y se salteaba
+  el código. «Yo quiero ver exactamente igual lo que recibe el usuario».
+- **El arreglo obvio era el equivocado:** «des-verificar» el negocio de prueba rompe su WhatsApp de verdad (`getVerificacion`, la
+  línea, los avisos). Ahora el código simulado vive en el ESTADO DEL ONBOARDING (`simulacion`, lib/onboarding-v2/whatsapp-simulado.ts).
+  La ruta del arranque lo usa sólo con la puerta de la revisión, al crearlo y al verificarlo; un código simulado sin la puerta da 403.
+  Nada sale por WhatsApp ni toca la verificación de verdad.
+- **Trampa: en el camino de un número nuevo, la tarjeta de MaKo y «Guárdame…» NO están en el chat de la app.** MaKo los manda por
+  WhatsApp después del código (`mandarCodigoV2`, lib/mako-grupo.ts). Por eso el modal (app/onboarding/WhatsappSimulado.tsx) muestra el
+  pedido, el código, la tarjeta y «Guárdame…», en ese orden y con los textos de verdad. Después, la app sigue con «¿Guardaste…?».
+  Sumarlos al chat de la app hubiera mostrado algo que un cliente nunca ve.
+- «Abrir WhatsApp» es el mismo botón verde y el mismo `data-abrir-whatsapp` (la marca del tutorial lo encuentra igual). «Pegar el código»
+  lo deja en la caja, y se confirma solo como al pegarlo. «Reenviar» y «Pedir otro» no hacen nada en la simulación; «Cambiar número» la
+  borra.
+- **Sin hacer:**
+  - Mirarlo en la app de verdad (los Playwright contra el ws 3).
+  - «Ir a un paso» todavía no tiene «El código por WhatsApp».
+- tests/revision-whatsapp-simulado.test.ts (roto de a una rotura, 4).

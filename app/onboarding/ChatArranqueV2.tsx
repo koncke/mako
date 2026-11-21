@@ -27,6 +27,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { Button } from '@/app/_ui';
+import { WhatsappSimulado } from './WhatsappSimulado';
 import { Icon } from '@/app/_components/icons';
 import { InterruptorModo } from '@/app/_components/InterruptorModo';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
@@ -592,6 +593,8 @@ function TarjetaCodigo({ vista, ocupado, reescribir, resaltarWa, onConfirmar, on
   onUsarOtro: () => void; onReintentar: () => void;
 }) {
   const [codigo, setCodigo] = useState('');
+  // La revisión (21/11): «Abrir WhatsApp» abre el lado de WhatsApp simulado (./WhatsappSimulado.tsx), nunca wa.me.
+  const [simulando, setSimulando] = useState(false);
   /** El código que ya se mandó solo: no se manda dos veces el mismo (se vuelve a mandar con «Confirmar»). */
   const solo = useRef('');
   // «Confirmar» SIEMPRE activo (20/11, OA-06): con menos de 6 números, el servidor dice «Faltan números» (antes, un botón apagado).
@@ -623,7 +626,10 @@ function TarjetaCodigo({ vista, ocupado, reescribir, resaltarWa, onConfirmar, on
       {sinLink
         ? <><span className="arr-tarjeta__nota">No pude armar el mensaje.</span>
           <Button variant="primary" size="sm" loading={ocupado} disabled={ocupado} onClick={onReintentar}>Volver a intentarlo</Button></>
-        : <a className={`arr-v2__wa${resaltarWa ? ' arr-v2__wa--resalta' : ''}`} href={w.link!} target="_blank" rel="noopener noreferrer" data-abrir-whatsapp=""><Icon name="whatsapp" size={18} />Abrir WhatsApp</a>}
+        : w?.simulado
+          ? <button type="button" className={`arr-v2__wa${resaltarWa ? ' arr-v2__wa--resalta' : ''}`} data-abrir-whatsapp="" onClick={() => setSimulando(true)}><Icon name="whatsapp" size={18} />Abrir WhatsApp</button>
+          : <a className={`arr-v2__wa${resaltarWa ? ' arr-v2__wa--resalta' : ''}`} href={w.link!} target="_blank" rel="noopener noreferrer" data-abrir-whatsapp=""><Icon name="whatsapp" size={18} />Abrir WhatsApp</a>}
+      {simulando && w?.simulado && <WhatsappSimulado simulado={w.simulado} onPegar={(x) => { setCodigo(x); setSimulando(false); }} onCerrar={() => setSimulando(false)} />}
       {/* Su mensaje llegó y MaKo no pudo contestarle (20/11, wa-04; el servidor es del chat de WhatsApp: lib/verificacion-entrante.ts →
           avisoDelPedidoV2): una nota arriba del campo, debajo de «Abrir WhatsApp» (nunca encima). Se va sola cuando MaKo le contesta. */}
       {w?.aviso && <p className="arr-v2__aviso-wa" role="status" data-aviso-wa="">{w.aviso}</p>}
@@ -783,6 +789,7 @@ const CSS_V2 = `
 .arr-v2__error > button { flex: none; border: 0; background: none; color: var(--dim); cursor: pointer; font: inherit; padding: 0 2px; }
 .arr-v2__aviso { max-width: 760px; margin: 0 auto 8px; font-size: var(--fs-sm); color: var(--dim); text-align: center; }
 /* La tarjeta del código. */
+button.arr-v2__wa { font: inherit; cursor: pointer; }
 .arr-v2__wa { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: flex-start; height: 42px; padding: 0 18px; border-radius: 999px; border: 0;
   background: #25D366; color: #fff; font: 700 15px/1 'Geist', system-ui, sans-serif; text-decoration: none; cursor: pointer; box-shadow: 0 2px 8px rgba(37, 211, 102, .3); }
 .arr-v2__wa:hover { background: #1EBE5A; }
