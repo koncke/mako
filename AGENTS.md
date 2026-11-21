@@ -12773,3 +12773,6 @@ Lo fija tests/binance-pay-region.test.ts.
   tests/agencia-pago-consulta.test.ts (y uno que NO, del CRM).
 - Todo lector de comprobantes recibe el TEXTO que vino con la foto (`pie`). Una pregunta sin N.º de operación es una pregunta (`esPreguntaYNoPago`),
   no un pago: va al turno, sin «Recibí tu comprobante» ni aviso a Martín. Detalle: docs/hallazgos-agencias.md.
+- **Tener los datos de cobro no es ofrecerlos** (20/11/2026): /planes y el pedido preguntan `mediosDelCheckout` / `medioDirectoQueVale`
+  (lib/pago-directo-reglas.ts, interruptor `checkoutPublico`, apagado), nunca `mediosDisponibles`. Un campo nuevo en un ajuste que el editor
+  no manda se conserva al guardar (`guardarDatosDePagoDirecto`). El precio es el mismo por cualquier medio: nada de descuento ni recargo.

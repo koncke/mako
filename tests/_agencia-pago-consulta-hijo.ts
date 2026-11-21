@@ -59,7 +59,15 @@ mock.module(url('lib/agencia-mes.ts'), {
     textoAlGrupoDeLaAgencia: async (_ws: number, t: string) => { salio.grupo.push(t); },
   },
 });
-mock.module(url('lib/pago-directo.ts'), { namedExports: { leerDatosDePagoDirecto: async () => ({ binancePayId: escena.payId, linkBinance: null }) } });
+// Los datos de cobro como los carga el Cerebro el 20/11: con el checkout público de /planes APAGADO (Martín: «por ahora… todo por pasarela»).
+// A la agencia se le dice igual a dónde pagar.
+mock.module(url('lib/pago-directo.ts'), {
+  namedExports: {
+    leerDatosDePagoDirecto: async () => ({
+      binancePayId: escena.payId, linkBinance: null, linkTransferencia: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null, checkoutPublico: false,
+    }),
+  },
+});
 mock.module(url('lib/mako-pendientes.ts'), { namedExports: { crearPendiente: async () => ({ error: 'no en este hijo' }) } });
 mock.module(url('lib/mako-grupo.ts'), { namedExports: { getGrupoSuperAdminJid: async () => null } });
 mock.module(url('lib/grupo-salida.ts'), { namedExports: { claveDeLaApp: (ws: number) => `app:${ws}`, conSalidaDelGrupo: async (_o: unknown, f: () => unknown) => f() } });
