@@ -42,6 +42,7 @@ import { TOPES_CHAT_IMAGEN } from '@/lib/image-editor/chat/catalogo';
 import { resumenDeCambios, type CambioImagen } from '@/lib/image-editor/chat/aplicar';
 import { cambiarMensaje, cargarHilo, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from './hilo';
 import { aceptarPropuesta, detener, pedirEdicion, restaurarPropuesta, rotuloSeleccion, type AlcanceChat } from './acciones';
+import { mejorarContraste } from './contraste';
 import styles from './chat.module.css';
 import { ESCRIBIR_PLANTILLA } from '../../ruta';
 
@@ -136,11 +137,12 @@ function RevisionPropuesta({ m, tocada, onAceptar, onDescartar, onRestaurar }: {
 }
 
 /** Las sugerencias: el rótulo es lo que se ve; `instruccion`, lo que se pide; `rellenar` deja el texto para completar. */
-type Sugerencia = { rotulo: string; instruccion?: string; rellenar?: string; necesitaSeleccion?: boolean };
+type Sugerencia = { rotulo: string; instruccion?: string; rellenar?: string; necesitaSeleccion?: boolean; medida?: 'contraste' };
 const SUGERENCIAS: Sugerencia[] = [
   { rotulo: 'Cambia el título', rellenar: 'Cambia el título por: ' },
   { rotulo: 'Agrega un texto', rellenar: 'Agrega un texto que diga: ' },
-  { rotulo: 'Mejora el contraste', instruccion: 'Mejora el contraste de los textos con el fondo para que se lean bien.' },
+  // MEDIDO, sin IA (20/11/2026, la llamada con Leila: «no se lee, y le puse a aumentar contraste»): ./contraste.ts → `mejorarContraste`.
+  { rotulo: 'Mejora el contraste', medida: 'contraste' },
   { rotulo: 'Centra lo elegido', instruccion: 'Centra lo elegido en la página.', necesitaSeleccion: true },
   { rotulo: 'Otra paleta', instruccion: 'Cambia los colores del diseño por una paleta más llamativa, con buen contraste.' },
   { rotulo: 'Duplica la página', instruccion: 'Duplica la página abierta.' },
@@ -227,6 +229,7 @@ export function PanelMakoIA() {
   };
 
   const sugerir = (s: Sugerencia) => {
+    if (s.medida === 'contraste') { if (!ocupado && disenoId) void mejorarContraste(editorRef.current); return; }
     if (s.instruccion) {
       // Una sugerencia es NUESTRA y del diseño abierto: no pasa por /api/mako/pedidos (como en el Video Editor).
       enviar(s.instruccion, s.necesitaSeleccion ? 'seleccion' : alcanceReal, { interpretar: false });

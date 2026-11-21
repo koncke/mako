@@ -2576,6 +2576,11 @@ Tres reglas del 17/10/2026, cada una con su guard que barre en positivo (las lis
 - **Una URL que escribe un cliente (o su agente) se baja con `fetchSeguro`** (lib/fetch-seguro.ts):
   `validarDestino` en CADA salto, IP clavada, techo de tamaño. `fetch` sigue los redirects sin mirarlos, y
   validar sólo el primero es el agujero. `tests/landing-analisis-ssrf.test.ts`.
+- **Una puerta nueva por donde entra un lead de un FORMULARIO lo califica antes de inscribirlo** (20/11/2026):
+  `aplicarCalificacion` (lib/calificacion-aplicar.ts) con la clave del formulario (`meta:<form_id>`, `form:<id>` o
+  `web:<página>`, lib/fuentes-formularios.ts), ANTES de `enrolarPorEvento`: si no, un lead que sus reglas mandan a
+  «Descalificado» recibe la secuencia de «lead nuevo». Hoy lo hacen el opt-in, el webhook y el poll de Meta, y Zernio
+  (`tests/crm-fuentes-prospeccion.test.ts`, «la calificación se aplica en las tres puertas»).
 
 # Qué cierra un plan se lee en la PUERTA, nunca en la tabla de /planes
 
@@ -7434,7 +7439,11 @@ Escape de la casa viven en `document` y en captura, y `stopPropagation` frena la
 propagación a otros NODOS, nunca a los listeners hermanos del mismo. Medido el 27/09/2026
 en el selector de portada: una tecla cerraba el panel **y la ficha del cliente**, o sea que
 perdías el cliente por cerrar un selector. El de arriba de todo frena con
-`stopImmediatePropagation()`.
+`stopImmediatePropagation()`. **Y escucha en la captura de `window`, no en la de `document`**
+(21/11/2026): `stopImmediatePropagation` sólo frena a los que se registraron DESPUÉS en el
+mismo nodo, y lo que se abre encima se registra después del modal que ya estaba. Así un
+Escape para cerrar un desplegable cerraba el modal de «Asignar fuentes» con la regla a medio
+armar (tests/desplegable-escape-en-modal.test.ts).
 
 ⚠️ **Y UN EFECTO QUE MIDE UN NODO MONTADO POR UN PORTAL DEPENDE DEL ESTADO QUE MONTA EL
 PORTAL.** El patrón `const [montado, setMontado] = useState(false)` + `if (!montado) return
@@ -8951,6 +8960,15 @@ condiciones para que no mienta:
 
 ⚠️ **Y un «Cargando…» escrito no es un loader.** Un texto no dice que algo está pasando: dice
 que algo dice que está pasando. Va el giro, siempre.
+
+⚠️ **UNA ESCRITURA QUE TIENE QUE SENTIRSE EN EL ACTO NO HACE FILA DETRÁS DE LAS LECTURAS.**
+(21/11/2026) «Mandar a la papelera» en la ficha de un lead «no reaccionaba al primer clic»: el
+clic sí entraba, pero la server action esperaba detrás de las que la ficha manda al abrir
+(medido: cinco en serie en sus primeros 9 s) y el cartel ya se había cerrado. Si la pantalla
+tiene lecturas por server action en vuelo, la escritura va por una RUTA (`fetch`, en paralelo;
+`router.push` después, que en la fila de Next pasa adelante) — `app/api/crm/papelera/route.ts`.
+Y **un cartel de confirmación se cierra cuando la acción TERMINÓ, no cuando empezó**: abierto
+y con su `loading` mientras trabaja (tests/papelera-ficha-primer-toque.test.ts).
 
 # Un SQL escrito en un documento ES código, y se audita igual
 
@@ -12779,3 +12797,30 @@ algo que lee el cliente, usa `nombreDelPlanDe(ws, capa)` (lib/plan-visible.ts), 
 «Plan de tu agencia» o «Plan a medida». No traduzcas capa a plan a mano: el ws1 y los acuerdos a mano tienen la capa de un
 plan sin pagarlo. La ficha interna de los tickets decide con la misma `planQueSeVende`, y el concepto de un cobro de alta,
 con `conceptoDeAlta`. Los textos para quien VENDE (Martín, una agencia) pueden nombrar la capa. Lo fija tests/plan-visible.test.ts.
+
+## Un pago de Binance se aplica por UN camino, y quien lo aplica pregunta primero si la orden ya está (20/11/2026)
+
+Hay tres puertas que aplican un pago de Binance de una agencia: la captura en el grupo, el «aprobado» de Martín y el cron que mira la
+cuenta sin captura (lib/binance-sin-captura.ts). Una puerta nueva NO anota la orden por su cuenta: usa `aplicarPagoVerificado`
+(lib/agencia-mes-comprobante.ts: el libro con la orden una vez por compare-and-set, el recibo, las cuentas que vuelven y el texto) y
+decide «usado» con el MISMO registro (`ordenesAnotadas` + `numerosUsados`, que ve los números mal copiados). Antes de releer lo que se
+debe, mira si la orden ya está en el libro: si no, la segunda corrida ve «no se debía nada» y le avisa a Martín de un pago que la otra
+acaba de aplicar. Y `aplicado_a` vacío en `comprobantes_leidos` NO quiere decir «abierto»: lo que Martín cierra a mano queda vacío.
+Lo fija tests/binance-sin-captura.test.ts.
+Y la cuenta se lee SIEMPRE con `pagosRecibidosEnBinance` (lib/binance-pay.ts), nunca con un fetch propio a Binance: el proyecto corre en
+`pdx1` y desde EE. UU. Binance contesta 451; ese lector va por la ruta de São Paulo (/api/cron/binance-pagos, `gru1`) cuando hace falta.
+Esa ruta es la ÚNICA función fuera de pdx1 (tests/region-funciones.test.ts, `EXCEPCIONES`): no le sumes nada que consulte la base, y
+una función nueva en otra región es una excepción NUEVA, escrita con su porqué, nunca una región puesta por su cuenta. La región de UNA
+función va en vercel.json (`functions[<ruta>].regions`): Vercel ignoró `export const preferredRegion` (21/11, la ruta siguió en pdx1).
+Lo fija tests/binance-pay-region.test.ts.
+
+## Lo que se le paga a MaKo lo contesta el código; una foto con una pregunta no es un comprobante (20/11/2026)
+- «¿Cuánto hay que pagar para activar la cuenta de X?» o «¿cuánto debo?» en el turno de una agencia lo contesta
+  `respuestaDelPagoDeLaAgencia` (lib/agencia-mes-consulta.ts) ANTES del clasificador y del modelo. El monto sale de la mensualidad y el Pay ID del
+  ajuste de cobro (`leerDatosDePagoDirecto`), nunca escrito a mano. Una frase nueva de ese tipo se suma a `pidePagoDeLaMensualidad`, con su caso en
+  tests/agencia-pago-consulta.test.ts (y uno que NO, del CRM).
+- Todo lector de comprobantes recibe el TEXTO que vino con la foto (`pie`). Una pregunta sin N.º de operación es una pregunta (`esPreguntaYNoPago`),
+  no un pago: va al turno, sin «Recibí tu comprobante» ni aviso a Martín. Detalle: docs/hallazgos-agencias.md.
+- **Tener los datos de cobro no es ofrecerlos** (20/11/2026): /planes y el pedido preguntan `mediosDelCheckout` / `medioDirectoQueVale`
+  (lib/pago-directo-reglas.ts, interruptor `checkoutPublico`, apagado), nunca `mediosDisponibles`. Un campo nuevo en un ajuste que el editor
+  no manda se conserva al guardar (`guardarDatosDePagoDirecto`). El precio es el mismo por cualquier medio: nada de descuento ni recargo.

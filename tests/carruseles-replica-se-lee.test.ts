@@ -14,7 +14,8 @@
 //   2. el color de cada texto: con pastilla, sin pastilla que se perdió, sobre una foto, y el que ya se leía no se toca;
 //   3. una palabra más ancha que su caja achica el texto, y con él el otro pedazo del mismo titular;
 //   4. un texto que la IA puso arriba de una foto no baja hasta meterse en ella;
-//   5. el documento: la pastilla va como resaltado del texto; un cuadro sin su escena toma otra; sin ninguna foto, tipografía;
+//   5. el documento: la pastilla va como resaltado del texto; un cuadro sin su escena queda SIN foto (20/11/2026: «tomaba otra»
+//      repetía una foto que no tenía que ver: tests/carruseles-copy-pegado.test.ts, 9); sin ninguna foto, tipografía;
 //   6. la IA dice la pastilla en `relleno`, y el prompt ya no trae ejemplos de composición que copiar.
 //
 // Verificado rompiéndolo (12/11/2026), cada rotura sola y restaurada: ver el pie.
@@ -88,7 +89,7 @@ test('4 · un texto puesto arriba de una foto no baja hasta meterse en ella', ()
   for (const p of con) assert.ok(p.top + p.alto <= foto.y, `un titular termina en ${p.top + p.alto}, adentro de la foto (desde ${foto.y})`);
 });
 
-test('5 · el documento: la pastilla como resaltado; un cuadro sin su escena toma otra; sin ninguna foto, tipografía que llena', () => {
+test('5 · el documento: la pastilla como resaltado; un cuadro sin su escena queda sin foto; sin ninguna foto, tipografía que llena', () => {
   const lamina = (cuadros: Replica['laminas'][number]['cuadros']) => ({
     fondo: CREMA, foto: null, cuadros,
     textos: [
@@ -105,10 +106,11 @@ test('5 · el documento: la pastilla como resaltado; un cuadro sin su escena tom
   assert.ok(paso.textBackgroundColor, '«PASO 1» blanco sobre crema quedó sin pastilla');
   assert.deepEqual(paso.effects, { background: { color: paso.textBackgroundColor } }, 'el resaltado no está en `effects` (el editor no lo muestra)');
   assert.ok(contraste(String(paso.fill), String(paso.textBackgroundColor)) >= 3, 'el texto no se lee sobre su pastilla');
-  // La lámina 2 pidió una escena que no se encontró: lleva la de la lámina 1, no un hueco.
+  // La lámina 2 pidió una escena que no se encontró: queda SIN foto (20/11/2026). Antes llevaba la de la lámina 1, y así la misma
+  // foto salía en láminas que no tenían que ver («te repetí dos imágenes que nada que ver», la llamada con Leila).
   const img2 = objetosDe(doc, 1).filter((o) => o.type === 'image');
-  assert.equal(img2.length, 1, 'el cuadro sin su escena quedó vacío');
-  assert.equal(img2[0].src, salon.url);
+  assert.equal(img2.length, 0, 'el cuadro sin su escena se llevó la foto de otra lámina');
+  assert.equal(objetosDe(doc, 0).filter((o) => o.type === 'image')[0].src, salon.url);
   // Sin ninguna escena en toda la réplica: la lámina con un cuadro se arma como tipografía (el titular deja su lugar y crece).
   const sinNada = documentoDeReplica({ replica: { ...r, laminas: [lamina([cuadro('modern meeting room')])] }, estilo, marca: { nombre: 'X', usuario: null }, foto: null, nuevoId });
   const objs = objetosDe(sinNada);

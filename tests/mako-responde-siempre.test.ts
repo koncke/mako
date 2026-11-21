@@ -181,6 +181,7 @@ test('las dos entradas del turno abren el contexto, `ev` pasa el destino, y el d
   assert.match(ayuda, /respuestaNoEntregada\(\w+\)/, 'mira lo que no llegó');
   assert.match(ayuda, /registrarError\(\{ origen: 'mako', nombre, etiqueta,/, 'y abre su ticket');
   // 19/11/2026: la cuarta es la de Inspiración (el link de Instagram que se guarda solo, docs/inspiracion/diseno.md).
-  assert.equal((doer.match(/await siNoLlego\(/g) ?? []).length, 4, 'las cuatro salidas del turno: la respuesta, el TICKET, el DEBUG y la INSPIRACIÓN');
+  // 20/11/2026: la quinta, lo que se le paga a MaKo (lib/agencia-mes-consulta.ts, Código Inmobiliario: «cuánto hay que pagar para activar la cuenta de X»).
+  assert.equal((doer.match(/await siNoLlego\(/g) ?? []).length, 5, 'las cinco salidas del turno: la respuesta, el TICKET, el DEBUG, la INSPIRACIÓN y LO QUE SE PAGA');
   assert.match(doer, /&& (\w+)\.some\(\((\w+)\) => \2\.ok\)\) await guardarTurno\(\w+, \w+, 'assistant'/, 'lo que no salió por ningún lado no se guarda como dicho');
 });

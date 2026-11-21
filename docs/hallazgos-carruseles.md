@@ -8,6 +8,89 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## La llamada con Leila (20/11/2026): el copy pegado se inventaba, las láminas agregadas salían «en blanco» y las fotos se repetían
+
+**El síntoma** (Fathom 205366178, 00:49:31–00:53:42): «le pegué el copy que quería… y las que salen del máximo que tenía el
+template, ya directamente hizo lo que…», «es página 9 en blanco», «te repetí dos imágenes que nada que ver». Medido en producción
+(ws 11, diseño `14331b1a`, y su hilo en `image_editor_chats`): la referencia tenía 7 láminas y su copy, 10.
+
+**El diagnóstico obvio era el equivocado.** Parecía que la IA no obedecía el copy. No le llegaba: lo escrito en la caja del guiado
+se APLANABA (`\s+` → un espacio) y se cortaba en 300 letras (`TOPE_LIBRE`, lib/carruseles/guiado.ts) antes de llegar como «tema»
+(600, `TOPE_TEMA`). La IA recibía la portada y media lámina 2 y escribía el resto. Y la «página en blanco» no estaba en blanco:
+`agregar_pagina` sin `duplicar` creaba una página BLANCA (#ffffff) y la IA le ponía los textos con la tinta crema del diseño
+(#f3eee2), contraste 1,1. Las fotos: una por búsqueda, y un cuadro sin la suya llevaba «otra escena de la réplica».
+
+**La regla que queda:** un copy pegado NO es un tema. Va TAL CUAL, una parte por lámina, y la cantidad de láminas la decide el copy.
+- `lib/carruseles/copy-pegado.ts`: `partesDelCopy` (marcas «Slide N», «Lámina N», «N/M», «---»; el pie «(abajo: …)» aparte),
+  `laminaParaCadaParte` (portada con portada, cierre con cierre, las del medio en orden y repetidas si sobran), `conElCopy` (la
+  réplica y sus planchas repartidas; un texto del copy puede bajar hasta el siguiente: `altoMax`). Lo que escribió la IA vale sólo
+  si es el copy tal cual (`repartirEnLosTextos`); si reescribió, reparte el código.
+- El guiado guarda `copy` aparte de los extras, entero (8.000) y con sus renglones; la caja queda abierta con el armado andando y
+  pegar un copy lo rehace.
+- En un carrusel, `agregar_pagina` sin `duplicar` copia el DISEÑO de una lámina de contenido (`paginaDeContenido`) y lleva los
+  renglones dictados en `textos` (`conLosTextos`). El prompt del chat ya no pide «cada página su fondo».
+- Ninguna foto dos veces: `escenasParecidas` trae tantas fotos como cuadros tiene cada búsqueda, distintas entre búsquedas, y
+  `documentoDeReplica` no repite una URL; un cuadro sin foto propia va sin foto. La búsqueda se escribe para el texto NUEVO.
+- tests/carruseles-copy-pegado.test.ts (10 casos, con el copy de Leila tal cual). Contra origin/main fallan los tres que se pueden
+  correr allá (el copy aplanado, f1/f2 repetidas, la lámina blanca).
+
+**«No se lee, y le puse a aumentar contraste» (00:51:37).** «Mejora el contraste» era un pedido a la IA del chat: mira un JSON de
+colores, NO la foto, y nadie medía después. Ahora es medido y sin IA (`mejorarContraste`, app/image-editor/mako/chat/contraste.ts):
+cada página se dibuja sin sus textos (`renderPageToCanvas` a ¼), de cada texto se miran los píxeles de su caja (p15/p85 de la
+luminancia, `fondoDe`) y lib/image-editor/contraste.ts decide: blanco o casi negro si alcanza 4,5:1; si no (un blur con luces y
+sombras), blanco con un VELO oscuro detrás con la opacidad justa. Se aplica en un paso de deshacer y se VUELVE a medir lo aplicado
+para decir el contraste que quedó. Además, toda propuesta aceptada del chat se mide en las páginas que cambia y lo que queda bajo
+3:1 se arregla en el mismo paso. En el armado de respaldo de la réplica, una foto de fondo del banco lleva un velo de toda la
+lámina debajo de los textos, y si el original tenía la foto desenfocada (la plantilla «con blur»), la escena va con el mismo blur.
+
+**«La tipografía no es lo mismo» (00:51:32).** Seis categorías con una familia cada una (`LETRA_DEL_EDITOR`) no se parecen a nada.
+La IA nombra ahora la familia del editor más parecida de una lista CERRADA por estilo (`FUENTES_PARA_ELEGIR`); el código la acepta
+sólo si es de la lista y el editor la tiene (`fuenteParecida`) y le da el peso más cercano que existe (`pesoQueExiste`: DM Serif
+Display sólo tiene 400). En la plancha, esa familia reemplaza a Inter, sin «apretarla» con la tabla de anchos de otra letra.
+
+**Trampas:**
+- ⚠️ `AperturaMako` no dibuja la charla cuando no hay pregunta abierta (`if (!a) return null`): con «Editar» por defecto, lo que se
+  escribe no aparece en el hilo. Lo que llegó se dice en la línea de estado del panel.
+- ⚠️ tests/image-editor-chat.test.ts (20) exige UN solo `editor.applyDocument(` en acciones.ts: lo que aplica otra cosa (el
+  contraste) va en su propio módulo. Y el motor (`render.ts`) trae fabric, que no anda en node: se importa adentro de la función.
+- ⚠️ La vista previa del armado (`PaginaCarrusel`) dibuja con CSS: una familia que el editor carga pero la página no salía con la
+  del sistema. `useFuentesDe` la carga del catálogo (`FontFace`) antes de que se vea.
+- `elegirFuente` (./tipografia-medida.ts, comparar trazos) sigue SIN conectar: pide dibujar cada candidata en un canvas, y el
+  servidor no tiene. Lo que se conectó es la elección por lista cerrada. Comparar de verdad sería en el navegador, al abrir.
+- ⚠️ Un test que exige una línea del código palabra por palabra (tests/thumbnails-verticales.test.ts, 4) se rompe con cualquier
+  cambio de nombre: se actualizó con el nombre nuevo.
+
+**La plantilla «con blur» (00:51:03) y la réplica fiel sobre fondos que no son lisos.** Lo que no se podía borrar se TAPABA con
+el color dominante de alrededor (`taparZona`): sobre un blur, un rectángulo liso de otro tono detrás de cada renglón. Ahora, en un
+carrusel, se RELLENA desde los cuatro bordes (`rellenarZona`, la superficie de Coons, con la mediana de 3 píxeles de cada borde):
+en un degradé sintético queda a 1 nivel del fondo (el parche liso se apartaba más de 40). Tres cosas que había que saber:
+- ⚠️ **Sobre un degradé, `borrarZona` dice que «pudo»** y rellena con un color PLANO cada fila cuyos costados difieren más de 60:
+  el renglón quedaba a 65 niveles. `esDegrade` lo distingue de un ícono pegado a un costado (más allá del ícono vuelve el fondo;
+  en un degradé el color sigue alejándose) y en un carrusel el degradé va directo al relleno.
+- ⚠️ **`conSusSignos` estiraba el renglón hasta el borde de la lámina** sobre un degradé: el fondo que se aleja del dominante
+  contaba como «tinta». Ahora sólo se estira por píxeles del color de la letra.
+- ⚠️ **`pastillaDe` veía una «pastilla de contorno»** en el borde de un degradé y borraba sólo la letra de adentro. Sobre un
+  degradé no se busca pastilla.
+- tests/carruseles-plancha-blur.test.ts (3 casos). En una miniatura (sin `tapar`) el camino es el de antes.
+
+**Lo que quedó SIN hacer de la réplica fiel:**
+- **Un titular ENORME sobre una foto** («9 YOUTUBE COURSES» de @awakpenn, letras de 200 px en degradé blanco→gris): `leerLamina` no
+  lo ve como tinta (en la ventana de 3 × 3 baldosas el blanco de la letra ES lo dominante), la portada pierde su titular y el
+  carrusel entero cae al armado viejo. **El diagnóstico obvio (buscarlo por su color) era el equivocado**: se probó y encontraba
+  sólo pedazos (el gris de abajo del degradé no es «blanco») y borraba franjas sueltas, peor que el armado viejo. Se sacó. Lo fiel
+  ahí es regenerar el cuadro con IA (Flow), la misma deuda de arriba (lib/carruseles/plancha.ts, «parte 7»).
+- La referencia «con blur» que eligió Leila no se identificó: su diseño (ws 11, `14331b1a`) no guarda de qué ejemplo salió. Se le
+  preguntó al Cerebro. Sin ella, el blur se probó con un degradé sintético, no con su lámina.
+- Para repetir una plancha sin pagar otra IA: lo que guarda `scripts/carruseles-probar-editar.mts --salida` (replica.json +
+  original-N.jpg) se replanchea con `marcarLaminas` + `planchasDeLaReplica` en seco. ⚠️ Sin el segundo pedido (`completar`), la
+  repetición pierde lo que ése agregaba (la persona de la portada, textos sin dueño): «equipo», «siete» y «ticket», fieles con la
+  IA, caen al armado viejo repetidos así. No es una regresión: es la repetición incompleta.
+
+**«Cargar tu carpeta o tu brandboard» (00:53:42).** El kit de marca ya existía (Second Brain › Marca) y nadie lo encontraba desde
+el carrusel. «Tu marca» (app/image-editor/carruseles/TuMarca.tsx), en el encabezado de «Editar», abre ESA pantalla (`MarcaView`, no
+una copia) y además sube una carpeta de piezas propias a «Subidos» (`webkitdirectory`, hasta 40). Al cerrar, el guiado vuelve a
+mirar los kits (`pedirKits`) y ofrece «Con mis colores» sin recargar.
+
 ## «Editar» se cortaba a los 4 minutos: el modelo por defecto de Gemini NO llega, y nadie medía el tiempo de la corrida (19/11/2026, ticket 119)
 
 **El síntoma** (Leila, ws 11, 17:04 UTC): «Tu IA tardó más de 4 minutos en escribir la versión y se cortó: es la demora del
