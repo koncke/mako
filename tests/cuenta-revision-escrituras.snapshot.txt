@@ -50,6 +50,7 @@ POST /api/admin/pedidos-ingreso → sólo admin (el rol la corta antes, también
 POST /api/admin/plantillas → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/recibos/comprobante → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/reiniciar-onboarding → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/saltar-onboarding → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/usuarios → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/workspaces → sólo admin (el rol la corta antes, también a un closer)
 POST /api/ads-analyst/analyze → cortada
