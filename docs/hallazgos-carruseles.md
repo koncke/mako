@@ -54,6 +54,10 @@ las entradas de abajo; esto es la lista para el producto.
    «COMENTA OFERTA»: se resolvió al revés, con la pantalla de MaKo de base y la lámina como referencia del texto). *Falta en el
    replicador:* después de cada paso, comparar el texto leído contra el pedido COMPLETO de la lámina (también contadores y firmas),
    no sólo contra lo que se cambió.
+   ⚠️ **La letra chica no se arregla con otra pasada** (las maquetas de Ganchos 2): pedirle que corrija «reegrdo» o «cabre» en
+   un texto de 1–2 % del alto lo escribe mal de otra forma y daña otras palabras chicas («Gracles», «lagres»), y pedir «TU» sin
+   tilde le agregó la tilde. Lo que sirvió: sacar esa línea con una frase, y si tampoco sale, taparla en el propio archivo
+   estirando una franja del fondo de al lado (sharp), sin otra pasada de IA.
 
 ## La réplica REGENERA cada lámina con IA desde su referencia, por ApiMart (21/11/2026)
 
