@@ -16,7 +16,7 @@
 // =============================================================================
 
 import { getUsuarioActual } from '@/lib/auth';
-import { provsDe, transcribirAudio } from '@/lib/ai-cheap';
+import { SttSinEscucha, provsDe, transcribirAudio } from '@/lib/ai-cheap';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
 import { PROVS_SU_IA, conSoloSuIA } from '@/lib/solo-su-ia';
@@ -63,6 +63,7 @@ export async function POST(req: Request) {
     // El detalle de la cascada va al log; la persona lee qué pasó y qué hacer (`errorDeDictado`).
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[plan-dictado]', msg);
-    return Response.json({ ok: false, error: errorDeDictado(msg) }, { status: 200 });
+    // Con una clave del negocio que falló, «no pude escuchar» (no «conecta la tuya»): el Whisper de MaKo no entra además (20/11).
+    return Response.json({ ok: false, error: errorDeDictado(msg, { delNegocio: e instanceof SttSinEscucha ? e.errores.length : 0 }) }, { status: 200 });
   }
 }

@@ -81,7 +81,8 @@ test('D1-03: el video del día 1 que termina en la esquina (o se cierra ahí) av
   assert.ok(chat.includes('const sinVideo = listo && !v && dalePlay;\n  useEffect(() => {\n    if (sinVideo) onFin?.();'), 'un día sin video no marcaba nunca');
   const vd = chat.slice(chat.indexOf('function VideoDelDia('), chat.indexOf('if (v && conMarcas) {'));
   assert.ok(vd.includes('if (sinVideo) onFin?.();') && !/sinVideo[^\n]*anotarVisto/.test(vd), 'antes de los `return`, y sin anotar visto');
-  assert.ok(fuente('../app/_ui/tutorial/useVideoQueFlota.ts').includes('reproducirFlotante(clave, titulo, t, (m) => aviso.current?.(m));'));
+  // (20/11: y se pausa sólo si pasó a la esquina, tests/video-en-el-chat.test.ts.)
+  assert.ok(fuente('../app/_ui/tutorial/useVideoQueFlota.ts').includes('if (!reproducirFlotante(clave, titulo, t, (m) => aviso.current?.(m))) return;'));
 });
 
 test('OD-06 y V1: «Muéstrame» deja visto el tutorial de la pestaña; la Ticketera se abre con su botón del Ops Center', () => {

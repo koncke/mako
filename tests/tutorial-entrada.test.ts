@@ -83,7 +83,9 @@ test('4. el reproductor del chat lo pide quieto, y el onboarding y la llegada lo
   const l = sinComentarios(leer('app/second-brain/LlegadaAlReto.tsx'));
   // (20/11: y recién con el video dibujado, tests/llegada-dale-play-dibujado.test.ts.)
   assert.match(l, /useDalePlay\(play, \{ clave: 'recorrido', titulo: 'Tu recorrido por MaKo', activo: toca && fase === 'listo' && videoDibujado\(\{ poster, posterCargado \}\) \}\);/);
-  assert.match(l, /<button ref=\{play\} type="button" className="sbl-video" onClick=\{empezar\}/);
+  // (20/11: la marca va sobre el reproductor entero del mensaje, que es el lugar del video: tests/video-en-el-chat.test.ts.)
+  assert.match(l, /<div ref=\{play\} className="mk-vmom sbl-vlugar" data-video-lugar="recorrido"/);
+  assert.match(l, /onClick=\{\(e\) => \{ e\.stopPropagation\(\); empezar\(\); \}\} aria-label="Ver el recorrido por MaKo"/);
 });
 
 test('5. cada coach entra la primera vez como la bienvenida: oscuro, escribe, y su video con «dale play»', () => {
