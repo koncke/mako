@@ -1,13 +1,13 @@
 // =============================================================================
 // RESET EN UN ESPACIO DE PRUEBA: los chats, como en una cuenta recién creada (21/11/2026)
 // =============================================================================
-// Lo llama /api/admin/reiniciar-onboarding DESPUÉS de «Reiniciar onboarding» y sólo en un negocio de prueba (el 3 y el 9). Qué se vacía y
+// Lo llama /api/admin/reiniciar-onboarding DESPUÉS de «Reiniciar onboarding» y sólo en un negocio de prueba (el 3 y el 4, lista cerrada). Qué se vacía y
 // por qué: ./reset-chats-prueba-reglas.ts. Como lib/reset-workspace.ts: crudo (getSupabaseServer) y con el `.eq('workspace_id', ws)` a mano
 // (getTenantDb miraría el workspace del PEDIDO, que no tiene por qué ser el destino), y tira fuera de un negocio de prueba.
 // =============================================================================
 import 'server-only';
 import { getSupabaseServer } from './supabase';
-import { SETTINGS_DE_LOS_COACHES, TABLAS_DE_LOS_CHATS, seVacianLosChats } from './reset-chats-prueba-reglas';
+import { CLAVES_DE_LOS_CHATS, SETTINGS_DE_LOS_COACHES, TABLAS_DE_LOS_CHATS, seVacianLosChats } from './reset-chats-prueba-reglas';
 
 export type ChatsVaciados = { borrado: Record<string, number>; avisos: string[] };
 
@@ -21,6 +21,12 @@ export async function vaciarChatsDePrueba(ws: number): Promise<ChatsVaciados> {
     const { error, count } = await db.from(t).delete({ count: 'exact' }).eq('workspace_id', ws);
     if (error) avisos.push(`${t}: ${error.message}`);
     else borrado[t] = count ?? 0;
+  }
+  // Los que viven en app_settings (las charlas de las automatizaciones), por el comienzo de su clave.
+  for (const p of CLAVES_DE_LOS_CHATS) {
+    const { error, count } = await db.from('app_settings').delete({ count: 'exact' }).eq('workspace_id', ws).like('key', `${p}%`);
+    if (error) avisos.push(`app_settings (${p}…): ${error.message}`);
+    else borrado[p] = count ?? 0;
   }
   const s = await db.from('app_settings').delete({ count: 'exact' }).eq('workspace_id', ws).in('key', [...SETTINGS_DE_LOS_COACHES]);
   if (s.error) avisos.push(`app_settings (coaches): ${s.error.message}`);

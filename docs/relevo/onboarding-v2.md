@@ -39,8 +39,10 @@ Lo pidió el Cerebro con las 3 capturas de Martín (ws 3, Nutri Vale). Despliegu
 
 - **Después del recorrido del Cerebro en producción (cfcaf2bda):** RESET suma los chats de los EDITORES (image_editor_chats,
   video_editor_chats: «Image Editor» y «Prueba · contraste sobre blur» venían de ahí, lib/chat-mako-indice.ts) y dice lo que no pudo borrar;
-  y «Ir a un paso» sigue la marca del recorrido también en el MODO VIDEO (ahí `i` queda en -1: se anota el paso de la frase). Falta ver si
-  los chats de las automatizaciones (chatsDeAutomations) también tienen que irse con el RESET. Trampa: el banco atrapó un choque de
+  y «Ir a un paso» sigue la marca del recorrido también en el MODO VIDEO (ahí `i` queda en -1: se anota el paso de la frase). Y después
+  (el Cerebro: «una cuenta nueva no tiene chats de automatizaciones»), las charlas de las AUTOMATIZACIONES (app_settings,
+  `automatizacion.chat:%`) y cualquier fuente que la lista lateral sume: `FUENTES_DE_LA_LISTA` + test «4». Lo mira el Cerebro en el ws 3
+  después del despliegue del 22/11 (un chat del Image Editor y uno de automatizaciones creados antes). Trampa: el banco atrapó un choque de
   nombres (`ultimoPaso`) que los tests de texto no ven y el tsc acotado no corrió: compilar el banco antes de subir.
 
 ## Falta (con por dónde empezar)

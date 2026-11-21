@@ -2,7 +2,7 @@
 // RESET EN UN ESPACIO DE PRUEBA: COMO UNA CUENTA RECIÉN CREADA (21/11/2026, Martín en producción, por el Cerebro: puntos 7 y 9)
 // =============================================================================
 // «no entiendo por qué en el cliente de prueba hay un chat que dice Image Editor… si le di a reset y comenzamos de cero», y Offer Coach
-// con mensajes de «Ayer». En los espacios de PRUEBA (3 y 9) RESET borra todos los chats (los sueltos y el historial de los coaches); los
+// con mensajes de «Ayer». En los espacios de PRUEBA (3 y 4, lista cerrada) RESET borra todos los chats (los sueltos y el historial de los coaches); los
 // fijos del recorrido vuelven solos como nuevos (se crean al entrar), y el grupo de avisos vive en sus propias tablas (no se toca). En un
 // cliente real, RESET sigue sin tocar nada de lo suyo.
 //
@@ -12,7 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { SETTINGS_DE_LOS_COACHES, TABLAS_DE_LOS_CHATS, WS_SE_VACIAN_LOS_CHATS, seVacianLosChats } from '../lib/reset-chats-prueba-reglas';
+import { CLAVES_DE_LOS_CHATS, FUENTES_DE_LA_LISTA, SETTINGS_DE_LOS_COACHES, TABLAS_DE_LOS_CHATS, WS_SE_VACIAN_LOS_CHATS, seVacianLosChats } from '../lib/reset-chats-prueba-reglas';
 
 const fuente = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
@@ -55,7 +55,35 @@ test('3. el botón lo dice: en uno de prueba «borra todo», en un cliente real 
   assert.match(b, /dePrueba \? TEXTO_RESET_PRUEBA : TEXTO_REINICIAR/);
 });
 
+// 21/11 (el Cerebro, después de los editores): «los chats de las automatizaciones también se van con el RESET… Lo mismo para cualquier
+// otro tipo de hilo que la lista lateral junte con los chats». La lista lateral pide sus hilos con `${RUTA}?<fuente>=1`
+// (app/second-brain/useChatCliente.ts): cada fuente dice dónde viven sus hilos, y cada uno de esos lugares se vacía. Una fuente NUEVA en la
+// lista hace caer este test hasta que se sume acá.
+test('4. todo hilo de la lista lateral se va: cada fuente, con su lugar, y cada lugar se vacía (las automatizaciones también)', () => {
+  const lista = sinComentarios(fuente('app/second-brain/useChatCliente.ts'));
+  const NO_SON_HILOS = new Set(['suIA']); // la cuenta de IA conectada, no una lista de chats
+  const pedidas = [...lista.matchAll(/\$\{RUTA\}\?([a-zA-Z]+)=1/g)].map((m) => m[1]).filter((f) => !NO_SON_HILOS.has(f));
+  assert.ok(pedidas.length >= 5, `la lista pide sus fuentes (${pedidas.join(', ')})`);
+  for (const f of pedidas) assert.ok(f in FUENTES_DE_LA_LISTA, `la lista lateral junta «${f}» y RESET no sabe dónde viven sus hilos`);
+  for (const [f, lugares] of Object.entries(FUENTES_DE_LA_LISTA)) {
+    for (const l of lugares) {
+      const vacia = (TABLAS_DE_LOS_CHATS as readonly string[]).includes(l) || (CLAVES_DE_LOS_CHATS as readonly string[]).includes(l);
+      assert.ok(vacia, `«${f}» vive en ${l} y RESET no lo vacía`);
+    }
+  }
+  assert.deepEqual([...FUENTES_DE_LA_LISTA.automations], ['automatizacion.chat:']);
+  // La clave es la misma con la que se guardan y se listan (si cambia, este test cae antes que el borrado quede viejo).
+  assert.match(fuente('lib/automatizacion-chat.ts'), /export const claveChat = \(secuenciaId: number\) => `automatizacion\.chat:\$\{secuenciaId\}`;/);
+  assert.match(fuente('lib/automatizacion-chat-db.ts'), /\.like\('key', 'automatizacion\.chat:%'\)/);
+  // Se borran por el comienzo de la clave, con el workspace a mano; la automatización en sí queda (nutricion_secuencias no se toca).
+  const s = sinComentarios(fuente('lib/reset-chats-prueba.ts'));
+  assert.match(s, /for \(const p of CLAVES_DE_LOS_CHATS\) \{\n\s*const \{ error, count \} = await db\.from\('app_settings'\)\.delete\(\{ count: 'exact' \}\)\.eq\('workspace_id', ws\)\.like\('key', `\$\{p\}%`\);/);
+  assert.doesNotMatch(s, /nutricion_secuencias/);
+  for (const p of CLAVES_DE_LOS_CHATS) assert.doesNotMatch(p, /[%_]/, `${p}: sin comodines de LIKE`);
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PROBADO ROMPIÉNDOLO (21/11/2026): sin el cinturón de prueba → 2; la ruta vaciando también en un cliente real → 2; el texto de siempre en
-// el de prueba → 3.
+// el de prueba → 3. Las automatizaciones afuera de CLAVES_DE_LOS_CHATS → 4; una fuente nueva en la lista (`?nueva=1`) → 4; el borrado sin
+// el workspace → 4.
 // ─────────────────────────────────────────────────────────────────────────────
