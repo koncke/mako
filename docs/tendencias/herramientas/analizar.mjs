@@ -90,10 +90,12 @@ for (const s of Object.keys(ckSector)) ckSector[s] = med(ckSector[s]);
 
 // Cuántas piezas clasificadas (no «fuera») publicaron en la ventana las cuentas del histórico: el denominador de pesoAhora.
 let ventanaHist = 0;
+const totalPorRef = {}; // piezas clasificadas (no «fuera») de cada referente en la ventana: el denominador de la insistencia
 for (const p of piezas) {
   const c = clas[`${p.red}:${p.id}`]; if (!c || c.s === 'fuera' || !corteDe[p.clave]) continue;
   const d = D(corteDe[p.clave], p.fecha); if (d < 0 || d > 90) continue;
   if (cuentasHist.has(p.referente)) ventanaHist++;
+  totalPorRef[p.referente] = (totalPorRef[p.referente] || 0) + 1;
 }
 const filas = [], pocasSenales = [];
 for (const g of Object.values(grupos)) {
@@ -135,9 +137,21 @@ for (const g of Object.values(grupos)) {
   const ejemplos = []; const usados = new Set();
   for (const p of ej) { if (ejemplos.length >= 3) break; if (usados.has(p.referente) && ej.length > 6) continue; usados.add(p.referente);
     ejemplos.push({ referente: p.referente, url: p.url, fecha: p.fecha, vistas: p.vistas, comentarios: p.comentarios, cta: p.cta, texto: (p.texto || '').replace(/\s+/g, ' ').slice(0, 220) }); }
+  // LAS TRES SEÑALES de un ángulo ganador (Martín, 21/11): INSISTENCIA (cuántas veces lo repite el mismo referente: si insiste, le
+  // funciona), INTERACCIÓN (comentarios cada 1.000 vistas; me gusta aparte; compartidos y guardados no vienen en lo que se baja) y
+  // CONTAGIO (cuántos referentes distintos lo tratan).
+  // La insistencia se mide como PARTE de lo que publica cada referente (contada con 3 piezas o más): en cantidad, la cuenta que
+  // más publica (Vilma, 293 piezas en 90 días) «insistía» en todo.
+  const porRef = {}; for (const p of P) if (p.d <= 90) porRef[p.referente] = (porRef[p.referente] || 0) + 1;
+  const partes = Object.entries(porRef).filter(([, n]) => n >= 3).map(([q, n]) => [q, n, n / (totalPorRef[q] || n)]).sort((a, b) => b[2] - a[2] || b[1] - a[1] || a[0].localeCompare(b[0]));
+  const [insisteQuien, insisteN, insistencia] = partes[0] || [null, 0, 0];
+  const insisten = partes.length;
+  const mgk = med(P.map((p) => (p.vistas >= 500 && p.me_gusta != null ? (1000 * p.me_gusta) / p.vistas : null)));
   if (!estado) { pocasSenales.push({ sector: g.sector, tema: g.tema, piezas: P.length, referentes: refsES.length, referentesIngles: refsEN.length }); continue; }
   filas.push({
     sector: g.sector, tema: g.tema, estado, llegaDelIngles: !ES.length,
+    contagio: refsES.length, insistencia: Math.round(100 * insistencia), insisteQuien, insistePiezas: insisteN, insisteDe: insisteQuien ? totalPorRef[insisteQuien] : null,
+    referentesQueInsisten: insisten, meGustaPorMil: r1(mgk),
     referentes: refsES.length, quienes: refsES, referentesIngles: refsEN.length, quienesIngles: refsEN,
     piezas: P.length, piezas30: rec.length, piezas60: ant.length, ritmoPiezas: r1(ritmoPiezas),
     comentarios30: suma(mRec), comentarios60: suma(mAnt), ritmoComentarios: r1(ritmoCom),
@@ -150,7 +164,18 @@ for (const g of Object.values(grupos)) {
     ejemplos,
   });
 }
-filas.sort((a, b) => a.sector.localeCompare(b.sector) || b.referentes - a.referentes || b.piezas - a.piezas || a.tema.localeCompare(b.tema));
+// EL PUNTAJE (0 a 100), escrito para que cualquiera lo repita: dentro de su sector, cada ángulo recibe su percentil (0 = el más
+// bajo, 1 = el más alto) en contagio, en interacción y en insistencia; el puntaje es el promedio de los tres × 100. Si no hay vistas
+// para medir la interacción, promedia las otras dos. El crecimiento no entra en el puntaje: va en el estado.
+const pct = (v, L) => { const b = L.filter((x) => x != null); if (v == null || b.length < 2) return null; const menores = b.filter((x) => x < v).length, iguales = b.filter((x) => x === v).length; return (menores + (iguales - 1) / 2) / (b.length - 1); };
+for (const s of [...new Set(filas.map((f) => f.sector))]) {
+  const F = filas.filter((f) => f.sector === s && !f.llegaDelIngles);
+  for (const f of F) {
+    const partes = [pct(f.contagio, F.map((x) => x.contagio)), pct(f.comentariosPorMil, F.map((x) => x.comentariosPorMil)), pct(f.insistencia, F.map((x) => x.insistencia))].filter((x) => x != null);
+    f.puntaje = partes.length ? Math.round((100 * partes.reduce((a, b) => a + b, 0)) / partes.length) : null;
+  }
+}
+filas.sort((a, b) => a.sector.localeCompare(b.sector) || (b.puntaje ?? -1) - (a.puntaje ?? -1) || b.referentes - a.referentes || b.piezas - a.piezas || a.tema.localeCompare(b.tema));
 fs.writeFileSync(`${DIR}/tabla.json`, JSON.stringify({ cortes: corteDe, ckSector, filas, pocasSenales }, null, 1));
 console.log(`${filas.length} tendencias · ${pocasSenales.length} temas con pocas señales`);
 for (const f of filas) console.log([f.sector, f.tema, f.estado, `${f.referentes}+${f.referentesIngles}en`, `p ${f.piezas30}/${f.piezas60} (${f.ritmoPiezas})`, `c ${f.comentarios30}/${f.comentarios60} (${f.ritmoComentarios})`, `c/k ${f.comentariosPorMil}`, `conv ${f.conversacion ?? '-'}%`].join(' · '));

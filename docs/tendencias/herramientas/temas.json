@@ -74,14 +74,11 @@
     "cobrar-caro": "subir precios, ticket alto, valor percibido, nunca bajar el precio",
     "oferta-irresistible": "armar la oferta, garantías, bonos, modelos de cobro",
     "clientes-que-pagan": "atraer clientes que pagan contra curiosos; filtrar",
-    "negocio-sin-ti": "sistemas, delegar, que el negocio funcione sin ti",
-    "equipo-chico": "menos es más, equipo chico, recortar",
     "casos-y-resultados": "facturé X, casos de clientes, resultados con cifras",
     "dejar-de-vender-horas": "productizar, dejar de cambiar horas por plata",
     "agencia-y-servicios": "conseguir clientes para una agencia o servicio B2B",
     "escalar-el-negocio": "pasar de una cifra a otra, crecer, restricciones del negocio",
     "retener-clientes": "retener, onboarding, éxito del cliente, recompra, referidos, atención al cliente",
-    "finanzas-del-negocio": "márgenes, rentabilidad, impuestos, números del negocio",
     "crear-un-saas": "crear y escalar un software como negocio",
     "eventos-presenciales": "eventos y encuentros presenciales que venden",
     "alianzas-y-afiliados": "alianzas, afiliados y socios para crecer"
@@ -99,8 +96,23 @@
     "entorno-y-relaciones": "tu entorno, pareja, amigos, familia",
     "miedo-y-accion": "miedo, dejar de postergar, pasar a la acción",
     "proposito-y-sentido": "propósito, sentido, felicidad",
-    "estilo-de-vida": "joven y millonario, lujo, viajes como prueba",
-    "liderazgo": "liderar equipos, cultura, contratar",
     "limites-y-culpa": "decir que no, culpa, límites"
+  },
+  "Operaciones": {
+    "negocio-sin-ti": "sistemas, delegar, que el negocio funcione sin el dueño",
+    "contratar-y-despedir": "contratar, entrevistar, despedir, a quién sumar primero",
+    "liderar-el-equipo": "gestionar y liderar al equipo, cultura, reuniones, feedback",
+    "equipo-chico": "menos es más, equipo chico, recortar",
+    "procesos-y-sops": "procesos, SOP, manuales, checklists, herramientas de gestión (Notion, ClickUp)",
+    "numeros-del-negocio": "márgenes, rentabilidad, impuestos, finanzas del negocio",
+    "tiempo-del-dueno": "recuperar el tiempo del dueño, agenda, prioridades del CEO"
+  },
+  "Lifestyle": {
+    "dia-en-mi-vida": "un día en mi vida, rutina del emprendedor como contenido",
+    "libertad-de-tiempo": "trabajar pocas horas, ser dueño de tu tiempo",
+    "vivir-viajando": "vivir o trabajar viajando, nómada digital",
+    "lujo-y-resultados": "autos, casas, lujo y cifras como prueba (joven y millonario)",
+    "renunciar-al-trabajo": "dejé mi trabajo, de empleado a emprendedor",
+    "detras-de-escena": "backstage del negocio, eventos, equipo, oficina como contenido"
   }
 }
