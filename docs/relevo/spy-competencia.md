@@ -1,6 +1,6 @@
 # Relevo — Spy de Content Machine con TODA la competencia (chat hijo del Cerebro, claude5)
 
-Actualizado: 21/11/2026 ~08:45 UTC. Cuenta claude5 en 94 % (al 97 % se guarda todo y se corta).
+Actualizado: 21/11/2026 ~10:55 UTC. Cuenta claude5 en 99 % (Martín: seguir sin cortar; la reinicia al 100 %) (al 97 % se guarda todo y se corta).
 
 ## Qué es
 Llenar la tab **Spy** de Content Machine (https://claude.ai/artifact/FeLyfHY62GRHbLBAJX6QUz) con todo lo de la competencia de
@@ -36,9 +36,9 @@ UN solo proceso pesado a la vez (bajar, transcribir, ffmpeg o subir); `tools/pro
 | Cuenta | En la base | Pendiente |
 |---|---|---|
 | Carrizo | 103: 49 avatar IA a cámara, 37 animación, 17 carruseles de fotos | — |
-| Doglio | 207: 137 a cámara, 60 animación, 10 carruseles (me gusta ocultos: sin N×) | — |
+| Doglio | 207: 137 a cámara, 60 animación, 10 carruseles (me gusta ocultos: sin N×) | — (los 72 con `/_blob/→` ya corregidos) |
 | Collado | 89: 39 a cámara, 10 animación, 40 carruseles | 3 reels restringidos no bajan |
-| Dakota Hermes (@dakota.hermes) | — | PRIORIDAD de Martín. 357 reels (`dakota/lista-ig-21-11.txt`, con vistas) bajando con procesar-suave; 58 carruseles en la grilla (hay códigos de 39 caracteres). Después: `spy.py reels/carruseles/ocr dakota`, clasificar con `criterio-tipos-v2.md`, subir, armar, escribir, avisar a Content Machine (foto de perfil en el filtro) y relevo en `docs/series/referentes/dakota-hermes.md` |
+| Dakota Hermes (@dakota.hermes) | — | PRIORIDAD de Martín. Los 357 reels YA bajados, recortados y con hojas (`spy/dakota/clasificar/hoja-01…36`). Sigue: clasificar con `criterio-tipos-v2.md` (subagentes Haiku de ≤10 hojas → `spy/dakota/clasificacion-v2*.json`), `spy.py carruseles dakota` + `ocr` (58, hay códigos de 39 caracteres), `spy-lotes.py preparar` y subir (validar `assets-lineas.txt`), `mapa`, `armar`, escribir; avisar a Content Machine (foto de perfil en el filtro) y relevo en `docs/series/referentes/dakota-hermes.md` |
 | Rama | 84 viejas reclasificadas | 102 reels por bajar (14 ya bajados), 71 carruseles |
 | Heras Media | (en las viejas) | 191 reels por bajar (15 no bajan desde el 19/11), 2 carruseles |
 | Víctor | (en las viejas) | 161 reels por bajar, 11 carruseles (con láminas enteras) |
